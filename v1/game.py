@@ -9,8 +9,11 @@ class game():
 
 	def __init__(self,fig,ax,img):
 
+		self.axis = ax
+		self.fig = fig
+
 		self.players = []
-		self.p = Player(fig,ax,img, team = 0, FOV=90)
+		self.p = Player(fig,ax,img, team = 0, FOV=60)
 		self.players.append(self.p)
 
 		self.enemies = []
@@ -18,10 +21,10 @@ class game():
 		self.enemies.append(self.e1)
 
 
-		#debug
-		self.p.pos = np.array([600,600])
-		self.p.heading = -np.pi/2 + 0.1
-		self.e1.pos = np.array([500,600])
+		# #debug
+		# self.p.pos = np.array([600,600])
+		# self.p.heading = -np.pi/2 + .5
+		# self.e1.pos = np.array([500,600])
 
 
 		self.draw()
@@ -35,8 +38,8 @@ class game():
 		except:
 			pass
 
-		self.p.draw()
-		self.e1.draw()
+		# self.p.draw()
+		# self.e1.draw()
 
 		self.look_for_enemy()
 
@@ -50,16 +53,46 @@ class game():
 			for e in self.enemies:
 				
 				#check if player is looking at enemy
-				bearing = abs(np.arctan2((p.pos[0]-e.pos[0]),(-p.pos[1]+e.pos[1]))) - abs(p.heading)
-				print(bearing)
-				if bearing < p.FOV/2:
+				bearing = np.arctan2((p.pos[0]-e.pos[0]),(p.pos[1]-e.pos[1]))
+
+				if bearing >= np.pi:
+					bearing -= np.pi
+				if bearing <= -np.pi:
+					bearing += np.pi
+
+				#draw bearing line from player pointing towards enemy
+				# self.axis.plot([p.pos[0],p.pos[0]-np.sin(bearing)*100],[p.pos[1],p.pos[1]-np.cos(bearing)*100],'k-')
+
+				# if abs(self.p.heading - bearing) < p.FOV/2: # was this
+				if (abs(np.sin(self.p.heading + np.pi) - np.sin(bearing)) < np.sin(p.FOV/2)) and (abs(np.cos(self.p.heading + np.pi) - np.cos(bearing)) < np.sin(p.FOV/2)) :
+					# print("bearing = ", bearing)
+					# print("heading = ", self.p.heading)
+
 					#check if enemy is in line of sight
-					randang = np.random.randn()*np.pi
+					#get xy cords of nearest wall in line of sight
+					x, y, _ = p.RT(p.pos, bearing, endCond = np.array([255,0,0]))
 
-					#DEBUG - can't hit enemy because red dot not actually on img
-					x, y, hit = p.RT(p.pos, randang, endCond = np.array([255,0,0]))
-					print(hit)
+					#get distance to enemy
+					d_to_enemy = np.sqrt((p.pos[0]-e.pos[0])**2 + (p.pos[1]-e.pos[1])**2)
 
-					if hit:
-						self.axis.plot([self.pos[0],x],[self.pos[1],y],'g-')
-						print("angle that hit: ",randang)
+					# draw shooting line if distance to enemy is closer than the nearest obstacle in that direction
+					if d_to_enemy < np.sqrt(((p.pos[1]-x)**2) + (p.pos[0]-y)**2):
+						self.axis.plot([p.pos[0],e.pos[0]],[p.pos[1],e.pos[1]],'y-', lw = 2)
+
+
+	def run(self):
+		"""debug function for now"""
+
+		# self.e1.pos = np.array([400,500])
+		self.e1.draw()
+
+		for i in range(400):
+
+			# self.p.heading = np.cos(i/200)
+			self.p.pos[0] = 400 + 300*np.cos(i/5)
+			self.p.pos[1] = 400 + 300*np.sin(i/5)
+	
+			self.p.draw()
+			self.look_for_enemy()
+			time.sleep(0.01)
+			self.p.remove()	

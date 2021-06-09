@@ -2,6 +2,11 @@ import numpy as np
 from matplotlib import pyplot as plt
 import cv2
 
+#TODO:
+#	Add "Lidar Scan"
+#	Add memory of spotted enemy positions
+#	get rid of "enemy" class- should both be player (enemy makes decisions based on more basic network??)
+
 class Player():
 
 	def __init__(self, fig, ax, img, team = 0, FOV = 90):
@@ -35,7 +40,7 @@ class Player():
 			y = int(np.random.rand()*self.height)
 
 			if self.img[y,x][0] == 255 and self.img[x,y][1] == 255 and self.img[x,y][2] == 255:
-				self.heading = np.random.rand()*np.pi - np.pi/2
+				self.heading = np.random.rand()*2*np.pi - np.pi/2
 				self.pos = np.array([x,y])
 				# print("(x,y) = ", x, y , " heading = ", self.heading)
 				done = True
@@ -72,7 +77,7 @@ class Player():
 		self.fig.canvas.draw()
 
 	def RT(self, start, heading, endCond = np.array([0,0,0]), numPts = 100):
-		"""Ray Tracing operation"""
+		"""Ray Tracing operation (through map features)"""
 
 		stepx = start[0]
 		stepy = start[1]
@@ -81,6 +86,7 @@ class Player():
 		size = 10
 		hit = False
 
+		#repeat this until we get closer and closer to the line
 		for i in range(numPts):
 			#step away from starting point
 
@@ -103,7 +109,7 @@ class Player():
 			#check to make sure we didn't go outside the image
 			color = self.img[stepy,stepx]
 			if color[0] == endCond[0] and color[1] == endCond[1]:
-				print("hit a wall at ", stepx, stepy)
+				# print("hit a wall at ", stepx, stepy)
 				hit = True
 				break 
 
@@ -112,10 +118,13 @@ class Player():
 
 
 	def remove(self):
-		self.sprite.remove()
-		self.fovL.remove()
-		self.fovR.remove()
+		try:
+			self.sprite.remove()
+			self.fovL.remove()
+			self.fovR.remove()
 		# self.test.remove()
+		except:
+			pass
 
 
 class enemy():
