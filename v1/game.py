@@ -20,13 +20,6 @@ class game():
 		self.e1 = Player(fig,ax,img, team = 1, FOV=90)
 		self.enemies.append(self.e1)
 
-
-		# #debug
-		# self.p.pos = np.array([600,600])
-		# self.p.heading = -np.pi/2 + .5
-		# self.e1.pos = np.array([500,600])
-
-
 		self.draw()
 
 
@@ -63,36 +56,44 @@ class game():
 				#draw bearing line from player pointing towards enemy
 				# self.axis.plot([p.pos[0],p.pos[0]-np.sin(bearing)*100],[p.pos[1],p.pos[1]-np.cos(bearing)*100],'k-')
 
-				# if abs(self.p.heading - bearing) < p.FOV/2: # was this
+				#if bearing is within FOV
 				if (abs(np.sin(self.p.heading + np.pi) - np.sin(bearing)) < np.sin(p.FOV/2)) and (abs(np.cos(self.p.heading + np.pi) - np.cos(bearing)) < np.sin(p.FOV/2)) :
 					# print("bearing = ", bearing)
 					# print("heading = ", self.p.heading)
 
 					#check if enemy is in line of sight
 					#get xy cords of nearest wall in line of sight
-					x, y, _ = p.RT(p.pos, bearing, endCond = np.array([255,0,0]))
+					x, y, _ = p.RT(p.pos, bearing + np.pi) #bearing is off by pi... debug??
 
-					#get distance to enemy
-					d_to_enemy = np.sqrt((p.pos[0]-e.pos[0])**2 + (p.pos[1]-e.pos[1])**2)
+					#for debug- show where line of sight collides with obstacles
+					# t = self.axis.plot(x,y,'r.')
+
+					#get distance to enemy and wall
+					d_to_enemy = np.sqrt((p.pos[0]-e.pos[0])**2 + (p.pos[1]-e.pos[1])**2) #good
+					d_to_wall = np.sqrt(((p.pos[1]-x)**2) + (p.pos[0]-y)**2) #not right??
 
 					# draw shooting line if distance to enemy is closer than the nearest obstacle in that direction
-					if d_to_enemy < np.sqrt(((p.pos[1]-x)**2) + (p.pos[0]-y)**2):
-						self.axis.plot([p.pos[0],e.pos[0]],[p.pos[1],e.pos[1]],'y-', lw = 2)
+					if d_to_enemy < d_to_wall:
+						self.p.shot, = self.axis.plot([p.pos[0],e.pos[0]],[p.pos[1],e.pos[1]],'y-', lw = 2)
+						# print("to enemy: ", d_to_enemy, " to wall: ", d_to_wall)
 
 
 	def run(self):
 		"""debug function for now"""
 
-		# self.e1.pos = np.array([400,500])
+		self.e1.pos = np.array([300,700])
 		self.e1.draw()
+
+		self.p.pos = np.array([500,700])
 
 		for i in range(400):
 
-			# self.p.heading = np.cos(i/200)
-			self.p.pos[0] = 400 + 300*np.cos(i/5)
-			self.p.pos[1] = 400 + 300*np.sin(i/5)
-	
+			self.p.heading = np.cos(i/21) * 2
+			# self.p.heading = np.pi/8
+			# self.p.pos[0] = 400 + 300*np.cos(i/15)
+			# self.p.pos[1] = 400 + 300*np.sin(i/15)
+
+			self.look_for_enemy()	
 			self.p.draw()
-			self.look_for_enemy()
 			time.sleep(0.01)
 			self.p.remove()	

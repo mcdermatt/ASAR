@@ -28,6 +28,7 @@ class Player():
 		dim = (self.width, self.height)
 		# resize image
 		self.img = cv2.resize(img, dim, interpolation = cv2.INTER_AREA)
+		self.shot = None
 
 		self.place_player()
 
@@ -51,7 +52,13 @@ class Player():
 		pass
 
 	def draw(self):
-		
+
+		#TODO where do I put this??		
+		# if self.heading >= np.pi:
+		# 	self.heading -= np.pi
+		# if self.heading <= -np.pi:
+		# 	self.heading += np.pi
+
 		#draw FOV
 		fovXendL, fovYendL, _ = self.RT(self.pos, self.heading + (self.FOV/2))
 		fovXendR, fovYendR, _ = self.RT(self.pos, self.heading - (self.FOV/2))
@@ -77,7 +84,12 @@ class Player():
 		self.fig.canvas.draw()
 
 	def RT(self, start, heading, endCond = np.array([0,0,0]), numPts = 100):
-		"""Ray Tracing operation (through map features)"""
+		"""Ray Tracing operation (through map features)
+
+		start = starting point of ray
+		heading = direction of ray 
+		endCond = color of map feature to collide with 
+		numPts = number of points to check on line segment"""
 
 		stepx = start[0]
 		stepy = start[1]
@@ -86,10 +98,9 @@ class Player():
 		size = 10
 		hit = False
 
-		#repeat this until we get closer and closer to the line
+		#TODO: repeat this until we get closer and closer to the line
 		for i in range(numPts):
 			#step away from starting point
-
 			stepxtrue = stepxtrue + size*np.sin(heading)
 			stepytrue = stepytrue + size*np.cos(heading)
 			
@@ -123,6 +134,11 @@ class Player():
 			self.fovL.remove()
 			self.fovR.remove()
 		# self.test.remove()
+		except:
+			pass
+
+		try:
+			self.shot.remove()
 		except:
 			pass
 
