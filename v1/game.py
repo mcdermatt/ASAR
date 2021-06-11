@@ -5,6 +5,14 @@ from player import Player
 from player import enemy
 import time
 
+#TODO
+#	Draw polygon for FOV (rather than two lines)
+#	Make health system
+#	Make shooting/ accuracy system
+
+#BUGS
+#	Line of sight (yellow) persists if player sees two enemies at once
+
 class game():
 
 	def __init__(self,fig,ax,img):
@@ -13,12 +21,15 @@ class game():
 		self.fig = fig
 
 		self.players = []
-		self.p = Player(fig,ax,img, team = 0, FOV=60)
+		self.p = Player(fig,ax,img, team = 0, FOV=60, show_full_FOV = True)
 		self.players.append(self.p)
 
 		self.enemies = []
 		self.e1 = Player(fig,ax,img, team = 1, FOV=90)
 		self.enemies.append(self.e1)
+		
+		self.e2 = Player(fig,ax,img, team = 1, FOV=90)
+		self.enemies.append(self.e2)
 
 		self.draw()
 
@@ -66,34 +77,43 @@ class game():
 					x, y, _ = p.RT(p.pos, bearing + np.pi) #bearing is off by pi... debug??
 
 					#for debug- show where line of sight collides with obstacles
-					# t = self.axis.plot(x,y,'r.')
+					t = self.axis.plot(x,y,'r.')
 
 					#get distance to enemy and wall
 					d_to_enemy = np.sqrt((p.pos[0]-e.pos[0])**2 + (p.pos[1]-e.pos[1])**2) #good
-					d_to_wall = np.sqrt(((p.pos[1]-x)**2) + (p.pos[0]-y)**2) #not right??
+					d_to_wall = np.sqrt(((p.pos[1]-y)**2) + (p.pos[0]-x)**2) #not right??
 
 					# draw shooting line if distance to enemy is closer than the nearest obstacle in that direction
 					if d_to_enemy < d_to_wall:
 						self.p.shot, = self.axis.plot([p.pos[0],e.pos[0]],[p.pos[1],e.pos[1]],'y-', lw = 2)
+						e.health -= 1 #for debug
+
 						# print("to enemy: ", d_to_enemy, " to wall: ", d_to_wall)
 
 
 	def run(self):
 		"""debug function for now"""
 
-		self.e1.pos = np.array([300,700])
-		self.e1.draw()
+		# self.e1.pos = np.array([400,500])
 
-		self.p.pos = np.array([500,700])
+		# self.p.pos = np.array([500,700])
 
 		for i in range(400):
 
 			self.p.heading = np.cos(i/21) * 2
 			# self.p.heading = np.pi/8
-			# self.p.pos[0] = 400 + 300*np.cos(i/15)
-			# self.p.pos[1] = 400 + 300*np.sin(i/15)
+			self.p.pos[0] = 400 + 300*np.cos(i/15)
+			self.p.pos[1] = 400 + 300*np.sin(i/15)
 
 			self.look_for_enemy()	
+			self.e1.draw()
+			self.e2.draw()
 			self.p.draw()
+			self.fig.canvas.draw()
+			# self.axis.add_patch(self.p.poly)
+			# self.p.poly.remove()
 			time.sleep(0.01)
-			self.p.remove()	
+			self.p.remove()
+			self.e1.remove()
+			self.e2.remove()	
+			self.axis.patches = []

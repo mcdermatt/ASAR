@@ -1,5 +1,6 @@
 import numpy as np
 from matplotlib import pyplot as plt
+from matplotlib.patches import Polygon
 import cv2
 
 #TODO:
@@ -9,7 +10,7 @@ import cv2
 
 class Player():
 
-	def __init__(self, fig, ax, img, team = 0, FOV = 90):
+	def __init__(self, fig, ax, img, team = 0, FOV = 90, show_full_FOV = False):
 
 		self.team = team
 		self.score = 0
@@ -21,6 +22,8 @@ class Player():
 		self.fig = fig
 		self.img = img
 		self.detect_chance = 1
+		self.health = 150
+		self.show_full_FOV = show_full_FOV
 
 		self.scale_percent = 100 # percent of original size
 		self.width = int(img.shape[1] * self.scale_percent / 100)
@@ -60,11 +63,11 @@ class Player():
 		# 	self.heading += np.pi
 
 		#draw FOV
-		fovXendL, fovYendL, _ = self.RT(self.pos, self.heading + (self.FOV/2))
-		fovXendR, fovYendR, _ = self.RT(self.pos, self.heading - (self.FOV/2))
+		self.fovXendL, self.fovYendL, _ = self.RT(self.pos, self.heading + (self.FOV/2))
+		self.fovXendR, self.fovYendR, _ = self.RT(self.pos, self.heading - (self.FOV/2))
 
-		self.fovL, = self.axis.plot([self.pos[0],fovXendL],[self.pos[1],fovYendL], 'r-', lw = 1)
-		self.fovR, = self.axis.plot([self.pos[0],fovXendR],[self.pos[1],fovYendR], 'r-', lw = 1)
+		self.fovL, = self.axis.plot([self.pos[0],self.fovXendL],[self.pos[1],self.fovYendL], 'r-', lw = 1)
+		self.fovR, = self.axis.plot([self.pos[0],self.fovXendR],[self.pos[1],self.fovYendR], 'r-', lw = 1)
 
 		#test - draw inner fov
 		# num = 100 
@@ -73,6 +76,22 @@ class Player():
 		# 	f[i,:] = self.RT(self.pos, self.heading - (self.FOV + i/(num/2)) )
 		# 	self.test, = self.axis.plot([self.pos[0],f[i,0]],[self.pos[1],f[i,1]], 'b-', lw = 1)
 
+		#draw FOV polygon
+		if self.show_full_FOV == True:
+			# xy = np.array([[self.fovXendL, self.fovYendL],[self.fovXendR, self.fovYendR], [self.pos[0], self.pos[1]]])
+			xy = np.array([[self.fovXendL, self.fovYendL],[self.fovXendR, self.fovYendR]])
+			
+			#loop through ray tracing a few times in here to get more points on the polygon
+			fovfid = 100
+			for i in range(fovfid):
+				X, Y, _ = self.RT(self.pos,self.heading + self.FOV/2 - i*(self.FOV/fovfid))
+				xy = np.concatenate((xy, np.array([[X,Y]])))
+
+			xy = np.concatenate((xy,np.array([[self.pos[0],self.pos[1]]])))
+
+			self.poly = Polygon(xy, closed=True, color=(0.8,0.9,1.0))
+			self.axis.add_patch(self.poly)
+
 		#draw main player body
 		if self.team == 0:
 			color = 'g.'
@@ -80,8 +99,14 @@ class Player():
 			color = 'r.'
 		self.sprite, = self.axis.plot(self.pos[0],self.pos[1],color, markersize = 20)
 
-		plt.pause(0.01)
-		self.fig.canvas.draw()
+
+		# write health of player
+		# n = [69]
+		# for i, txt in enumerate(n):
+		self.h = self.axis.annotate(self.health, (self.pos[0]-20,self.pos[1]+40))
+
+		# plt.pause(0.01)
+		# self.fig.canvas.draw() #debug, this causes stuttering if called twice in a row??
 
 	def RT(self, start, heading, endCond = np.array([0,0,0]), numPts = 100):
 		"""Ray Tracing operation (through map features)
@@ -133,6 +158,7 @@ class Player():
 			self.sprite.remove()
 			self.fovL.remove()
 			self.fovR.remove()
+			self.h.remove()
 		# self.test.remove()
 		except:
 			pass
@@ -178,7 +204,7 @@ class enemy():
 		self.sprite, = self.axis.plot(self.pos[0],self.pos[1],'r.', markersize = 20)
 
 		plt.pause(0.01)
-		self.fig.canvas.draw()
+		self.fig.canvas.draw() 
 
 	def remove(self):
 		self.sprite.remove()
