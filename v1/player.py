@@ -79,7 +79,7 @@ class Player():
 		#draw FOV polygon
 		if self.show_full_FOV == True:
 			# xy = np.array([[self.fovXendL, self.fovYendL],[self.fovXendR, self.fovYendR], [self.pos[0], self.pos[1]]])
-			xy = np.array([[self.fovXendL, self.fovYendL],[self.fovXendR, self.fovYendR]])
+			xy = np.array([[self.fovXendL, self.fovYendL]])
 			
 			#loop through ray tracing a few times in here to get more points on the polygon
 			fovfid = 100
@@ -87,7 +87,7 @@ class Player():
 				X, Y, _ = self.RT(self.pos,self.heading + self.FOV/2 - i*(self.FOV/fovfid))
 				xy = np.concatenate((xy, np.array([[X,Y]])))
 
-			xy = np.concatenate((xy,np.array([[self.pos[0],self.pos[1]]])))
+			xy = np.concatenate((xy,np.array([[self.fovXendR, self.fovYendR],[self.pos[0],self.pos[1]]])))
 
 			self.poly = Polygon(xy, closed=True, color=(0.8,0.9,1.0))
 			self.axis.add_patch(self.poly)
