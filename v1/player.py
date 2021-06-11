@@ -5,6 +5,7 @@ import cv2
 
 #TODO:
 #	Add "Lidar Scan"
+#		add noise to lidar??
 #	Add memory of spotted enemy positions
 #	get rid of "enemy" class- should both be player (enemy makes decisions based on more basic network??)
 
@@ -24,6 +25,9 @@ class Player():
 		self.detect_chance = 1
 		self.health = 150
 		self.show_full_FOV = show_full_FOV
+		self.lidar = None
+		self.fovfid = 50 #100 #------------------------
+		self.lidar = np.zeros([self.fovfid])
 
 		self.scale_percent = 100 # percent of original size
 		self.width = int(img.shape[1] * self.scale_percent / 100)
@@ -76,19 +80,28 @@ class Player():
 		# 	f[i,:] = self.RT(self.pos, self.heading - (self.FOV + i/(num/2)) )
 		# 	self.test, = self.axis.plot([self.pos[0],f[i,0]],[self.pos[1],f[i,1]], 'b-', lw = 1)
 
-		#draw FOV polygon
+		#generate FOV polygon
 		if self.show_full_FOV == True:
 			# xy = np.array([[self.fovXendL, self.fovYendL],[self.fovXendR, self.fovYendR], [self.pos[0], self.pos[1]]])
 			xy = np.array([[self.fovXendL, self.fovYendL]])
 			
 			#loop through ray tracing a few times in here to get more points on the polygon
-			fovfid = 100
-			for i in range(fovfid):
-				X, Y, _ = self.RT(self.pos,self.heading + self.FOV/2 - i*(self.FOV/fovfid))
+			for i in range(self.fovfid):
+				X, Y, _ = self.RT(self.pos,self.heading + self.FOV/2 - i*(self.FOV/self.fovfid))
+				
+				#TODO- save "LIRDAR" data
+
 				xy = np.concatenate((xy, np.array([[X,Y]])))
 
 			xy = np.concatenate((xy,np.array([[self.fovXendR, self.fovYendR],[self.pos[0],self.pos[1]]])))
 
+			#save lidar 
+			self.lidar = xy
+			self.L, = self.axis.plot(xy[:,0],xy[:,1],'k.', markersize = 2)
+			#adjust lidar to be distance measurements
+			self.lidar = np.sqrt(self.lidar[:,0]**2 + self.lidar[:,1]**2) #TODO: clean this up
+
+			#create FOV patch for player object
 			self.poly = Polygon(xy, closed=True, color=(0.8,0.9,1.0))
 			self.axis.add_patch(self.poly)
 
@@ -159,52 +172,23 @@ class Player():
 			self.fovL.remove()
 			self.fovR.remove()
 			self.h.remove()
-		# self.test.remove()
+			self.L.remove()
 		except:
 			pass
-
 		try:
 			self.shot.remove()
 		except:
 			pass
 
+	def step(self,size = 10,dir_rel2heading = 0):
 
-class enemy():
+		dx = size*np.sin(self.heading + dir_rel2heading)
+		dy = size*np.cos(self.heading + dir_rel2heading)
 
-	def __init__(self,  fig, ax, img):
-		self.alive = True
-		self.weapon = 1 #single shot every 1 second
-		self.axis = ax
-		self.fig = fig
-		self.img = img
-
-		self.scale_percent = 100 # percent of original size
-		self.width = int(img.shape[1] * self.scale_percent / 100)
-		self.height = int(img.shape[0] * self.scale_percent / 100)
-		dim = (self.width, self.height)
-		self.img = cv2.resize(img, dim, interpolation = cv2.INTER_AREA)
-
-		self.place_enemy()
-
-
-	def place_enemy(self):
-		done = False
-		while done == False:
-			x = int(np.random.rand()*self.width)
-			y = int(np.random.rand()*self.height)
-			if self.img[y,x][0] == 255 and self.img[x,y][1] == 255 and self.img[x,y][2] == 255:
-				self.heading = np.random.rand()*360 - 180
-				self.pos = np.array([x,y])
-				print("(x,y) = ", x, y , " heading = ", self.heading)
-				done = True
-
-	def draw(self):
-
-		#draw main player body
-		self.sprite, = self.axis.plot(self.pos[0],self.pos[1],'r.', markersize = 20)
-
-		plt.pause(0.01)
-		self.fig.canvas.draw() 
-
-	def remove(self):
-		self.sprite.remove()
+		#make sure new position not outside boundaries
+		if (self.pos[0] + dx) > 0 and (self.pos[0] + dx) < self.width and (self.pos[1] + dy) > 0 and (self.pos[1] + dy) < self.height:
+			#check if new position falls inside obstacle
+			color = self.img[int(self.pos[1] + dy), int(self.pos[0] + dx)]
+			if (color[0] != 0) and (color[1] != 0) and (color[2] != 0):
+				self.pos[0] += dx
+				self.pos[1] += dy
