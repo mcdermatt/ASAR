@@ -6,9 +6,10 @@ from player import Player
 import time
 
 #TODO
-#	Draw polygon for FOV (rather than two lines)
 #	Make health system
 #	Make shooting/ accuracy system
+#	add noise to lidar readings
+#		include player position data in lidar? -might be expensive
 
 #BUGS
 #	Line of sight (yellow) persists if player sees two enemies at once
@@ -86,7 +87,7 @@ class game():
 					# draw shooting line if distance to enemy is closer than the nearest obstacle in that direction
 					if d_to_enemy < d_to_wall:
 						#shooting line
-						# self.p.shot, = self.axis.plot([p.pos[0],e.pos[0]],[p.pos[1],e.pos[1]],'y-', lw = 2)
+						self.p.shot, = self.axis.plot([p.pos[0],e.pos[0]],[p.pos[1],e.pos[1]],'y-', lw = 2)
 						e.health -= 1 #for debug
 
 						# print("to enemy: ", d_to_enemy, " to wall: ", d_to_wall)
