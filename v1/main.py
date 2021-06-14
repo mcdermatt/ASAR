@@ -10,8 +10,10 @@ import time
 #	heading
 #	global position
 #	seen enemy position(s)
-#	how many seconds since enemy was last seen
+#	how many seconds since enemy was last seen??
 #	player health
+#	NEED TO REPRESENT VELOCITY
+#		save past n frames of Lidar??
 
 
 # Netork Architecture- DDPG vs RNN
@@ -20,8 +22,12 @@ import time
 #		run from scratch each time
 #
 #	RNN
-#		single network (GRU in TF)
+#		single network (LSTM/GRU in TF)
 #		REQUIRES CORPUS (bad)
+
+
+# Reward shaping
+#	what do we want here?
 
 #init ------------------
 
@@ -32,6 +38,28 @@ import time
 	#init network W&B 
 	#	start from checkpoint or no
 
+	# get initial state measurements from enviornment
+
+
 #main ------------------
 
-	#if 
+	# feed system states to actor network
+
+
+	# add noise to output of actor (to help with exploration)
+
+	# save action + noise as temp variable
+
+	# step enviornment forward
+
+
+	# get resulting state from moving agent according to network policy + noise
+
+	# get reward from enviornment
+
+
+	# send SARS' to learning function
+		#use 
+
+
+	# if end condition, restart simulation

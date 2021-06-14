@@ -10,6 +10,7 @@ import time
 #	Make shooting/ accuracy system
 #	add noise to lidar readings
 #		include player position data in lidar? -might be expensive
+#	be able to add an arbitrary number of enemies
 
 #BUGS
 #	Line of sight (yellow) persists if player sees two enemies at once
@@ -26,11 +27,17 @@ class game():
 		self.players.append(self.p)
 
 		self.enemies = []
-		self.e1 = Player(fig,ax,img, team = 1, FOV=90)
-		self.enemies.append(self.e1)
+
+		numEnemies = 10
+		for i in range(numEnemies):
+			setattr(self, "e" + str(i), Player(fig,ax,img,team=1,FOV=90))
+
+			self.enemies.append( getattr(self, "e" + str(i)) )
 		
-		self.e2 = Player(fig,ax,img, team = 1, FOV=90)
-		self.enemies.append(self.e2)
+		# self.e1 = Player(fig,ax,img, team = 1, FOV=90)
+		# self.enemies.append(self.e1)
+		# self.e2 = Player(fig,ax,img, team = 1, FOV=90)
+		# self.enemies.append(self.e2)
 
 		self.draw()
 
@@ -54,8 +61,19 @@ class game():
 
 	def look_for_enemy(self):
 
-		for p in self.players:
-			for e in self.enemies:
+		for m in range(len(self.players)):
+			p = self.players[m]
+			
+			# for e in self.enemies: #creates ugly strings like <player.Player object at 0x0000...>
+			for n in range(len(self.enemies)):
+				e = self.enemies[n] 
+
+				#get rid of existing shooting lines
+				# try:
+				# 	getattr(self.p, str(e) + "shot").remove()
+				# except:
+				# 	# print("failed")
+				# 	pass
 				
 				#check if player is looking at enemy
 				bearing = np.arctan2((p.pos[0]-e.pos[0]),(p.pos[1]-e.pos[1]))
@@ -86,10 +104,15 @@ class game():
 
 					# draw shooting line if distance to enemy is closer than the nearest obstacle in that direction
 					if d_to_enemy < d_to_wall:
-						#shooting line
-						self.p.shot, = self.axis.plot([p.pos[0],e.pos[0]],[p.pos[1],e.pos[1]],'y-', lw = 2)
-						e.health -= 1 #for debug
 
+						#shooting line-----------------
+						#TODO: need to remove if more than one enemy...
+						# setattr(self.p, str(e) + "shot", self.axis.plot([p.pos[0],e.pos[0]],[p.pos[1],e.pos[1]],'y-', lw = 2))
+						
+						#was this
+						# self.p.shot, = self.axis.plot([p.pos[0],e.pos[0]],[p.pos[1],e.pos[1]],'y-', lw = 2) 
+
+						e.health -= 1 #for debug
 						# print("to enemy: ", d_to_enemy, " to wall: ", d_to_wall)
 
 
@@ -99,22 +122,34 @@ class game():
 		# self.e1.pos = np.array([400,500])
 		self.p.pos = np.array([500,700])
 
+		self.p.heading = np.pi
+
 		for i in range(400):
 
-			self.p.heading = np.cos(i/10) * 2
+			# self.p.heading = np.cos(i/10) * 2
+
+			#move in circle
 			# self.p.pos[0] = 400 + 300*np.cos(i/5)
 			# self.p.pos[1] = 400 + 300*np.sin(i/15)
 
-			self.p.step(size=20)
+			self.p.heading += np.random.randn()*0.25
+			self.p.step(size=10)
+			# self.e1.heading += np.random.randn()*0.25
+			# self.e1.step(size=5)
 
-			self.look_for_enemy()	
-			self.e1.draw()
-			self.e2.draw()
+			self.look_for_enemy()
+			for e in self.enemies:
+				e.heading += np.random.randn()*0.25
+				e.step(size=5)
+				e.draw()
+
 			self.p.draw()
 			self.fig.canvas.draw()
 
 			time.sleep(0.01)
 			self.p.remove()
-			self.e1.remove()
-			self.e2.remove()	
+			for e in self.enemies:
+				e.remove()
+
+			# self.e2.remove()	
 			self.axis.patches = []

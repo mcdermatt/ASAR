@@ -70,8 +70,9 @@ class Player():
 		self.fovXendL, self.fovYendL, _ = self.RT(self.pos, self.heading + (self.FOV/2))
 		self.fovXendR, self.fovYendR, _ = self.RT(self.pos, self.heading - (self.FOV/2))
 
-		self.fovL, = self.axis.plot([self.pos[0],self.fovXendL],[self.pos[1],self.fovYendL], 'r-', lw = 1)
-		self.fovR, = self.axis.plot([self.pos[0],self.fovXendR],[self.pos[1],self.fovYendR], 'r-', lw = 1)
+		if self.team == 0:
+			self.fovL, = self.axis.plot([self.pos[0],self.fovXendL],[self.pos[1],self.fovYendL], 'r-', lw = 1)
+			self.fovR, = self.axis.plot([self.pos[0],self.fovXendR],[self.pos[1],self.fovYendR], 'r-', lw = 1)
 
 		#test - draw inner fov
 		# num = 100 
@@ -169,14 +170,24 @@ class Player():
 	def remove(self):
 		try:
 			self.sprite.remove()
-			self.fovL.remove()
-			self.fovR.remove()
 			self.h.remove()
 			self.L.remove()
 		except:
 			pass
+		
 		try:
-			self.shot.remove()
+			self.fovL.remove()
+			self.fovR.remove()
+		except:
+			pass
+		
+		try:
+			#remove all shots (needs debug)
+			# numEnemies = 10
+			# for e in range(numEnemies):
+			# 	getattr(self, str(e) + "shot".remove())
+
+			self.shot.remove() #only works with 1 enemy
 		except:
 			pass
 
