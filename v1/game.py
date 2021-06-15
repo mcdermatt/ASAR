@@ -17,7 +17,7 @@ import time
 
 class game():
 
-	def __init__(self,fig,ax,img):
+	def __init__(self,fig,ax,img,numEnemies = 1):
 
 		self.axis = ax
 		self.fig = fig
@@ -28,8 +28,8 @@ class game():
 
 		self.enemies = []
 
-		numEnemies = 10
-		for i in range(numEnemies):
+		self.numEnemies = numEnemies
+		for i in range(self.numEnemies):
 			setattr(self, "e" + str(i), Player(fig,ax,img,team=1,FOV=90))
 
 			self.enemies.append( getattr(self, "e" + str(i)) )
@@ -57,7 +57,7 @@ class game():
 
 		time.sleep(1)
 		self.p.remove()
-		self.e1.remove()
+		# self.e1.remove()
 
 	def look_for_enemy(self):
 
@@ -83,7 +83,7 @@ class game():
 				if bearing <= -np.pi:
 					bearing += np.pi
 
-				#draw bearing line from player pointing towards enemy
+				#draw bearing line from player pointing towards each enemy
 				# self.axis.plot([p.pos[0],p.pos[0]-np.sin(bearing)*100],[p.pos[1],p.pos[1]-np.cos(bearing)*100],'k-')
 
 				#if bearing is within FOV
@@ -102,7 +102,7 @@ class game():
 					d_to_enemy = np.sqrt((p.pos[0]-e.pos[0])**2 + (p.pos[1]-e.pos[1])**2) #good
 					d_to_wall = np.sqrt(((p.pos[1]-y)**2) + (p.pos[0]-x)**2) #not right??
 
-					# draw shooting line if distance to enemy is closer than the nearest obstacle in that direction
+					# take shot if distance to enemy is closer than the nearest obstacle in that direction
 					if d_to_enemy < d_to_wall:
 
 						#shooting line-----------------
@@ -112,9 +112,10 @@ class game():
 						#was this
 						# self.p.shot, = self.axis.plot([p.pos[0],e.pos[0]],[p.pos[1],e.pos[1]],'y-', lw = 2) 
 
-						e.health -= 1 #for debug
-						# print("to enemy: ", d_to_enemy, " to wall: ", d_to_wall)
-
+						if e.alive == True:
+							p.score += 10 
+							print("score: ", p.score)
+							e.health -= 10
 
 	def run(self):
 		"""debug function for now"""
@@ -141,7 +142,12 @@ class game():
 			for e in self.enemies:
 				e.heading += np.random.randn()*0.25
 				e.step(size=5)
-				e.draw()
+				
+				if e.health <= 0:
+					e.alive = False
+
+				if e.alive == True:
+					e.draw()
 
 			self.p.draw()
 			self.fig.canvas.draw()

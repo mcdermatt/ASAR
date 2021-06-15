@@ -26,8 +26,9 @@ class Player():
 		self.health = 150
 		self.show_full_FOV = show_full_FOV
 		self.lidar = None
-		self.fovfid = 50 #100 #------------------------
+		self.fovfid = 50 #number of lidar points in FOV #------------------------
 		self.lidar = np.zeros([self.fovfid])
+		self.noise = True
 
 		self.scale_percent = 100 # percent of original size
 		self.width = int(img.shape[1] * self.scale_percent / 100)
@@ -87,22 +88,30 @@ class Player():
 			xy = np.array([[self.fovXendL, self.fovYendL]])
 			
 			#loop through ray tracing a few times in here to get more points on the polygon
-			for i in range(self.fovfid):
+			for i in range(self.fovfid - 1):
 				X, Y, _ = self.RT(self.pos,self.heading + self.FOV/2 - i*(self.FOV/self.fovfid))
 				
-				#TODO- save "LIRDAR" data
+				if self.noise == True:
+					X = X + int(np.random.randn()*3)
+					Y = Y + int(np.random.randn()*3)
 
 				xy = np.concatenate((xy, np.array([[X,Y]])))
 
-			xy = np.concatenate((xy,np.array([[self.fovXendR, self.fovYendR],[self.pos[0],self.pos[1]]])))
 
 			#save lidar 
 			self.lidar = xy
 			self.L, = self.axis.plot(xy[:,0],xy[:,1],'k.', markersize = 2)
 			#adjust lidar to be distance measurements
-			self.lidar = np.sqrt(self.lidar[:,0]**2 + self.lidar[:,1]**2) #TODO: clean this up
+			self.lidar = np.sqrt((self.lidar[:,0]-self.pos[0])**2 + (self.lidar[:,1]-self.pos[1])**2) 
+
+			# if self.noise == True:
+			# 	self.lidar = self.lidar + np.random.randn(np.shape(self.lidar)[0])
+
+			# print(self.lidar)
+
 
 			#create FOV patch for player object
+			xy = np.concatenate((xy,np.array([[self.fovXendR, self.fovYendR],[self.pos[0],self.pos[1]]]))) #add on starting point to close polygon
 			self.poly = Polygon(xy, closed=True, color=(0.8,0.9,1.0))
 			self.axis.add_patch(self.poly)
 
@@ -122,19 +131,21 @@ class Player():
 		# plt.pause(0.01)
 		# self.fig.canvas.draw() #debug, this causes stuttering if called twice in a row??
 
-	def RT(self, start, heading, endCond = np.array([0,0,0]), numPts = 100):
+	def RT(self, start, heading, endCond = np.array([0,0,0]), numPts = 1000):
 		"""Ray Tracing operation (through map features)
 
 		start = starting point of ray
 		heading = direction of ray 
 		endCond = color of map feature to collide with 
-		numPts = number of points to check on line segment"""
+		numPts = number of points to check on line segment
+
+		view distace = numPts*size"""
 
 		stepx = start[0]
 		stepy = start[1]
 		stepxtrue = stepx
 		stepytrue = stepy
-		size = 10
+		size = 1 #step distance for ray tracing
 		hit = False
 
 		#TODO: repeat this until we get closer and closer to the line
@@ -203,3 +214,10 @@ class Player():
 			if (color[0] != 0) and (color[1] != 0) and (color[2] != 0):
 				self.pos[0] += dx
 				self.pos[1] += dy
+
+			#bounce off walls (for debug)
+		# 	else:
+		# 		self.heading = self.heading + np.pi
+		# bounce off walls (for #debug)
+		# else:
+		# 	self.heading = self.heading + np.pi
