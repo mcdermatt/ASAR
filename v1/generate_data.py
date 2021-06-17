@@ -31,7 +31,7 @@ g = game(fig,ax,img,numEnemies=0)
 
 #------------------------------------------------------------------
 
-runLen = 100
+runLen = 200000
 
 data = np.zeros([runLen,103])
 
@@ -67,10 +67,15 @@ for i in range(runLen):
 
 	data[i,:50] = before
 	data[i,50:100] = after
-	data[i,100] = stepSize
-	data[i,101] = dir_rel2heading
+
+	#convert stepSize and dir_rel2heading to dx and dy
+	dx = stepSize*np.cos(dir_rel2heading)#movement sideways
+	dy = stepSize*np.sin(dir_rel2heading)
+
+	data[i,100] = dx # was stepSize
+	data[i,101] = dy # was dir_rel2heading
 	data[i,102] = rotation
 
 # print(data)
-file = "data/train.npy"
+file = "data/train_dxdy_200k.npy"
 np.save(file, data)
