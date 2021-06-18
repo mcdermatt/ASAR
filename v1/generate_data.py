@@ -31,7 +31,7 @@ g = game(fig,ax,img,numEnemies=0)
 
 #------------------------------------------------------------------
 
-runLen = 200000
+runLen = 100
 
 data = np.zeros([runLen,103])
 
@@ -77,5 +77,5 @@ for i in range(runLen):
 	data[i,102] = rotation
 
 # print(data)
-file = "data/train_dxdy_200k.npy"
+file = "data/noisy_dxdy_100.npy"
 np.save(file, data)

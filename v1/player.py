@@ -28,7 +28,7 @@ class Player():
 		self.lidar = None
 		self.fovfid = 50 #number of lidar points in FOV #------------------------
 		self.lidar = np.zeros([self.fovfid])
-		self.noise = False #adds noise to LIDAR
+		self.noise = True #adds noise to LIDAR
 
 		self.scale_percent = 100 # percent of original size
 		self.width = int(img.shape[1] * self.scale_percent / 100)
@@ -92,7 +92,7 @@ class Player():
 				X, Y, _ = self.RT(self.pos,self.heading + self.FOV/2 - i*(self.FOV/self.fovfid))
 				
 				if self.noise == True:
-					noiseScale = 2
+					noiseScale = 5
 					X = X + int(np.random.randn()*noiseScale)
 					Y = Y + int(np.random.randn()*noiseScale)
 
