@@ -81,7 +81,7 @@ def vanilla_ICP(Q,P, fig, ax, num_cycles = 3, draw = True):
 
 		moved_data = P_corrected
 
-	ax.plot(P_corrected[0,:]+center_q[0], P_corrected[1,:]+center_q[1], 'r.-')
+	ax.plot(P_corrected[0,:]+center_q[0], P_corrected[1,:]+center_q[1], 'r.', markersize = 30)
 
 	R = R_found
 	t = t_found
@@ -200,7 +200,7 @@ def draw_scan(scan, fig, ax, FOV = 90, pt = 0):
 		color = 'b.'
 
 	#draw base point
-	ax.plot(0,0,'ro', markersize = 10)
+	ax.plot(0,0,'rx', markersize = 10)
 
 	#draw FOV boundary
 	# ax.plot([0,100],[0,100],'r--', lw = 1)
