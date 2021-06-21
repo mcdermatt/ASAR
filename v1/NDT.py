@@ -6,10 +6,36 @@ from matplotlib.patches import Ellipse
 #	create list of ellipses 
 #		use this to compare sequential scans
 
+def ICP(E1,E2, num_cycles = 100):
 
-def subdivide_scan(pp, fig, ax, fidelity = 5, overlap = False, nstd = 2):
+	'''Iterative Closest Point algorithm:
 
-	ax.patches = []
+	E1 = standard deviation ellipses from 1st scan
+	E2 = standard deviation ellipses from 2nd scan'''
+
+	#TODO- 
+	#	check out point to plane metric- usually gives better results with imperfect points
+	#		assumes poitns are sampled from real world surface
+	#		uses least squares approach -> gaussian error metric?
+	#	outliar rejection techniques	
+	#	https://nbviewer.jupyter.org/github/niosus/notebooks/blob/master/icp.ipynb 
+
+	for _ in num_cycles:
+
+		#data association step
+
+		#data alignment step
+		pass
+
+def subdivide_scan(pp, fig, ax, fidelity = 5, overlap = False, nstd = 2, pt = 0):
+
+	#color differently depending on which scan
+	if pt == 0:
+		color = 'green'
+	if pt == 1:
+		color = 'blue'
+
+	E = []
 
 	#define bounding box surrounding all points
 	minx = np.min(pp[:,0])
@@ -46,19 +72,26 @@ def subdivide_scan(pp, fig, ax, fidelity = 5, overlap = False, nstd = 2):
 				width = 2*nstd*np.sqrt(eigenval[0])
 				height = 2*nstd*np.sqrt(eigenval[1])
 
-				ell = Ellipse((mu[0],mu[1]),width, height, angle = rot, fill = False)
+				ell = Ellipse((mu[0],mu[1]),width, height, angle = rot, fill = False, color = color)
 				ax.add_patch(ell)
 
-	return ax.add_patch(ell)
+				E.append((mu, sigma))
 
-def draw_scan(scan, fig, ax, FOV = 90):
+	return E
+
+def draw_scan(scan, fig, ax, FOV = 90, pt = 0):
 
 	#init array to store xy pos of points from lidar relative to frame of robot
 	point_pos = np.zeros([np.shape(scan)[0],2])
 
+	if pt == 0:
+		color = 'g.'
+	if pt == 1:
+		color = 'b.'
+
 	#draw base point
 	ax.plot(0,0,'ro', markersize = 10)
-	
+
 	#draw FOV boundary
 	# ax.plot([0,100],[0,100],'r--', lw = 1)
 	# ax.plot([0,-200],[0,200],'r--', lw = 1)
@@ -70,7 +103,7 @@ def draw_scan(scan, fig, ax, FOV = 90):
 		x = np.sin(np.deg2rad(step))*scan[i]
 		y = np.cos(np.deg2rad(step))*scan[i]
 
-		ax.plot(x,y,'b.')
+		ax.plot(x,y, color)
 
 		#store estimated xy of each point relative to robot's current position
 		point_pos[i,0] = x
