@@ -125,7 +125,7 @@ class game():
 
 		self.p.heading = np.pi
 
-		for i in range(10):
+		for i in range(400):
 
 			# self.p.heading = np.cos(i/10) * 2
 

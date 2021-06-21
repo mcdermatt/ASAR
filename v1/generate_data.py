@@ -31,7 +31,7 @@ g = game(fig,ax,img,numEnemies=0)
 
 #------------------------------------------------------------------
 
-runLen = 100
+runLen = 10000
 
 data = np.zeros([runLen,103])
 

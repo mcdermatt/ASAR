@@ -6,26 +6,136 @@ from matplotlib.patches import Ellipse
 #	create list of ellipses 
 #		use this to compare sequential scans
 
-def ICP(E1,E2, num_cycles = 100):
+def vanilla_ICP(Q,P, fig, ax, num_cycles = 3, draw = True):
 
-	'''Iterative Closest Point algorithm:
+	'''Iterative Closest Point algorithm
+		find R, t such that: 
+			R.P + t = Q
 
-	E1 = standard deviation ellipses from 1st scan
-	E2 = standard deviation ellipses from 2nd scan'''
+	Inputs:
+	Q = standard deviation ellipses from 1st scan
+			(what we want P to look like)
+	P = standard deviation ellipses from 2nd scan
+			(we want to translate and rotate this to look like Q)
+
+	Outputs:
+	R = rotation
+	t = translation '''
+
 
 	#TODO- 
 	#	check out point to plane metric- usually gives better results with imperfect points
 	#		assumes poitns are sampled from real world surface
 	#		uses least squares approach -> gaussian error metric?
 	#	outliar rejection techniques	
+	#	RN THIS ONLY WORKS IF P and Q ARE THE SAME LENGTH
 	#	https://nbviewer.jupyter.org/github/niosus/notebooks/blob/master/icp.ipynb 
 
-	for _ in num_cycles:
 
-		#data association step
+	true_data = Q
+	moved_data = P
 
-		#data alignment step
-		pass
+	# print("Shape of P: ", np.shape(P))
+
+	for _ in range(num_cycles):
+
+		#data association/ correspondence step-----------------------
+		correspondences = get_correspondence(moved_data, true_data, fig, ax, draw = draw)
+
+		#data alignment step ----------------------------------------
+
+		#center data
+		#TODO- account for outliars here (ignore poitns > nstd when computing mean)
+		center_p = moved_data.mean(axis=1)
+		center_q = true_data.mean(axis=1)
+
+		moved_data = moved_data.T - center_p
+		# ax.plot(moved_data[:,0],moved_data[:,1],'b-.')
+		moved_data = moved_data.T
+
+		centered_true = true_data.T - center_q
+		# ax.plot(centered_true[:,0],centered_true[:,1],'r-.') #draw Q recentered at zero
+		centered_true = centered_true.T
+
+		moved_correspondence = get_correspondence(moved_data, centered_true, fig, ax, draw = False)
+
+
+		#calculate cross covariance: describes how a point in P will change along with changes in Q
+		cov = get_cross_cov(centered_true, moved_data, moved_correspondence)
+
+		#~~~
+		#get R and t from cross covariance 
+		U, S, V_T = np.linalg.svd(cov) #TODO - compute this manually to review SVD
+		R_found = U.dot(V_T)
+		t_found = center_q - R_found.dot(center_p)
+
+		#apply R and t and redraw
+
+		P_corrected = R_found.dot(moved_data)#.T #+ t_found
+		# P_corrected = P_corrected.T
+
+		# print("PC ", P_corrected)
+
+		# print("Squared diff: (P_corrected - Q) = ", np.linalg.norm(P_corrected - Q))
+		#~~~
+
+		moved_data = P_corrected
+
+	ax.plot(P_corrected[0,:]+center_q[0], P_corrected[1,:]+center_q[1], 'r.-')
+
+	R = R_found
+	t = t_found
+
+	return R, t
+
+def get_cross_cov(Q,P,correspondence):
+
+	#TODO - get rid of outliars (points with weight << 0.01)
+	weight = 1 #can be adjusted dynamically
+
+	cov = np.zeros([2,2])
+
+	for i in range(np.shape(correspondence)[1]):
+		closest = Q[:,int(correspondence[0,i])]
+		# print("P ", P[:,i].T)
+		# print("Q ", closest)
+		a =  weight * closest[:,None].dot(P[:,i][:,None].T) #had to do some witchcraft to transpose 1D arrays [:,None] adds another axis
+		# print("a ", a)
+		cov += a
+
+	# print("cov = ", cov)
+
+	return cov
+
+
+def get_correspondence(P,Q, fig, ax, draw = False):
+
+	"""generates an array containing a the closest point on Q for each point of P as well as the minimum distnace for each"""
+
+	#init array to store closest points on Q for each point on the moved data
+	correspondences = np.ones([2,np.shape(Q)[1]])
+	correspondences[1,:] = 1e10 #set closest distance arbitrarily far away
+
+	for p in range(np.shape(P)[1]):
+
+		for q in range(np.shape(Q)[1]):
+			#calculate distance squared between points
+			d = (P[0,p] - Q[0,q])**2 + (P[1,p] - Q[1,q])**2
+			if d < correspondences[1,p]:
+				correspondences[0,p] = q #save nearest neighbor
+				correspondences[1,p] = d #save distance from neighbor
+
+		if draw == True:
+			#plot lines between nearest neighbors
+			# print("drawing line between")
+			# print(P[:,p])
+			# print(Q[:,int(closest[0,p])])
+			# print("---")
+			start = P[:,p]
+			stop = Q[:,int(correspondences[0,p])]
+			ax.plot([start[0], stop[0]], [start[1], stop[1]],'g')
+
+	return correspondences
 
 def subdivide_scan(pp, fig, ax, fidelity = 5, overlap = False, nstd = 2, pt = 0):
 
