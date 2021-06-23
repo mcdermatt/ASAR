@@ -35,7 +35,6 @@ def vanilla_ICP(Q,P, fig, ax, num_cycles = 3, draw = True):
 	true_data = Q
 	moved_data = P
 	P_corrected = moved_data
-	p_copy = P
 
 	center_q = true_data.mean(axis=1)
 	print("center_q ", center_q)
@@ -43,14 +42,7 @@ def vanilla_ICP(Q,P, fig, ax, num_cycles = 3, draw = True):
 	# ax.plot(centered_true[:,0],centered_true[:,1],'r-.') #draw Q recentered at zero ---------
 	centered_true = centered_true.T
 
-	# print("Shape of P: ", np.shape(P))
-
-	#still working...
-
 	for _ in range(num_cycles):
-
-		#Step 1: data association/ correspondence
-		#Step 2: data alignment
 
 		#center data
 		#TODO- account for outliars here (ignore poitns > nstd when computing mean)
@@ -90,9 +82,95 @@ def vanilla_ICP(Q,P, fig, ax, num_cycles = 3, draw = True):
 
 	return R, t
 
-def ICP_least_squares(Q,P, fig, ax, num_cycles = 3, draw = True):
+def ICP_least_squares(Q,P, fig, ax, num_cycles = 1, draw = True):
 
-	pass
+
+	x = np.zeros([3,1])
+
+	true_data   = Q
+	moved_data  = P
+	P_corrected = moved_data
+
+	for _ in range(num_cycles):
+
+		#init Hessian
+		H = np.zeros([3,3])
+		g = np.zeros([3,1])
+		chi = 0
+
+		correspondences = get_correspondence(moved_data, true_data, fig, ax, draw = False)
+		# print(correspondences)
+
+		#get H, g, chi
+		for i in range(np.shape(correspondences)[1]):
+			p =  moved_data[:,i] #debug, try P[:,i] ???
+			q = true_data[:,int(correspondences[0,i])][:,None]
+
+			# print("p ", p, np.shape(p))
+			# print("q ", q, np.shape(q))
+
+			err = error(x,p,q)
+			# print("error2 ", err, np.shape(err))
+			weight = 1 #TODO: replace with lambda func at some point...
+
+			J = jacobian(x, p)
+
+			H += weight * J.T.dot(J)
+			# print(np.shape(J.T))
+			g += weight * J.T.dot(err)
+			chi += err.T * err
+
+		# print(H, g, chi)
+
+		dx = np.linalg.lstsq(H, -g, rcond=None)[0] #TODO: recreate this func
+		x += dx
+		rot = R(x[2]).T
+		t = x[0:2]
+		# x[2] = np.arctan2(np.sin(x[2]), np.cos(x[2])) # normalize angle
+
+		P_corrected = rot.dot(P_corrected) + t
+		P_corrected = np.squeeze(P_corrected)
+		print("P_corrected ",np.shape(P_corrected))
+
+		moved_data = P_corrected
+
+
+	ax.plot(P_corrected[0,:], P_corrected[1,:], color = (1,0,0,0.125), ls = '', marker = '.', markersize = 20)
+
+	return P_corrected
+
+
+def R(theta):
+	"""Rotation Matrix"""
+	return np.array([[np.cos(theta), -np.sin(theta)],
+					[np.sin(theta),  np.cos(theta)]])
+
+def dR(theta):
+	"""derivative of rotation matrix"""
+	return np.array([[-np.sin(theta), -np.cos(theta)],
+					[np.cos(theta),  -np.sin(theta)]])
+
+def jacobian(x, p_point):
+	"""outputs: (2,3) np array"""
+	theta = x[2]
+	J = np.zeros((2, 3))
+	J[0:2, 0:2] = np.identity(2)
+	J[0:2, [2]] = dR(0).dot(p_point)[:,None]
+	return J
+
+def error(x, p_point, q_point):
+	"""outputs: (2,1) np array"""
+	# print("x ",x)
+	rotation = R(x[2])
+	translation = x[0:2]
+	prediction = rotation.T.dot(p_point).T  + translation
+	# print("prediction ", prediction, np.shape(prediction))
+
+	err = prediction - q_point
+
+	# print("error ", err, np.shape(err))
+
+	return err
 
 def get_cross_cov(P,Q,correspondence):
 
