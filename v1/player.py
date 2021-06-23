@@ -26,7 +26,7 @@ class Player():
 		self.health = 150
 		self.show_full_FOV = show_full_FOV
 		self.lidar = None
-		self.fovfid = 50 #number of lidar points in FOV #------------------------
+		self.fovfid = 1000 #50 #number of lidar points in FOV #------------------------
 		self.lidar = np.zeros([self.fovfid])
 		self.noise = True #adds noise to LIDAR
 
@@ -92,7 +92,7 @@ class Player():
 				X, Y, _ = self.RT(self.pos,self.heading + self.FOV/2 - i*(self.FOV/self.fovfid))
 				
 				if self.noise == True:
-					noiseScale = 5
+					noiseScale = 1 #5
 					X = X + int(np.random.randn()*noiseScale)
 					Y = Y + int(np.random.randn()*noiseScale)
 

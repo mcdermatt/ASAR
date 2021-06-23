@@ -71,7 +71,8 @@ def vanilla_ICP(Q,P, fig, ax, num_cycles = 3, draw = True):
 
 		#apply R and t and redraw
 
-		P_corrected = R_found.dot(moved_data)#.T #+ t_found
+		#TODO: fix this!!
+		P_corrected = R_found.dot(moved_data)#+ t_found
 		# P_corrected = P_corrected.T
 
 		# print("PC ", P_corrected)
@@ -81,7 +82,7 @@ def vanilla_ICP(Q,P, fig, ax, num_cycles = 3, draw = True):
 
 		moved_data = P_corrected
 
-	ax.plot(P_corrected[0,:]+center_q[0], P_corrected[1,:]+center_q[1], 'r.', markersize = 30)
+	ax.plot(P_corrected[0,:]+center_q[0], P_corrected[1,:]+center_q[1], color = (1,0,0,0.0625), ls = '', marker = '.', markersize = 20)
 
 	R = R_found
 	t = t_found
@@ -198,9 +199,11 @@ def draw_scan(scan, fig, ax, FOV = 90, pt = 0):
 		color = 'g.'
 	if pt == 1:
 		color = 'b.'
+	if pt ==2:
+		color = (0,0,0,0)
 
 	#draw base point
-	ax.plot(0,0,'rx', markersize = 10)
+	ax.plot(0,0,'rx', markersize = 5)
 
 	#draw FOV boundary
 	# ax.plot([0,100],[0,100],'r--', lw = 1)

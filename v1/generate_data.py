@@ -31,9 +31,10 @@ g = game(fig,ax,img,numEnemies=0)
 
 #------------------------------------------------------------------
 
-runLen = 10000
+runLen = 100
+fovfid = 1000
 
-data = np.zeros([runLen,103])
+data = np.zeros([runLen,2*fovfid+3])
 
 for i in range(runLen):
 
@@ -65,17 +66,17 @@ for i in range(runLen):
 
 	g.axis.patches = []
 
-	data[i,:50] = before
-	data[i,50:100] = after
+	data[i,:fovfid] = before
+	data[i,fovfid:2*fovfid] = after
 
 	#convert stepSize and dir_rel2heading to dx and dy
 	dx = stepSize*np.cos(dir_rel2heading)#movement sideways
 	dy = stepSize*np.sin(dir_rel2heading)
 
-	data[i,100] = dx # was stepSize
-	data[i,101] = dy # was dir_rel2heading
-	data[i,102] = rotation
+	data[i,-3] = dx # was stepSize
+	data[i,-2] = dy # was dir_rel2heading
+	data[i,-1] = rotation
 
 # print(data)
-file = "data/noisy_dxdy_100.npy"
+file = "data/high_res_noisy_dxdy_100.npy"
 np.save(file, data)
