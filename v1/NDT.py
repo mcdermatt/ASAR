@@ -8,7 +8,7 @@ from matplotlib.patches import Ellipse
 
 def vanilla_ICP(Q,P, fig, ax, num_cycles = 3, draw = True):
 
-	'''Iterative Closest Point algorithm
+	'''Iterative Closest Point algorithm using SVD
 		find R, t such that: 
 			R.P + t = Q
 
@@ -34,62 +34,67 @@ def vanilla_ICP(Q,P, fig, ax, num_cycles = 3, draw = True):
 
 	true_data = Q
 	moved_data = P
+	P_corrected = moved_data
+	p_copy = P
+
+	center_q = true_data.mean(axis=1)
+	print("center_q ", center_q)
+	centered_true = true_data.T - center_q
+	# ax.plot(centered_true[:,0],centered_true[:,1],'r-.') #draw Q recentered at zero ---------
+	centered_true = centered_true.T
 
 	# print("Shape of P: ", np.shape(P))
 
+	#still working...
+
 	for _ in range(num_cycles):
 
-		#data association/ correspondence step-----------------------
-		correspondences = get_correspondence(moved_data, true_data, fig, ax, draw = draw)
-
-		#data alignment step ----------------------------------------
+		#Step 1: data association/ correspondence
+		#Step 2: data alignment
 
 		#center data
 		#TODO- account for outliars here (ignore poitns > nstd when computing mean)
 		center_p = moved_data.mean(axis=1)
-		center_q = true_data.mean(axis=1)
+		print("center_p ", center_p) 	#debug: centers not changing over time?
 
 		moved_data = moved_data.T - center_p
-		# ax.plot(moved_data[:,0],moved_data[:,1],'b-.')
+		# ax.plot(moved_data[:,0],moved_data[:,1],'b-.') #draw moved data -------------------------
 		moved_data = moved_data.T
 
-		centered_true = true_data.T - center_q
-		# ax.plot(centered_true[:,0],centered_true[:,1],'r-.') #draw Q recentered at zero
-		centered_true = centered_true.T
-
-		moved_correspondence = get_correspondence(moved_data, centered_true, fig, ax, draw = False)
+		moved_correspondence = get_correspondence(moved_data, centered_true, fig, ax, draw = draw)
 
 
 		#calculate cross covariance: describes how a point in P will change along with changes in Q
-		cov = get_cross_cov(centered_true, moved_data, moved_correspondence)
+		cov = get_cross_cov(moved_data, centered_true, moved_correspondence)
 
+		#TODO: replace with least squares approach
 		#~~~
 		#get R and t from cross covariance 
 		U, S, V_T = np.linalg.svd(cov) #TODO - compute this manually to review SVD
 		R_found = U.dot(V_T)
 		t_found = center_q - R_found.dot(center_p)
 
-		#apply R and t and redraw
-
-		#TODO: fix this!!
-		P_corrected = R_found.dot(moved_data)#+ t_found
-		# P_corrected = P_corrected.T
+		#apply estimated R and t
+		P_corrected = R_found.dot(P_corrected) + t_found[:,None] #TODO: fix this!!
 
 		# print("PC ", P_corrected)
-
 		# print("Squared diff: (P_corrected - Q) = ", np.linalg.norm(P_corrected - Q))
 		#~~~
 
 		moved_data = P_corrected
 
-	ax.plot(P_corrected[0,:]+center_q[0], P_corrected[1,:]+center_q[1], color = (1,0,0,0.0625), ls = '', marker = '.', markersize = 20)
+	ax.plot(P_corrected[0,:], P_corrected[1,:], color = (1,0,0,0.125), ls = '', marker = '.', markersize = 20)
 
 	R = R_found
 	t = t_found
 
 	return R, t
 
-def get_cross_cov(Q,P,correspondence):
+def ICP_least_squares(Q,P, fig, ax, num_cycles = 3, draw = True):
+
+	pass
+
+def get_cross_cov(P,Q,correspondence):
 
 	#TODO - get rid of outliars (points with weight << 0.01)
 	weight = 1 #can be adjusted dynamically
@@ -114,7 +119,7 @@ def get_correspondence(P,Q, fig, ax, draw = False):
 	"""generates an array containing a the closest point on Q for each point of P as well as the minimum distnace for each"""
 
 	#init array to store closest points on Q for each point on the moved data
-	correspondences = np.ones([2,np.shape(Q)[1]])
+	correspondences = np.ones([2,np.shape(P)[1]])
 	correspondences[1,:] = 1e10 #set closest distance arbitrarily far away
 
 	for p in range(np.shape(P)[1]):
