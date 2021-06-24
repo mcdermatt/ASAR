@@ -144,7 +144,9 @@ def ICP_least_squares(Q,P, fig, ax, num_cycles = 1, draw = True):
 		P_corrected = np.squeeze(P_corrected)
 		# print("P_corrected ",np.shape(P_corrected))
 
-	ax.plot(P_corrected[0,:], P_corrected[1,:], color = (1,0,0,0.125), ls = '', marker = '.', markersize = 20)
+	ax.plot(P_corrected[0,:], P_corrected[1,:], color = (1,0,0,0.0625), ls = '', marker = '.', markersize = 20)
+
+	print(x)
 
 	return P_corrected
 
