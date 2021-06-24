@@ -88,23 +88,30 @@ def ICP_least_squares(Q,P, fig, ax, num_cycles = 1, draw = True):
 	x = np.zeros([3,1])
 
 	true_data   = Q
-	moved_data  = P
-	P_corrected = moved_data
+	P_corrected = P
 
-	for _ in range(num_cycles):
+	for cycle in range(num_cycles):
 
 		#init Hessian
 		H = np.zeros([3,3])
 		g = np.zeros([3,1])
 		chi = 0
 
-		correspondences = get_correspondence(moved_data, true_data, fig, ax, draw = False)
+		if draw == True and cycle == num_cycles-1:
+			draw_this_time = True
+		else:
+			draw_this_time = False
+
+		correspondences = get_correspondence(P_corrected, true_data, fig, ax, draw = draw_this_time)
 		# print(correspondences)
 
 		#get H, g, chi
 		for i in range(np.shape(correspondences)[1]):
-			p =  moved_data[:,i] #debug, try P[:,i] ???
+			p =  P_corrected[:,i] #was this
+			# p = P[:,i]	#debug: not this??
 			q = true_data[:,int(correspondences[0,i])][:,None]
+			# print(q)
+			# print(int(correspondences[0,i]))
 
 			# print("p ", p, np.shape(p))
 			# print("q ", q, np.shape(q))
@@ -124,16 +131,18 @@ def ICP_least_squares(Q,P, fig, ax, num_cycles = 1, draw = True):
 
 		dx = np.linalg.lstsq(H, -g, rcond=None)[0] #TODO: recreate this func
 		x += dx
-		rot = R(x[2]).T
+		rot = R(x[2]) #.T #aha! -> this should not be transposed lol
+		# print(x[2])
+		# print("rot ", rot)
 		t = x[0:2]
-		# x[2] = np.arctan2(np.sin(x[2]), np.cos(x[2])) # normalize angle
+		# print("ang before normalize ", x[2])
+		x[2] = np.arctan2(np.sin(x[2]), np.cos(x[2])) # normalize angle
+		# print("ang after normalize ", x[2])
+
 
 		P_corrected = rot.dot(P_corrected) + t
 		P_corrected = np.squeeze(P_corrected)
-		print("P_corrected ",np.shape(P_corrected))
-
-		moved_data = P_corrected
-
+		# print("P_corrected ",np.shape(P_corrected))
 
 	ax.plot(P_corrected[0,:], P_corrected[1,:], color = (1,0,0,0.125), ls = '', marker = '.', markersize = 20)
 
@@ -142,8 +151,12 @@ def ICP_least_squares(Q,P, fig, ax, num_cycles = 1, draw = True):
 
 def R(theta):
 	"""Rotation Matrix"""
-	return np.array([[np.cos(theta), -np.sin(theta)],
+	mat = np.array([[np.cos(theta), -np.sin(theta)],
 					[np.sin(theta),  np.cos(theta)]])
+	mat = np.squeeze(mat)
+	# print("mat ", np.shape(mat))
+	return mat 
+
 
 def dR(theta):
 	"""derivative of rotation matrix"""
@@ -155,18 +168,26 @@ def jacobian(x, p_point):
 	theta = x[2]
 	J = np.zeros((2, 3))
 	J[0:2, 0:2] = np.identity(2)
-	J[0:2, [2]] = dR(0).dot(p_point)[:,None]
+	J[0:2, [2]] = dR(0).dot(p_point)[:,None] #need to increase dims of p_point
+	# print("jacobian: ", J, np.shape(J))
 	return J
 
 def error(x, p_point, q_point):
 	"""outputs: (2,1) np array"""
+
+	# ~bug hunt~ I think the issue is in here somewhere?
+
 	# print("x ",x)
-	rotation = R(x[2])
+	rotation = R(x[2]) #why is this always identity???
+	rotation = np.squeeze(rotation)
+	# print("after squeeze ", rotation, np.shape(rotation))
 	translation = x[0:2]
-	prediction = rotation.T.dot(p_point).T  + translation
+	# prediction = rotation.T.dot(p_point).T  + translation #was this mess
+
+	prediction = rotation.dot(p_point)  + translation.T #trying this
 	# print("prediction ", prediction, np.shape(prediction))
 
-	err = prediction - q_point
+	err = prediction.T - q_point
 
 	# print("error ", err, np.shape(err))
 
