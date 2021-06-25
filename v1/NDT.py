@@ -46,38 +46,45 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True):
 	for cycle in range(num_cycles):
 		# get correspondences between 2nd scan points and 1st scan ellipses
 		correspondences = get_correspondence(pp2.T,ctr.T,fig,ax)
-		print("c ", correspondences)
+		# print("c ", correspondences, np.shape(correspondences))
 
 		# loop through correspondences and calculate the z score of each point 
 		score = 0
-		for index, i in enumerate(correspondences): 
+		for index, i in enumerate(correspondences[0]): 
 
-			mu = 1
-			sigma = E1[index]
+			mu = E1[int(i)][0]
+			sigma = E1[int(i)][1]
+
+			eig = np.linalg.eig(sigma)
+			eigenval = eig[0]
+			eigenvec = eig[1]
 
 			#get major and minor axis length of corresponding error ellipse
-			
+			major = np.sqrt(eigenval[0])
+			minor = np.sqrt(eigenval[1])
 
-			major = 1
-			minor = 1
+			#get rotation of ellipse
+			theta = -np.arcsin(eigenvec[0,1]/eigenvec[0,0])
 
-			#rotate point about origin so that axis of ellipse are aligned with x,y axis
-			pt_x = 1
-			pt_y = 1
+			#rotate point about origin so that axis of ellipse can be aligned with x,y axis
+			rot = R(theta)
+			pt_rot = rot.dot(pp2[index])
 
 			#figure out how much I need to scale 1STD ellipse to reach point
 			ratio = major/minor			
-			b = np.sqrt( (pt_x**2)/(ratio**2) + pt_y**2 )
+			b = np.sqrt( (pt_rot[0]**2)/(ratio**2) + pt_rot[1]**2 )
 			a = ratio*b
 
 			z_score = a / major
 			score += z_score
 
+		print("score: ", score)
+
 		# update R and t to lower score using Newton's method  
-		R = None
+		r = None
 		t = None
 
-	return R, t, E1
+	return r, t, E1
 
 def vanilla_ICP(Q,P, fig, ax, num_cycles = 3, draw = True):
 
