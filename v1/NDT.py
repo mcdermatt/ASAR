@@ -2,9 +2,82 @@ import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.patches import Ellipse
 
-#TODO
-#	create list of ellipses 
-#		use this to compare sequential scans
+def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True):
+
+	"""from Peter Biber, 2003
+	
+		fid....breaks map down into fid x fid pieces """
+
+	# 1) Build the NDT of the first scan.
+	# 2) Initialize the estimate for the parameters (by zero or
+	# 		by using odometry data).
+	# 3) For each sample of the second scan: Map the
+	# 		reconstructed 2D point into the coordinate frame of
+	# 		the first scan according to the parameters.
+	# 4) Determine the corresponding normal distributions
+	# 		for each mapped point.
+	# 5) The score for the parameters is determined by
+	# 		evaluating the distribution for each mapped point
+	# 		and summing the result.
+	# 6) Calculate a new parameter estimate by trying to
+	# 		optimize the score. This is done by performing one
+	# 		step of Newton’s Algorithm.
+	# 7) Goto 3 until a convergence criterion is met.
+
+	#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+	#get point positions in 2d space and draw 1st and 2nd scans
+	pp1 = draw_scan(Q,fig,ax, pt = 2) # set as 2 to hide it so we can see ellipses
+	pp2 = draw_scan(P,fig,ax, pt = 1) #pt number assigns color for plotting
+
+	#subdivide 
+	E1 = subdivide_scan(pp1,fig,ax, fidelity = fid, pt =0)
+
+	#get 2d coords of centers of each ellipse from E1
+	ctr = np.zeros([len(E1),2])
+	for idx, c in enumerate(E1):
+		ctr[idx,:] = c[0]
+
+	#for debug: LSICP between 2nd scan and center points of first ellipses
+	# P_corrected = ICP_least_squares(pp2.T, ctr.T, fig, ax, num_cycles = num_cycles, draw = True)
+
+	#for debug: downsample number of points in scan2 to make this run faster (mpl is slow)
+
+	for cycle in range(num_cycles):
+		# get correspondences between 2nd scan points and 1st scan ellipses
+		correspondences = get_correspondence(pp2.T,ctr.T,fig,ax)
+		print("c ", correspondences)
+
+		# loop through correspondences and calculate the z score of each point 
+		score = 0
+		for index, i in enumerate(correspondences): 
+
+			mu = 1
+			sigma = E1[index]
+
+			#get major and minor axis length of corresponding error ellipse
+			
+
+			major = 1
+			minor = 1
+
+			#rotate point about origin so that axis of ellipse are aligned with x,y axis
+			pt_x = 1
+			pt_y = 1
+
+			#figure out how much I need to scale 1STD ellipse to reach point
+			ratio = major/minor			
+			b = np.sqrt( (pt_x**2)/(ratio**2) + pt_y**2 )
+			a = ratio*b
+
+			z_score = a / major
+			score += z_score
+
+		# update R and t to lower score using Newton's method  
+		R = None
+		t = None
+
+	return R, t, E1
 
 def vanilla_ICP(Q,P, fig, ax, num_cycles = 3, draw = True):
 
@@ -82,7 +155,7 @@ def vanilla_ICP(Q,P, fig, ax, num_cycles = 3, draw = True):
 
 	return R, t
 
-def ICP_least_squares(Q,P, fig, ax, num_cycles = 1, draw = True):
+def ICP_least_squares(Q,P, fig, ax, num_cycles = 1, draw = False):
 
 
 	x = np.zeros([3,1])
