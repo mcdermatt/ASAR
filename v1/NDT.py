@@ -1,6 +1,7 @@
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.patches import Ellipse
+from scipy import misc
 
 def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True):
 
@@ -30,8 +31,14 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True):
 	pp1 = draw_scan(Q,fig,ax, pt = 2) # set as 2 to hide it so we can see ellipses
 	pp2 = draw_scan(P,fig,ax, pt = 1) #pt number assigns color for plotting
 
-	#subdivide 
+	#	---------------------------------------------------------
+	# 1) Build the NDT of the first scan.
 	E1 = subdivide_scan(pp1,fig,ax, fidelity = fid, pt =0)
+
+	#	----------------------------------------------------------
+	# 2) Initialize the estimate for the parameters (by zero or
+	# 		by using odometry data)
+	x = np.zeros([3,1]) #[ t_x, t_y, theta] }we want to optimize a single euler angle rather than a matrix
 
 	#get 2d coords of centers of each ellipse from E1
 	ctr = np.zeros([len(E1),2])
@@ -41,50 +48,123 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True):
 	#for debug: LSICP between 2nd scan and center points of first ellipses
 	# P_corrected = ICP_least_squares(pp2.T, ctr.T, fig, ax, num_cycles = num_cycles, draw = True)
 
-	#for debug: downsample number of points in scan2 to make this run faster (mpl is slow)
+	#speed things up by decimating points
 
 	for cycle in range(num_cycles):
-		# get correspondences between 2nd scan points and 1st scan ellipses
-		correspondences = get_correspondence(pp2.T,ctr.T,fig,ax)
-		# print("c ", correspondences, np.shape(correspondences))
+		print(" ------------------ cycle: ", cycle, "----------------------" )
 
-		# loop through correspondences and calculate the z score of each point 
-		score = 0
-		for index, i in enumerate(correspondences[0]): 
+		scores = np.zeros(4)
+		grad = np.zeros([3,1])
+		grad_step_xy = 1 #how far we step in x and y when calculating gradients
+		grad_step_theta = 0.01
+		stepsize = 0.01 #how fast we move in gradient descent
 
-			mu = E1[int(i)][0]
-			sigma = E1[int(i)][1]
+		#compute score for baseline and differential changes in each parameter
+		for param in range(4): 
 
-			eig = np.linalg.eig(sigma)
-			eigenval = eig[0]
-			eigenvec = eig[1]
+			#get baseline
+			x_temp = np.zeros(np.shape(x))
+			x_temp[:]  = x[:] #x.copy() #Debug this...
 
-			#get major and minor axis length of corresponding error ellipse
-			major = np.sqrt(eigenval[0])
-			minor = np.sqrt(eigenval[1])
+			#differentially change x and y one at a time
+			if param == 0:
+				x_temp[0] += grad_step_xy
+			if param == 1:
+				x_temp[1] += grad_step_xy
+			if param == 2:
+				x_temp[2] += grad_step_theta
 
-			#get rotation of ellipse
-			theta = -np.arcsin(eigenvec[0,1]/eigenvec[0,0])
+			# print("x_temp", x_temp)
 
-			#rotate point about origin so that axis of ellipse can be aligned with x,y axis
-			rot = R(theta)
-			pt_rot = rot.dot(pp2[index])
 
-			#figure out how much I need to scale 1STD ellipse to reach point
-			ratio = major/minor			
-			b = np.sqrt( (pt_rot[0]**2)/(ratio**2) + pt_rot[1]**2 )
-			a = ratio*b
+			# 	---------------------------------------------------------
+			# 3) For each sample of the second scan: Map the
+			# 		reconstructed 2D point into the coordinate frame of
+			# 		the first scan according to the parameters.
 
-			z_score = a / major
-			score += z_score
+			#apply transformation
+			t = x_temp[:2]
+			rot = R(x_temp[2]) 
+			P = rot.dot(pp2.T) + t
 
-		print("score: ", score)
+			# print(P[:,0]) #shows final points after translation
 
-		# update R and t to lower score using Newton's method  
-		r = None
-		t = None
+			correspondences = get_correspondence(P,ctr,fig,ax)
+			# print("c ", correspondences, np.shape(correspondences))
 
-	return r, t, E1
+			#	----------------------------------------------------------
+			#4) Determine the corresponding normal distributions
+			# 		for each mapped point.
+			score = 0
+			for index, i in enumerate(correspondences[0]): 
+
+				mu = E1[int(i)][0]
+				sigma = E1[int(i)][1]
+
+				eig = np.linalg.eig(sigma)
+				eigenval = eig[0]
+				eigenvec = eig[1]
+
+				#get major and minor axis length of corresponding error ellipse
+				major = np.sqrt(eigenval[0])
+				minor = np.sqrt(eigenval[1])
+
+				#get rotation of ellipse
+				theta_temp = -np.arcsin(eigenvec[0,1]/eigenvec[0,0])
+
+				#rotate point about origin so that axis of ellipse can be aligned with x,y axis
+				rot_temp = R(theta_temp)
+				pt_rot = rot_temp.dot(pp2[index])
+
+				#figure out how much I need to scale 1STD ellipse to reach point
+				ratio = major/minor			
+				b = np.sqrt( (pt_rot[0]**2)/(ratio**2) + pt_rot[1]**2 )
+				a = ratio*b
+
+				#use z_score as error
+				z_score = a / major #number of standard deviations point is from closest ellipse center
+				score += z_score #keep track of overall scores
+
+
+			#	-----------------------------------------------------------------
+			# 5) The score for the parameters is determined by
+			# 		evaluating the distribution for each mapped point
+			# 		and summing the result.
+
+			# print(" score: ", score, "param ", param)# "x_temp ", x_temp)
+			scores[param] = score
+
+		#	-----------------------------------------------------------------
+		#6) Calculate a new parameter estimate by trying to
+		# 		optimize the score. This is done by performing one
+		# 		step of Newton’s Algorithm.
+
+		print("score: ",scores[-1])
+
+		#calculate gradients
+		grad[0] = (scores[0] - scores[3])
+		grad[1] = (scores[1] - scores[3])
+		grad[2] = (scores[2] - scores[3])
+
+		#normalize
+		# grad = grad/ np.sum(grad)
+		print("grad ", grad)
+		
+		dx = stepsize * np.squeeze(grad) * np.array([grad_step_xy, grad_step_xy, grad_step_theta])
+		print("x", x)
+		print("dx ",dx)
+
+		x -= dx[:,None] #TODO: figure out which way to go
+
+	#draw transformed point set
+
+	rot_final = R(x[2])
+	t_final = x[:2]
+
+	P_corrected = rot_final.dot(pp2.T) + t
+	ax.plot(P_corrected[0,:], P_corrected[1,:], color = (1,0,0,0.0625), ls = '', marker = '.', markersize = 15)
+		
+	return rot, t, E1
 
 def vanilla_ICP(Q,P, fig, ax, num_cycles = 3, draw = True):
 
@@ -102,13 +182,6 @@ def vanilla_ICP(Q,P, fig, ax, num_cycles = 3, draw = True):
 	R = rotation
 	t = translation '''
 
-
-	#TODO- 
-	#	check out point to plane metric- usually gives better results with imperfect points
-	#		assumes poitns are sampled from real world surface
-	#		uses least squares approach -> gaussian error metric?
-	#	outliar rejection techniques	
-	#	RN THIS ONLY WORKS IF P and Q ARE THE SAME LENGTH
 	#	https://nbviewer.jupyter.org/github/niosus/notebooks/blob/master/icp.ipynb 
 
 
@@ -172,9 +245,9 @@ def ICP_least_squares(Q,P, fig, ax, num_cycles = 1, draw = False):
 
 	for cycle in range(num_cycles):
 
-		#init Hessian
-		H = np.zeros([3,3])
-		g = np.zeros([3,1])
+		# ~~~~~~ dx = -gH^-1?? ~~~~~~~~~~~~~~~
+		H = np.zeros([3,3]) #Hessian 
+		g = np.zeros([3,1]) #Gradient
 		chi = 0
 
 		if draw == True and cycle == num_cycles-1:
@@ -211,7 +284,7 @@ def ICP_least_squares(Q,P, fig, ax, num_cycles = 1, draw = False):
 
 		dx = np.linalg.lstsq(H, -g, rcond=None)[0] #TODO: recreate this func
 		x += dx
-		rot = R(x[2]) #.T #aha! -> this should not be transposed lol
+		rot = R(x[2]) #.T #aha! -> this should not be transposed
 		# print(x[2])
 		# print("rot ", rot)
 		t = x[0:2]
@@ -228,7 +301,7 @@ def ICP_least_squares(Q,P, fig, ax, num_cycles = 1, draw = False):
 
 	print(x)
 
-	return P_corrected
+	return P_corrected, t, rot
 
 
 def R(theta):
@@ -250,30 +323,36 @@ def jacobian(x, p_point):
 	theta = x[2]
 	J = np.zeros((2, 3))
 	J[0:2, 0:2] = np.identity(2)
-	J[0:2, [2]] = dR(0).dot(p_point)[:,None] #need to increase dims of p_point
+	J[0:2, [2]] = dR(0).dot(p_point)[:,None]
 	# print("jacobian: ", J, np.shape(J))
 	return J
 
 def error(x, p_point, q_point):
-	"""outputs: (2,1) np array"""
+	"""
+	calculates error to be used in Least Squares ICP
 
-	# ~bug hunt~ I think the issue is in here somewhere?
+	outputs: (2,1) np array"""
 
 	# print("x ",x)
-	rotation = R(x[2]) #why is this always identity???
+	rotation = R(x[2])
 	rotation = np.squeeze(rotation)
-	# print("after squeeze ", rotation, np.shape(rotation))
 	translation = x[0:2]
-	# prediction = rotation.T.dot(p_point).T  + translation #was this mess
 
-	prediction = rotation.dot(p_point)  + translation.T #trying this
+	prediction = rotation.dot(p_point)  + translation.T
 	# print("prediction ", prediction, np.shape(prediction))
 
 	err = prediction.T - q_point
 
-	# print("error ", err, np.shape(err))
-
 	return err
+
+def normal_error(x, p_point, q_point):
+
+	""" calcuates error to be used in NDT """
+
+	rotation = R(x[2])
+	rotation = np.squeeze(rotation)
+
+	return None
 
 def get_cross_cov(P,Q,correspondence):
 
