@@ -159,10 +159,6 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True):
 		#make sure no gradients are 0
 		# grad[ grad < 0.01] = np.random.randn()*0.1
 
-		#normalize
-		# grad = grad/ np.sum(grad)
-		# print("grad ", grad.T)
-		
 		#simple
 		# dx = stepsize * np.squeeze(grad) * np.array([grad_step_xy, grad_step_xy, grad_step_theta]) 
 

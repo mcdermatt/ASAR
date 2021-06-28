@@ -9,6 +9,8 @@ from ICP import ICP_least_squares
 def ICET(Q, P, fig, ax, fid = 10, num_cycles = 1, draw = True):
 
 	"""
+	Core algorithm:
+
 	1) Apply an NDT from the reference point cloud to a mixture of Gaussian distributions
 		with (at most) one normal distribution per voxel
 	
@@ -34,7 +36,9 @@ def ICET(Q, P, fig, ax, fid = 10, num_cycles = 1, draw = True):
 	for idx2, c2 in enumerate(E2):
 		ctr2[idx2,:] = c2[0]
 
+	#TODO: Only consider subselection of voxels where valid mean is obtained for both clouds??
+
 
 	P_corrected, t, rot = ICP_least_squares(ctr1.T, ctr2.T, fig, ax, num_cycles = num_cycles, draw = True)
 
-	return None
+	return t, rot

@@ -84,7 +84,6 @@ def ICP_least_squares(Q,P, fig, ax, num_cycles = 1, draw = False):
 
 	for cycle in range(num_cycles):
 
-		# ~~~~~~ dx = -gH^-1?? ~~~~~~~~~~~~~~~
 		H = np.zeros([3,3]) #Hessian 
 		g = np.zeros([3,1]) #Gradient
 		chi = 0
@@ -95,27 +94,19 @@ def ICP_least_squares(Q,P, fig, ax, num_cycles = 1, draw = False):
 			draw_this_time = False
 
 		correspondences = get_correspondence(P_corrected, true_data, fig, ax, draw = draw_this_time)
-		# print(correspondences)
 
 		#get H, g, chi
 		for i in range(np.shape(correspondences)[1]):
 			p =  P_corrected[:,i] #was this
 			# p = P[:,i]	#debug: not this??
 			q = true_data[:,int(correspondences[0,i])][:,None]
-			# print(q)
-			# print(int(correspondences[0,i]))
-
-			# print("p ", p, np.shape(p))
-			# print("q ", q, np.shape(q))
 
 			err = error(x,p,q)
-			# print("error2 ", err, np.shape(err))
 			weight = 1 #TODO: replace with lambda func at some point...
 
 			J = jacobian(x, p)
 
 			H += weight * J.T.dot(J)
-			# print(np.shape(J.T))
 			g += weight * J.T.dot(err)
 			chi += err.T * err
 
@@ -123,22 +114,14 @@ def ICP_least_squares(Q,P, fig, ax, num_cycles = 1, draw = False):
 
 		dx = np.linalg.lstsq(H, -g, rcond=None)[0] #TODO: recreate this func
 		x += dx
-		rot = R(x[2]) #.T #aha! -> this should not be transposed
-		# print(x[2])
-		# print("rot ", rot)
+		rot = R(x[2])
 		t = x[0:2]
-		# print("ang before normalize ", x[2])
 		x[2] = np.arctan2(np.sin(x[2]), np.cos(x[2])) # normalize angle
-		# print("ang after normalize ", x[2])
-
 
 		P_corrected = rot.dot(P_corrected) + t
 		P_corrected = np.squeeze(P_corrected)
-		# print("P_corrected ",np.shape(P_corrected))
 
 	ax.plot(P_corrected[0,:], P_corrected[1,:], color = (1,0,0,0.125), ls = '', marker = '.', markersize = 20)
-
-	print(x)
 
 	return P_corrected, t, rot
 
