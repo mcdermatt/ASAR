@@ -4,6 +4,9 @@ from matplotlib.patches import Ellipse
 from scipy import misc
 from utils import *
 
+#TODO:
+#	account for overlapping grid cells
+
 def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True):
 
 	"""from Peter Biber, 2003
@@ -56,7 +59,7 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True):
 	results = []
 
 	for cycle in range(num_cycles):
-		print(" ------------------ cycle: ", cycle, "----------------------" )
+		# print(" ------------------ cycle: ", cycle, "----------------------" )
 
 		scores = np.zeros(4)
 		grad = np.zeros([3,1])
@@ -145,7 +148,7 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True):
 		# 		optimize the score. This is done by performing one
 		# 		step of Newton’s Algorithm.
 
-		print("score: ",scores[-1])
+		# print("score: ",scores[-1])
 		results = np.append(results, score)
 
 		#calculate gradients
@@ -158,19 +161,19 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True):
 
 		#normalize
 		# grad = grad/ np.sum(grad)
-		print("grad ", grad.T)
+		# print("grad ", grad.T)
 		
 		#simple
 		# dx = stepsize * np.squeeze(grad) * np.array([grad_step_xy, grad_step_xy, grad_step_theta]) 
 
-		#Newton
+		#true Newton
 		dx = np.zeros(3)
 		dx[0] = stepsize*scores[0] / (scores[0] - scores[3]) 
 		dx[1] = stepsize*scores[1] / (scores[1] - scores[3]) 
 		dx[2] = stepsize*scores[2] / (scores[2] - scores[3]) 
 
 
-		print("x", x.T)
+		# print("x", x.T)
 		# print("dx ",dx)
 
 		x -= dx[:,None]
