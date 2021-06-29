@@ -6,6 +6,37 @@ from utils import *
 from NDT import NDT
 from ICP import ICP_least_squares
 
+#TODO
+#	adapt weighted psudoinverse to work with singular matrix inputs
+
+def weighted_psudoinverse(H, W = np.identity(3)):
+
+	""" Useful for "solving" an overdetermined system that has more equations than unknowns
+
+	Ex: system of 3 equations and 2 unknowns which has imperfect measurements
+		
+		We want to minimize || Ax - b ||^2 -> to get as close to Ax = b as possible
+			solutions are given by: (A^T)Ax = (A^T)b
+
+		if columns of A are linearly independant: (A^T)A is invertable
+			therefore: x = inv( (A^T)A )(A^T)b 	
+
+	H = Array containing appended Jacobians for each voxel 
+		  = [ H(1), 
+		  	  H(2),
+		  	   ..., 
+		  	  H(J) ]
+	W = weighting matrix
+	  = R^-1, where R is the (sensor noise??) covariance matrix
+
+	https://sci.utah.edu/~gerig/CS6640-F2012/Materials/pseudoinverse-cis61009sl10.pdf
+	"""
+
+	#H_w = H^w
+	H_w = np.linalg.inv(H.T.dot(W).dot(H)).dot(H.T).dot(W)
+
+	return H_w
+
 def ICET(Q, P, fig, ax, fid = 10, num_cycles = 1, draw = True):
 
 	"""
