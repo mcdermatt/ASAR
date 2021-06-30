@@ -110,7 +110,7 @@ def ICP_least_squares(Q,P, fig, ax, num_cycles = 1, draw = False):
 			g += weight * J.T.dot(err)
 			chi += err.T * err
 
-			print("J: \n", J, "\n H: \n", H, "\n g: \n", g, "\n chi: \n", chi)
+			# print("J: \n", J, "\n H: \n", H, "\n g: \n", g, "\n chi: \n", chi)
 
 		dx = np.linalg.lstsq(H, -g, rcond=None)[0] #TODO: recreate this func
 		x += dx

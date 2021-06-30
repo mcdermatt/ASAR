@@ -156,7 +156,8 @@ def draw_scan(scan, fig, ax, FOV = 90, pt = 0):
 		x = np.sin(np.deg2rad(step))*scan[i]
 		y = np.cos(np.deg2rad(step))*scan[i]
 
-		ax.plot(x,y, color)
+		if pt != 2: #runs faster without plotting clear pts
+			ax.plot(x,y, color)
 
 		#store estimated xy of each point relative to robot's current position
 		point_pos[i,0] = x
