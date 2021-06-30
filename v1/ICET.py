@@ -7,7 +7,27 @@ from NDT import NDT
 from ICP import ICP_least_squares
 
 #TODO
-#	adapt weighted psudoinverse to work with singular matrix inputs
+#	calculate Jacobians for EACH INDIVIDUAL VOXEL -> H
+
+def get_H(P, x):
+
+	"""returns array H containing jacobians for each voxel
+		
+		P: Input Points
+		x: [x, y, theta].T
+	"""
+
+	#was this...
+	# H = np.zeros([np.shape(P)[1],2,3]) 
+	# for i in range(np.shape(P)[1]):
+	# 	H[i] = jacobian(x,P[:,i])
+
+	#trying this
+	H = np.zeros([np.shape(P)[1]*2,3]) 
+	for i in range(np.shape(P)[1]):
+		H[2*i:2*i+2] = jacobian(x,P[:,i])
+
+	return H
 
 def weighted_psudoinverse(H, W = np.identity(3)):
 
@@ -27,7 +47,11 @@ def weighted_psudoinverse(H, W = np.identity(3)):
 		  	   ..., 
 		  	  H(J) ]
 	W = weighting matrix
-	  = R^-1, where R is the (sensor noise??) covariance matrix
+	  = R^-1, where R is the sensor noise covariance matrix
+
+	  		R = Q / (|J|)
+	  			 Q -> True covariance of voxel j
+	  			|J| -> number of points in voxel j
 
 	https://sci.utah.edu/~gerig/CS6640-F2012/Materials/pseudoinverse-cis61009sl10.pdf
 	"""
