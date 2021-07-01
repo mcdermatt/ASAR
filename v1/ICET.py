@@ -7,7 +7,15 @@ from NDT import NDT
 from ICP import ICP_least_squares
 
 #TODO
-#	Verify input dimensions are correct!!!
+#	debug correspondences in ICET_v2
+#		it looks like I'm getting coors between 1st scan and translated 1st scan...
+
+
+def get_state_error():
+
+	P = None #TODO
+
+	return P 
 
 def remove_ambiguity(Q):
 
@@ -27,10 +35,17 @@ def get_H(P, x):
 		x: [x, y, theta].T
 	"""
 
-	#was this...
-	H = np.zeros([np.shape(P)[1]*2,3]) 
-	for i in range(np.shape(P)[1]):
-		H[2*i:2*i+2] = jacobian(x,P[:,i])
+	#works when P is [ n , 2] array ------------------------
+	# H = np.zeros([np.shape(P)[1]*2,3]) 
+	# for i in range(np.shape(P)[1]):
+	# 	H[2*i:2*i+2] = jacobian(x,P[:,i])
+
+	#if P is a [2n , 1] array ------------------------------
+	H = np.zeros([np.shape(P)[0],3])
+	# print("P = ", P , np.shape(P))
+	for i in range(np.shape(P)[0]//2):
+		H[2*i:2*i+2] = jacobian(x, P[2*i:2*i+2,0])
+		# print(H)
 
 	return H
 
@@ -77,7 +92,7 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, draw = True):
 	E1 = subdivide_scan(pp1,fig,ax, fidelity = fid, pt = 0)
 	E2 = subdivide_scan(pp2,fig,ax, fidelity = fid, pt = 1)
 
-	#extract center data from E1, E2
+	#extract center data from E1, E2 -> center points are a 2d array
 	ctr1 = np.zeros([len(E1),2])
 	for idx1, c1 in enumerate(E1):
 		ctr1[idx1,:] = c1[0]
@@ -87,49 +102,64 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, draw = True):
 		ctr2[idx2,:] = c2[0]
 
 
-	#get correspondences
-	correspondences = get_correspondence(ctr2.T, ctr1.T, fig, ax, draw = True)
-	# print("correspondences: \n", correspondences)
-
-	y = ctr2 #just use new measuremnet as y
-	y0 = ctr1[correspondences[0].astype(int)]
-	# print("ctr2 = y: \n", y)
-	# print("y0: \n", y0)
-
-	#reshape Ys to be [ _ , 1]
-	y_reshape = np.reshape(y, (np.shape(y)[0]*2,1), order='F')
-	y0_reshape = np.reshape(y0, (np.shape(y0)[0]*2,1), order='F')
-
 	#inital estimate for transformation
 	x = np.zeros([3,1])
 
+	y = ctr2
+	y0 = ctr1
+
+	#DEBUG: draw progression of transformation 
+	ax.plot(y.T[0,:], y.T[1,:], color = (1,1,1,1.), ls = '', marker = '.', markersize = 10)
+
 	for cycle in range(num_cycles):
 
-		# print("y : \n", y, np.shape(y))
+		#get correspondences needs to take in 2d array of points
+		correspondences = get_correspondence(y.T, y0.T, fig, ax, draw = False)
+		# print("correspondences: \n", correspondences)
 
-		H = get_H(y.T, x)
-		# print("H: \n", H, np.shape(H))
+		y0 = y0[correspondences[0].astype(int)]
+		# print("y0: \n", y0, np.shape(y0))
+		# print("y: \n", y, np.shape(y0))
 
-		#init W (set as identity matrix for now)
+		#reshape Ys to be [ _ , 1]
+		y_reshape = np.reshape(y, (np.shape(y)[0]*2,1), order='C') #was F order -> wrong
+		y0_reshape = np.reshape(y0, (np.shape(y0)[0]*2,1), order='C')
+		# print("y0_reshape: \n", np.shape(y0_reshape))
+
+		#trying this for y shape [2n, 1]
+		H = get_H(y_reshape, x)
+		# print("H = \n", H, np.shape(H))
+		
 		W = np.identity(np.shape(H)[0])
-
+		# print("W: \n", W, np.shape(W))
+		
 		H_w = weighted_psudoinverse(H, W)
 		# print("H_w: \n", np.shape(H_w))
 
-
 		dx = H_w.dot(y_reshape - y0_reshape)
-		print("dx = ", dx)
-
-		# y_reshape = y0_reshape + H.dot(dx)
+		print("error: \n", np.sum(abs(y_reshape- y0_reshape)))
 
 		x -= dx
+		print("dx = ", dx)
+
+		rot = R(x[2])
+		t = x[0:2]
+		y = rot.dot(y.T) + t
+		y = y.T
+
+		#DEBUG: draw progression of transformation 
+		ax.plot(y.T[0,:], y.T[1,:], color = (1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),1.), ls = '', marker = '.', markersize = 10)
+		print("x = \n", x)
 
 
 	#draw first 2nd point cloud with transformation applied
 	rot = R(x[2])
 	t = x[0:2]
 	P_corrected = rot.dot(pp2.T) + t
-	ax.plot(P_corrected[0,:], P_corrected[1,:], color = (1,0,0,0.0625), ls = '', marker = '.', markersize = 20)
+	# print(np.shape(P_corrected))
+
+	#draw all points - DEBUG -> not displaying this one correctly
+	# ax.plot(P_corrected[0,:], P_corrected[1,:], color = (1,0,0,0.0625), ls = '', marker = '.', markersize = 20)
 
 	return x
 
