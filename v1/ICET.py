@@ -9,23 +9,37 @@ from ICP import ICP_least_squares
 #TODO
 #	debug correspondences in ICET_v2
 #		it looks like I'm getting coors between 1st scan and translated 1st scan...
+#	turn iterative x values into one final transformation
+
+#Ideas
+#	Use both NN AND zero for initial estimate of x
+#		if NN worse than zero, ignore it
 
 
-def get_state_error():
+def get_weighting_matrix(cov):
 
-	P = None #TODO
+	'''
+	cov: 3D matrix containing covariance matrices for all voxels 
 
-	return P 
+	R_noise: sensor noise model, (should reflect the spread of points due to ______)
+		R = Q /(|J|), Q = true covariance of voxel J, |J| = # pts in J
+			size(R) = [J,J] where J is the total number of voxels
 
-def remove_ambiguity(Q):
+	'''
+	R_noise = np.identity(np.shape(cov)[0]*2) #multiply by 2 because cov matrices are 2x2
 
-	"""removes axis in which ellipses stretch outside voxels """
+	#TODO - need to take in information on the number of point inside each ellipse
+	pts_in_cell = 1
 
-	L = np.array([[0, 1]])
+	for i in range(np.shape(cov)[0]):
+		R_noise[(2*i):(2*i+2),(2*i):(2*i+2)] = cov[i] / (pts_in_cell) #-1
 
-	z = None1
+	# print(np.floor(R_noise[:12,:12])) #make sure everything looks like the right shape
 
-	return Q
+	W = np.linalg.inv(R_noise)
+
+	return W
+
 
 def get_H(P, x):
 
@@ -92,24 +106,40 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, draw = True):
 	E1 = subdivide_scan(pp1,fig,ax, fidelity = fid, pt = 0)
 	E2 = subdivide_scan(pp2,fig,ax, fidelity = fid, pt = 1)
 
-	#extract center data from E1, E2 -> center points are a 2d array
+	#extract: center data from E1, E2 -> center points are a 2d array
+	#         covariance data from E1, E2 
 	ctr1 = np.zeros([len(E1),2])
+	cov1 = np.zeros([len(E1),2,2])
 	for idx1, c1 in enumerate(E1):
 		ctr1[idx1,:] = c1[0]
-	# print("ctr1: \n", ctr1)
+		cov1[idx1,:] = c1[1]
 	ctr2 = np.zeros([len(E2),2])
+	cov2 = np.zeros([len(E2),2,2])
 	for idx2, c2 in enumerate(E2):
 		ctr2[idx2,:] = c2[0]
+		cov2[idx2,:] = c2[1]
+	# print("cov2: \n", cov2, np.shape(cov2))
 
+	#get weighting matrix from covariance matrix -----------------------------------------------------
+	# 	#TODO: does this need to be iteratively updated?? -no I think?
+	# W = get_weighting_matrix(cov2)
+	W = np.identity(np.shape(ctr2)[0]*2) #debug: simple identity for W
+	print("W: \n", W[:6,:6])
 
 	#inital estimate for transformation
 	x = np.zeros([3,1])
+	#init total x of the system (DEBUG: get rid of this variable, x should encode all required information)
+	total_transformation = np.zeros([3,1])
 
 	y = ctr2
 	y0 = ctr1
+	P_corrected = pp2
 
-	#DEBUG: draw progression of transformation 
-	ax.plot(y.T[0,:], y.T[1,:], color = (1,1,1,1.), ls = '', marker = '.', markersize = 10)
+	#TODO: improve initial estimated transform (start with zeros here, could potentially use wheel odometry) 
+		  #call on nerual network to get inital estimate x
+
+
+	# ax.plot(y.T[0,:], y.T[1,:], color = (1,1,1,1.), ls = '', marker = '.', markersize = 10)
 
 	for cycle in range(num_cycles):
 
@@ -130,9 +160,6 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, draw = True):
 		H = get_H(y_reshape, x)
 		# print("H = \n", H, np.shape(H))
 		
-		W = np.identity(np.shape(H)[0])
-		# print("W: \n", W, np.shape(W))
-		
 		H_w = weighted_psudoinverse(H, W)
 		# print("H_w: \n", np.shape(H_w))
 
@@ -141,7 +168,9 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, draw = True):
 
 		x -= dx
 		print("dx = ", dx)
+		total_transformation += x
 
+		#incrementally update y
 		rot = R(x[2])
 		t = x[0:2]
 		y = rot.dot(y.T) + t
@@ -151,17 +180,25 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, draw = True):
 		ax.plot(y.T[0,:], y.T[1,:], color = (1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),1.), ls = '', marker = '.', markersize = 10)
 		print("x = \n", x)
 
+		# #incrementally update P_corrected (for debug)
+		# rot = R(x[2])
+		# t = x[0:2]
+		# P_corrected = rot.dot(P_corrected.T) + t
+		# P_corrected = P_corrected.T
 
-	#draw first 2nd point cloud with transformation applied
-	rot = R(x[2])
-	t = x[0:2]
-	P_corrected = rot.dot(pp2.T) + t
-	# print(np.shape(P_corrected))
+		# #draw all points progressing through transformation
+		# ax.plot(P_corrected.T[0,:], P_corrected.T[1,:], color = (1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),0.1), ls = '', marker = '.', markersize = 20)
 
-	#draw all points - DEBUG -> not displaying this one correctly
-	# ax.plot(P_corrected[0,:], P_corrected[1,:], color = (1,0,0,0.0625), ls = '', marker = '.', markersize = 20)
+	#draw final translated points (for debug)
+	# ax.plot(P_corrected.T[0,:], P_corrected.T[1,:], color = (1,0,0,0.0375), ls = '', marker = '.', markersize = 20)
 
-	return x
+	#draw final translated points using initial P and final X -> NOT WORKING
+	rot = R(total_transformation[2])
+	t = total_transformation[:2]
+	P_final = rot.dot(pp2.T) + t
+	ax.plot(P_final.T[:,0], P_final.T[:,1], color = (1,0,0,0.0125), ls = '', marker = '.', markersize = 20)
+
+	return total_transformation
 
 def ICET_v1(Q, P, fig, ax, fid = 10, num_cycles = 1, draw = True):
 
@@ -199,3 +236,19 @@ def ICET_v1(Q, P, fig, ax, fid = 10, num_cycles = 1, draw = True):
 	P_corrected, t, rot = ICP_least_squares(ctr1.T, ctr2.T, fig, ax, num_cycles = num_cycles, draw = True)
 
 	return t, rot
+
+def get_state_error():
+
+	P = None #TODO
+
+	return P 
+
+def remove_ambiguity(Q):
+
+	"""removes axis in which ellipses stretch outside voxels """
+
+	L = np.array([[0, 1]])
+
+	z = None1
+
+	return Q

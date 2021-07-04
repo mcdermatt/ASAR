@@ -133,7 +133,16 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True):
 
 				#use z_score as error
 				z_score = (a / major)**2 #number of standard deviations point is from closest ellipse center
+
+				#this works but is not what is actually in the Biber paper
 				score += z_score #keep track of overall scores
+
+
+				#Biber paper:
+				# score += -e^( (q.T)(cov)(q) / 2 )
+				#		where: q = distance between x_i and corresponding NDT point  
+				#			   ** assume cov is positive definate
+
 
 			#	-----------------------------------------------------------------
 			# 5) The score for the parameters is determined by
