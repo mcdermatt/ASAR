@@ -126,7 +126,7 @@ def subdivide_scan(pp, fig, ax, fidelity = 5, overlap = False, nstd = 2, pt = 0)
 				ell = Ellipse((mu[0],mu[1]),width, height, angle = rot, fill = False, color = color)
 				ax.add_patch(ell)
 
-				E.append((mu, sigma))
+				E.append((mu, sigma,  np.shape(within_box)[0]))
 
 	return E
 

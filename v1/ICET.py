@@ -16,10 +16,12 @@ from ICP import ICP_least_squares
 #		if NN worse than zero, ignore it
 
 
-def get_weighting_matrix(cov):
+def get_weighting_matrix(cov, npts):
 
 	'''
 	cov: 3D matrix containing covariance matrices for all voxels 
+	
+	npts: number of points inside each voxel of cov
 
 	R_noise: sensor noise model, (should reflect the spread of points due to ______)
 		R = Q /(|J|), Q = true covariance of voxel J, |J| = # pts in J
@@ -28,11 +30,9 @@ def get_weighting_matrix(cov):
 	'''
 	R_noise = np.identity(np.shape(cov)[0]*2) #multiply by 2 because cov matrices are 2x2
 
-	#TODO - need to take in information on the number of point inside each ellipse
-	pts_in_cell = 1
 
 	for i in range(np.shape(cov)[0]):
-		R_noise[(2*i):(2*i+2),(2*i):(2*i+2)] = cov[i] / (pts_in_cell) #-1
+		R_noise[(2*i):(2*i+2),(2*i):(2*i+2)] = cov[i] / npts[i] #-1
 
 	# print(np.floor(R_noise[:12,:12])) #make sure everything looks like the right shape
 
@@ -110,21 +110,25 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, draw = True):
 	#         covariance data from E1, E2 
 	ctr1 = np.zeros([len(E1),2])
 	cov1 = np.zeros([len(E1),2,2])
+	npts1 = np.zeros(len(E1))
 	for idx1, c1 in enumerate(E1):
 		ctr1[idx1,:] = c1[0]
 		cov1[idx1,:] = c1[1]
+		npts1[idx1] = c1[2]
 	ctr2 = np.zeros([len(E2),2])
 	cov2 = np.zeros([len(E2),2,2])
+	npts2 = np.zeros(len(E2))
 	for idx2, c2 in enumerate(E2):
 		ctr2[idx2,:] = c2[0]
 		cov2[idx2,:] = c2[1]
+		npts2[idx2] = c2[2]
 	# print("cov2: \n", cov2, np.shape(cov2))
 
 	#get weighting matrix from covariance matrix -----------------------------------------------------
 	# 	#TODO: does this need to be iteratively updated?? -no I think?
-	# W = get_weighting_matrix(cov2)
-	W = np.identity(np.shape(ctr2)[0]*2) #debug: simple identity for W
-	print("W: \n", W[:6,:6])
+	W = get_weighting_matrix(cov2, npts2)
+	# W = np.identity(np.shape(ctr2)[0]*2) #debug: simple identity for W
+	print("W: \n", W[:4,:4])
 
 	#inital estimate for transformation
 	x = np.zeros([3,1])
@@ -132,6 +136,7 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, draw = True):
 	total_transformation = np.zeros([3,1])
 
 	y = ctr2
+	y_init = ctr2
 	y0 = ctr1
 	P_corrected = pp2
 
@@ -152,7 +157,7 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, draw = True):
 		# print("y: \n", y, np.shape(y0))
 
 		#reshape Ys to be [ _ , 1]
-		y_reshape = np.reshape(y, (np.shape(y)[0]*2,1), order='C') #was F order -> wrong
+		y_reshape = np.reshape(y, (np.shape(y)[0]*2,1), order='C')
 		y0_reshape = np.reshape(y0, (np.shape(y0)[0]*2,1), order='C')
 		# print("y0_reshape: \n", np.shape(y0_reshape))
 
@@ -171,12 +176,25 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, draw = True):
 		total_transformation += x
 
 		#incrementally update y
+		print("y: ", np.shape(y), " y init: ", np.shape(y_init))
 		rot = R(x[2])
 		t = x[0:2]
-		y = rot.dot(y.T) + t
+		y = rot.dot(y_init.T) + t
 		y = y.T
+		print("y new", np.shape(y))
 
-		#DEBUG: draw progression of transformation 
+		#TODO- debug update of W? ------------------------------------------
+
+		#update weighting matrix to account for new rotation??
+		# for i in range(np.shape(W)[0]//2):
+		# 	W[2*i:(2*i + 2),2*i:(2*i + 2)] = rot.dot(W[2*i:(2*i + 2),2*i:(2*i + 2)])
+		# print("rot: \n", rot)
+		# print("W: \n", W[:4,:4])
+
+		#debug: set W to identity after first iteration
+		# W = np.identity(np.shape(ctr2)[0]*2) #DOES NOT HELP
+
+		#draw progression of transformation 
 		ax.plot(y.T[0,:], y.T[1,:], color = (1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),1.), ls = '', marker = '.', markersize = 10)
 		print("x = \n", x)
 
@@ -192,9 +210,9 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, draw = True):
 	#draw final translated points (for debug)
 	# ax.plot(P_corrected.T[0,:], P_corrected.T[1,:], color = (1,0,0,0.0375), ls = '', marker = '.', markersize = 20)
 
-	#draw final translated points using initial P and final X -> NOT WORKING
-	rot = R(total_transformation[2])
-	t = total_transformation[:2]
+	#draw final translated points using initial P and final X
+	rot = R(x[2])
+	t = x[:2]
 	P_final = rot.dot(pp2.T) + t
 	ax.plot(P_final.T[:,0], P_final.T[:,1], color = (1,0,0,0.0125), ls = '', marker = '.', markersize = 20)
 
