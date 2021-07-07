@@ -6,9 +6,6 @@ from utils import *
 from NDT import NDT
 from ICP import ICP_least_squares
 
-#Ideas
-#	Use both NN AND zero for initial estimate of x
-#		if NN worse than zero, ignore it
 
 def get_U_and_L(cov1):
 
@@ -62,7 +59,7 @@ def get_U_and_L(cov1):
 		L = np.append(L, L_i)
 		#TODO- not correct as is?? -> should be removing axis from L, not setting to zero
 
-	L = L[:,None]
+	# L = L[:,None]
 
 	#BE CAREFUL:
 	#	U and L are in relation to the origonal scan, but the coorespondences used in the main loop 
@@ -71,7 +68,7 @@ def get_U_and_L(cov1):
 
 	return U, L
 
-def get_weighting_matrix(cov, npts, U = None, L = None):
+def get_weighting_matrix(cov, npts, U = 0, L = None):
 
 	'''
 	cov: 3D matrix containing covariance matrices for all voxels 
@@ -86,16 +83,22 @@ def get_weighting_matrix(cov, npts, U = None, L = None):
 	R_noise = np.identity(np.shape(cov)[0]*2) #multiply by 2 because cov matrices are 2x2
 
 
+	# print("U \n", np.shape(U))
+	# print("L \n", np.shape(L))
+
 	for i in range(np.shape(cov)[0]): 
 
 		#normalize true covariance by the number of points in the subdivision
-		j = cov[i] / (npts[i] - 1) 
+		M = cov[i] / (npts[i] - 1) 
 		
 		#account for U and L matrices
-		if U != None and L != None:
-			print("smol pp")
+		if U.all() != None and L.all() != None:
+			#NOTE: underscript _j denotes that this is the jth voxel in the scan
+			L_j = L[2*i:(2*i+2)]
+			U_j = U[i]
+			j = L_j.dot(U_j.T.dot(M.dot(U_j.dot(L_j.T))))
 
-		R_noise[(2*i):(2*i+2),(2*i):(2*i+2)] = j
+		R_noise[(2*i):(2*i+2),(2*i):(2*i+2)] = M
 
 	# print(np.floor(R_noise[:12,:12])) #make sure everything looks like the right shape
 
@@ -214,19 +217,31 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 
 		y0 = y0[correspondences[0].astype(int)]
 		# print("y0: \n", y0, np.shape(y0))
-		# print("y: \n", y, np.shape(y0))
+		# print("y: \n", y, np.shape(y))
 
 		#reshape Ys to be [ _ , 1] 
 		y_reshape = np.reshape(y, (np.shape(y)[0]*2,1), order='C')
 		y0_reshape = np.reshape(y0, (np.shape(y0)[0]*2,1), order='C')
-		print("y0_reshape: \n", np.shape(y0_reshape))
+		# print("y0_reshape: \n", np.shape(y0_reshape))
 
-		#reorder U and L according to correspondences 
-		U_i = U[correspondences[0].astype(int)]
-		L_i = L[correspondences[0].astype(int)]
+		#reorder U and L according to correspondences
+		#	NOTE: here the subscript _i refers to the fact that this is the COMPLETE vector at cycle i
+		U_i = U[correspondences[0].astype(int)] #this is straightforward for U
+		
+		#not as straightforward for L
+		L_i = np.zeros(np.shape(correspondences)[1]*2)
+		for ct in range(np.shape(correspondences)[1]):
+			# print("ct ", ct, " corr ", correspondences[0,ct])
+			L_i[2*ct:(2*ct+2)] = L[(2*correspondences[0,ct].astype(int)):(2*correspondences[0,ct].astype(int)+2)]
+
+		# print("correspondences ", correspondences[0].astype(int), np.shape(correspondences))
+		# print("L ",L, np.shape(L))
+		# print("L_i",L_i, np.shape(L_i))
+		# print("U_i",U_i, np.shape(U_i))
+
 
 		#get weighting matrix from covariance matrix
-		W = get_weighting_matrix(cov2, npts2)
+		W = get_weighting_matrix(cov2, npts2, U = U_i, L = L_i)
 		# W = np.identity(np.shape(ctr2)[0]*2) #debug: simple identity for W
 		# print("W[:4,:4] = \n", W[:4,:4])
 
