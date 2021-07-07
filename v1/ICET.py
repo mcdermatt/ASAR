@@ -6,6 +6,8 @@ from utils import *
 from NDT import NDT
 from ICP import ICP_least_squares
 
+#TODO:
+#	figure out where to account for U and L
 
 def get_U_and_L(cov1):
 
@@ -42,7 +44,7 @@ def get_U_and_L(cov1):
 		minor = np.sqrt(eigenval[0])
 
 		#TODO: take in cellsize as a parameter from subdivide_scan()
-		cellsize = 10
+		cellsize = 15
 		#base case: no elongated directions
 		if major < (cellsize/4)**2 and minor < (cellsize/4)**2:
 			L_i = np.array([1,1])
@@ -91,18 +93,21 @@ def get_weighting_matrix(cov, npts, U = 0, L = None):
 		#normalize true covariance by the number of points in the subdivision
 		M = cov[i] / (npts[i] - 1) 
 		
-		#account for U and L matrices
+		#account for U and L matrices - before inverse?
 		if U.all() != None and L.all() != None:
 			#NOTE: underscript _j denotes that this is the jth voxel in the scan
 			L_j = L[2*i:(2*i+2)]
 			U_j = U[i]
-			j = L_j.dot(U_j.T.dot(M.dot(U_j.dot(L_j.T))))
+
+			#TODO: verify that this is the right place for accounting for U and L
+			# M = L_j.dot(U_j.T.dot(M.dot(U_j.dot(L_j.T))))
 
 		R_noise[(2*i):(2*i+2),(2*i):(2*i+2)] = M
 
 	# print(np.floor(R_noise[:12,:12])) #make sure everything looks like the right shape
 
-	W = np.linalg.inv(R_noise)
+	# W = np.linalg.inv(R_noise) #does not work (singular matrix error)
+	W = np.linalg.pinv(R_noise)
 
 	return W
 
@@ -157,7 +162,8 @@ def weighted_psudoinverse(H, W = np.identity(3)):
 	"""
 
 	#H_w = H^w
-	H_w = np.linalg.inv(H.T.dot(W).dot(H)).dot(H.T).dot(W)
+	# H_w = np.linalg.inv(H.T.dot(W).dot(H)).dot(H.T).dot(W)
+	H_w = np.linalg.pinv(H.T.dot(W).dot(H)).dot(H.T).dot(W)
 
 	return H_w
 
@@ -235,7 +241,7 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 			L_i[2*ct:(2*ct+2)] = L[(2*correspondences[0,ct].astype(int)):(2*correspondences[0,ct].astype(int)+2)]
 
 		# print("correspondences ", correspondences[0].astype(int), np.shape(correspondences))
-		# print("L ",L, np.shape(L))
+		print("L ",L, np.shape(L))
 		# print("L_i",L_i, np.shape(L_i))
 		# print("U_i",U_i, np.shape(U_i))
 
@@ -268,13 +274,13 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 		P_corrected = P_corrected.T
 
 		y0 = y0_init
-		# print("error: \n", np.sum(abs(y_reshape- y0_reshape))) #----------
+		print("error: \n", np.sum(abs(y_reshape- y0_reshape))) #----------
 
 		#draw progression of centers of ellipses
-		ax.plot(y.T[0,:], y.T[1,:], color = (1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),1.), ls = '', marker = '.', markersize = 10)
+		# ax.plot(y.T[0,:], y.T[1,:], color = (1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),1.), ls = '', marker = '.', markersize = 10)
 		
 		# #draw all points progressing through transformation
-		# ax.plot(P_corrected.T[0,:], P_corrected.T[1,:], color = (1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),0.1), ls = '', marker = '.', markersize = 20)
+		# ax.plot(P_corrected.T[0,:], P_corrected.T[1,:], color = (1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),0.025), ls = '', marker = '.', markersize = 20)
 
 	#draw final translated points (for debug)
 	# ax.plot(P_corrected.T[0,:], P_corrected.T[1,:], color = (1,0,0,0.0375), ls = '', marker = '.', markersize = 20)
