@@ -6,17 +6,72 @@ from utils import *
 from NDT import NDT
 from ICP import ICP_least_squares
 
-#TODO
-#	debug correspondences in ICET_v2
-#		it looks like I'm getting coors between 1st scan and translated 1st scan...
-#	turn iterative x values into one final transformation
-
 #Ideas
 #	Use both NN AND zero for initial estimate of x
 #		if NN worse than zero, ignore it
 
+def get_U_and_L(cov1):
 
-def get_weighting_matrix(cov, npts):
+	"""generates matrices used to remove axis in which ellipses for each voxel are extended 
+			overly extended axis is defined as:
+			ax > (L^2)/16, where L is the length of the voxel 
+		
+		inptus: cov1 -> cov from ellipse data from first scan taken from subdivide_scan()[1]
+
+		outputs: FOR EACH VOXEL 
+				 U -> rotation matrix to align point with the major and minor axis of ellipse
+				 L -> reduced dimension array used to ignore extended axis directions
+	
+			"""
+
+	U = np.zeros([np.shape(cov1)[0],2,2])
+	# L = np.zeros([np.shape(cov1)[0], 1]) #don't know what size L is going to be before we 
+	L = [[]]
+
+	#loop through every voxel in scan 1 (only do this once per keyframe)
+	for i in range(np.shape(cov1)[0]):
+
+		eig = np.linalg.eig(cov1[i])
+		eigenval = eig[0]
+		eigenvec = eig[1]
+
+		#get new coordinate frame
+		theta_temp = np.arcsin(eigenvec[0,1]/eigenvec[0,0])
+		#get U matrix requred to rotate future P points so that x', y' axis align with major and minor axis of ellipse
+		U[i] = R(theta_temp)
+
+		# get L matrix 
+		major = np.sqrt(eigenval[1])
+		minor = np.sqrt(eigenval[0])
+
+		#TODO: take in cellsize as a parameter from subdivide_scan()
+		cellsize = 10
+		#base case: no elongated directions
+		if major < (cellsize/4)**2 and minor < (cellsize/4)**2:
+			L_i = np.array([1,1])
+		#elongated major
+		if major > (cellsize/4)**2 and minor < (cellsize/4)**2:
+			L_i = np.array([0,1])
+		#elongated minor (should not ever happen)
+		if minor > (cellsize/4)**2 and major < (cellsize/4)**2:
+			L_i = np.array([1, 0])
+		#elongated both
+		if major > (cellsize/4)**2 and minor > (cellsize/4)**2:
+			L_i = np.array([0,0])
+	
+		L = np.append(L, L_i)
+		#TODO- not correct as is?? -> should be removing axis from L, not setting to zero
+
+	L = L[:,None]
+
+	#BE CAREFUL:
+	#	U and L are in relation to the origonal scan, but the coorespondences used in the main loop 
+	#	will be in a different order
+
+
+	return U, L
+
+def get_weighting_matrix(cov, npts, U = None, L = None):
 
 	'''
 	cov: 3D matrix containing covariance matrices for all voxels 
@@ -31,8 +86,16 @@ def get_weighting_matrix(cov, npts):
 	R_noise = np.identity(np.shape(cov)[0]*2) #multiply by 2 because cov matrices are 2x2
 
 
-	for i in range(np.shape(cov)[0]):
-		R_noise[(2*i):(2*i+2),(2*i):(2*i+2)] = cov[i] / npts[i] #-1
+	for i in range(np.shape(cov)[0]): 
+
+		#normalize true covariance by the number of points in the subdivision
+		j = cov[i] / (npts[i] - 1) 
+		
+		#account for U and L matrices
+		if U != None and L != None:
+			print("smol pp")
+
+		R_noise[(2*i):(2*i+2),(2*i):(2*i+2)] = j
 
 	# print(np.floor(R_noise[:12,:12])) #make sure everything looks like the right shape
 
@@ -95,16 +158,16 @@ def weighted_psudoinverse(H, W = np.identity(3)):
 
 	return H_w
 
-def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, draw = True):
+def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 
 	"""similar to v1 except uses "weighted" psudoinverse instead of LSICP"""
 
 	#get point positions in 2d space and draw 1st and 2nd scans
 	pp1 = draw_scan(Q,fig,ax, pt = 0)
 	pp2 = draw_scan(P,fig,ax, pt = 1) #pt number assigns color for plotting
+
 	#group points into ellipses
-	E1 = subdivide_scan(pp1,fig,ax, fidelity = fid, pt = 0)
-	E2 = subdivide_scan(pp2,fig,ax, fidelity = fid, pt = 1)
+	E1 = subdivide_scan(pp1,fig,ax, fidelity = fid, pt = 0, min_num_pts = min_num_pts)
 
 	#extract: center data from E1, E2 -> center points are a 2d array
 	#         covariance data from E1, E2 
@@ -115,38 +178,35 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, draw = True):
 		ctr1[idx1,:] = c1[0]
 		cov1[idx1,:] = c1[1]
 		npts1[idx1] = c1[2]
-	ctr2 = np.zeros([len(E2),2])
-	cov2 = np.zeros([len(E2),2,2])
-	npts2 = np.zeros(len(E2))
-	for idx2, c2 in enumerate(E2):
-		ctr2[idx2,:] = c2[0]
-		cov2[idx2,:] = c2[1]
-		npts2[idx2] = c2[2]
-	# print("cov2: \n", cov2, np.shape(cov2))
 
-	#get weighting matrix from covariance matrix -----------------------------------------------------
-	# 	#TODO: does this need to be iteratively updated?? -no I think?
-	W = get_weighting_matrix(cov2, npts2)
-	# W = np.identity(np.shape(ctr2)[0]*2) #debug: simple identity for W
-	print("W: \n", W[:4,:4])
+	#to avoid taking into account directions with extended axis
+	U, L = get_U_and_L(cov1)
 
 	#inital estimate for transformation
-	x = np.zeros([3,1])
-	#init total x of the system (DEBUG: get rid of this variable, x should encode all required information)
-	total_transformation = np.zeros([3,1])
-
-	y = ctr2
-	y_init = ctr2
-	y0 = ctr1
-	P_corrected = pp2
-
 	#TODO: improve initial estimated transform (start with zeros here, could potentially use wheel odometry) 
-		  #call on nerual network to get inital estimate x
+	x = np.zeros([3,1])
 
-
-	# ax.plot(y.T[0,:], y.T[1,:], color = (1,1,1,1.), ls = '', marker = '.', markersize = 10)
+	y0 = ctr1
+	y0_init = ctr1 #hold on to initial centers so we don't lose information when doing correspondences
+	P_corrected = pp2 #for debug
 
 	for cycle in range(num_cycles):
+
+		#Refit 2nd scan into voxels on each iteration
+		E2 = subdivide_scan(P_corrected,fig,ax, fidelity = fid, pt = 2, min_num_pts = min_num_pts)
+
+		ctr2 = np.zeros([len(E2),2])
+		cov2 = np.zeros([len(E2),2,2])
+		npts2 = np.zeros(len(E2))
+		for idx2, c2 in enumerate(E2):
+			ctr2[idx2,:] = c2[0]
+			cov2[idx2,:] = c2[1]
+			npts2[idx2] = c2[2]
+		# print("cov2: \n", cov2, np.shape(cov2)) #cov2 may change size on every iteration as voxles recieve more or less than the required min_num_pts
+
+		y = ctr2
+		if cycle == 0:
+			y_init = ctr2 #save for later translations
 
 		#get correspondences needs to take in 2d array of points
 		correspondences = get_correspondence(y.T, y0.T, fig, ax, draw = False)
@@ -156,54 +216,48 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, draw = True):
 		# print("y0: \n", y0, np.shape(y0))
 		# print("y: \n", y, np.shape(y0))
 
-		#reshape Ys to be [ _ , 1]
+		#reshape Ys to be [ _ , 1] 
 		y_reshape = np.reshape(y, (np.shape(y)[0]*2,1), order='C')
 		y0_reshape = np.reshape(y0, (np.shape(y0)[0]*2,1), order='C')
-		# print("y0_reshape: \n", np.shape(y0_reshape))
+		print("y0_reshape: \n", np.shape(y0_reshape))
 
-		#trying this for y shape [2n, 1]
+		#reorder U and L according to correspondences 
+		U_i = U[correspondences[0].astype(int)]
+		L_i = L[correspondences[0].astype(int)]
+
+		#get weighting matrix from covariance matrix
+		W = get_weighting_matrix(cov2, npts2)
+		# W = np.identity(np.shape(ctr2)[0]*2) #debug: simple identity for W
+		# print("W[:4,:4] = \n", W[:4,:4])
+
+		#create z which ignores extended directions of base scan ellipses
+		# z0 = 
+
 		H = get_H(y_reshape, x)
-		# print("H = \n", H, np.shape(H))
-		
 		H_w = weighted_psudoinverse(H, W)
-		# print("H_w: \n", np.shape(H_w))
 
-		dx = H_w.dot(y_reshape - y0_reshape)
-		print("error: \n", np.sum(abs(y_reshape- y0_reshape)))
-
+		#TODO -> replace dy to remove elongated directions ---------------
+		dy = y_reshape - y0_reshape
+		dx = H_w.dot(dy)
 		x -= dx
-		print("dx = ", dx)
-		total_transformation += x
+		# print("dx = ", dx)
 
 		#incrementally update y
-		print("y: ", np.shape(y), " y init: ", np.shape(y_init))
+		# print("y: ", np.shape(y), " y init: ", np.shape(y_init))
 		rot = R(x[2])
 		t = x[0:2]
 		y = rot.dot(y_init.T) + t
 		y = y.T
-		print("y new", np.shape(y))
+		# print("y new", np.shape(y))
+		P_corrected = rot.dot(pp2.T) + t
+		P_corrected = P_corrected.T
 
-		#TODO- debug update of W? ------------------------------------------
+		y0 = y0_init
+		# print("error: \n", np.sum(abs(y_reshape- y0_reshape))) #----------
 
-		#update weighting matrix to account for new rotation??
-		# for i in range(np.shape(W)[0]//2):
-		# 	W[2*i:(2*i + 2),2*i:(2*i + 2)] = rot.dot(W[2*i:(2*i + 2),2*i:(2*i + 2)])
-		# print("rot: \n", rot)
-		# print("W: \n", W[:4,:4])
-
-		#debug: set W to identity after first iteration
-		# W = np.identity(np.shape(ctr2)[0]*2) #DOES NOT HELP
-
-		#draw progression of transformation 
+		#draw progression of centers of ellipses
 		ax.plot(y.T[0,:], y.T[1,:], color = (1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),1.), ls = '', marker = '.', markersize = 10)
-		print("x = \n", x)
-
-		# #incrementally update P_corrected (for debug)
-		# rot = R(x[2])
-		# t = x[0:2]
-		# P_corrected = rot.dot(P_corrected.T) + t
-		# P_corrected = P_corrected.T
-
+		
 		# #draw all points progressing through transformation
 		# ax.plot(P_corrected.T[0,:], P_corrected.T[1,:], color = (1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),0.1), ls = '', marker = '.', markersize = 20)
 
@@ -214,9 +268,9 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, draw = True):
 	rot = R(x[2])
 	t = x[:2]
 	P_final = rot.dot(pp2.T) + t
-	ax.plot(P_final.T[:,0], P_final.T[:,1], color = (1,0,0,0.0125), ls = '', marker = '.', markersize = 20)
+	ax.plot(P_final.T[:,0], P_final.T[:,1], color = (1,0,0,0.0375), ls = '', marker = '.', markersize = 20)
 
-	return total_transformation
+	return x
 
 def ICET_v1(Q, P, fig, ax, fid = 10, num_cycles = 1, draw = True):
 
@@ -261,12 +315,3 @@ def get_state_error():
 
 	return P 
 
-def remove_ambiguity(Q):
-
-	"""removes axis in which ellipses stretch outside voxels """
-
-	L = np.array([[0, 1]])
-
-	z = None1
-
-	return Q

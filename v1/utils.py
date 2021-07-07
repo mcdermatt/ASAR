@@ -20,7 +20,7 @@ def jacobian(x, p_point):
 	"""outputs: (2,3) np array"""
 	theta = x[2]
 	J = np.zeros((2, 3))
-	J[0:2, 0:2] = np.identity(2)
+	J[0:2, 0:2] = np.identity(2) #TODO -> double check signs on identity
 	J[0:2, [2]] = dR(0).dot(p_point)[:,None]
 	# print("jacobian: ", J, np.shape(J))
 	return J
@@ -78,21 +78,29 @@ def get_correspondence(P,Q, fig, ax, draw = False):
 
 	return correspondences
 
-def subdivide_scan(pp, fig, ax, fidelity = 5, overlap = False, nstd = 2, pt = 0):
+def subdivide_scan(pp, fig, ax, fidelity = 5, overlap = False, min_num_pts = 5, nstd = 2, pt = 0):
 
 	#color differently depending on which scan
 	if pt == 0:
 		color = 'green'
 	if pt == 1:
 		color = 'blue'
+	#set pt to 2 to not draw
 
 	E = []
 
 	#define bounding box surrounding all points
+	#adaptive grid cell size
 	minx = np.min(pp[:,0])
 	maxx = np.max(pp[:,0])
 	miny = np.min(pp[:,1])
 	maxy = np.max(pp[:,1])
+
+	#fixed grid cell size
+	# minx = np.min(pp[:,0])
+	# maxx = np.max(pp[:,0])
+	# miny = np.min(pp[:,1])
+	# maxy = np.max(pp[:,1])
 
 	X = np.linspace(minx,maxx,fidelity)
 	Y = np.linspace(miny,maxy,fidelity)
@@ -111,7 +119,7 @@ def subdivide_scan(pp, fig, ax, fidelity = 5, overlap = False, nstd = 2, pt = 0)
 			# print(np.shape(within_box))
 			# print(within_box)
 
-			if np.shape(within_box)[0] > 2:
+			if np.shape(within_box)[0] > min_num_pts-1:
 
 				mu, sigma = fit_gaussian(within_box)
 
@@ -123,8 +131,9 @@ def subdivide_scan(pp, fig, ax, fidelity = 5, overlap = False, nstd = 2, pt = 0)
 				width = 2*nstd*np.sqrt(eigenval[0])
 				height = 2*nstd*np.sqrt(eigenval[1])
 
-				ell = Ellipse((mu[0],mu[1]),width, height, angle = rot, fill = False, color = color)
-				ax.add_patch(ell)
+				if pt != 2:
+					ell = Ellipse((mu[0],mu[1]),width, height, angle = rot, fill = False, color = color)
+					ax.add_patch(ell)
 
 				E.append((mu, sigma,  np.shape(within_box)[0]))
 
