@@ -44,7 +44,7 @@ def get_U_and_L(cov1):
 		minor = np.sqrt(eigenval[0])
 
 		#TODO: take in cellsize as a parameter from subdivide_scan()
-		cellsize = 15
+		cellsize = 10
 		#base case: no elongated directions
 		if major < (cellsize/4)**2 and minor < (cellsize/4)**2:
 			L_i = np.array([1,1])
@@ -70,7 +70,7 @@ def get_U_and_L(cov1):
 
 	return U, L
 
-def get_weighting_matrix(cov, npts, U = 0, L = None):
+def get_weighting_matrix(cov, npts, L, U):
 
 	'''
 	cov: 3D matrix containing covariance matrices for all voxels 
@@ -82,7 +82,11 @@ def get_weighting_matrix(cov, npts, U = 0, L = None):
 			size(R) = [J,J] where J is the total number of voxels
 
 	'''
-	R_noise = np.identity(np.shape(cov)[0]*2) #multiply by 2 because cov matrices are 2x2
+
+	#UPDATED VERSION: W is not actually block diagonal
+
+
+	W = np.identity(np.shape(cov)[0]*2) #multiply by 2 because cov matrices are 2x2
 
 
 	# print("U \n", np.shape(U))
@@ -91,23 +95,38 @@ def get_weighting_matrix(cov, npts, U = 0, L = None):
 	for i in range(np.shape(cov)[0]): 
 
 		#normalize true covariance by the number of points in the subdivision
-		M = cov[i] / (npts[i] - 1) 
+		R_noise = cov[i] / (npts[i] - 1) 
 		
-		#account for U and L matrices - before inverse?
-		if U.all() != None and L.all() != None:
-			#NOTE: underscript _j denotes that this is the jth voxel in the scan
-			L_j = L[2*i:(2*i+2)]
-			U_j = U[i]
+		#DEBUG: account for U and L matrices - before inverse????
+		#NOTE: underscript _j denotes that this is the jth voxel in the scan
+		L_j = L[2*i:(2*i+2)][:,None].T
+		U_j = U[i]
+		# print("U_j", np.shape(U_j))
 
-			#TODO: verify that this is the right place for accounting for U and L
-			# M = L_j.dot(U_j.T.dot(M.dot(U_j.dot(L_j.T))))
+		#TODO: verify that this is the right place for accounting for U and L
+		# print("L_j", np.shape(L_j))
+		# print("U_j", np.shape(U_j))
+		# print("R_noise", np.shape(R_noise))
 
-		R_noise[(2*i):(2*i+2),(2*i):(2*i+2)] = M
+		U_TRU = U_j.T.dot(R_noise.dot(U_j))
+		# print("U_TRU", np.shape(U_TRU))
+		LU_TRU = L_j.dot(U_TRU)
+		# print("LU_TRU", np.shape(LU_TRU))
+		R_z = (L_j.T).dot(LU_TRU)
+
+		# print("R_z = ", R_z)
+
+		#test
+		# W[(2*i):(2*i+2),(2*i):(2*i+2)] = np.linalg.pinv(R_z)
+
+		#works well without using U and L
+		W[(2*i):(2*i+2),(2*i):(2*i+2)] = np.linalg.pinv(R_noise)
+
 
 	# print(np.floor(R_noise[:12,:12])) #make sure everything looks like the right shape
 
 	# W = np.linalg.inv(R_noise) #does not work (singular matrix error)
-	W = np.linalg.pinv(R_noise)
+	# W = np.linalg.pinv(R_noise) # also changed to pinv in weighted_psudoinverse()
 
 	return W
 
@@ -133,6 +152,66 @@ def get_H(P, x):
 		# print(H)
 
 	return H
+
+def fast_weighted_psudoinverse(P, x, cov, npts, L, U):
+
+	'''returns array H_w without creating full square matrix for W
+	
+		inputs: H -> array containing Jacobians for each voxel
+				R -> rotation matrix for each voxel in H used to translate centers from scan 2 
+						with respect to the major/ minor axis of scan 1
+
+		outputs: H_w -> psudoinverse
+	'''
+	L = L[:,None]
+	# print("L ", L, np.shape(L))
+
+	# print("P:", np.shape(P))
+
+	H = get_H(P,x)
+	# print("H", np.shape(H))
+
+	#init 1st and 2nd terms
+	H_w1 = np.zeros([3,3])
+	H_w2 = np.zeros([3,np.shape(P)[0]])
+
+	for i in range(np.shape(P)[0]//2):
+
+		#estimate R_noise for voxel j
+		R_noise = cov[i] / (npts[i] - 1)
+
+		#TODO: adjust R_noise to acount for the effects of L and U
+		# R_noise = L[2*i:2*i+2].dot( U[i].T.dot( R_noise.dot( U[i].dot(L[2*i:2*i+2].T) )))
+		# R_noise = np.linalg.multi_dot((L[2*i:2*i+2], U[i].T, R_noise, U[i], L[2*i:2*i+2].T))
+		# print("R_noise: ", np.shape(R_noise)) # should be 2x2
+
+		#calclate voxel j's contribution to the first term of H_w -------------------------
+		# H_w1  = [ H_wj1[0] + H_wj1[1] + H_wj1[2] + ... ] <- should be a 3x3 matrix
+		# H_wj1 = (H.T)(R^-1)(H)
+		H_wj1 = H[2*i:2*i+2].T.dot(np.linalg.pinv(R_noise).dot(H[2*i:2*i+2])) 
+		#add contributions of j to first term
+		H_w1 += H_wj1
+
+		#calculate voxel j's contributuion to the 2nd term of H_w -------------------------
+		# H_w2 = [ H_wj2[0]  H_wj2[1]  H_wj2[2]  ... ]  <- should be a 3xN matrix, N = #pts
+		# H_wj2 = (H.T)(R^-1)
+		H_wj2 = H[2*i:2*i+2].T.dot(np.linalg.pinv(R_noise))
+		#assign H_wj2 to positin in in H_w2
+		H_w2[:,2*i:2*i+2] = H_wj2
+
+		# print("H_wj1", H_wj1)
+		# print("H_wj2", H_wj2)
+
+	# print("H_w1", H_w1)
+	# print("H_w2", H_w2)
+
+	#compute dot product of the two terms
+	H_w = np.linalg.pinv(H_w1).dot(H_w2)
+
+	# print(H_w)
+
+	return H_w
+
 
 def weighted_psudoinverse(H, W = np.identity(3)):
 
@@ -172,11 +251,12 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 	"""similar to v1 except uses "weighted" psudoinverse instead of LSICP"""
 
 	#get point positions in 2d space and draw 1st and 2nd scans
-	pp1 = draw_scan(Q,fig,ax, pt = 0)
-	pp2 = draw_scan(P,fig,ax, pt = 1) #pt number assigns color for plotting
+	pp1 = draw_scan(Q,fig,ax, pt = 2)
+	pp2 = draw_scan(P,fig,ax, pt = 2) #pt number assigns color for plotting
 
 	#group points into ellipses
 	E1 = subdivide_scan(pp1,fig,ax, fidelity = fid, pt = 0, min_num_pts = min_num_pts)
+	_ = subdivide_scan(pp2,fig,ax, fidelity = fid, pt = 1, min_num_pts = min_num_pts) #added back for viz
 
 	#extract: center data from E1, E2 -> center points are a 2d array
 	#         covariance data from E1, E2 
@@ -198,6 +278,8 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 	y0 = ctr1
 	y0_init = ctr1 #hold on to initial centers so we don't lose information when doing correspondences
 	P_corrected = pp2 #for debug
+
+	error = np.zeros(num_cycles)
 
 	for cycle in range(num_cycles):
 
@@ -241,23 +323,27 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 			L_i[2*ct:(2*ct+2)] = L[(2*correspondences[0,ct].astype(int)):(2*correspondences[0,ct].astype(int)+2)]
 
 		# print("correspondences ", correspondences[0].astype(int), np.shape(correspondences))
-		print("L ",L, np.shape(L))
+		# print("L ",L, np.shape(L))
 		# print("L_i",L_i, np.shape(L_i))
 		# print("U_i",U_i, np.shape(U_i))
 
 
 		#get weighting matrix from covariance matrix
-		W = get_weighting_matrix(cov2, npts2, U = U_i, L = L_i)
+		W = get_weighting_matrix(cov2, npts2, L_i, U_i)
 		# W = np.identity(np.shape(ctr2)[0]*2) #debug: simple identity for W
 		# print("W[:4,:4] = \n", W[:4,:4])
 
-		#create z which ignores extended directions of base scan ellipses
-		# z0 = 
+		# traditional weighted psudoinverse --------------------------------
+		# Using standard funcs with full block diagonal matrix for W
+		# H = get_H(y_reshape, x)
+		# H_w = weighted_psudoinverse(H, W)
+		# ------------------------------------------------------------------
 
-		H = get_H(y_reshape, x)
-		H_w = weighted_psudoinverse(H, W)
+		# Fast weighted psudoinverse ---------------------------------------
+		H_w = fast_weighted_psudoinverse(y_reshape, x, cov2, npts2, L_i, U_i)
+		# print("H_w: \n", H_w, np.shape(H_w))
+		#-------------------------------------------------------------------
 
-		#TODO -> replace dy to remove elongated directions ---------------
 		dy = y_reshape - y0_reshape
 		dx = H_w.dot(dy)
 		x -= dx
@@ -274,7 +360,8 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 		P_corrected = P_corrected.T
 
 		y0 = y0_init
-		print("error: \n", np.sum(abs(y_reshape- y0_reshape))) #----------
+		# print("error: \n", np.sum(abs(y_reshape- y0_reshape))) #----------
+		error[cycle] = np.sum(abs(y_reshape- y0_reshape))
 
 		#draw progression of centers of ellipses
 		# ax.plot(y.T[0,:], y.T[1,:], color = (1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),1.), ls = '', marker = '.', markersize = 10)
@@ -291,7 +378,7 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 	P_final = rot.dot(pp2.T) + t
 	ax.plot(P_final.T[:,0], P_final.T[:,1], color = (1,0,0,0.0375), ls = '', marker = '.', markersize = 20)
 
-	return x
+	return x, error
 
 def ICET_v1(Q, P, fig, ax, fid = 10, num_cycles = 1, draw = True):
 
