@@ -26,8 +26,8 @@ def get_U_and_L(cov1):
 	U = np.zeros([np.shape(cov1)[0],2,2])
 	# L = np.zeros([np.shape(cov1)[0], 1]) #don't know what size L is going to be before we start???
 
-	L = [[]] #was this
-	# L = np.zeros([0,2]) #needs to be this to work
+	# L = [[]] #was this
+	L = np.zeros([0,2]) #needs to be this to work
 
 	#loop through every voxel in scan 1 (only do this once per keyframe)
 	for i in range(np.shape(cov1)[0]):
@@ -38,34 +38,41 @@ def get_U_and_L(cov1):
 
 		#get new coordinate frame
 		theta_temp = np.arcsin(eigenvec[0,1]/eigenvec[0,0])
+
 		#get U matrix requred to rotate future P points so that x', y' axis align with major and minor axis of ellipse
-		U[i] = R(theta_temp)
+		U[i] = R(theta_temp) #DEBUG- there is a problem here
 
 		# get L matrix 
 		major = np.sqrt(eigenval[1])
 		minor = np.sqrt(eigenval[0])
 
+		# print("major", major, " minor ", minor)
+
 		#TODO: take in cellsize as a parameter from subdivide_scan()
-		cellsize = 10
+		cellsize = 20
 		#base case: no elongated directions
 		if major < (cellsize/4)**2 and minor < (cellsize/4)**2:
 			L_i = np.array([[1,0],[0,1]])
 		#elongated major
 		if major > (cellsize/4)**2 and minor < (cellsize/4)**2:
-			L_i = np.array([[1,0],[0,0]])
-		#elongated minor (should not ever happen)
-		if minor > (cellsize/4)**2 and major < (cellsize/4)**2:
 			L_i = np.array([[0,0],[0,1]])
+		#elongated minor
+		if minor > (cellsize/4)**2 and major < (cellsize/4)**2:
+			L_i = np.array([[1,0],[0,0]])
 		#elongated both
 		if major > (cellsize/4)**2 and minor > (cellsize/4)**2:
 			L_i = np.array([[0,0],[0,0]])
 	
-		L = np.append(L, L_i) #needs axis =0
-		#TODO- not correct as is?? -> should be removing axis from L, not setting to zero
+		L = np.append(L, L_i, axis = 0)
+
+		# print("L_i for this step \n", L_i)
+
+		#TODO- remove axis that are all zeros(?) 
+		#		not sure if I need this...
 
 	# L = L[:,None]
 
-	#BE CAREFUL:
+	#NOTE:
 	#	U and L are in relation to the origonal scan, but the coorespondences used in the main loop 
 	#	will be in a different order
 
@@ -75,6 +82,8 @@ def get_U_and_L(cov1):
 def get_weighting_matrix(cov, npts, L, U):
 
 	'''
+	DEPRICATED
+
 	cov: 3D matrix containing covariance matrices for all voxels 
 	
 	npts: number of points inside each voxel of cov
@@ -164,8 +173,18 @@ def fast_weighted_psudoinverse(P, x, cov, npts, L, U):
 
 		outputs: H_w -> psudoinverse
 	'''
-	L = L[:,None].T
-	# print("L ", L, np.shape(L))
+	#TODO --------------------------------------------------------------------------------------------------------
+	#augment L matrix to remove all elements in directions of extended baseline error ellipses
+	# we want to do this in here so we have the indices of the axis to be ignored so we can do the same to R(?)
+	
+	# nonzero_elements = np.argwhere(L[:] != np.array([0,0]))[:,0]
+	
+	# L_i_augmented = L[nonzero_elements]
+	# print("L_i augmented \n", L_i_augmented, np.shape(L_i_augmented))
+
+
+	# ------------------------------------------------------------------------------------------------------------
+
 
 	# print("P:", np.shape(P))
 
@@ -179,10 +198,8 @@ def fast_weighted_psudoinverse(P, x, cov, npts, L, U):
 	for i in range(np.shape(P)[0]//2):
 
 		#estimate R_noise for voxel j
-		R_noise = cov[i] / (npts[i] - 1)
-
-
-
+		# R_noise = cov[i] / (npts[i] - 1) 		#ignoring U and L
+		R_noise = U[i].dot(cov[i]).dot(U[i].T)  #need to account for rotation
 
 		#TODO: adjust R_noise to account for the effects of L and U ------------------------
 		# R_z = (L)(U.T)(R)(U)(L.T)
@@ -192,11 +209,11 @@ def fast_weighted_psudoinverse(P, x, cov, npts, L, U):
 		# R_noise = L[:,2*i:2*i+2].dot(U[i].T).dot(R_noise).dot(U[i]).dot(L[:,2*i:2*i+2].T) #not working?
 
 		#test -> looks like L_j needs to be a 2x2 matrix
-		L_test = np.identity(2)
-		R_noise = L_test.dot(U[i].T).dot(R_noise).dot(U[i]).dot(L_test.T) 
+		# L_test = np.identity(2)
+		# R_noise = L_test.dot(U[i].T).dot(R_noise).dot(U[i]).dot(L_test.T) 
 
-
-		# R_noise = np.linalg.multi_dot((L[2*i:2*i+2], U[i].T, R_noise, U[i], L[2*i:2*i+2].T))
+		#DEBUG: comment out line below to ignore U, L
+		R_noise = np.linalg.multi_dot((L[2*i:2*i+2], U[i].T, R_noise, U[i], L[2*i:2*i+2].T))
 		# print("R_noise: ", R_noise, np.shape(R_noise)) # should be 2x2
 
 
@@ -206,7 +223,7 @@ def fast_weighted_psudoinverse(P, x, cov, npts, L, U):
 		#calclate voxel j's contribution to the first term of H_w -------------------------
 		# H_w1  = [ H_wj1[0] + H_wj1[1] + H_wj1[2] + ... ] <- should be a 3x3 matrix
 		# H_wj1 = (H.T)(R^-1)(H)
-		H_wj1 = H[2*i:2*i+2].T.dot(np.linalg.pinv(R_noise).dot(H[2*i:2*i+2])) 
+		H_wj1 = H[2*i:2*i+2].T.dot(np.linalg.pinv(R_noise)).dot(H[2*i:2*i+2]) 
 		#add contributions of j to first term
 		H_w1 += H_wj1
 
@@ -227,6 +244,7 @@ def fast_weighted_psudoinverse(P, x, cov, npts, L, U):
 	H_w = np.linalg.pinv(H_w1).dot(H_w2)
 
 	# print(H_w)
+	# print(np.argwhere(H_w == 0))
 
 	return H_w
 
@@ -269,8 +287,8 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 	"""similar to v1 except uses "weighted" psudoinverse instead of LSICP"""
 
 	#get point positions in 2d space and draw 1st and 2nd scans
-	pp1 = draw_scan(Q,fig,ax, pt = 2)
-	pp2 = draw_scan(P,fig,ax, pt = 2) #pt number assigns color for plotting
+	pp1 = draw_scan(Q,fig,ax, pt = 0)
+	pp2 = draw_scan(P,fig,ax, pt = 1) #pt number assigns color for plotting
 
 	#group points into ellipses
 	E1 = subdivide_scan(pp1,fig,ax, fidelity = fid, pt = 0, min_num_pts = min_num_pts)
@@ -290,7 +308,7 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 	U, L = get_U_and_L(cov1)
 
 	#TODO: prevent L from getting all stretched for now
-	print("L", np.shape(L))
+	# print("L", np.shape(L))
 
 	#inital estimate for transformation
 	#TODO: improve initial estimated transform (start with zeros here, could potentially use wheel odometry) 
@@ -343,24 +361,24 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 		U_i = U[correspondences[0].astype(int)] #this is straightforward for U
 		
 		#not as straightforward for L
-		L_i = np.zeros(np.shape(correspondences)[1]*2)
+		L_i = np.zeros([np.shape(correspondences)[1]*2,2])
 		for ct in range(np.shape(correspondences)[1]):
 			# print("ct ", ct, " corr ", correspondences[0,ct])
 			L_i[2*ct:(2*ct+2)] = L[(2*correspondences[0,ct].astype(int)):(2*correspondences[0,ct].astype(int)+2)]
 
 		# print("correspondences ", correspondences[0].astype(int), np.shape(correspondences))
 		# print("L ",L, np.shape(L))
-		# print("L_i",L_i, np.shape(L_i))
+		# print("L_i \n",L_i[:10], np.shape(L_i))
 		# print("U_i",U_i, np.shape(U_i))
 
+		# using a weighted psudoinverse ------------------------------------
+		#get weighting matrix from covariance matrix 
+		# Using standard funcs with full block diagonal matrix for W
 
-		#get weighting matrix from covariance matrix
-		W = get_weighting_matrix(cov2, npts2, L_i, U_i)
+		# W = get_weighting_matrix(cov2, npts2, L_i, U_i)
 		# W = np.identity(np.shape(ctr2)[0]*2) #debug: simple identity for W
 		# print("W[:4,:4] = \n", W[:4,:4])
 
-		# using a weighted psudoinverse ------------------------------------
-		# Using standard funcs with full block diagonal matrix for W
 		# H = get_H(y_reshape, x)
 		# H_w = weighted_psudoinverse(H, W)
 		# ------------------------------------------------------------------
