@@ -24,8 +24,10 @@ def get_U_and_L(cov1):
 			"""
 
 	U = np.zeros([np.shape(cov1)[0],2,2])
-	# L = np.zeros([np.shape(cov1)[0], 1]) #don't know what size L is going to be before we 
-	L = [[]]
+	# L = np.zeros([np.shape(cov1)[0], 1]) #don't know what size L is going to be before we start???
+
+	L = [[]] #was this
+	# L = np.zeros([0,2]) #needs to be this to work
 
 	#loop through every voxel in scan 1 (only do this once per keyframe)
 	for i in range(np.shape(cov1)[0]):
@@ -47,18 +49,18 @@ def get_U_and_L(cov1):
 		cellsize = 10
 		#base case: no elongated directions
 		if major < (cellsize/4)**2 and minor < (cellsize/4)**2:
-			L_i = np.array([1,1])
+			L_i = np.array([[1,0],[0,1]])
 		#elongated major
 		if major > (cellsize/4)**2 and minor < (cellsize/4)**2:
-			L_i = np.array([0,1])
+			L_i = np.array([[1,0],[0,0]])
 		#elongated minor (should not ever happen)
 		if minor > (cellsize/4)**2 and major < (cellsize/4)**2:
-			L_i = np.array([1, 0])
+			L_i = np.array([[0,0],[0,1]])
 		#elongated both
 		if major > (cellsize/4)**2 and minor > (cellsize/4)**2:
-			L_i = np.array([0,0])
+			L_i = np.array([[0,0],[0,0]])
 	
-		L = np.append(L, L_i)
+		L = np.append(L, L_i) #needs axis =0
 		#TODO- not correct as is?? -> should be removing axis from L, not setting to zero
 
 	# L = L[:,None]
@@ -82,9 +84,6 @@ def get_weighting_matrix(cov, npts, L, U):
 			size(R) = [J,J] where J is the total number of voxels
 
 	'''
-
-	#UPDATED VERSION: W is not actually block diagonal
-
 
 	W = np.identity(np.shape(cov)[0]*2) #multiply by 2 because cov matrices are 2x2
 
@@ -157,13 +156,15 @@ def fast_weighted_psudoinverse(P, x, cov, npts, L, U):
 
 	'''returns array H_w without creating full square matrix for W
 	
-		inputs: H -> array containing Jacobians for each voxel
-				R -> rotation matrix for each voxel in H used to translate centers from scan 2 
-						with respect to the major/ minor axis of scan 1
+		inputs: P 	-> centers of ellipses
+				X 	-> [x y theta]
+				npts-> 1D array containing the number of points in each ellipse
+				L  	->  L for voxel i
+				U 	-> U for voxel i 
 
 		outputs: H_w -> psudoinverse
 	'''
-	L = L[:,None]
+	L = L[:,None].T
 	# print("L ", L, np.shape(L))
 
 	# print("P:", np.shape(P))
@@ -180,10 +181,27 @@ def fast_weighted_psudoinverse(P, x, cov, npts, L, U):
 		#estimate R_noise for voxel j
 		R_noise = cov[i] / (npts[i] - 1)
 
-		#TODO: adjust R_noise to acount for the effects of L and U
-		# R_noise = L[2*i:2*i+2].dot( U[i].T.dot( R_noise.dot( U[i].dot(L[2*i:2*i+2].T) )))
+
+
+
+		#TODO: adjust R_noise to account for the effects of L and U ------------------------
+		# R_z = (L)(U.T)(R)(U)(L.T)
+		#	  should remain [2x2] matrix
+
+		# print(np.shape(L[:,2*i:2*i+2]))	
+		# R_noise = L[:,2*i:2*i+2].dot(U[i].T).dot(R_noise).dot(U[i]).dot(L[:,2*i:2*i+2].T) #not working?
+
+		#test -> looks like L_j needs to be a 2x2 matrix
+		L_test = np.identity(2)
+		R_noise = L_test.dot(U[i].T).dot(R_noise).dot(U[i]).dot(L_test.T) 
+
+
 		# R_noise = np.linalg.multi_dot((L[2*i:2*i+2], U[i].T, R_noise, U[i], L[2*i:2*i+2].T))
-		# print("R_noise: ", np.shape(R_noise)) # should be 2x2
+		# print("R_noise: ", R_noise, np.shape(R_noise)) # should be 2x2
+
+
+
+
 
 		#calclate voxel j's contribution to the first term of H_w -------------------------
 		# H_w1  = [ H_wj1[0] + H_wj1[1] + H_wj1[2] + ... ] <- should be a 3x3 matrix
@@ -271,6 +289,9 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 	#to avoid taking into account directions with extended axis
 	U, L = get_U_and_L(cov1)
 
+	#TODO: prevent L from getting all stretched for now
+	print("L", np.shape(L))
+
 	#inital estimate for transformation
 	#TODO: improve initial estimated transform (start with zeros here, could potentially use wheel odometry) 
 	x = np.zeros([3,1])
@@ -307,10 +328,15 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 		# print("y0: \n", y0, np.shape(y0))
 		# print("y: \n", y, np.shape(y))
 
-		#reshape Ys to be [ _ , 1] 
+		#reshape Ys to be [ 2N , 1] 
 		y_reshape = np.reshape(y, (np.shape(y)[0]*2,1), order='C')
 		y0_reshape = np.reshape(y0, (np.shape(y0)[0]*2,1), order='C')
 		# print("y0_reshape: \n", np.shape(y0_reshape))
+
+		#TODO: get rid of elements of y vector that are zero??
+		#		easier to do this here rather than constantly change size of y
+		remove_these = np.argwhere(y_reshape[ y_reshape != 0 ])
+
 
 		#reorder U and L according to correspondences
 		#	NOTE: here the subscript _i refers to the fact that this is the COMPLETE vector at cycle i
@@ -333,7 +359,7 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 		# W = np.identity(np.shape(ctr2)[0]*2) #debug: simple identity for W
 		# print("W[:4,:4] = \n", W[:4,:4])
 
-		# traditional weighted psudoinverse --------------------------------
+		# using a weighted psudoinverse ------------------------------------
 		# Using standard funcs with full block diagonal matrix for W
 		# H = get_H(y_reshape, x)
 		# H_w = weighted_psudoinverse(H, W)
