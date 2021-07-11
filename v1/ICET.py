@@ -49,7 +49,7 @@ def get_U_and_L(cov1):
 		# print("major", major, " minor ", minor)
 
 		#TODO: take in cellsize as a parameter from subdivide_scan()
-		cellsize = 20
+		cellsize = 10
 		#base case: no elongated directions
 		if major < (cellsize/4)**2 and minor < (cellsize/4)**2:
 			L_i = np.array([[1,0],[0,1]])
@@ -161,45 +161,48 @@ def get_H(P, x):
 
 	return H
 
-def fast_weighted_psudoinverse(P, x, cov, npts, L, U):
+def fast_weighted_psudoinverse(y, x, cov, npts, L, U):
 
 	'''returns array H_w without creating full square matrix for W
 	
-		inputs: P 	-> centers of ellipses
+		inputs: y 	-> centers of ellipses of 2ND SCAN [2N , 1]
 				X 	-> [x y theta]
 				npts-> 1D array containing the number of points in each ellipse
 				L  	->  L for voxel i
 				U 	-> U for voxel i 
 
 		outputs: H_w -> psudoinverse
+
+	Question: Do I truncate parts of scan 2 because the matching axis on scan 1 are too far extended?
+
 	'''
 	#TODO --------------------------------------------------------------------------------------------------------
-	#augment L matrix to remove all elements in directions of extended baseline error ellipses
+	# truncate L matrix to remove all elements in directions of extended baseline error ellipses
 	# we want to do this in here so we have the indices of the axis to be ignored so we can do the same to R(?)
 	
-	# nonzero_elements = np.argwhere(L[:] != np.array([0,0]))[:,0]
-	
-	# L_i_augmented = L[nonzero_elements]
-	# print("L_i augmented \n", L_i_augmented, np.shape(L_i_augmented))
+	nonzero_elements = np.argwhere(L[:] != np.array([0,0]))[:,0]
+	L_i_truncated = L[nonzero_elements]
+	# print("L_i truncated \n",np.shape(L_i_truncated))
 
+	y_truncated = y[nonzero_elements]
+	y = y_truncated
+
+	# print("y \n", y, "\n y_truncated \n", y_truncated)
 
 	# ------------------------------------------------------------------------------------------------------------
 
-
-	# print("P:", np.shape(P))
-
-	H = get_H(P,x)
+	H = get_H(y,x) #no need to truncate y here
 	# print("H", np.shape(H))
 
 	#init 1st and 2nd terms
 	H_w1 = np.zeros([3,3])
-	H_w2 = np.zeros([3,np.shape(P)[0]])
+	H_w2 = np.zeros([3,np.shape(y)[0]])
 
-	for i in range(np.shape(P)[0]//2):
+	for i in range(np.shape(y)[0]//2):
 
 		#estimate R_noise for voxel j
-		# R_noise = cov[i] / (npts[i] - 1) 		#ignoring U and L
-		R_noise = U[i].dot(cov[i]).dot(U[i].T)  #need to account for rotation
+		# R_noise = cov[i] / (npts[i] - 1) 						#ignoring U and L
+		R_noise = U[i].dot(cov[i]).dot(U[i].T) / (npts[i] - 1) 	#need to account for rotation
 
 		#TODO: adjust R_noise to account for the effects of L and U ------------------------
 		# R_z = (L)(U.T)(R)(U)(L.T)
@@ -215,9 +218,6 @@ def fast_weighted_psudoinverse(P, x, cov, npts, L, U):
 		#DEBUG: comment out line below to ignore U, L
 		R_noise = np.linalg.multi_dot((L[2*i:2*i+2], U[i].T, R_noise, U[i], L[2*i:2*i+2].T))
 		# print("R_noise: ", R_noise, np.shape(R_noise)) # should be 2x2
-
-
-
 
 
 		#calclate voxel j's contribution to the first term of H_w -------------------------
@@ -243,7 +243,7 @@ def fast_weighted_psudoinverse(P, x, cov, npts, L, U):
 	#compute dot product of the two terms
 	H_w = np.linalg.pinv(H_w1).dot(H_w2)
 
-	# print(H_w)
+	# print(np.shape(H_w))
 	# print(np.argwhere(H_w == 0))
 
 	return H_w
@@ -366,30 +366,56 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 			# print("ct ", ct, " corr ", correspondences[0,ct])
 			L_i[2*ct:(2*ct+2)] = L[(2*correspondences[0,ct].astype(int)):(2*correspondences[0,ct].astype(int)+2)]
 
+
+		nonzero_elements = np.argwhere(L[:] != np.array([0,0]))[:,0]
+		L_i_truncated = L[nonzero_elements]
+
+		# print("L_i \n",L_i, np.shape(L_i))
+		# print("L_i truncated \n", L_i_truncated, np.shape(L_i_truncated))
 		# print("correspondences ", correspondences[0].astype(int), np.shape(correspondences))
 		# print("L ",L, np.shape(L))
-		# print("L_i \n",L_i[:10], np.shape(L_i))
 		# print("U_i",U_i, np.shape(U_i))
 
 		# using a weighted psudoinverse ------------------------------------
 		#get weighting matrix from covariance matrix 
 		# Using standard funcs with full block diagonal matrix for W
-
 		# W = get_weighting_matrix(cov2, npts2, L_i, U_i)
 		# W = np.identity(np.shape(ctr2)[0]*2) #debug: simple identity for W
 		# print("W[:4,:4] = \n", W[:4,:4])
-
 		# H = get_H(y_reshape, x)
 		# H_w = weighted_psudoinverse(H, W)
 		# ------------------------------------------------------------------
 
 		# Fast weighted psudoinverse ---------------------------------------
-		H_w = fast_weighted_psudoinverse(y_reshape, x, cov2, npts2, L_i, U_i)
+		H_w = fast_weighted_psudoinverse(y_reshape, x, cov2, npts2, L_i, U_i) #was this (works with no U, L)
+		# H_w = fast_weighted_psudoinverse(y_reshape, x, cov2, npts2, L_i_truncated, U_i)
 		# print("H_w: \n", H_w, np.shape(H_w))
 		#-------------------------------------------------------------------
 
+		#TODO: covnert dy to dz---------------------------------------------
+		# dz = z - z0
+		# z = (L)(y_hat)
+		# y_hat = (U.T)(y)
+		nonzero_elements = np.argwhere(L_i[:] != np.array([0,0]))[:,0]
+		#TODO: convert y_reshapes's to y_hats here
+		
+		y_hat = np.zeros(np.shape(y_reshape))
+		y0_hat = np.zeros(np.shape(y0_reshape))
+		for count in range(np.shape(U)[0]//2):
+			#y_hat = (U.T).dot(y_reshape) <- need to loop through U's to get rotation
+			y_hat[2*count:2*count+2] = U[count].T.dot(y_reshape[2*count:2*count+2])
+			y0_hat[2*count:2*count+2] = U[count].T.dot(y0_reshape[2*count:2*count+2])
+
+		z = y_hat[nonzero_elements]
+		z0 = y0_hat[nonzero_elements]
+		dz = z - z0
+		# print(dz)
+		#-------------------------------------------------------------------
+
 		dy = y_reshape - y0_reshape
-		dx = H_w.dot(dy)
+		# dx = H_w.dot(dy) #for no U, L
+		dx = H_w.dot(dz) #when using U, L
+		
 		x -= dx
 		# print("dx = ", dx)
 
