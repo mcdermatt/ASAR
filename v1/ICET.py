@@ -7,7 +7,25 @@ from NDT import NDT
 from ICP import ICP_least_squares
 
 #TODO:
-#	figure out where to account for U and L
+#		Visualize U
+#		Modify L_i to be true truncated matrix for each extended direction
+
+def visualize_U(U,ctr1, cov1, fig, ax):
+
+	"""view the effects of U on the major and minor axis of ellipses"""
+
+	for i in range(np.shape(U)[0]):
+
+		eig = np.linalg.eig(cov1[i])
+		eigenval = eig[0]
+
+		#draw minor axis
+		minor_radius = np.array([np.sqrt(min(eigenval))*2, 0]) #np.array([10,0])
+		minor_stop = minor_radius.dot(U[i]) + ctr1[i,:]
+		ax.plot([ctr1[i,0], minor_stop[0]], [ctr1[i,1], minor_stop[1]], 'k-' )
+
+		#draw major axis
+
 
 def get_U_and_L(cov1):
 
@@ -27,7 +45,7 @@ def get_U_and_L(cov1):
 	# L = np.zeros([np.shape(cov1)[0], 1]) #don't know what size L is going to be before we start???
 
 	# L = [[]] #was this
-	L = np.zeros([0,2]) #needs to be this to work
+	L = np.zeros([0,2]) 
 
 	#loop through every voxel in scan 1 (only do this once per keyframe)
 	for i in range(np.shape(cov1)[0]):
@@ -37,7 +55,11 @@ def get_U_and_L(cov1):
 		eigenvec = eig[1]
 
 		#get new coordinate frame
-		theta_temp = np.arcsin(eigenvec[0,1]/eigenvec[0,0])
+		theta_temp = np.arctan(eigenvec[0,1]/eigenvec[0,0])
+		# print(theta_temp)
+
+		if eigenvec[0,1] < eigenvec[0,0]:
+			theta_temp += np.pi/2
 
 		#get U matrix requred to rotate future P points so that x', y' axis align with major and minor axis of ellipse
 		U[i] = R(theta_temp) #DEBUG- there is a problem here
@@ -49,7 +71,7 @@ def get_U_and_L(cov1):
 		# print("major", major, " minor ", minor)
 
 		#TODO: take in cellsize as a parameter from subdivide_scan()
-		cellsize = 10
+		cellsize = 1000 #set this really high to ignore effects of L
 		#base case: no elongated directions
 		if major < (cellsize/4)**2 and minor < (cellsize/4)**2:
 			L_i = np.array([[1,0],[0,1]])
@@ -125,10 +147,10 @@ def get_weighting_matrix(cov, npts, L, U):
 		# print("R_z = ", R_z)
 
 		#test
-		# W[(2*i):(2*i+2),(2*i):(2*i+2)] = np.linalg.pinv(R_z)
+		W[(2*i):(2*i+2),(2*i):(2*i+2)] = np.linalg.pinv(R_z)
 
 		#works well without using U and L
-		W[(2*i):(2*i+2),(2*i):(2*i+2)] = np.linalg.pinv(R_noise)
+		# W[(2*i):(2*i+2),(2*i):(2*i+2)] = np.linalg.pinv(R_noise)
 
 
 	# print(np.floor(R_noise[:12,:12])) #make sure everything looks like the right shape
@@ -201,8 +223,8 @@ def fast_weighted_psudoinverse(y, x, cov, npts, L, U):
 	for i in range(np.shape(y)[0]//2):
 
 		#estimate R_noise for voxel j
-		# R_noise = cov[i] / (npts[i] - 1) 						#ignoring U and L
-		R_noise = U[i].dot(cov[i]).dot(U[i].T) / (npts[i] - 1) 	#need to account for rotation
+		R_noise = cov[i] / (npts[i] - 1) 						#ignoring U and L
+		# R_noise = U[i].dot(cov[i]).dot(U[i].T) / (npts[i] - 1) 	#need to account for rotation
 
 		#TODO: adjust R_noise to account for the effects of L and U ------------------------
 		# R_z = (L)(U.T)(R)(U)(L.T)
@@ -236,6 +258,8 @@ def fast_weighted_psudoinverse(y, x, cov, npts, L, U):
 
 		# print("H_wj1", H_wj1)
 		# print("H_wj2", H_wj2)
+
+		#NOTE FROM TUSEDAY MEETING: Reduce dimension L will work here -> final dimensions will stay the same
 
 	# print("H_w1", H_w1)
 	# print("H_w2", H_w2)
@@ -287,8 +311,8 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 	"""similar to v1 except uses "weighted" psudoinverse instead of LSICP"""
 
 	#get point positions in 2d space and draw 1st and 2nd scans
-	pp1 = draw_scan(Q,fig,ax, pt = 0)
-	pp2 = draw_scan(P,fig,ax, pt = 1) #pt number assigns color for plotting
+	pp1 = draw_scan(Q,fig,ax, pt = 2)
+	pp2 = draw_scan(P,fig,ax, pt = 2) #pt number assigns color for plotting, pt = 2 does not draw
 
 	#group points into ellipses
 	E1 = subdivide_scan(pp1,fig,ax, fidelity = fid, pt = 0, min_num_pts = min_num_pts)
@@ -306,6 +330,12 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 
 	#to avoid taking into account directions with extended axis
 	U, L = get_U_and_L(cov1)
+
+	#make sure U is being calculated correctly ---------------------------------------
+	# print(np.shape(U))
+	visualize_U(U, ctr1, cov1, fig, ax)
+
+	#---------------------------------------------------------------------------------
 
 	#TODO: prevent L from getting all stretched for now
 	# print("L", np.shape(L))

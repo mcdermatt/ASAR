@@ -41,13 +41,10 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True):
 
 	P_corrected = pp2.T
 
-	#	---------------------------------------------------------
-	# 1) Build the NDT of the first scan.
+	# Build the NDT of the first scan.
 	E1 = subdivide_scan(pp1,fig,ax, fidelity = fid, pt =0)
 
-	#	----------------------------------------------------------
-	# 2) Initialize the estimate for the parameters (by zero or
-	# 		by using odometry data)
+	#Initialize the estimate for the parameters 
 	x = np.zeros([3,1]) #[ t_x, t_y, theta] }we want to optimize a single euler angle rather than a matrix
 
 	#get 2d coords of centers of each ellipse from E1
@@ -61,121 +58,70 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True):
 	results = []
 
 	for cycle in range(num_cycles):
-		# print(" ------------------ cycle: ", cycle, "----------------------" )
 
-		scores = np.zeros(4)
-		grad_step_xy = 0.1 #how far we step in x and y when calculating gradients
-		grad_step_theta = 0.01
-		stepsize = 0.05 #how fast we move in gradient descent
+		#to debug correspondences
+		# if (cycle == num_cycles - 1) and (param == 3):
+		# 	dc = True
+		# else:
+		# 	dc = False 
+		dc = False
+		correspondences = get_correspondence(P_corrected,ctr.T,fig,ax, draw = dc)
+		# print("c ", correspondences[0], np.shape(correspondences))
 
-		#compute score for baseline and differential changes in each parameter
-		for param in range(4): 
+		score = 0
+		H = np.zeros([3,3])
+		g = np.zeros([3,1])
+		for index, i in enumerate(correspondences[0]): 
+			H_i = np.zeros([3,3])
+			mu = E1[int(i)][0][:,None]  	#center of corresponding point cloud from 1st scan (q_i in Biber paper)
+			sigma = E1[int(i)][1]			#associated covariance matrix
+			# print("mu", mu, np.shape(mu))
+			# print("x_i", P_corrected[:,index])
+			eig = np.linalg.eig(sigma)
+			eigenval = eig[0]
+			eigenvec = eig[1]
 
-			#get baseline
-			x_temp = np.zeros(np.shape(x))
-			x_temp[:]  = x[:]
+			q = P_corrected[:,index][:,None] - mu #q is the distance between a point and the nearest ellipse center
+			# print("q = ", q)
+			# print("sigma", sigma)
+			E = np.linalg.pinv(sigma)
+			# print("E", E)
+			score_i = -np.exp( (-(q).T.dot(E).dot(q) )/2 ) # was this
+			# print("score_i: ", score_i)
+			score += score_i
 
-			#differentially change x and y one at a time
-			if param == 0:
-				x_temp[0] += grad_step_xy
-			if param == 1:
-				x_temp[1] += grad_step_xy
-			if param == 2:
-				x_temp[2] += grad_step_theta
-			# print("x_temp ",x_temp)
+			
+			#get jacobian
+			# J = jacobian(x, P_corrected[:,index])  #was this- using func from utils that I wrote for ICP
+			J = np.array([[1, 0, (-x[0]*np.sin(x[2]) - x[1]*np.cos(x[2]))[0] ],
+						  [0, 1, (x[0]*np.cos(x[2]) - x[1]*np.sin(x[2]))[0]  ]]) #as descibed in Biber paper
+			# print(J)
 
-			# 	---------------------------------------------------------
-			# 3) For each sample of the second scan: Map the
-			# 		reconstructed 2D point into the coordinate frame of
-			# 		the first scan according to the parameters.
+			#update gradient-----
+			g += (q).T.dot(E).dot(J).T*(-score_i)
 
-			#apply transformation
-			t_temp = x_temp[:2]
-			rot_temp = R(x_temp[2]) 
-			P_temp = rot_temp.dot(pp2.T) + t_temp #P_temp is P_corrected with differential changes to each param in x
+			#update Hessian----- H(f(x)) == J(grad_f(x))
 
-			# 	---------------------------------------------------------
-			# 3) For each sample of the second scan: Map the
-			# 		reconstructed 2D point into the coordinate frame of
-			# 		the first scan according to the parameters.
+			# index h_i and h_j are used in place of i and j since I already used those variables...
+			for h_i in range(np.shape(H)[0]):
+				for h_j in range(np.shape(H)[1]):
 
-			#to debug correspondences
-			# if (cycle == num_cycles - 1) and (param == 3):
-			# 	dc = True
-			# else:
-			# 	dc = False 
-			dc = False
-			correspondences = get_correspondence(P_temp,ctr.T,fig,ax, draw = dc)
-			# print("c ", correspondences[0], np.shape(correspondences))
+					#manually calculate 2nd deriv
+					if h_i == 2 and h_j == 2:
+						d2q_dxidxj = np.array([-x[0]*np.cos(x[2]) + x[1]*np.sin(x[2]), -x[0]*np.sin(x[2]) - x[1]*np.cos(x[2])])
+					else:
+						d2q_dxidxj = np.zeros([2,1])
 
-			#	----------------------------------------------------------
-			#4) Determine the corresponding normal distributions
-			# 		for each mapped point.
-			score = 0
-			H = np.zeros([3,3])
-			g = np.zeros([3,1])
-			for index, i in enumerate(correspondences[0]): 
+					# print("\n J[:,h_i][:,None] \n", J[:,h_i][:,None])
+					# print("\n J[:,h_j][:,None] \n", J[:,h_j][:,None])
 
-				mu = E1[int(i)][0][:,None]  	#center of corresponding point cloud from 1st scan (q_i in Biber paper)
-				# print("mu", mu, np.shape(mu))
-				# print("x_i", P_corrected[:,index])
-				sigma = E1[int(i)][1]	#associated covariance matrix
+					#calculate component of ith summand of H
+					H_i[h_i,h_j] = score_i*( (-q.T.dot(E).dot(J[:,h_i][:,None]))*( -q.T.dot(E).dot(J[:,h_j][:,None]) )
+											+ (-q.T.dot(E).dot(d2q_dxidxj)) + (-J[:,h_j].T.dot(E).dot(J[:,h_i])))
 
-				eig = np.linalg.eig(sigma)
-				eigenval = eig[0]
-				eigenvec = eig[1]
 
-				#Biber paper: --------------------------------------------------------------
-				# score += -e^( (q.T)(cov)(q) / 2 )
-				# 		where: q = distance between x_i and corresponding NDT point  
-				# 			   ** assume cov is positive definate
+			H += H_i
 
-				q = P_temp[:,index][:,None] - mu
-				E = np.linalg.pinv(sigma)
-				score_i = -np.exp( (-(q).T.dot(E).dot(q) )/2 ) #----------------------------
-						#NOTE: dealing with this type of score is SO FRUSTRATING				
-				score += score_i
-
-				#only needed in base case
-				if param == 3:	
-
-					#get jacobian
-					J = jacobian(x, P_temp[:,index])
-
-					#update gradient-----
-					#for least squares
-					# err = error(x,P_temp[:,index],mu)
-					# g += J.T.dot(err)
-
-					#From Biber paper
-					# g += (q).T.dot(E).dot(J).T*score
-
-					#update Hessian-----
-					#for simple least squares
-					# H += J.T.dot(J) #was this (does not account for score)
-
-					#from Biber paper
-					H += score_i*((-q.T.dot(E).dot(J)).dot((-q.T.dot(E).dot(J)).T))
-
-					# 2nd_derivs = np.zeros([3,3,2]) #[i, j, ???]
-					# 2nd_derivs[2,2,0] = -x[0]*np.cos(x[2]) + x[1]*np.sin(x[2])
-					# 2nd_derivs[2,2,1] = -x[0]*np.sin(x[2]) - x[1]*np.cos(x[2])
-
-			scores[param] = score
-
-		# print(" score: ", score, "param ", param)# "x_temp ", x_temp)
-
-		# calculate gradient
-		g = np.zeros(3)
-		g[0] = (scores[0] - scores[3])/grad_step_xy 
-		g[1] = (scores[1] - scores[3])/grad_step_xy 
-		g[2] = (scores[2] - scores[3])/ grad_step_theta
-
-		print("g",g)
-		print("H^-1", np.linalg.pinv(H))
-		# print(np.all(np.linalg.eigvals(np.linalg.pinv(H)) > 0)) #tells us if positive definate
-		
-		# print("score: ",scores[-1])
 		results = np.append(results, score)
 
 		#	-----------------------------------------------------------------
@@ -187,24 +133,29 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True):
 		#		delP = how far we need to change parameters
 		#		g = transposed gradient of f
 
-		#Biber paper
+		#check if H is positive definite
+		posdef = np.all(np.linalg.eigvals(np.linalg.pinv(H)) > 0)
+		lam = 10
+		while posdef == False:
+			H = H + lam*np.identity(3)
+			posdef = np.all(np.linalg.eigvals(np.linalg.pinv(H)) > 0)
+			# print(posdef)
+			lam = lam*2
+
+		# print("g",g)
+		# print("H^-1", np.linalg.pinv(H))
+
 		dx = np.linalg.pinv(H).dot(-g)
-		#least squares
-		# dx = np.linalg.lstsq(H, -g, rcond=None)[0]
-		print("dx ",dx)
-
-		x += dx[:,None]
-		print("x = ",x)
-
-
-		#DEBUG
+		# print("dx ",dx)
+		x += dx
+		# print("x = ",x)
 
 		#draw all points progressing through transformation
 		rot = R(x[2])
 		t = x[0:2]
 		P_corrected = rot.dot(pp2.T) + t
-		P_corrected = P_corrected.T
-		ax.plot(P_corrected.T[0,:], P_corrected.T[1,:], color = (1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),0.025), ls = '', marker = '.', markersize = 20)
+		# P_corrected = P_corrected.T
+		ax.plot(P_corrected[0,:], P_corrected[1,:], color = (1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),0.025), ls = '', marker = '.', markersize = 20)
 
 
 	#draw transformed point set
@@ -213,6 +164,10 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True):
 
 	P_corrected = rot_final.dot(pp2.T) + t_final
 	ax.plot(P_corrected[0,:], P_corrected[1,:], color = (1,0,0,0.0625), ls = '', marker = '.', markersize = 15)
+
+	#draw correspondences of final state
+	# get_correspondence(P_corrected,ctr.T,fig,ax, draw = True)
+
 		
 	return x[2], t_final, results
 

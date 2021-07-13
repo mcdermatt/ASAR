@@ -9,14 +9,16 @@ from game import game
 fig = plt.figure(0)
 ax = fig.add_subplot()
 ax.set_xlim(0,800)
-ax.set_ylim(800,0)
+ax.set_ylim(2000,0)
 # plt.ion()
 plt.axis('off')
 fig.show()
 fig.patch.set_facecolor('xkcd:greyish blue')
 fig.canvas.draw()
 
-img = cv2.imread('assets/map1.png')
+# img = cv2.imread('assets/map1.png')
+img = cv2.imread('assets/map4.png')
+
 
 scale_percent = 100 # percent of original size
 width = int(img.shape[1] * scale_percent / 100)
@@ -31,7 +33,7 @@ g = game(fig,ax,img,numEnemies=0)
 
 #------------------------------------------------------------------
 
-runLen = 100
+runLen = 10
 fovfid = 1000
 
 data = np.zeros([runLen,2*fovfid+3])
@@ -41,7 +43,8 @@ for i in range(runLen):
 	print(i)
 
 	g.p.place_player()
-	g.p.heading = np.random.rand()*2*np.pi - np.pi
+	# g.p.heading = np.random.rand()*2*np.pi - np.pi #random initial heading
+	g.p.heading = np.pi
 	g.p.draw()
 
 	before = g.p.lidar
@@ -78,5 +81,5 @@ for i in range(runLen):
 	data[i,-1] = rotation
 
 # print(data)
-file = "data/high_res_noisy_dxdy_100.npy"
+file = "data/new_map_test.npy"
 np.save(file, data)
