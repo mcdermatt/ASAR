@@ -7,8 +7,13 @@ from NDT import NDT
 from ICP import ICP_least_squares
 
 #TODO:
-#		Visualize U
 #		Modify L_i to be true truncated matrix for each extended direction
+#		U also needs to change size with L
+
+#Notes:
+#	Condition number: ratio of largest to smallest singular values
+#		singular values are eigenvalues of (A.T).dot(A)
+#		the bigger the condition number the more singular the matrix
 
 def visualize_U(U,ctr1, cov1, fig, ax):
 
@@ -42,10 +47,9 @@ def get_U_and_L(cov1):
 			"""
 
 	U = np.zeros([np.shape(cov1)[0],2,2])
-	# L = np.zeros([np.shape(cov1)[0], 1]) #don't know what size L is going to be before we start???
 
-	# L = [[]] #was this
-	L = np.zeros([0,2]) 
+	# don't know what size L is going to be before we start 
+	L = [] #was this
 
 	#loop through every voxel in scan 1 (only do this once per keyframe)
 	for i in range(np.shape(cov1)[0]):
@@ -71,21 +75,28 @@ def get_U_and_L(cov1):
 		# print("major", major, " minor ", minor)
 
 		#TODO: take in cellsize as a parameter from subdivide_scan()
-		cellsize = 1000 #set this really high to ignore effects of L
+		cellsize = 10 #set this really high to ignore effects of L
 		#base case: no elongated directions
 		if major < (cellsize/4)**2 and minor < (cellsize/4)**2:
 			L_i = np.array([[1,0],[0,1]])
 		#elongated major
 		if major > (cellsize/4)**2 and minor < (cellsize/4)**2:
-			L_i = np.array([[0,0],[0,1]])
+			# L_i = np.array([[0,0],[0,1]])
+			L_i = np.array([[0,1]])
 		#elongated minor
 		if minor > (cellsize/4)**2 and major < (cellsize/4)**2:
-			L_i = np.array([[1,0],[0,0]])
+			# L_i = np.array([[1,0],[0,0]])
+			L_i = np.array([[1,0]])
 		#elongated both
 		if major > (cellsize/4)**2 and minor > (cellsize/4)**2:
-			L_i = np.array([[0,0],[0,0]])
-	
-		L = np.append(L, L_i, axis = 0)
+			# L_i = np.array([[0,0],[0,0]])
+			# L_i = None #Nonetype raises error in inverse fast_weighted_psudoinverse
+			
+			#temporary fix
+			L_i = np.identity(2)
+
+		# L = np.append(L, L_i, axis = 0)
+		L.append(L_i)
 
 		# print("L_i for this step \n", L_i)
 
@@ -198,29 +209,29 @@ def fast_weighted_psudoinverse(y, x, cov, npts, L, U):
 	Question: Do I truncate parts of scan 2 because the matching axis on scan 1 are too far extended?
 
 	'''
-	#TODO --------------------------------------------------------------------------------------------------------
+	#OLD --------------------------------------------------------------------------------------------------------
 	# truncate L matrix to remove all elements in directions of extended baseline error ellipses
 	# we want to do this in here so we have the indices of the axis to be ignored so we can do the same to R(?)
 	
-	nonzero_elements = np.argwhere(L[:] != np.array([0,0]))[:,0]
-	L_i_truncated = L[nonzero_elements]
-	# print("L_i truncated \n",np.shape(L_i_truncated))
+	# nonzero_elements = np.argwhere(L[:] != np.array([0,0]))[:,0]
+	# L_i_truncated = L[nonzero_elements]
+	# # print("L_i truncated \n",np.shape(L_i_truncated))
 
-	y_truncated = y[nonzero_elements]
-	y = y_truncated
+	# y_truncated = y[nonzero_elements]
+	# y = y_truncated
 
 	# print("y \n", y, "\n y_truncated \n", y_truncated)
 
 	# ------------------------------------------------------------------------------------------------------------
 
-	H = get_H(y,x) #no need to truncate y here
+	H = get_H(y,x)
 	# print("H", np.shape(H))
 
 	#init 1st and 2nd terms
 	H_w1 = np.zeros([3,3])
 	H_w2 = np.zeros([3,np.shape(y)[0]])
 
-	for i in range(np.shape(y)[0]//2):
+	for i in range(np.shape(y)[0]//2): #DEBUG should this be np.shape(L)??
 
 		#estimate R_noise for voxel j
 		R_noise = cov[i] / (npts[i] - 1) 						#ignoring U and L
@@ -238,21 +249,41 @@ def fast_weighted_psudoinverse(y, x, cov, npts, L, U):
 		# R_noise = L_test.dot(U[i].T).dot(R_noise).dot(U[i]).dot(L_test.T) 
 
 		#DEBUG: comment out line below to ignore U, L
-		R_noise = np.linalg.multi_dot((L[2*i:2*i+2], U[i].T, R_noise, U[i], L[2*i:2*i+2].T))
-		# print("R_noise: ", R_noise, np.shape(R_noise)) # should be 2x2
+		# print("L[i]", L[i])
+		# print("L[i].dot(U[i].T)", L[i].dot(U[i].T))
+		
+		#temporary fix
+		if L[i] == []:
+			R_noise = np.identity(2)
+			print("found teh bug")
+		else:
+			R_noise = np.linalg.multi_dot((L[i], U[i].T, R_noise, U[i], L[i].T))
+		# print("R_noise: ", np.shape(R_noise)) # should be 2x2
 
 
 		#calclate voxel j's contribution to the first term of H_w -------------------------
 		# H_w1  = [ H_wj1[0] + H_wj1[1] + H_wj1[2] + ... ] <- should be a 3x3 matrix
-		# H_wj1 = (H.T)(R^-1)(H)
-		H_wj1 = H[2*i:2*i+2].T.dot(np.linalg.pinv(R_noise)).dot(H[2*i:2*i+2]) 
+		# H_wj1 = (H.T)(W)(H) = (H.T)(R^-1)(H)
+
+		#was this
+		# H_wj1 = H[2*i:2*i+2].T.dot(np.linalg.pinv(R_noise)).dot(H[2*i:2*i+2]) 
+		#trying this
+		H_z = L[i].dot(U[i].T).dot(H[2*i:2*i+2])
+		# print("------ \n L[i] \n", L[i], " \n H[2*i:2*i+2] \n", H[2*i:2*i+2], "\n H_z \n", H_z)
+		H_wj1 = H_z.T.dot(np.linalg.pinv(R_noise)).dot(H_z)
+
 		#add contributions of j to first term
 		H_w1 += H_wj1
 
 		#calculate voxel j's contributuion to the 2nd term of H_w -------------------------
 		# H_w2 = [ H_wj2[0]  H_wj2[1]  H_wj2[2]  ... ]  <- should be a 3xN matrix, N = #pts
 		# H_wj2 = (H.T)(R^-1)
-		H_wj2 = H[2*i:2*i+2].T.dot(np.linalg.pinv(R_noise))
+
+		#was this
+		# H_wj2 = H[2*i:2*i+2].T.dot(np.linalg.pinv(R_noise)) 
+		#trying this
+		H_wj2 = H_z.T.dot(np.linalg.pinv(R_noise))
+
 		#assign H_wj2 to positin in in H_w2
 		H_w2[:,2*i:2*i+2] = H_wj2
 
@@ -263,6 +294,9 @@ def fast_weighted_psudoinverse(y, x, cov, npts, L, U):
 
 	# print("H_w1", H_w1)
 	# print("H_w2", H_w2)
+
+	#CHECK CONDITION TO MAKE SURE FIRST TERM IS INVERTABLE
+
 
 	#compute dot product of the two terms
 	H_w = np.linalg.pinv(H_w1).dot(H_w2)
@@ -338,7 +372,7 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 	#---------------------------------------------------------------------------------
 
 	#TODO: prevent L from getting all stretched for now
-	# print("L", np.shape(L))
+	print("L", L, np.shape(L))
 
 	#inital estimate for transformation
 	#TODO: improve initial estimated transform (start with zeros here, could potentially use wheel odometry) 
@@ -390,15 +424,24 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 		#	NOTE: here the subscript _i refers to the fact that this is the COMPLETE vector at cycle i
 		U_i = U[correspondences[0].astype(int)] #this is straightforward for U
 		
+		#was this when L was always a 2x2 ----------------------------------------------------------
 		#not as straightforward for L
-		L_i = np.zeros([np.shape(correspondences)[1]*2,2])
-		for ct in range(np.shape(correspondences)[1]):
-			# print("ct ", ct, " corr ", correspondences[0,ct])
-			L_i[2*ct:(2*ct+2)] = L[(2*correspondences[0,ct].astype(int)):(2*correspondences[0,ct].astype(int)+2)]
+		# L_i = np.zeros([np.shape(correspondences)[1]*2,2])
+		# for ct in range(np.shape(correspondences)[1]):
+		# 	# print("ct ", ct, " corr ", correspondences[0,ct])
+		# 	L_i[2*ct:(2*ct+2)] = L[(2*correspondences[0,ct].astype(int)):(2*correspondences[0,ct].astype(int)+2)]
+		#-------------------------------------------------------------------------------------------
 
+		#NEW - when L is truncated for cases with extended axis ------------------------------------
+		# print(correspondences[0].astype(int))
+		#rearrange L_i to be in order of correspondances
+		L_i = []
+		for i in correspondences[0].astype(int):
+			L_i.append(L[i])
+		#-------------------------------------------------------------------------------------------
 
-		nonzero_elements = np.argwhere(L[:] != np.array([0,0]))[:,0]
-		L_i_truncated = L[nonzero_elements]
+		# nonzero_elements = np.argwhere(L[:] != np.array([0,0]))[:,0]
+		# L_i_truncated = L[nonzero_elements]
 
 		# print("L_i \n",L_i, np.shape(L_i))
 		# print("L_i truncated \n", L_i_truncated, np.shape(L_i_truncated))
@@ -426,7 +469,7 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 		# dz = z - z0
 		# z = (L)(y_hat)
 		# y_hat = (U.T)(y)
-		nonzero_elements = np.argwhere(L_i[:] != np.array([0,0]))[:,0]
+		# nonzero_elements = np.argwhere(L_i[:] != np.array([0,0]))[:,0]
 		#TODO: convert y_reshapes's to y_hats here
 		
 		y_hat = np.zeros(np.shape(y_reshape))
@@ -436,8 +479,8 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 			y_hat[2*count:2*count+2] = U[count].T.dot(y_reshape[2*count:2*count+2])
 			y0_hat[2*count:2*count+2] = U[count].T.dot(y0_reshape[2*count:2*count+2])
 
-		z = y_hat[nonzero_elements]
-		z0 = y0_hat[nonzero_elements]
+		z = y_hat
+		z0 = y0_hat
 		dz = z - z0
 		# print(dz)
 		#-------------------------------------------------------------------
@@ -464,7 +507,7 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 		error[cycle] = np.sum(abs(y_reshape- y0_reshape))
 
 		#draw progression of centers of ellipses
-		# ax.plot(y.T[0,:], y.T[1,:], color = (1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),1.), ls = '', marker = '.', markersize = 10)
+		ax.plot(y.T[0,:], y.T[1,:], color = (1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),0.25), ls = '', marker = '.', markersize = 10)
 		
 		# #draw all points progressing through transformation
 		# ax.plot(P_corrected.T[0,:], P_corrected.T[1,:], color = (1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),0.025), ls = '', marker = '.', markersize = 20)
