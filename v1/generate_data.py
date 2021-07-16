@@ -9,7 +9,7 @@ from game import game
 fig = plt.figure(0)
 ax = fig.add_subplot()
 ax.set_xlim(0,800)
-ax.set_ylim(2000,0)
+ax.set_ylim(800,0)
 # plt.ion()
 plt.axis('off')
 fig.show()
@@ -17,7 +17,7 @@ fig.patch.set_facecolor('xkcd:greyish blue')
 fig.canvas.draw()
 
 # img = cv2.imread('assets/map1.png')
-img = cv2.imread('assets/map4.png')
+img = cv2.imread('assets/map6.png')
 
 
 scale_percent = 100 # percent of original size
@@ -43,6 +43,7 @@ for i in range(runLen):
 	print(i)
 
 	g.p.place_player()
+	g.p.pos[0] = 400 #center player in x coord
 	# g.p.heading = np.random.rand()*2*np.pi - np.pi #random initial heading
 	g.p.heading = np.pi
 	g.p.draw()
@@ -58,7 +59,9 @@ for i in range(runLen):
 
 	g.p.step(stepSize, dir_rel2heading)
 	rotation = np.random.randn()*0.1
-	g.p.heading = g.p.heading + rotation
+	# g.p.heading = g.p.heading + rotation
+	g.p.heading = np.pi
+
 	g.p.draw()
 
 	after = g.p.lidar
@@ -81,5 +84,5 @@ for i in range(runLen):
 	data[i,-1] = rotation
 
 # print(data)
-file = "data/new_map_test.npy"
+file = "data/along_track.npy"
 np.save(file, data)

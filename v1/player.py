@@ -93,8 +93,8 @@ class Player():
 				
 				if self.noise == True:
 					noiseScale = 1 #5
-					X = X + int(np.random.randn()*noiseScale)
-					Y = Y + int(np.random.randn()*noiseScale)
+					X = X + np.random.randn()*noiseScale
+					Y = Y + np.random.randn()*noiseScale
 
 				xy = np.concatenate((xy, np.array([[X,Y]])))
 

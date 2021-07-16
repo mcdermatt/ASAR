@@ -139,7 +139,7 @@ def subdivide_scan(pp, fig, ax, fidelity = 5, overlap = False, min_num_pts = 5, 
 
 	return E
 
-def draw_scan(scan, fig, ax, FOV = 90, pt = 0):
+def draw_scan(scan, fig, ax, FOV = 60, pt = 0):
 
 	#init array to store xy pos of points from lidar relative to frame of robot
 	point_pos = np.zeros([np.shape(scan)[0],2])

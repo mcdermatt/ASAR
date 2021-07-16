@@ -9,6 +9,7 @@ from ICP import ICP_least_squares
 #TODO:
 #		Modify L_i to be true truncated matrix for each extended direction
 #		U also needs to change size with L
+#		Dynamically update threshold for L
 
 #Notes:
 #	Condition number: ratio of largest to smallest singular values
@@ -32,7 +33,7 @@ def visualize_U(U,ctr1, cov1, fig, ax):
 		#draw major axis
 
 
-def get_U_and_L(cov1):
+def get_U_and_L(cov1, cellsize = 1000):
 
 	"""generates matrices used to remove axis in which ellipses for each voxel are extended 
 			overly extended axis is defined as:
@@ -45,6 +46,8 @@ def get_U_and_L(cov1):
 				 L -> reduced dimension array used to ignore extended axis directions
 	
 			"""
+
+	print("Using cellsize = ", cellsize)
 
 	U = np.zeros([np.shape(cov1)[0],2,2])
 
@@ -69,31 +72,42 @@ def get_U_and_L(cov1):
 		U[i] = R(theta_temp) #DEBUG- there is a problem here
 
 		# get L matrix 
-		major = np.sqrt(eigenval[1])
-		minor = np.sqrt(eigenval[0])
+		axis1 = np.sqrt(eigenval[0])
+		axis2 = np.sqrt(eigenval[1])
+
+		# print(axis1, axis2)
+
+		#get projections of major and minor axis in x and y directions
+		axis1x = np.cos(theta_temp)*axis1
+		axis1y = np.sin(theta_temp)*axis1
+		axis2x = np.cos(theta_temp)*axis2
+		axis2y = np.sin(theta_temp)*axis2
 
 		# print("major", major, " minor ", minor)
 
 		#TODO: take in cellsize as a parameter from subdivide_scan()
-		cellsize = 10 #set this really high to ignore effects of L
 		#base case: no elongated directions
-		if major < (cellsize/4)**2 and minor < (cellsize/4)**2:
+		if axis1x<(cellsize[0]/4)**2 and axis1y<(cellsize[1]/4)**2 and axis2x<(cellsize[0]/4)**2 and axis2y<(cellsize[1]/4)**2:
 			L_i = np.array([[1,0],[0,1]])
-		#elongated major
-		if major > (cellsize/4)**2 and minor < (cellsize/4)**2:
+		#elongated axis1
+		if (axis1x>(cellsize[0]/4)**2 or axis1y>(cellsize[1]/4)**2) and (axis2x<(cellsize[0]/4)**2 and axis2y<(cellsize[1]/4)**2):
 			# L_i = np.array([[0,0],[0,1]])
 			L_i = np.array([[0,1]])
-		#elongated minor
-		if minor > (cellsize/4)**2 and major < (cellsize/4)**2:
+		#elongated axis2
+		if (axis1x<(cellsize[0]/4)**2 and axis1y<(cellsize[1]/4)**2) and (axis2x>(cellsize[0]/4)**2 or axis2y>(cellsize[1]/4)**2):
 			# L_i = np.array([[1,0],[0,0]])
 			L_i = np.array([[1,0]])
-		#elongated both
-		if major > (cellsize/4)**2 and minor > (cellsize/4)**2:
+		#elongated both - will this ever happen?
+		if (axis1x>(cellsize[0]/4)**2 or axis1y>(cellsize[1]/4)**2) and (axis2x>(cellsize[0]/4)**2 or axis2y>(cellsize[1]/4)**2):
 			# L_i = np.array([[0,0],[0,0]])
 			# L_i = None #Nonetype raises error in inverse fast_weighted_psudoinverse
 			
 			#temporary fix
-			L_i = np.identity(2)
+			# L_i = np.identity(2)
+
+			L_i = np.zeros([2,2])
+
+			print("problem here")
 
 		# L = np.append(L, L_i, axis = 0)
 		L.append(L_i)
@@ -252,12 +266,7 @@ def fast_weighted_psudoinverse(y, x, cov, npts, L, U):
 		# print("L[i]", L[i])
 		# print("L[i].dot(U[i].T)", L[i].dot(U[i].T))
 		
-		#temporary fix
-		if L[i] == []:
-			R_noise = np.identity(2)
-			print("found teh bug")
-		else:
-			R_noise = np.linalg.multi_dot((L[i], U[i].T, R_noise, U[i], L[i].T))
+		R_noise = np.linalg.multi_dot((L[i], U[i].T, R_noise, U[i], L[i].T))
 		# print("R_noise: ", np.shape(R_noise)) # should be 2x2
 
 
@@ -289,8 +298,6 @@ def fast_weighted_psudoinverse(y, x, cov, npts, L, U):
 
 		# print("H_wj1", H_wj1)
 		# print("H_wj2", H_wj2)
-
-		#NOTE FROM TUSEDAY MEETING: Reduce dimension L will work here -> final dimensions will stay the same
 
 	# print("H_w1", H_w1)
 	# print("H_w2", H_w2)
@@ -348,6 +355,18 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 	pp1 = draw_scan(Q,fig,ax, pt = 2)
 	pp2 = draw_scan(P,fig,ax, pt = 2) #pt number assigns color for plotting, pt = 2 does not draw
 
+	#get cellsize param for calculating L
+	minx = np.min(pp1[:,0])
+	maxx = np.max(pp1[:,0])
+	miny = np.min(pp1[:,1])
+	maxy = np.max(pp1[:,1])
+
+	cy = (maxy - miny) / (fid) #cellsize x
+	cx = (maxx - minx) / (fid) #cellsize y
+	cellsize = np.array([cx, cy])
+	# cellsize = (cx+cy)/2
+	# cellsize = 10
+
 	#group points into ellipses
 	E1 = subdivide_scan(pp1,fig,ax, fidelity = fid, pt = 0, min_num_pts = min_num_pts)
 	_ = subdivide_scan(pp2,fig,ax, fidelity = fid, pt = 1, min_num_pts = min_num_pts) #added back for viz
@@ -363,7 +382,7 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 		npts1[idx1] = c1[2]
 
 	#to avoid taking into account directions with extended axis
-	U, L = get_U_and_L(cov1)
+	U, L = get_U_and_L(cov1, cellsize)
 
 	#make sure U is being calculated correctly ---------------------------------------
 	# print(np.shape(U))
@@ -371,8 +390,11 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 
 	#---------------------------------------------------------------------------------
 
-	#TODO: prevent L from getting all stretched for now
-	print("L", L, np.shape(L))
+	print("L \n", L, np.shape(L))
+	# print("U \n", U)
+	
+	# removed = [value for value in L if (value == np.array([0,1])).all()]
+	# print("removed: ", removed)
 
 	#inital estimate for transformation
 	#TODO: improve initial estimated transform (start with zeros here, could potentially use wheel odometry) 
