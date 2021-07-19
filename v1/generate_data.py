@@ -8,8 +8,7 @@ from game import game
 
 fig = plt.figure(0)
 ax = fig.add_subplot()
-ax.set_xlim(0,800)
-ax.set_ylim(800,0)
+
 # plt.ion()
 plt.axis('off')
 fig.show()
@@ -17,8 +16,9 @@ fig.patch.set_facecolor('xkcd:greyish blue')
 fig.canvas.draw()
 
 # img = cv2.imread('assets/map1.png')
-img = cv2.imread('assets/map6.png')
-
+img = cv2.imread('assets/map5.png')
+ax.set_xlim(0,np.shape(img)[1])
+ax.set_ylim(np.shape(img)[0],0)
 
 scale_percent = 100 # percent of original size
 width = int(img.shape[1] * scale_percent / 100)
@@ -51,10 +51,13 @@ for i in range(runLen):
 	before = g.p.lidar
 
 	g.fig.canvas.draw()
+	print(g.p.lidar)
 	plt.pause(0.01)
 	g.p.remove()
 
-	stepSize = np.random.rand()*10
+	# stepSize = np.random.rand()*10 
+	stepSize = 30*np.random.rand()
+
 	dir_rel2heading = np.random.rand()*2*np.pi - np.pi
 
 	g.p.step(stepSize, dir_rel2heading)
@@ -84,5 +87,5 @@ for i in range(runLen):
 	data[i,-1] = rotation
 
 # print(data)
-file = "data/along_track.npy"
+file = "data/cross_track.npy"
 np.save(file, data)

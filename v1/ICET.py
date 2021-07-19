@@ -12,9 +12,114 @@ from ICP import ICP_least_squares
 #		Dynamically update threshold for L
 
 #Notes:
-#	Condition number: ratio of largest to smallest singular values
-#		singular values are eigenvalues of (A.T).dot(A)
-#		the bigger the condition number the more singular the matrix
+
+
+def get_condition(H_w1):
+
+	"""Condition number: ratio of largest to smallest singular values
+		singular values are eigenvalues of (A.T).dot(A)
+		the bigger the condition number the more singular the matrix 
+	
+		inputs: H_w1 -> term to be inverted
+
+		outputs: L_w = used to remove axis with singular directions
+
+
+	1- Starting with (H’*W*H) prior to inverting it 
+	
+	2- Doing the eigen transform to find U (eigenvectors) and the associated eigenvalues Λ
+	
+	3- Start with the set of all eigenvalues and determine the condition number as the ratio of
+	the largest-to-smallest eigenvalue. If the condition number is above a cutoff (say 10^6)
+	then remove the lowest eigenvalue from the set. Repeat until the set of remaining
+	eigenvalues has a condition number below the cutoff. (Unless the equations are trivial,
+	the final set will have at least one eigenvalue left, in which case the condition number is
+	one.)
+	
+	4- Remove the directions of the equation associated with the removed eigenvalues in the
+	previous step; solve only the equations for which the condition number is greater than 1.
+
+		"""
+
+	cutoff = 10e6
+
+	#think of H_w1 as an ellipse- we are looking for SHORT principal axis
+	# print("H _w1: \n", H_w1)
+
+	eig = np.linalg.eig(H_w1)
+	eigenval = eig[0]
+	eigenvec = np.round(eig[1])
+	# print("eigenval: \n ", eigenval) #there are 3 values here
+	# print("eigenvectors: \n", eigenvec)
+
+	small, middle, big = sorted(eigenval)[0:3]
+	# print(small,middle,big)
+
+	condition = abs(big / small)
+	# print(condition < cutoff)
+
+	#knock off lowest axis until condition is less than cutoff
+	if condition > cutoff:
+		condition = big/ middle
+		# print(condition < cutoff)
+
+		#get axis for eigenvector cooresponding to small eigeval
+		remainingaxis1 = np.argwhere(eigenval != small)
+		# print("r1", remainingaxis1)
+		L_w = eigenvec[remainingaxis1]
+
+		if condition > cutoff:
+			condition = big
+			# print(condition < cutoff)
+
+			remainingaxis2 = np.argwhere(eigenval != middle)
+			# print("r2", remainingaxis2)
+			L_w = eigenvec[np.intersect1d(remainingaxis1, remainingaxis2)]
+
+			if condition > cutoff:
+				# H_w1 = np.identity(1) <- does not work?
+				# condition = 1
+				print("TODO: fix this case")
+
+		L_w = np.squeeze(L_w)
+		H_w1 = L_w.dot(H_w1)
+		
+	else:
+		L_w = eigenvec
+	L_w = abs(L_w)
+
+	#tried this, didn't work -------------------------
+	# if condition > cutoff:
+	# 	condition = big/ middle
+	# 	print(condition < cutoff)
+
+	# 	#get axis for eigenvector cooresponding to small eigeval
+	# 	shortaxis = np.argwhere(eigenval == small)
+
+	# 	if condition > cutoff:
+	# 		condition = big
+	# 		print(condition < cutoff)
+
+	# 		shortaxis = np.append(np.argwhere(eigenval == middle))
+	# 		print("r2", remainingaxis2)
+	# 		L_w = eigenvec[np.intersect1d(remainingaxis1, remainingaxis2)]
+
+	# 		if condition > cutoff:
+	# 			# H_w1 = np.identity(1) <- does not work?
+	# 			# condition = 1
+	# 			print("TODO: fix this case")
+
+	# 	L_w = np.delete(np.identity(3), shortaxis, axis = 0)
+	# 	H_w1 = L_w.dot(H_w1)		
+	# else:
+	# 	L_w = eigenvec
+	#----------------------------------------------------
+
+
+
+	# print("L_w: \n", L_w)
+
+	return L_w
 
 def visualize_U(U,ctr1, cov1, fig, ax):
 
@@ -33,7 +138,7 @@ def visualize_U(U,ctr1, cov1, fig, ax):
 		#draw major axis
 
 
-def get_U_and_L(cov1, cellsize = 1000):
+def get_U_and_L(cov1, cellsize = np.array([100,100])):
 
 	"""generates matrices used to remove axis in which ellipses for each voxel are extended 
 			overly extended axis is defined as:
@@ -47,6 +152,9 @@ def get_U_and_L(cov1, cellsize = 1000):
 	
 			"""
 
+	cellsize = cellsize/2 #for debug -> seems to help??
+	
+	# cellsize = np.array([1000,1000])
 	print("Using cellsize = ", cellsize)
 
 	U = np.zeros([np.shape(cov1)[0],2,2])
@@ -105,7 +213,7 @@ def get_U_and_L(cov1, cellsize = 1000):
 			#temporary fix
 			# L_i = np.identity(2)
 
-			L_i = np.zeros([2,2])
+			L_i = np.zeros([1,2])
 
 			print("problem here")
 
@@ -281,6 +389,9 @@ def fast_weighted_psudoinverse(y, x, cov, npts, L, U):
 		# print("------ \n L[i] \n", L[i], " \n H[2*i:2*i+2] \n", H[2*i:2*i+2], "\n H_z \n", H_z)
 		H_wj1 = H_z.T.dot(np.linalg.pinv(R_noise)).dot(H_z)
 
+		# cond_j = get_condition(H_wj1)
+		# print(cond_j < 10e8)
+
 		#add contributions of j to first term
 		H_w1 += H_wj1
 
@@ -293,7 +404,7 @@ def fast_weighted_psudoinverse(y, x, cov, npts, L, U):
 		#trying this
 		H_wj2 = H_z.T.dot(np.linalg.pinv(R_noise))
 
-		#assign H_wj2 to positin in in H_w2
+		#assign H_wj2 to position in in H_w2
 		H_w2[:,2*i:2*i+2] = H_wj2
 
 		# print("H_wj1", H_wj1)
@@ -302,11 +413,19 @@ def fast_weighted_psudoinverse(y, x, cov, npts, L, U):
 	# print("H_w1", H_w1)
 	# print("H_w2", H_w2)
 
-	#CHECK CONDITION TO MAKE SURE FIRST TERM IS INVERTABLE
+	#CHECK CONDITION TO MAKE SURE FIRST TERM IS INVERTABLE - if not this will correct it
+	L_w = get_condition(H_w1)
+	#NOTE:
+	#	we now want to remove all short terms of H'WH so that this first term is invertable
 
+	#compute dot product of the two terms -------------------------------------
+	# does not take into account L_w which removes axis of first term to make it invertable:
+	# H_w = np.linalg.pinv(H_w1).dot(H_w2) 
 
-	#compute dot product of the two terms
-	H_w = np.linalg.pinv(H_w1).dot(H_w2)
+	# with L_w:
+	H_w = np.linalg.pinv(L_w.dot(H_w1)).dot(L_w.dot(H_w2))
+
+	#--------------------------------------------------------------------------
 
 	# print(np.shape(H_w))
 	# print(np.argwhere(H_w == 0))
@@ -441,19 +560,10 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 		#		easier to do this here rather than constantly change size of y
 		remove_these = np.argwhere(y_reshape[ y_reshape != 0 ])
 
-
 		#reorder U and L according to correspondences
 		#	NOTE: here the subscript _i refers to the fact that this is the COMPLETE vector at cycle i
 		U_i = U[correspondences[0].astype(int)] #this is straightforward for U
 		
-		#was this when L was always a 2x2 ----------------------------------------------------------
-		#not as straightforward for L
-		# L_i = np.zeros([np.shape(correspondences)[1]*2,2])
-		# for ct in range(np.shape(correspondences)[1]):
-		# 	# print("ct ", ct, " corr ", correspondences[0,ct])
-		# 	L_i[2*ct:(2*ct+2)] = L[(2*correspondences[0,ct].astype(int)):(2*correspondences[0,ct].astype(int)+2)]
-		#-------------------------------------------------------------------------------------------
-
 		#NEW - when L is truncated for cases with extended axis ------------------------------------
 		# print(correspondences[0].astype(int))
 		#rearrange L_i to be in order of correspondances
@@ -462,16 +572,12 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 			L_i.append(L[i])
 		#-------------------------------------------------------------------------------------------
 
-		# nonzero_elements = np.argwhere(L[:] != np.array([0,0]))[:,0]
-		# L_i_truncated = L[nonzero_elements]
-
 		# print("L_i \n",L_i, np.shape(L_i))
-		# print("L_i truncated \n", L_i_truncated, np.shape(L_i_truncated))
 		# print("correspondences ", correspondences[0].astype(int), np.shape(correspondences))
 		# print("L ",L, np.shape(L))
 		# print("U_i",U_i, np.shape(U_i))
 
-		# using a weighted psudoinverse ------------------------------------
+		# "standard" weighted psudoinverse ------------------------------------
 		#get weighting matrix from covariance matrix 
 		# Using standard funcs with full block diagonal matrix for W
 		# W = get_weighting_matrix(cov2, npts2, L_i, U_i)
@@ -482,35 +588,19 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 		# ------------------------------------------------------------------
 
 		# Fast weighted psudoinverse ---------------------------------------
-		H_w = fast_weighted_psudoinverse(y_reshape, x, cov2, npts2, L_i, U_i) #was this (works with no U, L)
-		# H_w = fast_weighted_psudoinverse(y_reshape, x, cov2, npts2, L_i_truncated, U_i)
+		H_w = fast_weighted_psudoinverse(y_reshape, x, cov2, npts2, L_i, U_i)
 		# print("H_w: \n", H_w, np.shape(H_w))
 		#-------------------------------------------------------------------
-
-		#TODO: covnert dy to dz---------------------------------------------
-		# dz = z - z0
-		# z = (L)(y_hat)
-		# y_hat = (U.T)(y)
-		# nonzero_elements = np.argwhere(L_i[:] != np.array([0,0]))[:,0]
-		#TODO: convert y_reshapes's to y_hats here
 		
-		y_hat = np.zeros(np.shape(y_reshape))
-		y0_hat = np.zeros(np.shape(y0_reshape))
+		z = np.zeros(np.shape(y_reshape))
+		z0 = np.zeros(np.shape(y0_reshape))
 		for count in range(np.shape(U)[0]//2):
 			#y_hat = (U.T).dot(y_reshape) <- need to loop through U's to get rotation
-			y_hat[2*count:2*count+2] = U[count].T.dot(y_reshape[2*count:2*count+2])
-			y0_hat[2*count:2*count+2] = U[count].T.dot(y0_reshape[2*count:2*count+2])
+			z[2*count:2*count+2] = U[count].T.dot(y_reshape[2*count:2*count+2])
+			z0[2*count:2*count+2] = U[count].T.dot(y0_reshape[2*count:2*count+2])
 
-		z = y_hat
-		z0 = y0_hat
 		dz = z - z0
-		# print(dz)
-		#-------------------------------------------------------------------
-
-		dy = y_reshape - y0_reshape
-		# dx = H_w.dot(dy) #for no U, L
-		dx = H_w.dot(dz) #when using U, L
-		
+		dx = H_w.dot(dz) 		
 		x -= dx
 		# print("dx = ", dx)
 

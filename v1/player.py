@@ -48,7 +48,7 @@ class Player():
 			x = int(np.random.rand()*self.width)
 			y = int(np.random.rand()*self.height)
 
-			if self.img[y,x][0] == 255 and self.img[x,y][1] == 255 and self.img[x,y][2] == 255:
+			if self.img[y,x][0] == 255 and self.img[y,x][1] == 255 and self.img[y,x][2] == 255:
 				self.heading = np.random.rand()*2*np.pi - np.pi/2
 				self.pos = np.array([x,y])
 				# print("(x,y) = ", x, y , " heading = ", self.heading)
@@ -146,7 +146,7 @@ class Player():
 		stepy = start[1]
 		stepxtrue = stepx
 		stepytrue = stepy
-		size = 1 #step distance for ray tracing
+		size = 2 #1 #step distance for ray tracing
 		hit = False
 
 		#TODO: repeat this until we get closer and closer to the line
@@ -159,11 +159,11 @@ class Player():
 			stepy = int(stepytrue + size*np.cos(heading))
 			
 
-			if stepx >= self.height or stepx < 0:
+			if stepx >= self.width or stepx < 0:
 				stepx -= int(size*np.sin(heading))
 				# stepxtrue -= 10*np.sin(heading)
 				break
-			if stepy >= self.width or stepy < 0:
+			if stepy >= self.height or stepy < 0:
 				stepy -= int(size*np.cos(heading))
 				# stepytrue -= 10*np.cos(heading)
 				break
