@@ -11,6 +11,8 @@ from ICP import ICP_least_squares
 #		U also needs to change size with L
 #		Dynamically update threshold for L
 
+#		covariance of deltay is sum of individual covariances (see page 7)
+
 #Notes:
 
 
@@ -48,7 +50,7 @@ def get_condition(H_w1):
 
 	eig = np.linalg.eig(H_w1)
 	eigenval = eig[0]
-	eigenvec = np.round(eig[1])
+	eigenvec = eig[1] # np.round(eig[1]) #rounding is bad??
 	# print("eigenval: \n ", eigenval) #there are 3 values here
 	# print("eigenvectors: \n", eigenvec)
 
@@ -66,7 +68,8 @@ def get_condition(H_w1):
 		#get axis for eigenvector cooresponding to small eigeval
 		remainingaxis1 = np.argwhere(eigenval != small)
 		# print("r1", remainingaxis1)
-		L_w = eigenvec[remainingaxis1]
+		# L_w = eigenvec[remainingaxis1] #was this
+		L_w = np.identity(3)[remainingaxis1]
 
 		if condition > cutoff:
 			condition = big
@@ -74,7 +77,8 @@ def get_condition(H_w1):
 
 			remainingaxis2 = np.argwhere(eigenval != middle)
 			# print("r2", remainingaxis2)
-			L_w = eigenvec[np.intersect1d(remainingaxis1, remainingaxis2)]
+			# L_w = eigenvec[np.intersect1d(remainingaxis1, remainingaxis2)] #was this
+			L_w = np.identity(3)[np.intersect1d(remainingaxis1, remainingaxis2)]
 
 			if condition > cutoff:
 				# H_w1 = np.identity(1) <- does not work?
@@ -83,43 +87,16 @@ def get_condition(H_w1):
 
 		L_w = np.squeeze(L_w)
 		H_w1 = L_w.dot(H_w1)
-		
+
 	else:
 		L_w = eigenvec
 	L_w = abs(L_w)
 
-	#tried this, didn't work -------------------------
-	# if condition > cutoff:
-	# 	condition = big/ middle
-	# 	print(condition < cutoff)
-
-	# 	#get axis for eigenvector cooresponding to small eigeval
-	# 	shortaxis = np.argwhere(eigenval == small)
-
-	# 	if condition > cutoff:
-	# 		condition = big
-	# 		print(condition < cutoff)
-
-	# 		shortaxis = np.append(np.argwhere(eigenval == middle))
-	# 		print("r2", remainingaxis2)
-	# 		L_w = eigenvec[np.intersect1d(remainingaxis1, remainingaxis2)]
-
-	# 		if condition > cutoff:
-	# 			# H_w1 = np.identity(1) <- does not work?
-	# 			# condition = 1
-	# 			print("TODO: fix this case")
-
-	# 	L_w = np.delete(np.identity(3), shortaxis, axis = 0)
-	# 	H_w1 = L_w.dot(H_w1)		
-	# else:
-	# 	L_w = eigenvec
-	#----------------------------------------------------
-
-
-
+	lam = eigenval[:,None]
 	# print("L_w: \n", L_w)
+	# print("lam: \n", lam)
 
-	return L_w
+	return L_w, lam
 
 def visualize_U(U,ctr1, cov1, fig, ax):
 
@@ -170,14 +147,15 @@ def get_U_and_L(cov1, cellsize = np.array([100,100])):
 		eigenvec = eig[1]
 
 		#get new coordinate frame
-		theta_temp = np.arctan(eigenvec[0,1]/eigenvec[0,0])
-		# print(theta_temp)
+		# theta_temp = np.arctan(eigenvec[0,1]/eigenvec[0,0]) #was this
+		theta_temp = np.arcsin(eigenvec[0,1]/eigenvec[0,0]) #improves steady state default dataset at 20 cycles??
 
 		if eigenvec[0,1] < eigenvec[0,0]:
 			theta_temp += np.pi/2
 
 		#get U matrix requred to rotate future P points so that x', y' axis align with major and minor axis of ellipse
-		U[i] = R(theta_temp) #DEBUG- there is a problem here
+		U[i] = R(theta_temp) #was this
+		# U[i] = eigenvec #according to Jason???
 
 		# get L matrix 
 		axis1 = np.sqrt(eigenval[0])
@@ -351,32 +329,23 @@ def fast_weighted_psudoinverse(y, x, cov, npts, L, U):
 
 	#init 1st and 2nd terms
 	H_w1 = np.zeros([3,3])
-	H_w2 = np.zeros([3,np.shape(y)[0]])
+	H_w2 = np.zeros([3,np.shape(y)[0]]) #TODO- should the size of this depend on lambda??
 
-	for i in range(np.shape(y)[0]//2): #DEBUG should this be np.shape(L)??
+	for i in range(np.shape(y)[0]//2):
 
 		#estimate R_noise for voxel j
-		R_noise = cov[i] / (npts[i] - 1) 						#ignoring U and L
+		R_noise = cov[i] / (npts[i] - 1) 							#ignoring U and L
 		# R_noise = U[i].dot(cov[i]).dot(U[i].T) / (npts[i] - 1) 	#need to account for rotation
 
 		#TODO: adjust R_noise to account for the effects of L and U ------------------------
 		# R_z = (L)(U.T)(R)(U)(L.T)
 		#	  should remain [2x2] matrix
 
-		# print(np.shape(L[:,2*i:2*i+2]))	
-		# R_noise = L[:,2*i:2*i+2].dot(U[i].T).dot(R_noise).dot(U[i]).dot(L[:,2*i:2*i+2].T) #not working?
-
-		#test -> looks like L_j needs to be a 2x2 matrix
-		# L_test = np.identity(2)
-		# R_noise = L_test.dot(U[i].T).dot(R_noise).dot(U[i]).dot(L_test.T) 
-
 		#DEBUG: comment out line below to ignore U, L
-		# print("L[i]", L[i])
-		# print("L[i].dot(U[i].T)", L[i].dot(U[i].T))
-		
 		R_noise = np.linalg.multi_dot((L[i], U[i].T, R_noise, U[i], L[i].T))
 		# print("R_noise: ", np.shape(R_noise)) # should be 2x2
-
+		# print("L[i]", L[i])
+		# print("L[i].dot(U[i].T)", L[i].dot(U[i].T))
 
 		#calclate voxel j's contribution to the first term of H_w -------------------------
 		# H_w1  = [ H_wj1[0] + H_wj1[1] + H_wj1[2] + ... ] <- should be a 3x3 matrix
@@ -386,7 +355,6 @@ def fast_weighted_psudoinverse(y, x, cov, npts, L, U):
 		# H_wj1 = H[2*i:2*i+2].T.dot(np.linalg.pinv(R_noise)).dot(H[2*i:2*i+2]) 
 		#trying this
 		H_z = L[i].dot(U[i].T).dot(H[2*i:2*i+2])
-		# print("------ \n L[i] \n", L[i], " \n H[2*i:2*i+2] \n", H[2*i:2*i+2], "\n H_z \n", H_z)
 		H_wj1 = H_z.T.dot(np.linalg.pinv(R_noise)).dot(H_z)
 
 		# cond_j = get_condition(H_wj1)
@@ -410,11 +378,11 @@ def fast_weighted_psudoinverse(y, x, cov, npts, L, U):
 		# print("H_wj1", H_wj1)
 		# print("H_wj2", H_wj2)
 
-	# print("H_w1", H_w1)
-	# print("H_w2", H_w2)
+	# print("H_w1", np.shape(H_w1)) #3x3
+	# print("H_w2", np.shape(H_w2)) #3xN
 
 	#CHECK CONDITION TO MAKE SURE FIRST TERM IS INVERTABLE - if not this will correct it
-	L_w = get_condition(H_w1)
+	L_w, lam = get_condition(H_w1)
 	#NOTE:
 	#	we now want to remove all short terms of H'WH so that this first term is invertable
 
@@ -423,8 +391,9 @@ def fast_weighted_psudoinverse(y, x, cov, npts, L, U):
 	# H_w = np.linalg.pinv(H_w1).dot(H_w2) 
 
 	# with L_w:
-	H_w = np.linalg.pinv(L_w.dot(H_w1)).dot(L_w.dot(H_w2))
-
+	H_w = np.linalg.pinv(L_w.dot(H_w1)).dot(L_w.dot(H_w2)) #was this
+	# H_w = np.linalg.pinv(L_w.dot(lam).dot(H_w1)).dot(L_w.dot(H_w2)) #need to account for lambda? 
+	#		this is the dimensionality problem
 	#--------------------------------------------------------------------------
 
 	# print(np.shape(H_w))
@@ -505,15 +474,10 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 
 	#make sure U is being calculated correctly ---------------------------------------
 	# print(np.shape(U))
-	visualize_U(U, ctr1, cov1, fig, ax)
-
+	# visualize_U(U, ctr1, cov1, fig, ax)
 	#---------------------------------------------------------------------------------
 
 	print("L \n", L, np.shape(L))
-	# print("U \n", U)
-	
-	# removed = [value for value in L if (value == np.array([0,1])).all()]
-	# print("removed: ", removed)
 
 	#inital estimate for transformation
 	#TODO: improve initial estimated transform (start with zeros here, could potentially use wheel odometry) 
@@ -556,10 +520,6 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 		y0_reshape = np.reshape(y0, (np.shape(y0)[0]*2,1), order='C')
 		# print("y0_reshape: \n", np.shape(y0_reshape))
 
-		#TODO: get rid of elements of y vector that are zero??
-		#		easier to do this here rather than constantly change size of y
-		remove_these = np.argwhere(y_reshape[ y_reshape != 0 ])
-
 		#reorder U and L according to correspondences
 		#	NOTE: here the subscript _i refers to the fact that this is the COMPLETE vector at cycle i
 		U_i = U[correspondences[0].astype(int)] #this is straightforward for U
@@ -591,7 +551,10 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 		H_w = fast_weighted_psudoinverse(y_reshape, x, cov2, npts2, L_i, U_i)
 		# print("H_w: \n", H_w, np.shape(H_w))
 		#-------------------------------------------------------------------
+
+		#NOTE 7/21: I think I should be using L and lambda OUTSIDE fast_weighted_psudoinverse()
 		
+
 		z = np.zeros(np.shape(y_reshape))
 		z0 = np.zeros(np.shape(y0_reshape))
 		for count in range(np.shape(U)[0]//2):
@@ -600,7 +563,9 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 			z0[2*count:2*count+2] = U[count].T.dot(y0_reshape[2*count:2*count+2])
 
 		dz = z - z0
-		dx = H_w.dot(dz) 		
+		dx = H_w.dot(dz)
+		# dy = y_reshape - y0_reshape
+		# dx = H_w.dot(dy) #for no U,L		
 		x -= dx
 		# print("dx = ", dx)
 
@@ -619,7 +584,7 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 		error[cycle] = np.sum(abs(y_reshape- y0_reshape))
 
 		#draw progression of centers of ellipses
-		ax.plot(y.T[0,:], y.T[1,:], color = (1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),0.25), ls = '', marker = '.', markersize = 10)
+		# ax.plot(y.T[0,:], y.T[1,:], color = (1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),0.25), ls = '', marker = '.', markersize = 10)
 		
 		# #draw all points progressing through transformation
 		# ax.plot(P_corrected.T[0,:], P_corrected.T[1,:], color = (1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),0.025), ls = '', marker = '.', markersize = 20)

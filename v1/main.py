@@ -69,7 +69,7 @@ g = game(fig,ax,img,numEnemies=0)
 
 #main ------------------------------------------------------------------
 
-
+g.p.fovfid = 100
 g.p.pos = np.array([500,700])
 
 g.p.heading = np.pi
@@ -98,24 +98,3 @@ for i in range(400):
 	for e in g.enemies:
 		e.remove()
 	g.axis.patches = []
-
-	# feed system states to actor network
-
-
-	# add noise to output of actor (to help with exploration)
-
-	# save action + noise as temp variable
-
-	# step enviornment forward
-
-
-	# get resulting state from moving agent according to network policy + noise
-
-	# get reward from enviornment
-
-
-	# send SARS' to learning function
-		#use 
-
-
-	# if end condition, restart simulation

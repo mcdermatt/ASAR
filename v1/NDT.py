@@ -36,13 +36,13 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True):
 	# print("after ", np.shape(P))
 
 	#get point positions in 2d space and draw 1st and 2nd scans
-	pp1 = draw_scan(Q,fig,ax, pt = 0) # set as 2 to hide it so we can see ellipses
+	pp1 = draw_scan(Q,fig,ax, pt = 2) # set as 2 to hide it so we can see ellipses
 	pp2 = draw_scan(P,fig,ax, pt = 1) #pt number assigns color for plotting
 
 	P_corrected = pp2.T
 
 	# Build the NDT of the first scan.
-	E1 = subdivide_scan(pp1,fig,ax, fidelity = fid, pt =0)
+	E1 = subdivide_scan(pp1,fig,ax, fidelity = fid, pt = 0)
 
 	#Initialize the estimate for the parameters 
 	x = np.zeros([3,1]) #[ t_x, t_y, theta] }we want to optimize a single euler angle rather than a matrix
@@ -53,7 +53,7 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True):
 		ctr[idx,:] = c[0]
 
 	#debug- draw centers of ellipses from 1st scan
-	ax.plot(ctr[:,0], ctr[:,1], 'ko')
+	# ax.plot(ctr[:,0], ctr[:,1], 'ko')
 
 	results = []
 
@@ -137,13 +137,13 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True):
 		# ((H.T)(W)(H) + I*10e-6(max(eig)))^-1   <- correct way to do this WITHIN main inverse NOT AFTER
 		#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 		#check if H is positive definite
-		posdef = np.all(np.linalg.eigvals(np.linalg.pinv(H)) > 0)
-		lam = 10
-		while posdef == False:
-			H = H + lam*np.identity(3)
-			posdef = np.all(np.linalg.eigvals(np.linalg.pinv(H)) > 0)
-			# print(posdef)
-			lam = lam*2
+		# posdef = np.all(np.linalg.eigvals(np.linalg.pinv(H)) > 0)
+		# lam = 10
+		# while posdef == False:
+		# 	H = H + lam*np.identity(3)
+		# 	posdef = np.all(np.linalg.eigvals(np.linalg.pinv(H)) > 0)
+		# 	# print(posdef)
+		# 	lam = lam*2
 		#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 		# print("g",g)
@@ -296,27 +296,27 @@ def NDT_old(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True):
 				# Matt's z-score method (not a good idea)-------------------------------------------
 				# #get major and minor axis length of corresponding error ellipse
 				# #debug - figure out which is which
-				# major = np.sqrt(eigenval[1]) + 3 #debug: add minimum size to each ellipse (without this errors explode...)
-				# minor = np.sqrt(eigenval[0]) + 3
+				major = np.sqrt(eigenval[1]) + 3 #debug: add minimum size to each ellipse (without this errors explode...)
+				minor = np.sqrt(eigenval[0]) + 3
 
-				# #get rotation of ellipse
-				# theta_temp = np.arcsin(eigenvec[0,1]/eigenvec[0,0])
+				#get rotation of ellipse
+				theta_temp = np.arcsin(eigenvec[0,1]/eigenvec[0,0])
 
-				# #rotate point about origin so that axis of ellipse can be aligned with x,y axis
-				# rot_temp = R(theta_temp)
-				# pt_rot = rot_temp.dot(pp2[index]) #DEBUG -THIS IS THE PROBLEM??!!!
-				# # pt_rot = rot_temp.dot(P[:,index])
+				#rotate point about origin so that axis of ellipse can be aligned with x,y axis
+				rot_temp = R(theta_temp)
+				pt_rot = rot_temp.dot(pp2[index]) #DEBUG -THIS IS THE PROBLEM??!!!
+				# pt_rot = rot_temp.dot(P[:,index])
 
-				# #figure out how much I need to scale 1STD ellipse to reach point
-				# ratio = major/minor			
-				# b = np.sqrt( (pt_rot[0]**2)/(ratio**2) + pt_rot[1]**2 )
-				# a = ratio*b
+				#figure out how much I need to scale 1STD ellipse to reach point
+				ratio = major/minor			
+				b = np.sqrt( (pt_rot[0]**2)/(ratio**2) + pt_rot[1]**2 )
+				a = ratio*b
 
-				# #use z_score as error
-				# z_score = (a / major)**2 #number of standard deviations point is from closest ellipse center
+				#use z_score as error
+				z_score = (a / major)#**2 #number of standard deviations point is from closest ellipse center
 
-				# #this works(ish) but is not what is actually in the Biber paper
-				# score += z_score #keep track of overall scores
+				#this works(ish) but is not what is actually in the Biber paper
+				score += z_score #keep track of overall scores
 
 
 				#Biber paper: --------------------------------------------------------------
@@ -335,7 +335,7 @@ def NDT_old(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True):
 				# print(P_temp[:,index][:,None])
 
 				#without reorientation
-				score += np.exp( (-( P_temp[:,index][:,None] - mu ).T.dot(np.linalg.pinv(sigma)).dot(P_temp[:,index][:,None] - mu) )/2 ) #-----				
+				# score += np.exp( (-( P_temp[:,index][:,None] - mu ).T.dot(np.linalg.pinv(sigma)).dot(P_temp[:,index][:,None] - mu) )/2 ) #-----				
 
 
 			#	-----------------------------------------------------------------
@@ -366,7 +366,7 @@ def NDT_old(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True):
 		
 		print("dx ",dx)
 
-		x += dx[:,None]
+		x += stepsize*dx[:,None]
 		print("x = ",x)
 
 		#DEBUG

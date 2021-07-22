@@ -74,7 +74,7 @@ def get_correspondence(P,Q, fig, ax, draw = False):
 			#plot lines between nearest neighbors
 			start = P[:,p]
 			stop = Q[:,int(correspondences[0,p])]
-			ax.plot([start[0], stop[0]], [start[1], stop[1]],'g--')
+			ax.plot([start[0], stop[0]], [start[1], stop[1]],'k--')
 
 	return correspondences
 

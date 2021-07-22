@@ -44,8 +44,8 @@ for i in range(runLen):
 
 	g.p.place_player()
 	g.p.pos[0] = 400 #center player in x coord
-	# g.p.heading = np.random.rand()*2*np.pi - np.pi #random initial heading
-	g.p.heading = np.pi
+	g.p.heading = np.random.rand()*2*np.pi - np.pi #random initial heading
+	# g.p.heading = np.pi
 	g.p.draw()
 
 	before = g.p.lidar
@@ -62,8 +62,8 @@ for i in range(runLen):
 
 	g.p.step(stepSize, dir_rel2heading)
 	rotation = np.random.randn()*0.1
-	# g.p.heading = g.p.heading + rotation
-	g.p.heading = np.pi
+	g.p.heading = g.p.heading + rotation
+	# g.p.heading = np.pi
 
 	g.p.draw()
 
@@ -87,5 +87,5 @@ for i in range(runLen):
 	data[i,-1] = rotation
 
 # print(data)
-file = "data/cross_track.npy"
+file = "data/cross_track_rotated.npy"
 np.save(file, data)
