@@ -11,6 +11,24 @@ def R(theta):
 	# print("mat ", np.shape(mat))
 	return mat 
 
+def R_alt(r):
+	"""get rotatation matrix of secondary axis from first rotation matrix"""
+
+	# # was this
+	# if r[0,0] < 0:
+	# 	arr = np.array([[np.cos(np.arccos(r[0,0]) + np.pi/2), np.sin(np.arcsin(-r[0,1]) + np.pi/2)],
+	# 					 [np.sin(np.arcsin(r[1,0]) + np.pi/2), np.cos(np.arccos(r[1,1]) + np.pi/2)]])
+	# else:
+	# 	arr = np.array([[np.cos(np.arccos(r[0,0]) + np.pi/2), -np.sin(np.arcsin(-r[0,1]) + np.pi/2)],
+	# 				 [np.sin(np.arcsin(r[1,0]) + np.pi/2), np.cos(np.arccos(r[1,1]) + np.pi/2)]])
+
+	#fixes issues with arcsin/ arccos always between +/- (pi/2)
+	theta = np.arctan2(r[1,0],r[0,0])
+	theta += np.pi/2
+	arr = R(theta)
+
+	return arr
+
 def dR(theta):
 	"""derivative of rotation matrix"""
 	return np.array([[-np.sin(theta), -np.cos(theta)],

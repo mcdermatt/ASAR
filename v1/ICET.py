@@ -7,9 +7,10 @@ from NDT import NDT
 from ICP import ICP_least_squares
 
 #TODO:
-#		Modify L_i to be true truncated matrix for each extended direction
-#		U also needs to change size with L
-#		Dynamically update threshold for L
+# 		Conditioning: Remove the directions of the equation associated with the removed eigenvalues in the
+# 			previous step; solve only the equations for which the condition number is greater than 1.
+
+#		which eigenvectors/ eigenvals go with which directions in xy???
 
 #		covariance of deltay is sum of individual covariances (see page 7)
 
@@ -25,6 +26,7 @@ def get_condition(H_w1):
 		inputs: H_w1 -> term to be inverted
 
 		outputs: L_w = used to remove axis with singular directions
+				 lam = identity * eigenvalues of input
 
 
 	1- Starting with (H’*W*H) prior to inverting it 
@@ -92,13 +94,17 @@ def get_condition(H_w1):
 		L_w = eigenvec
 	L_w = abs(L_w)
 
-	lam = eigenval[:,None]
+	# lam = eigenval[:,None]
+	lam = np.identity(3)
+	for m in range(3):
+		lam[m,m] = eigenval[m]
+
 	# print("L_w: \n", L_w)
 	# print("lam: \n", lam)
 
 	return L_w, lam
 
-def visualize_U(U,ctr1, cov1, fig, ax):
+def visualize_U(U, L, ctr1, cov1, fig, ax):
 
 	"""view the effects of U on the major and minor axis of ellipses"""
 
@@ -107,13 +113,29 @@ def visualize_U(U,ctr1, cov1, fig, ax):
 		eig = np.linalg.eig(cov1[i])
 		eigenval = eig[0]
 
-		#draw minor axis
+		#get minor axis
 		minor_radius = np.array([np.sqrt(min(eigenval))*2, 0]) #np.array([10,0])
-		minor_stop = minor_radius.dot(U[i]) + ctr1[i,:]
-		ax.plot([ctr1[i,0], minor_stop[0]], [ctr1[i,1], minor_stop[1]], 'k-' )
+		# minor_stop = minor_radius.dot(U[i]) + ctr1[i,:]
+		# ax.plot([ctr1[i,0], minor_stop[0]], [ctr1[i,1], minor_stop[1]], 'k-' , lw = 2)
+		minor_stop = minor_radius.dot(U[i])
 
-		#draw major axis
+		#get major axis
+		U_alt = R_alt(U[i])
+		major_radius = np.array([np.sqrt(max(eigenval))*2, 0]) #np.array([10,0])
+		major_stop = major_radius.dot(U_alt) #+ ctr1[i,:]
 
+		#draw
+		#case 1: no extended axis
+		if np.all(L[i] == np.identity(2)):
+			ax.arrow(ctr1[i,0],  ctr1[i,1], minor_stop[0], minor_stop[1], length_includes_head = True, lw = 1, head_width = 0)
+			ax.arrow(ctr1[i,0], ctr1[i,1], major_stop[0], major_stop[1], length_includes_head = True, lw = 1, head_width = 0)
+
+		if np.all(L[i] == np.array([[0,1]])):
+			ax.arrow(ctr1[i,0],  ctr1[i,1], minor_stop[0], minor_stop[1], length_includes_head = True, lw = 1, head_width = 0)
+
+		if np.all(L[i] == np.array([[1,0]])):
+			ax.arrow(ctr1[i,0], ctr1[i,1], major_stop[0], major_stop[1], length_includes_head = True, lw = 1, head_width = 0)
+			print("special case")
 
 def get_U_and_L(cov1, cellsize = np.array([100,100])):
 
@@ -127,11 +149,12 @@ def get_U_and_L(cov1, cellsize = np.array([100,100])):
 				 U -> rotation matrix to align point with the major and minor axis of ellipse
 				 L -> reduced dimension array used to ignore extended axis directions
 	
-			"""
+			"""	
 
-	cellsize = cellsize/2 #for debug -> seems to help??
-	
-	# cellsize = np.array([1000,1000])
+	#for debug
+	# cellsize = np.array([1000,3])
+	# cellsize = np.array([2,1000])
+
 	print("Using cellsize = ", cellsize)
 
 	U = np.zeros([np.shape(cov1)[0],2,2])
@@ -158,42 +181,44 @@ def get_U_and_L(cov1, cellsize = np.array([100,100])):
 		# U[i] = eigenvec #according to Jason???
 
 		# get L matrix 
+		# NOTE: axis1 is not always the bigger or smaller axis...
 		axis1 = np.sqrt(eigenval[0])
 		axis2 = np.sqrt(eigenval[1])
 
-		# print(axis1, axis2)
+		# print("axis1: ", axis1, " axis2: ", axis2)
 
 		#get projections of major and minor axis in x and y directions
-		axis1x = np.cos(theta_temp)*axis1
-		axis1y = np.sin(theta_temp)*axis1
-		axis2x = np.cos(theta_temp)*axis2
-		axis2y = np.sin(theta_temp)*axis2
+		axis1x = abs(np.cos(theta_temp)*axis1)
+		axis1y = abs(np.sin(theta_temp)*axis1)
+		axis2x = abs(np.cos(theta_temp + np.pi/2)*axis2)
+		axis2y = abs(np.sin(theta_temp + np.pi/2)*axis2)
 
-		# print("major", major, " minor ", minor)
-
-		#TODO: take in cellsize as a parameter from subdivide_scan()
 		#base case: no elongated directions
 		if axis1x<(cellsize[0]/4)**2 and axis1y<(cellsize[1]/4)**2 and axis2x<(cellsize[0]/4)**2 and axis2y<(cellsize[1]/4)**2:
 			L_i = np.array([[1,0],[0,1]])
 		#elongated axis1
-		if (axis1x>(cellsize[0]/4)**2 or axis1y>(cellsize[1]/4)**2) and (axis2x<(cellsize[0]/4)**2 and axis2y<(cellsize[1]/4)**2):
-			# L_i = np.array([[0,0],[0,1]])
-			L_i = np.array([[0,1]])
+		if (axis1x>(cellsize[0]/4)**2 or axis1y>(cellsize[1]/4)**2):
+			if (axis2x<(cellsize[0]/4)**2 and axis2y<(cellsize[1]/4)**2):
+				L_i = np.array([[0,1]])
+			else:
+				#both elongated
+				L_i = np.zeros([1,2])
+
 		#elongated axis2
-		if (axis1x<(cellsize[0]/4)**2 and axis1y<(cellsize[1]/4)**2) and (axis2x>(cellsize[0]/4)**2 or axis2y>(cellsize[1]/4)**2):
-			# L_i = np.array([[1,0],[0,0]])
-			L_i = np.array([[1,0]])
-		#elongated both - will this ever happen?
-		if (axis1x>(cellsize[0]/4)**2 or axis1y>(cellsize[1]/4)**2) and (axis2x>(cellsize[0]/4)**2 or axis2y>(cellsize[1]/4)**2):
-			# L_i = np.array([[0,0],[0,0]])
-			# L_i = None #Nonetype raises error in inverse fast_weighted_psudoinverse
-			
-			#temporary fix
-			# L_i = np.identity(2)
+		if (axis2x>(cellsize[0]/4)**2 or axis2y>(cellsize[1]/4)**2):
+			if (axis1x<(cellsize[0]/4)**2 and axis1y<(cellsize[1]/4)**2):
+				L_i = np.array([[1,0]])
+		
+		# #elongated both - will this ever happen?
+		# if (axis1x>(cellsize[0]/4)**2 or axis1y>(cellsize[1]/4)**2): 
+		# 	if (axis2x>(cellsize[0]/4)**2 or axis2y>(cellsize[1]/4)**2):
+		# 		#temporary fix
+		# 		# L_i = np.identity(2)
+		# 		L_i = np.zeros([1,2])
 
-			L_i = np.zeros([1,2])
-
-			print("problem here")
+		# 		print("problem here")
+		# 	else:
+		# 		print("case 4")
 
 		# L = np.append(L, L_i, axis = 0)
 		L.append(L_i)
@@ -383,15 +408,17 @@ def fast_weighted_psudoinverse(y, x, cov, npts, L, U):
 
 	#CHECK CONDITION TO MAKE SURE FIRST TERM IS INVERTABLE - if not this will correct it
 	L_w, lam = get_condition(H_w1)
+	# print("L_w = ", L_w)
+	# print("lam = ", lam)
 	#NOTE:
-	#	we now want to remove all short terms of H'WH so that this first term is invertable
+	#	we now want to remove all short axis of H'WH so that this first term is invertable
 
 	#compute dot product of the two terms -------------------------------------
 	# does not take into account L_w which removes axis of first term to make it invertable:
-	# H_w = np.linalg.pinv(H_w1).dot(H_w2) 
+	H_w = np.linalg.pinv(H_w1).dot(H_w2) 
 
 	# with L_w:
-	H_w = np.linalg.pinv(L_w.dot(H_w1)).dot(L_w.dot(H_w2)) #was this
+	# H_w = np.linalg.pinv(L_w.dot(H_w1)).dot(L_w.dot(H_w2)) #was this
 	# H_w = np.linalg.pinv(L_w.dot(lam).dot(H_w1)).dot(L_w.dot(H_w2)) #need to account for lambda? 
 	#		this is the dimensionality problem
 	#--------------------------------------------------------------------------
@@ -451,7 +478,7 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 
 	cy = (maxy - miny) / (fid) #cellsize x
 	cx = (maxx - minx) / (fid) #cellsize y
-	cellsize = np.array([cx, cy])
+	cellsize = np.array([cx, cy]) / 2
 	# cellsize = (cx+cy)/2
 	# cellsize = 10
 
@@ -474,7 +501,7 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 
 	#make sure U is being calculated correctly ---------------------------------------
 	# print(np.shape(U))
-	# visualize_U(U, ctr1, cov1, fig, ax)
+	visualize_U(U, L, ctr1, cov1, fig, ax)
 	#---------------------------------------------------------------------------------
 
 	print("L \n", L, np.shape(L))
@@ -596,7 +623,7 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 	rot = R(x[2])
 	t = x[:2]
 	P_final = rot.dot(pp2.T) + t
-	ax.plot(P_final.T[:,0], P_final.T[:,1], color = (1,0,0,0.0375), ls = '', marker = '.', markersize = 20)
+	# ax.plot(P_final.T[:,0], P_final.T[:,1], color = (1,0,0,0.0375), ls = '', marker = '.', markersize = 20)
 
 	return x, error
 
