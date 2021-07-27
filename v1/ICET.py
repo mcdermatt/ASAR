@@ -10,9 +10,15 @@ from ICP import ICP_least_squares
 # 		Conditioning: Remove the directions of the equation associated with the removed eigenvalues in the
 # 			previous step; solve only the equations for which the condition number is greater than 1.
 
-#		which eigenvectors/ eigenvals go with which directions in xy???
+#		which eigenvectors/ eigenvals go with which directions in x,y,theta???
 
 #		covariance of deltay is sum of individual covariances (see page 7)
+
+#		efficient test for existance of extended direction (see page 14)
+
+#		I am still creating a full weighting matrix when computing the 
+#			Idea: defaut to doing fast weighted psudoinverse method, if things start to
+#					explode then try using the full W method w/ condition number
 
 #Notes:
 
@@ -52,7 +58,7 @@ def get_condition(H_w1):
 
 	eig = np.linalg.eig(H_w1)
 	eigenval = eig[0]
-	eigenvec = eig[1] # np.round(eig[1]) #rounding is bad??
+	eigenvec = eig[1] 
 	# print("eigenval: \n ", eigenval) #there are 3 values here
 	# print("eigenvectors: \n", eigenvec)
 
@@ -91,7 +97,7 @@ def get_condition(H_w1):
 		H_w1 = L_w.dot(H_w1)
 
 	else:
-		L_w = eigenvec
+		L_w = eigenvec #debug this...
 	L_w = abs(L_w)
 
 	# lam = eigenval[:,None]
@@ -99,10 +105,12 @@ def get_condition(H_w1):
 	for m in range(3):
 		lam[m,m] = eigenval[m]
 
+	U_w = eigenvec
+
 	# print("L_w: \n", L_w)
 	# print("lam: \n", lam)
 
-	return L_w, lam
+	return L_w, lam, U_w
 
 def visualize_U(U, L, ctr1, cov1, fig, ax):
 
@@ -125,16 +133,21 @@ def visualize_U(U, L, ctr1, cov1, fig, ax):
 		major_stop = major_radius.dot(U_alt) #+ ctr1[i,:]
 
 		#draw
+		hw = 0 #arrow head width
 		#case 1: no extended axis
 		if np.all(L[i] == np.identity(2)):
-			ax.arrow(ctr1[i,0],  ctr1[i,1], minor_stop[0], minor_stop[1], length_includes_head = True, lw = 1, head_width = 0)
-			ax.arrow(ctr1[i,0], ctr1[i,1], major_stop[0], major_stop[1], length_includes_head = True, lw = 1, head_width = 0)
+			ax.arrow(ctr1[i,0],  ctr1[i,1], minor_stop[0], minor_stop[1], length_includes_head = True, lw = 1, head_width = hw)
+			ax.arrow(ctr1[i,0], ctr1[i,1], major_stop[0], major_stop[1], length_includes_head = True, lw = 1, head_width = hw)
+			ax.arrow(ctr1[i,0],  ctr1[i,1], -minor_stop[0], -minor_stop[1], length_includes_head = True, lw = 1, head_width = hw) #repeat
+			ax.arrow(ctr1[i,0], ctr1[i,1], -major_stop[0], -major_stop[1], length_includes_head = True, lw = 1, head_width = hw)
 
 		if np.all(L[i] == np.array([[0,1]])):
-			ax.arrow(ctr1[i,0],  ctr1[i,1], minor_stop[0], minor_stop[1], length_includes_head = True, lw = 1, head_width = 0)
+			ax.arrow(ctr1[i,0],  ctr1[i,1], minor_stop[0], minor_stop[1], length_includes_head = True, lw = 1, head_width = hw)
+			ax.arrow(ctr1[i,0],  ctr1[i,1], -minor_stop[0], -minor_stop[1], length_includes_head = True, lw = 1, head_width = hw)
 
 		if np.all(L[i] == np.array([[1,0]])):
-			ax.arrow(ctr1[i,0], ctr1[i,1], major_stop[0], major_stop[1], length_includes_head = True, lw = 1, head_width = 0)
+			ax.arrow(ctr1[i,0], ctr1[i,1], major_stop[0], major_stop[1], length_includes_head = True, lw = 1, head_width = hw)
+			ax.arrow(ctr1[i,0], ctr1[i,1], -major_stop[0], -major_stop[1], length_includes_head = True, lw = 1, head_width = hw)
 			print("special case")
 
 def get_U_and_L(cov1, cellsize = np.array([100,100])):
@@ -203,22 +216,13 @@ def get_U_and_L(cov1, cellsize = np.array([100,100])):
 			else:
 				#both elongated
 				L_i = np.zeros([1,2])
+		# 		print("problem here")
+
 
 		#elongated axis2
 		if (axis2x>(cellsize[0]/4)**2 or axis2y>(cellsize[1]/4)**2):
 			if (axis1x<(cellsize[0]/4)**2 and axis1y<(cellsize[1]/4)**2):
 				L_i = np.array([[1,0]])
-		
-		# #elongated both - will this ever happen?
-		# if (axis1x>(cellsize[0]/4)**2 or axis1y>(cellsize[1]/4)**2): 
-		# 	if (axis2x>(cellsize[0]/4)**2 or axis2y>(cellsize[1]/4)**2):
-		# 		#temporary fix
-		# 		# L_i = np.identity(2)
-		# 		L_i = np.zeros([1,2])
-
-		# 		print("problem here")
-		# 	else:
-		# 		print("case 4")
 
 		# L = np.append(L, L_i, axis = 0)
 		L.append(L_i)
@@ -240,8 +244,6 @@ def get_U_and_L(cov1, cellsize = np.array([100,100])):
 def get_weighting_matrix(cov, npts, L, U):
 
 	'''
-	DEPRICATED
-
 	cov: 3D matrix containing covariance matrices for all voxels 
 	
 	npts: number of points inside each voxel of cov
@@ -263,9 +265,9 @@ def get_weighting_matrix(cov, npts, L, U):
 		#normalize true covariance by the number of points in the subdivision
 		R_noise = cov[i] / (npts[i] - 1) 
 		
-		#DEBUG: account for U and L matrices - before inverse????
 		#NOTE: underscript _j denotes that this is the jth voxel in the scan
-		L_j = L[2*i:(2*i+2)][:,None].T
+		# L_j = L[2*i:(2*i+2)][:,None].T #deprecated
+		L_j = L[i]
 		U_j = U[i]
 		# print("U_j", np.shape(U_j))
 
@@ -294,6 +296,7 @@ def get_weighting_matrix(cov, npts, L, U):
 	# W = np.linalg.inv(R_noise) #does not work (singular matrix error)
 	# W = np.linalg.pinv(R_noise) # also changed to pinv in weighted_psudoinverse()
 
+	# print("W: \n", np.shape(W))
 	return W
 
 
@@ -318,6 +321,43 @@ def get_H(P, x):
 		# print(H)
 
 	return H
+
+def get_dx(y, y0, x, cov, npts, L, U):
+
+	'''gets dx accounting for condition number. 
+
+		inputs: y 	-> centers of ellipses of 2ND SCAN [2N , 1]
+				X 	-> [x y theta]
+				npts-> 1D array containing the number of points in each ellipse
+				L  	->  L for voxel i
+				U 	-> U for voxel i 
+
+		outputs: dx 
+
+		#TODO: figure out a way to skip constructing W  
+			   TAKE INTO ACCOUNT MAIN L AND U -> is this being done in getting Weighting matrix
+		'''
+
+	dy = y - y0
+	H = get_H(y,x)
+	W = get_weighting_matrix(cov, npts, L, U)
+
+	#init (H.T)(W)(H)
+	HTWH = H.T.dot(W).dot(H) 
+
+	#CHECK CONDITION
+	L_w, lam, U_w = get_condition(HTWH)
+	#	lam -> 3x3 diagonal array with eigenvalues of HTWH
+
+	#z_k = (1/lam_k)[(U.T)(H.T)(W)(y)]_k
+	#z_k = ([U.T]_k)(x)
+	dz = np.zeros([3,1])
+	for k in range(3):
+		dz[k] = (1/lam[k,k])*( (U_w.T).dot(H.T).dot(W).dot(dy)[k] )
+	
+	dx = np.linalg.pinv(U_w.T).dot(dz)
+
+	return dx
 
 def fast_weighted_psudoinverse(y, x, cov, npts, L, U):
 
@@ -362,7 +402,7 @@ def fast_weighted_psudoinverse(y, x, cov, npts, L, U):
 		R_noise = cov[i] / (npts[i] - 1) 							#ignoring U and L
 		# R_noise = U[i].dot(cov[i]).dot(U[i].T) / (npts[i] - 1) 	#need to account for rotation
 
-		#TODO: adjust R_noise to account for the effects of L and U ------------------------
+		#adjust R_noise to account for the effects of L and U ------------------------
 		# R_z = (L)(U.T)(R)(U)(L.T)
 		#	  should remain [2x2] matrix
 
@@ -407,7 +447,7 @@ def fast_weighted_psudoinverse(y, x, cov, npts, L, U):
 	# print("H_w2", np.shape(H_w2)) #3xN
 
 	#CHECK CONDITION TO MAKE SURE FIRST TERM IS INVERTABLE - if not this will correct it
-	L_w, lam = get_condition(H_w1)
+	L_w, lam, U_w = get_condition(H_w1)
 	# print("L_w = ", L_w)
 	# print("lam = ", lam)
 	#NOTE:
@@ -415,10 +455,10 @@ def fast_weighted_psudoinverse(y, x, cov, npts, L, U):
 
 	#compute dot product of the two terms -------------------------------------
 	# does not take into account L_w which removes axis of first term to make it invertable:
-	H_w = np.linalg.pinv(H_w1).dot(H_w2) 
+	# H_w = np.linalg.pinv(H_w1).dot(H_w2) 
 
 	# with L_w:
-	# H_w = np.linalg.pinv(L_w.dot(H_w1)).dot(L_w.dot(H_w2)) #was this
+	H_w = np.linalg.pinv(L_w.dot(H_w1)).dot(L_w.dot(H_w2)) #was this
 	# H_w = np.linalg.pinv(L_w.dot(lam).dot(H_w1)).dot(L_w.dot(H_w2)) #need to account for lambda? 
 	#		this is the dimensionality problem
 	#--------------------------------------------------------------------------
@@ -559,11 +599,6 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 			L_i.append(L[i])
 		#-------------------------------------------------------------------------------------------
 
-		# print("L_i \n",L_i, np.shape(L_i))
-		# print("correspondences ", correspondences[0].astype(int), np.shape(correspondences))
-		# print("L ",L, np.shape(L))
-		# print("U_i",U_i, np.shape(U_i))
-
 		# "standard" weighted psudoinverse ------------------------------------
 		#get weighting matrix from covariance matrix 
 		# Using standard funcs with full block diagonal matrix for W
@@ -584,17 +619,21 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 
 		z = np.zeros(np.shape(y_reshape))
 		z0 = np.zeros(np.shape(y0_reshape))
-		for count in range(np.shape(U)[0]//2):
+		for count in range(np.shape(U_i)[0]//2):
 			#y_hat = (U.T).dot(y_reshape) <- need to loop through U's to get rotation
-			z[2*count:2*count+2] = U[count].T.dot(y_reshape[2*count:2*count+2])
-			z0[2*count:2*count+2] = U[count].T.dot(y0_reshape[2*count:2*count+2])
+			#	NOTE: U_i[count].T.dot(...) == np.linalg.pinv(U_i[count].T).dot(...)
+			z[2*count:2*count+2] = U_i[count].T.dot(y_reshape[2*count:2*count+2]) #these were using U instead of U_i...
+			z0[2*count:2*count+2] = U_i[count].T.dot(y0_reshape[2*count:2*count+2])
 
 		dz = z - z0
 		dx = H_w.dot(dz)
 		# dy = y_reshape - y0_reshape
 		# dx = H_w.dot(dy) #for no U,L		
-		x -= dx
-		# print("dx = ", dx)
+		x -= dx #was this
+
+		# dxTest = get_dx(y_reshape, y0_reshape, x, cov2, npts2, L_i, U_i)
+		# print("dx = ", dxTest)
+		# x -= dxTest
 
 		#incrementally update y
 		# print("y: ", np.shape(y), " y init: ", np.shape(y_init))
@@ -623,7 +662,7 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 	rot = R(x[2])
 	t = x[:2]
 	P_final = rot.dot(pp2.T) + t
-	# ax.plot(P_final.T[:,0], P_final.T[:,1], color = (1,0,0,0.0375), ls = '', marker = '.', markersize = 20)
+	ax.plot(P_final.T[:,0], P_final.T[:,1], color = (1,0,0,0.0375), ls = '', marker = '.', markersize = 20)
 
 	return x, error
 
