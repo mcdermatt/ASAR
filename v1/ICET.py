@@ -31,7 +31,7 @@ def get_condition(H_w1):
 	
 		inputs: H_w1 -> term to be inverted
 
-		outputs: L_w = used to remove axis with singular directions
+		outputs: L2 = used to remove axis with singular directions
 				 lam = identity * eigenvalues of input
 
 
@@ -76,8 +76,8 @@ def get_condition(H_w1):
 		#get axis for eigenvector cooresponding to small eigeval
 		remainingaxis1 = np.argwhere(eigenval != small)
 		# print("r1", remainingaxis1)
-		# L_w = eigenvec[remainingaxis1] #was this
-		L_w = np.identity(3)[remainingaxis1]
+		# L2 = eigenvec[remainingaxis1] #was this
+		L2 = np.identity(3)[remainingaxis1]
 
 		if condition > cutoff:
 			condition = big
@@ -85,32 +85,31 @@ def get_condition(H_w1):
 
 			remainingaxis2 = np.argwhere(eigenval != middle)
 			# print("r2", remainingaxis2)
-			# L_w = eigenvec[np.intersect1d(remainingaxis1, remainingaxis2)] #was this
-			L_w = np.identity(3)[np.intersect1d(remainingaxis1, remainingaxis2)]
+			# L2 = eigenvec[np.intersect1d(remainingaxis1, remainingaxis2)] #was this
+			L2 = np.identity(3)[np.intersect1d(remainingaxis1, remainingaxis2)]
 
 			if condition > cutoff:
 				# H_w1 = np.identity(1) <- does not work?
 				# condition = 1
 				print("TODO: fix this case")
 
-		L_w = np.squeeze(L_w)
-		H_w1 = L_w.dot(H_w1)
+		L2 = np.squeeze(L2)
+		H_w1 = L2.dot(H_w1)
 
 	else:
-		L_w = eigenvec #debug this...
-	L_w = abs(L_w)
+		L2 = np.identity(3)
 
 	# lam = eigenval[:,None]
 	lam = np.identity(3)
 	for m in range(3):
 		lam[m,m] = eigenval[m]
 
-	U_w = eigenvec
+	U2 = eigenvec
 
-	# print("L_w: \n", L_w)
+	# print("L2: \n", L2)
 	# print("lam: \n", lam)
 
-	return L_w, lam, U_w
+	return L2, lam, U2
 
 def visualize_U(U, L, ctr1, cov1, fig, ax):
 
@@ -167,6 +166,8 @@ def get_U_and_L(cov1, cellsize = np.array([100,100])):
 	#for debug
 	# cellsize = np.array([1000,3])
 	# cellsize = np.array([2,1000])
+	# cellsize = np.array([1000,1000])
+	# cellsize = np.array([0,0])
 
 	print("Using cellsize = ", cellsize)
 
@@ -258,7 +259,7 @@ def get_weighting_matrix(cov, npts, L, U):
 
 
 	# print("U \n", np.shape(U))
-	# print("L \n", np.shape(L))
+	# print("L \n", L, np.shape(L))
 
 	for i in range(np.shape(cov)[0]): 
 
@@ -267,25 +268,20 @@ def get_weighting_matrix(cov, npts, L, U):
 		
 		#NOTE: underscript _j denotes that this is the jth voxel in the scan
 		# L_j = L[2*i:(2*i+2)][:,None].T #deprecated
-		L_j = L[i]
-		U_j = U[i]
-		# print("U_j", np.shape(U_j))
+		# L_j = L[i]
+		# U_j = U[i]
 
-		#TODO: verify that this is the right place for accounting for U and L
-		# print("L_j", np.shape(L_j))
-		# print("U_j", np.shape(U_j))
-		# print("R_noise", np.shape(R_noise))
-
-		U_TRU = U_j.T.dot(R_noise.dot(U_j))
-		# print("U_TRU", np.shape(U_TRU))
-		LU_TRU = L_j.dot(U_TRU)
-		# print("LU_TRU", np.shape(LU_TRU))
-		R_z = (L_j.T).dot(LU_TRU)
+		# U_TRU = U_j.T.dot(R_noise.dot(U_j))
+		# # print("U_TRU", np.shape(U_TRU))
+		# LU_TRU = L_j.dot(U_TRU)
+		# # print("LU_TRU", np.shape(LU_TRU))
+		# R_z = (L_j.T).dot(LU_TRU)
+		R_noise = np.linalg.multi_dot((L[i], U[i].T, R_noise, U[i], L[i].T))
 
 		# print("R_z = ", R_z)
 
 		#test
-		W[(2*i):(2*i+2),(2*i):(2*i+2)] = np.linalg.pinv(R_z)
+		W[(2*i):(2*i+2),(2*i):(2*i+2)] = np.linalg.pinv(R_noise)
 
 		#works well without using U and L
 		# W[(2*i):(2*i+2),(2*i):(2*i+2)] = np.linalg.pinv(R_noise)
@@ -296,6 +292,7 @@ def get_weighting_matrix(cov, npts, L, U):
 	# W = np.linalg.inv(R_noise) #does not work (singular matrix error)
 	# W = np.linalg.pinv(R_noise) # also changed to pinv in weighted_psudoinverse()
 
+	# W = np.linalg.pinv(W)
 	# print("W: \n", np.shape(W))
 	return W
 
@@ -324,7 +321,7 @@ def get_H(P, x):
 
 def get_dx(y, y0, x, cov, npts, L, U):
 
-	'''gets dx accounting for condition number. 
+	'''gets dx accounting for condition number. this version requires construction of full W 
 
 		inputs: y 	-> centers of ellipses of 2ND SCAN [2N , 1]
 				X 	-> [x y theta]
@@ -334,28 +331,67 @@ def get_dx(y, y0, x, cov, npts, L, U):
 
 		outputs: dx 
 
-		#TODO: figure out a way to skip constructing W  
 			   TAKE INTO ACCOUNT MAIN L AND U -> is this being done in getting Weighting matrix
 		'''
 
-	dy = y - y0
 	H = get_H(y,x)
-	W = get_weighting_matrix(cov, npts, L, U)
+	#slow way of getting HTWH -------------------
+	# W = get_weighting_matrix(cov, npts, L, U)
+	# # print("W =  \n", W[:6,:6])
+	# HTWH = H.T.dot(W).dot(H)
+	# print("HTWH (from get_dx) = \n", HTWH)
+	#--------------------------------------------
 
-	#init (H.T)(W)(H)
-	HTWH = H.T.dot(W).dot(H) 
+	#fast way of getting HTWH--------------------
+	HTWH = np.zeros([3,3])
+	for i in range(np.shape(y)[0]//2):
+		#estimate R_noise for voxel j
+		R_noise = cov[i] / (npts[i] - 1)
+		R_noise = np.linalg.multi_dot((L[i], U[i].T, R_noise, U[i], L[i].T))
+		#calclate voxel j's contribution to the first term of H_w -------------------------
+		# H_w1  = [ H_wj1[0] + H_wj1[1] + H_wj1[2] + ... ] <- should be a 3x3 matrix
+		# H_wj1 = (H.T)(W)(H) = (H.T)(R^-1)(H)
+		H_z = L[i].dot(U[i].T).dot(H[2*i:2*i+2])
+		HTWH_j = H_z.T.dot(np.linalg.pinv(R_noise)).dot(H_z)
+		#add contributions of j
+		HTWH += HTWH_j
+
+	W = get_weighting_matrix(cov, npts, L, U)
+	#-------------------------------------------
+	# print("HTWH (from get_dx) = \n", HTWH)
 
 	#CHECK CONDITION
-	L_w, lam, U_w = get_condition(HTWH)
-	#	lam -> 3x3 diagonal array with eigenvalues of HTWH
-
+	L2, lam, U2 = get_condition(HTWH)
+	print("L2: \n", L2) # -> removes axis
+	print("lam: \n", lam) # -> 3x3 diagonal array with eigenvalues of HTWH
+	print("U2: \n", U2) # -> eigenvecs
+	
+	#pythonic way------------------------------
 	#z_k = (1/lam_k)[(U.T)(H.T)(W)(y)]_k
 	#z_k = ([U.T]_k)(x)
+
+	#TODO- account for L by removing extended axis from lam
+	# print("H.T \n", np.shape(H.T))
+
+	dy = y - y0
+
 	dz = np.zeros([3,1])
 	for k in range(3):
-		dz[k] = (1/lam[k,k])*( (U_w.T).dot(H.T).dot(W).dot(dy)[k] )
-	
-	dx = np.linalg.pinv(U_w.T).dot(dz)
+		dz[k] = (1/lam[k,k])*( (U2.T).dot(H.T).dot(W).dot(dy)[k] )
+
+	dx = np.linalg.pinv(U2.T).dot(dz)
+	#------------------------------------------
+
+	#linalg way--------------------------------
+	# (L)(U2.T)(H.T)(W)(y-y0) = (L)(lam)(z)
+	# (z) = (U.T)(x)
+
+	# dy = y - y0
+	# z = np.linalg.pinv(lam).dot(U2.T).dot(H.T).dot(W).dot(dy)
+	# dx = z
+
+	#------------------------------------------
+
 
 	return dx
 
@@ -394,7 +430,7 @@ def fast_weighted_psudoinverse(y, x, cov, npts, L, U):
 
 	#init 1st and 2nd terms
 	H_w1 = np.zeros([3,3])
-	H_w2 = np.zeros([3,np.shape(y)[0]]) #TODO- should the size of this depend on lambda??
+	H_w2 = np.zeros([3,np.shape(y)[0]])
 
 	for i in range(np.shape(y)[0]//2):
 
@@ -447,19 +483,20 @@ def fast_weighted_psudoinverse(y, x, cov, npts, L, U):
 	# print("H_w2", np.shape(H_w2)) #3xN
 
 	#CHECK CONDITION TO MAKE SURE FIRST TERM IS INVERTABLE - if not this will correct it
-	L_w, lam, U_w = get_condition(H_w1)
-	# print("L_w = ", L_w)
+	# print("H_w1 (from fast_weighted_psudoinverse) = \n", H_w1)
+	L2, lam, U2 = get_condition(H_w1)
+	# print("L2 (from fast_weighted_psudoinverse)= ", L2)
 	# print("lam = ", lam)
 	#NOTE:
 	#	we now want to remove all short axis of H'WH so that this first term is invertable
 
 	#compute dot product of the two terms -------------------------------------
-	# does not take into account L_w which removes axis of first term to make it invertable:
+	# does not take into account L2 which removes axis of first term to make it invertable:
 	# H_w = np.linalg.pinv(H_w1).dot(H_w2) 
 
-	# with L_w:
-	H_w = np.linalg.pinv(L_w.dot(H_w1)).dot(L_w.dot(H_w2)) #was this
-	# H_w = np.linalg.pinv(L_w.dot(lam).dot(H_w1)).dot(L_w.dot(H_w2)) #need to account for lambda? 
+	# with L2:
+	H_w = np.linalg.pinv(L2.dot(H_w1)).dot(L2.dot(H_w2)) #was this
+	# H_w = np.linalg.pinv(L2.dot(lam).dot(H_w1)).dot(L2.dot(H_w2)) #need to account for lambda? 
 	#		this is the dimensionality problem
 	#--------------------------------------------------------------------------
 
@@ -615,7 +652,10 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 		#-------------------------------------------------------------------
 
 		#NOTE 7/21: I think I should be using L and lambda OUTSIDE fast_weighted_psudoinverse()
-		
+		dxTest = get_dx(y_reshape, y0_reshape, x, cov2, npts2, L_i, U_i)
+		print("dxTest = ", dxTest)
+		#TODO: I'm getting different HTWH values when using fast weighted psudoinverse and getdx
+		#-------------------------------------------------------------------
 
 		z = np.zeros(np.shape(y_reshape))
 		z0 = np.zeros(np.shape(y0_reshape))
@@ -629,10 +669,7 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 		dx = H_w.dot(dz)
 		# dy = y_reshape - y0_reshape
 		# dx = H_w.dot(dy) #for no U,L		
-		x -= dx #was this
-
-		# dxTest = get_dx(y_reshape, y0_reshape, x, cov2, npts2, L_i, U_i)
-		# print("dx = ", dxTest)
+		x -= dx
 		# x -= dxTest
 
 		#incrementally update y
