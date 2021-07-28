@@ -20,6 +20,8 @@ from ICP import ICP_least_squares
 #			Idea: defaut to doing fast weighted psudoinverse method, if things start to
 #					explode then try using the full W method w/ condition number
 
+#		Account for noise covariance of 2nd scan
+
 #Notes:
 
 
@@ -91,6 +93,7 @@ def get_condition(H_w1):
 			if condition > cutoff:
 				# H_w1 = np.identity(1) <- does not work?
 				# condition = 1
+				L2 = np.zeros([3,3])
 				print("TODO: fix this case")
 
 		L2 = np.squeeze(L2)
@@ -108,6 +111,7 @@ def get_condition(H_w1):
 
 	# print("L2: \n", L2)
 	# print("lam: \n", lam)
+	# print("condition: \n", condition)
 
 	return L2, lam, U2
 
@@ -242,7 +246,7 @@ def get_U_and_L(cov1, cellsize = np.array([100,100])):
 
 	return U, L
 
-def get_weighting_matrix(cov, npts, L, U):
+def get_weighting_matrix(cov1, npts1, cov2, npts2, L, U):
 
 	'''
 	cov: 3D matrix containing covariance matrices for all voxels 
@@ -255,17 +259,19 @@ def get_weighting_matrix(cov, npts, L, U):
 
 	'''
 
-	W = np.identity(np.shape(cov)[0]*2) #multiply by 2 because cov matrices are 2x2
+	W = np.identity(np.shape(cov2)[0]*2) #multiply by 2 because cov matrices are 2x2
 
 
 	# print("U \n", np.shape(U))
 	# print("L \n", L, np.shape(L))
 
-	for i in range(np.shape(cov)[0]): 
+	for i in range(np.shape(cov2)[0]): 
 
 		#normalize true covariance by the number of points in the subdivision
-		R_noise = cov[i] / (npts[i] - 1) 
+		R_noise = (cov1[i] / (npts1[i] - 1)) + (cov2[i] / (npts2[i] - 1))  
+		# R_noise = (cov2[i] / (npts2[i] - 1))  
 		
+
 		#NOTE: underscript _j denotes that this is the jth voxel in the scan
 		# L_j = L[2*i:(2*i+2)][:,None].T #deprecated
 		# L_j = L[i]
@@ -319,7 +325,7 @@ def get_H(P, x):
 
 	return H
 
-def get_dx(y, y0, x, cov, npts, L, U):
+def get_dx(y, y0, x, cov1, cov2, npts1, npts2, L, U):
 
 	'''gets dx accounting for condition number. this version requires construction of full W 
 
@@ -346,7 +352,8 @@ def get_dx(y, y0, x, cov, npts, L, U):
 	HTWH = np.zeros([3,3])
 	for i in range(np.shape(y)[0]//2):
 		#estimate R_noise for voxel j
-		R_noise = cov[i] / (npts[i] - 1)
+		# R_noise = (cov2[i] / (npts2[i] - 1))
+		R_noise = (cov1[i] / (npts1[i] - 1)) + (cov2[i] / (npts2[i] - 1)) #debug this..
 		R_noise = np.linalg.multi_dot((L[i], U[i].T, R_noise, U[i], L[i].T))
 		#calclate voxel j's contribution to the first term of H_w -------------------------
 		# H_w1  = [ H_wj1[0] + H_wj1[1] + H_wj1[2] + ... ] <- should be a 3x3 matrix
@@ -356,7 +363,8 @@ def get_dx(y, y0, x, cov, npts, L, U):
 		#add contributions of j
 		HTWH += HTWH_j
 
-	W = get_weighting_matrix(cov, npts, L, U)
+	W = get_weighting_matrix(cov1, npts1, cov2, npts2, L, U)
+	# print("W \n", W[:4,:4])
 	#-------------------------------------------
 	# print("HTWH (from get_dx) = \n", HTWH)
 
@@ -373,29 +381,28 @@ def get_dx(y, y0, x, cov, npts, L, U):
 	#TODO- account for L by removing extended axis from lam
 	# print("H.T \n", np.shape(H.T))
 
-	dy = y - y0
+	# dy = y - y0
 
-	dz = np.zeros([3,1])
-	for k in range(3):
-		dz[k] = (1/lam[k,k])*( (U2.T).dot(H.T).dot(W).dot(dy)[k] )
+	# dz = np.zeros([3,1])
+	# for k in range(3):
+	# 	dz[k] = (1/lam[k,k])*( (U2.T).dot(H.T).dot(W).dot(dy)[k] )
 
-	dx = np.linalg.pinv(U2.T).dot(dz)
+	# dx = np.linalg.pinv(U2.T).dot(dz)
 	#------------------------------------------
 
 	#linalg way--------------------------------
-	# (L)(U2.T)(H.T)(W)(y-y0) = (L)(lam)(z)
+	# (L)(U2.T)(H.T)(W)(y-y0) = (L)(lam)(U.T)(x)
 	# (z) = (U.T)(x)
 
-	# dy = y - y0
-	# z = np.linalg.pinv(lam).dot(U2.T).dot(H.T).dot(W).dot(dy)
-	# dx = z
-
+	dy = y - y0
+	dx = np.linalg.pinv( L2.dot(lam).dot(U2.T) ).dot(L2).dot(U2.T).dot(H.T).dot(W).dot(dy)
+	
 	#------------------------------------------
 
 
 	return dx
 
-def fast_weighted_psudoinverse(y, x, cov, npts, L, U):
+def fast_weighted_psudoinverse(y, x, cov1, npts1, cov2, npts2, L, U):
 
 	'''returns array H_w without creating full square matrix for W
 	
@@ -435,7 +442,8 @@ def fast_weighted_psudoinverse(y, x, cov, npts, L, U):
 	for i in range(np.shape(y)[0]//2):
 
 		#estimate R_noise for voxel j
-		R_noise = cov[i] / (npts[i] - 1) 							#ignoring U and L
+		# R_noise = cov2[i] / (npts2[i]-1)
+		R_noise = (cov1[i] / (npts1[i] - 1)) + (cov2[i] / (npts2[i] - 1)) 	#ignoring U and L
 		# R_noise = U[i].dot(cov[i]).dot(U[i].T) / (npts[i] - 1) 	#need to account for rotation
 
 		#adjust R_noise to account for the effects of L and U ------------------------
@@ -627,7 +635,7 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 		#reorder U and L according to correspondences
 		#	NOTE: here the subscript _i refers to the fact that this is the COMPLETE vector at cycle i
 		U_i = U[correspondences[0].astype(int)] #this is straightforward for U
-		
+
 		#NEW - when L is truncated for cases with extended axis ------------------------------------
 		# print(correspondences[0].astype(int))
 		#rearrange L_i to be in order of correspondances
@@ -635,6 +643,25 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 		for i in correspondences[0].astype(int):
 			L_i.append(L[i])
 		#-------------------------------------------------------------------------------------------
+
+		#needs debug...
+		# reorder cov1 and npts1 according to correspondences
+		# print(np.shape(npts1), np.shape(npts2))
+		# need to get reverse correspondences for cov1 and npts1
+		reverse_corr = get_correspondence(y0_init.T, y.T,fig,ax,draw=False)[0].astype(int)
+		# print("correspondences: \n", reverse_corr, np.shape(reverse_corr))
+		# print("cov1: \n", np.shape(cov1))
+		# cov1 = cov1[reverse_corr]
+		# npts1 = npts1[reverse_corr]
+
+		#create array the same size as cov2 that holds the covariance matrices from cov1 that 
+		#	are associated with are nearest point accoring to the correspondance array
+		cov1reorder = np.zeros(np.shape(cov2))
+		npts1reorder = np.zeros(np.shape(npts2))
+		for c in range(np.shape(cov1reorder)[0]):
+			cov1reorder[c] = cov1[correspondences[0].astype(int)[c]]
+			npts1reorder[c] = npts1[correspondences[0].astype(int)[c]]
+		# print(cov1reorder[c])
 
 		# "standard" weighted psudoinverse ------------------------------------
 		#get weighting matrix from covariance matrix 
@@ -647,13 +674,13 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 		# ------------------------------------------------------------------
 
 		# Fast weighted psudoinverse ---------------------------------------
-		H_w = fast_weighted_psudoinverse(y_reshape, x, cov2, npts2, L_i, U_i)
+		H_w = fast_weighted_psudoinverse(y_reshape, x, cov1reorder, npts1reorder, cov2, npts2, L_i, U_i)
 		# print("H_w: \n", H_w, np.shape(H_w))
 		#-------------------------------------------------------------------
 
 		#NOTE 7/21: I think I should be using L and lambda OUTSIDE fast_weighted_psudoinverse()
-		dxTest = get_dx(y_reshape, y0_reshape, x, cov2, npts2, L_i, U_i)
-		print("dxTest = ", dxTest)
+		dxTest = get_dx(y_reshape, y0_reshape, x, cov1reorder, cov2, npts1reorder, npts2, L_i, U_i)
+		# print("dxTest = \n", dxTest)
 		#TODO: I'm getting different HTWH values when using fast weighted psudoinverse and getdx
 		#-------------------------------------------------------------------
 
@@ -669,8 +696,8 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 		dx = H_w.dot(dz)
 		# dy = y_reshape - y0_reshape
 		# dx = H_w.dot(dy) #for no U,L		
-		x -= dx
-		# x -= dxTest
+		# x -= dx #from fast weighted psudoinverse
+		x -= dxTest #from get dx
 
 		#incrementally update y
 		# print("y: ", np.shape(y), " y init: ", np.shape(y_init))
