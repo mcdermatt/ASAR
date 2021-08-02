@@ -90,13 +90,17 @@ def get_condition(H_w1):
 			# L2 = eigenvec[np.intersect1d(remainingaxis1, remainingaxis2)] #was this
 			L2 = np.identity(3)[np.intersect1d(remainingaxis1, remainingaxis2)]
 
+			#fix shape to make 2d
+			# L2 = L2[:,None]
+
 			if condition > cutoff:
 				# H_w1 = np.identity(1) <- does not work?
 				# condition = 1
 				L2 = np.zeros([3,3])
 				print("TODO: fix this case")
 
-		L2 = np.squeeze(L2)
+		if len(np.shape(L2)) > 2:
+			L2 = np.squeeze(L2)
 		H_w1 = L2.dot(H_w1)
 
 	else:
@@ -144,11 +148,11 @@ def visualize_U(U, L, ctr1, cov1, fig, ax):
 			ax.arrow(ctr1[i,0],  ctr1[i,1], -minor_stop[0], -minor_stop[1], length_includes_head = True, lw = 1, head_width = hw) #repeat
 			ax.arrow(ctr1[i,0], ctr1[i,1], -major_stop[0], -major_stop[1], length_includes_head = True, lw = 1, head_width = hw)
 
-		if np.all(L[i] == np.array([[0,1]])):
+		if np.all(L[i] == np.array([[1,0]])):
 			ax.arrow(ctr1[i,0],  ctr1[i,1], minor_stop[0], minor_stop[1], length_includes_head = True, lw = 1, head_width = hw)
 			ax.arrow(ctr1[i,0],  ctr1[i,1], -minor_stop[0], -minor_stop[1], length_includes_head = True, lw = 1, head_width = hw)
 
-		if np.all(L[i] == np.array([[1,0]])):
+		if np.all(L[i] == np.array([[0,1]])):
 			ax.arrow(ctr1[i,0], ctr1[i,1], major_stop[0], major_stop[1], length_includes_head = True, lw = 1, head_width = hw)
 			ax.arrow(ctr1[i,0], ctr1[i,1], -major_stop[0], -major_stop[1], length_includes_head = True, lw = 1, head_width = hw)
 			print("special case")
@@ -172,6 +176,7 @@ def get_U_and_L(cov1, cellsize = np.array([100,100])):
 	# cellsize = np.array([2,1000])
 	# cellsize = np.array([1000,1000])
 	# cellsize = np.array([0,0])
+	# cellsize = cellsize/2
 
 	print("Using cellsize = ", cellsize)
 
@@ -200,8 +205,12 @@ def get_U_and_L(cov1, cellsize = np.array([100,100])):
 
 		# get L matrix 
 		# NOTE: axis1 is not always the bigger or smaller axis...
-		axis1 = np.sqrt(eigenval[0])
-		axis2 = np.sqrt(eigenval[1])
+		# axis1 = np.sqrt(eigenval[0])
+		# axis2 = np.sqrt(eigenval[1])
+
+		#test
+		axis1 = np.sqrt(max(eigenval))
+		axis2 = np.sqrt(min(eigenval))
 
 		# print("axis1: ", axis1, " axis2: ", axis2)
 
@@ -217,7 +226,7 @@ def get_U_and_L(cov1, cellsize = np.array([100,100])):
 		#elongated axis1
 		if (axis1x>(cellsize[0]/4)**2 or axis1y>(cellsize[1]/4)**2):
 			if (axis2x<(cellsize[0]/4)**2 and axis2y<(cellsize[1]/4)**2):
-				L_i = np.array([[0,1]])
+				L_i = np.array([[1,0]])
 			else:
 				#both elongated
 				L_i = np.zeros([1,2])
@@ -227,7 +236,7 @@ def get_U_and_L(cov1, cellsize = np.array([100,100])):
 		#elongated axis2
 		if (axis2x>(cellsize[0]/4)**2 or axis2y>(cellsize[1]/4)**2):
 			if (axis1x<(cellsize[0]/4)**2 and axis1y<(cellsize[1]/4)**2):
-				L_i = np.array([[1,0]])
+				L_i = np.array([[0,1]])
 
 		# L = np.append(L, L_i, axis = 0)
 		L.append(L_i)
@@ -350,6 +359,7 @@ def get_dx(y, y0, x, cov1, cov2, npts1, npts2, L, U):
 
 	#fast way of getting HTWH--------------------
 	HTWH = np.zeros([3,3])
+	HTW = np.zeros([3, np.shape(y)[0]])
 	for i in range(np.shape(y)[0]//2):
 		#estimate R_noise for voxel j
 		# R_noise = (cov2[i] / (npts2[i] - 1))
@@ -358,12 +368,17 @@ def get_dx(y, y0, x, cov1, cov2, npts1, npts2, L, U):
 		#calclate voxel j's contribution to the first term of H_w -------------------------
 		# H_w1  = [ H_wj1[0] + H_wj1[1] + H_wj1[2] + ... ] <- should be a 3x3 matrix
 		# H_wj1 = (H.T)(W)(H) = (H.T)(R^-1)(H)
-		H_z = L[i].dot(U[i].T).dot(H[2*i:2*i+2])
+		H_z = L[i].dot(U[i].T).dot(H[2*i:2*i+2]) #was this
+		# H_z = L[i].dot(U[i]).dot(H[2*i:2*i+2]) #test
 		HTWH_j = H_z.T.dot(np.linalg.pinv(R_noise)).dot(H_z)
 		#add contributions of j
 		HTWH += HTWH_j
 
-	W = get_weighting_matrix(cov1, npts1, cov2, npts2, L, U)
+		HTW_j = H_z.T.dot(np.linalg.pinv(R_noise))
+		HTW[:,2*i:2*i+2] = HTW_j
+
+	#not actually needed
+	# W = get_weighting_matrix(cov1, npts1, cov2, npts2, L, U)
 	# print("W \n", W[:4,:4])
 	#-------------------------------------------
 	# print("HTWH (from get_dx) = \n", HTWH)
@@ -395,7 +410,10 @@ def get_dx(y, y0, x, cov1, cov2, npts1, npts2, L, U):
 	# (z) = (U.T)(x)
 
 	dy = y - y0
-	dx = np.linalg.pinv( L2.dot(lam).dot(U2.T) ).dot(L2).dot(U2.T).dot(H.T).dot(W).dot(dy)
+	# dx = np.linalg.pinv( L2.dot(lam).dot(U2.T) ).dot(L2).dot(U2.T).dot(H.T).dot(W).dot(dy) #works
+
+	#needs debug
+	dx = np.linalg.pinv( L2.dot(lam).dot(U2.T) ).dot(L2).dot(U2.T).dot(HTW).dot(dy)
 	
 	#------------------------------------------
 
@@ -493,7 +511,7 @@ def fast_weighted_psudoinverse(y, x, cov1, npts1, cov2, npts2, L, U):
 	#CHECK CONDITION TO MAKE SURE FIRST TERM IS INVERTABLE - if not this will correct it
 	# print("H_w1 (from fast_weighted_psudoinverse) = \n", H_w1)
 	L2, lam, U2 = get_condition(H_w1)
-	# print("L2 (from fast_weighted_psudoinverse)= ", L2)
+	# print("L2 (from fast_weighted_psudoinverse)= ", L2, np.shape(L2))
 	# print("lam = ", lam)
 	#NOTE:
 	#	we now want to remove all short axis of H'WH so that this first term is invertable
@@ -714,7 +732,7 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 		error[cycle] = np.sum(abs(y_reshape- y0_reshape))
 
 		#draw progression of centers of ellipses
-		# ax.plot(y.T[0,:], y.T[1,:], color = (1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),0.25), ls = '', marker = '.', markersize = 10)
+		ax.plot(y.T[0,:], y.T[1,:], color = (1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),0.25), ls = '', marker = '.', markersize = 10)
 		
 		# #draw all points progressing through transformation
 		# ax.plot(P_corrected.T[0,:], P_corrected.T[1,:], color = (1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),0.025), ls = '', marker = '.', markersize = 20)

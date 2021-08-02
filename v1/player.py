@@ -92,7 +92,7 @@ class Player():
 				X, Y, _ = self.RT(self.pos,self.heading + self.FOV/2 - i*(self.FOV/self.fovfid))
 				
 				if self.noise == True:
-					noiseScale = 1 #5
+					noiseScale = 0.5 #5
 					X = X + np.random.randn()*noiseScale
 					Y = Y + np.random.randn()*noiseScale
 

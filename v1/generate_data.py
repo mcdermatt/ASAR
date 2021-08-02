@@ -16,7 +16,7 @@ fig.patch.set_facecolor('xkcd:greyish blue')
 fig.canvas.draw()
 
 # img = cv2.imread('assets/map1.png')
-img = cv2.imread('assets/map5.png')
+img = cv2.imread('assets/map9.png')
 ax.set_xlim(0,np.shape(img)[1])
 ax.set_ylim(np.shape(img)[0],0)
 
@@ -38,12 +38,13 @@ fovfid = 1000
 
 data = np.zeros([runLen,2*fovfid+3])
 
-for i in range(runLen):
+i = 0
+while i < runLen:
 
 	print(i)
 
 	g.p.place_player()
-	g.p.pos[0] = 400 #center player in x coord
+	# g.p.pos[0] = 400 #center player in x coord
 	g.p.heading = np.random.rand()*2*np.pi - np.pi #random initial heading
 	# g.p.heading = np.pi
 	g.p.draw()
@@ -51,7 +52,7 @@ for i in range(runLen):
 	before = g.p.lidar
 
 	g.fig.canvas.draw()
-	print(g.p.lidar)
+	# print(g.p.lidar)
 	plt.pause(0.01)
 	g.p.remove()
 
@@ -61,7 +62,8 @@ for i in range(runLen):
 	dir_rel2heading = np.random.rand()*2*np.pi - np.pi
 
 	g.p.step(stepSize, dir_rel2heading)
-	rotation = np.random.randn()*0.1
+	# rotation = np.random.randn()*0.1 #was this
+	rotation = np.random.randn()*0.05
 	g.p.heading = g.p.heading + rotation
 	# g.p.heading = np.pi
 
@@ -75,17 +77,28 @@ for i in range(runLen):
 
 	g.axis.patches = []
 
-	data[i,:fovfid] = before
-	data[i,fovfid:2*fovfid] = after
+	# ignore scans too close to a wall
+	if np.mean(after) < 100:
+		good = False
+	else:
+		good = True
 
-	#convert stepSize and dir_rel2heading to dx and dy
-	dx = stepSize*np.cos(dir_rel2heading)#movement sideways
-	dy = stepSize*np.sin(dir_rel2heading)
+	# only save data if scans are good
+	if good == True:
 
-	data[i,-3] = dx # was stepSize
-	data[i,-2] = dy # was dir_rel2heading
-	data[i,-1] = rotation
+		data[i,:fovfid] = before
+		data[i,fovfid:2*fovfid] = after
+
+		#convert stepSize and dir_rel2heading to dx and dy
+		dx = stepSize*np.cos(dir_rel2heading)#movement sideways
+		dy = stepSize*np.sin(dir_rel2heading)
+
+		data[i,-3] = dx # was stepSize
+		data[i,-2] = dy # was dir_rel2heading
+		data[i,-1] = rotation
+
+		i += 1
 
 # print(data)
-file = "data/cross_track_rotated.npy"
+file = "data/validation.npy"
 np.save(file, data)
