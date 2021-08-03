@@ -53,7 +53,7 @@ def get_condition(H_w1):
 
 		"""
 
-	cutoff = 10e6
+	cutoff = 10e5 #10e6
 
 	#think of H_w1 as an ellipse- we are looking for SHORT principal axis
 	# print("H _w1: \n", H_w1)
@@ -176,7 +176,7 @@ def get_U_and_L(cov1, cellsize = np.array([100,100])):
 	# cellsize = np.array([2,1000])
 	# cellsize = np.array([1000,1000])
 	# cellsize = np.array([0,0])
-	# cellsize = cellsize/2
+	cellsize = cellsize/2
 
 	print("Using cellsize = ", cellsize)
 
@@ -387,7 +387,7 @@ def get_dx(y, y0, x, cov1, cov2, npts1, npts2, L, U):
 	L2, lam, U2 = get_condition(HTWH)
 	print("L2: \n", L2) # -> removes axis
 	print("lam: \n", lam) # -> 3x3 diagonal array with eigenvalues of HTWH
-	print("U2: \n", U2) # -> eigenvecs
+	print("U2: \n", U2) # -> COLUMNS are eigenvecs
 	
 	#pythonic way------------------------------
 	#z_k = (1/lam_k)[(U.T)(H.T)(W)(y)]_k
@@ -417,8 +417,13 @@ def get_dx(y, y0, x, cov1, cov2, npts1, npts2, L, U):
 	
 	#------------------------------------------
 
+	# without pruning from L2
+	Q = np.linalg.pinv(HTWH)
+	
+	# Q = L2.dot(np.linalg.pinv(HTWH))
 
-	return dx
+
+	return dx, Q
 
 def fast_weighted_psudoinverse(y, x, cov1, npts1, cov2, npts2, L, U):
 
@@ -565,13 +570,18 @@ def weighted_psudoinverse(H, W = np.identity(3)):
 
 	return H_w
 
-def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
+def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True, along_track_demo = False):
 
 	"""similar to v1 except uses "weighted" psudoinverse instead of LSICP"""
 
-	#get point positions in 2d space and draw 1st and 2nd scans
-	pp1 = draw_scan(Q,fig,ax, pt = 2)
-	pp2 = draw_scan(P,fig,ax, pt = 2) #pt number assigns color for plotting, pt = 2 does not draw
+	if along_track_demo == True:
+
+		pp1, pp2 = generate_along_track_data(fig,ax, draw = True)
+
+	else:
+		#get point positions in 2d space and draw 1st and 2nd scans
+		pp1 = draw_scan(Q,fig,ax, pt = 2)
+		pp2 = draw_scan(P,fig,ax, pt = 2) #pt number 0,1 assigns color for plotting, pt = 2 does not draw
 
 	#get cellsize param for calculating L
 	minx = np.min(pp1[:,0])
@@ -620,6 +630,8 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 	error = np.zeros(num_cycles)
 
 	for cycle in range(num_cycles):
+
+		# print("cycle ", cycle, " --------------------")
 
 		#Refit 2nd scan into voxels on each iteration
 		E2 = subdivide_scan(P_corrected,fig,ax, fidelity = fid, pt = 2, min_num_pts = min_num_pts)
@@ -697,7 +709,7 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 		#-------------------------------------------------------------------
 
 		#NOTE 7/21: I think I should be using L and lambda OUTSIDE fast_weighted_psudoinverse()
-		dxTest = get_dx(y_reshape, y0_reshape, x, cov1reorder, cov2, npts1reorder, npts2, L_i, U_i)
+		dxTest, Q = get_dx(y_reshape, y0_reshape, x, cov1reorder, cov2, npts1reorder, npts2, L_i, U_i)
 		# print("dxTest = \n", dxTest)
 		#TODO: I'm getting different HTWH values when using fast weighted psudoinverse and getdx
 		#-------------------------------------------------------------------
@@ -746,7 +758,7 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True):
 	P_final = rot.dot(pp2.T) + t
 	ax.plot(P_final.T[:,0], P_final.T[:,1], color = (1,0,0,0.0375), ls = '', marker = '.', markersize = 20)
 
-	return x, error
+	return x, Q, error
 
 def ICET_v1(Q, P, fig, ax, fid = 10, num_cycles = 1, draw = True):
 

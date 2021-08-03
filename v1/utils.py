@@ -194,6 +194,55 @@ def draw_scan(scan, fig, ax, FOV = 60, pt = 0):
 
 	return point_pos
 
+def generate_along_track_data(fig,ax,draw = True):
+
+	tracklen = 800 
+	npts = 1000
+	tscale = 100
+	xy_noise_scale = 3
+
+	pp1 = np.zeros([npts,2])
+	pp2 = np.zeros([npts,2])
+
+	theta = np.random.randn()*np.pi/20
+	rot = R(theta)
+	t = np.random.randn(2)*tscale
+
+	#moves half of points to left wall and half to right
+	xshift = np.ones(npts)*-200
+	xshift[(npts//2):] = 200
+	yshift = np.zeros(npts)
+	yshift[(npts//2):] = -npts//2
+
+	#left wall
+	for i in range(npts):
+		pp1[i,0] = xshift[i] + np.random.randn()*xy_noise_scale
+		pp1[i,1] = i + yshift[i] + np.random.randn()*xy_noise_scale
+
+		pp2[i,0] = xshift[i] + np.random.randn()*xy_noise_scale + t[0]
+		pp2[i,1] = i + yshift[i] + np.random.randn()*xy_noise_scale + t[1]
+
+
+	#stretch scan 1 in the vertical direction
+	pp1[:,1] = pp1[:,1]*1.5
+
+	#rotate and translate scan2
+	pp2 = rot.dot(pp2.T)
+	pp2 = pp2.T
+
+	#make data cross track instead
+	rot_cross = R(np.pi/2)
+	pp1 = rot_cross.dot(pp1.T)
+	pp1 = pp1.T
+	pp2 = rot_cross.dot(pp2.T)
+	pp2 = pp2.T
+	
+
+	ax.plot(pp1[:,0], pp1[:,1], color = (0.25,0.8,0.25,0.0375), ls = '', marker = '.', markersize = 20)
+	ax.plot(pp2[:,0], pp2[:,1], color = (0.25,0.25,0.8,0.0375), ls = '', marker = '.', markersize = 20)
+
+	return pp1, pp2
+
 def fit_gaussian(points):
 
 	"""inputs: 2D np array of points in shape (n, 2)
