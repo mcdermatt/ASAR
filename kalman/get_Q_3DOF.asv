@@ -1,0 +1,80 @@
+% File used to generate Q matrix for August Volpe Demo
+
+% load /Data/Sign_pose_voxel1_dist0.1.mat 
+%   opens structure "store" in workspace
+
+% position: [2851×7 double]:
+    % Columns 1-3: Translation vector (x,y,z) (in meters)
+    % Columns 4-7: Rotational vector (qw,qx,qy,qz) (in meters)
+    % Position is calculated from “relPose” (derived from NDT-SLAM) if 
+    %   “relPose” passes the distance move threshold (indicated in the filename as :dist#)
+
+% eulAngles: [2851×3 double]:
+    % Columns 1-3: 3D rotation in (x,y,z = Roll, Pitch, Yaw) (in radians)
+    % “eulAngles” are derived from rotational vectors in “position” variable.
+
+% relPose: [5670×7 double]: 
+    % Columns 1-3: Translation vector (x,y,z) (in meters)
+    % Columns 4-7: Rotational vector (qw,qx,qy,qz) (in meters)
+    % This variable is an output of NDT-SLAM algorithm.
+
+% relAngle: [5670×3 double]:
+    % Columns 1-3: 3D rotation in (x,y,z = Roll, Pitch, Yaw) (in radians)
+    % “relAngles” are derived from rotational vectors in “relPose” variable.
+
+% Optimized_pos: [5670×7 double]:
+    % “Optimized_pos” is empty since Loop closure is not applied as a part of SLAM.
+
+% timeFrame: [2851×2 double] :
+    % Columns: 1: Lidar time (in seconds)
+    % Columns: 2: Lidar frame# associated with Lidar time that are accepted since they pass the distance moved threshold.
+    
+
+% 1) take data in one dimension ------------------------------------------
+interpts = 100; %max(size(pos_x_lidar)); %number of points used in interpolation
+method = 'spline'; %method of interpolation used
+
+pos_x_lidar = Store.position(:,1);
+pos_y_lidar = Store.position(:,2);
+
+figure()
+hold on
+plot(pos_x_lidar, pos_y_lidar)
+
+% xq breaks down first scan into fewer points
+xq = linspace(1,max(size(pos_x_lidar)),interpts); 
+interp_x = interp1(pos_x_lidar, xq, method);
+%xq2 generates more points on spline defined by interp_x
+xq2 = linspace(1,max(size(pos_x_lidar)),max(size(pos_x_lidar)));
+interp_x2 = interp1(interp_x, xq2, 'linear');
+
+yq = linspace(1,max(size(pos_x_lidar)),interpts);
+interp_y = interp1(pos_y_lidar, yq, method);
+%yq2 generates more points on spline defined by interp_x
+yq2 = linspace(1,max(size(pos_x_lidar)),max(size(pos_x_lidar)));
+interp_y2 = interp1(interp_y, yq2, method);
+
+% plot(interp_x, interp_y)
+plot(interp_x2, interp_y2)
+legend('actual','interpolated')
+
+figure()
+hold on
+plot(pos_x_lidar)
+plot(interp_x2)
+size(linspace(1,max(size(pos_x_lidar)), interp_x2)
+% plot(linspace(1,max(size(pos_x_lidar)), interpts),interp_x)
+legend('actual','interpolated')
+
+hold off
+
+figure()
+plot(interp_y)
+
+% 2) subtract off cubic spline fit 
+
+% 3) take std of residual error
+
+
+
+

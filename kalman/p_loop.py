@@ -3,18 +3,26 @@ import numpy as np
 def p_loop(dt = 0.1, niter = 10):
 
 	#noise covariance matrix (from NDT/ ICET) ----------------------------
-	#	simplest case -> assume constant
-	Q = np.array([[9e-2, 1e-2, 1e-4],
-				  [1e-2, 2e1, 1e-2],
-				  [1e-4, 1e-2, 1e-5]])
+	#	taken from example output of ICET
+	Q = np.array([[3e-2, 1e-2, 3e-3],
+				  [1e-2, 5e-2, 3e-3],
+				  [3e-3, 3e-3, 1e-4]])
 
-	# Q = np.identity(6)
+	Q = Q*10
+
+	print("Q = \n", Q)
 	#---------------------------------------------------------------------
 
 	#measurement covariance matrix (from GPS/ INS)------------------------
-	R = np.array([[1, 0, 0],
-				  [0, 1, 0],
-				  [0, 0, 1]])
+	R = np.array([[3e-2, 1e-2, 3e-3],
+				  [1e-2, 3e-2, 3e-3],
+				  [3e-3, 3e-3, 1e-4]])
+	R = R*100
+
+	# R = np.identity(3)*10
+	# R[2,2] = 0.95
+	# R = R + np.random.rand(3,3)*0.1
+	print("R = \n", R)
 
 	# R = np.identity(6)
 	#---------------------------------------------------------------------
@@ -54,9 +62,8 @@ def p_loop(dt = 0.1, niter = 10):
 	sigma_theta_history = np.zeros(niter)
 
 	#init P_plus
-	P_plus = np.identity(3)
-	# P_plus = np.identity(6)
-
+	P_plus = R
+	# P_plus = np.identity(3)
 
 	i = 0 
 	while i < niter:
@@ -68,6 +75,9 @@ def p_loop(dt = 0.1, niter = 10):
 		P_minus = F.dot(P_plus).dot(F.T) + Q
 		#-----------------------------------------------------------------
 
+
+		if i > niter/2:
+			R = R *100
 
 		#correction step -------------------------------------------------
 		L = P_minus.dot(H.T).dot(np.linalg.pinv(H.dot(P_minus).dot(H.T) + R))
