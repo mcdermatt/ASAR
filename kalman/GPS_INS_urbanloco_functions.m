@@ -42,11 +42,11 @@ qbnArr = zeros(1,4);
 qbnRef = zeros(1,4);
 
 % TM- These three lines read and store input variables from the data files
-
 % gpsFn = './Mp_detection_urbanloco/Data/gps.txt';
 % insFn = './Mp_detection_urbanloco/Data/ins_ned.bin';
 % qbnRef = load('./Mp_detection_urbanloco/Data/qbn.txt');
 
+%for Matt's machine
 gpsFn = 'Data/gps.txt';
 insFn = 'Data/ins_ned.bin';
 qbnRef = load('Data/qbn.txt');
