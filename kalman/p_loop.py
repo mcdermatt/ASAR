@@ -3,25 +3,34 @@ import numpy as np
 def p_loop(dt = 0.1, niter = 10):
 
 	#noise covariance matrix (from NDT/ ICET) ----------------------------
-	#	taken from example output of ICET
-	Q = np.array([[3e-2, 1e-2, 3e-3],
-				  [1e-2, 5e-2, 3e-3],
-				  [3e-3, 3e-3, 1e-4]])
+	# #	taken from example output of ICET
+	# Q = np.array([[3e-2, 1e-2, 3e-3],
+	# 			  [1e-2, 5e-2, 3e-3],
+	# 			  [3e-3, 3e-3, 1e-4]])
+	# Q = Q*10 #debug
 
-	Q = Q*10
+	# calculated from Volpe dataset
+	Q = np.array([[0.0987, 0.002, -0.0002],
+				  [0.002,  0.0358, 0.0003],
+				  [-0.0002, 0.0003,0.0007]])
 
 	print("Q = \n", Q)
 	#---------------------------------------------------------------------
 
 	#measurement covariance matrix (from GPS/ INS)------------------------
-	R = np.array([[3e-2, 1e-2, 3e-3],
-				  [1e-2, 3e-2, 3e-3],
-				  [3e-3, 3e-3, 1e-4]])
-	R = R*100
+	#this worked with ICET values
+	# R = np.array([[3e-2, 1e-2, 3e-3],
+	# 			  [1e-2, 3e-2, 3e-3],
+	# 			  [3e-3, 3e-3, 1e-4]])
+	# # R = R*100
 
-	# R = np.identity(3)*10
-	# R[2,2] = 0.95
-	# R = R + np.random.rand(3,3)*0.1
+	# R = np.identity(3)*10 #works with volpe Q for debug
+
+
+	R = np.array([[0.1829, 0, 0],
+				  [0, 0.6226, 0],
+				  [0, 0, 0.0587]])
+
 	print("R = \n", R)
 
 	# R = np.identity(6)

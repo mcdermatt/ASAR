@@ -6,10 +6,14 @@ filename = '2021-03-10-16-43-50_Velodyne-VLP-16-Data_garminSignage-position.csv'
 data = readmatrix(filename);
 lat = data(:,1);
 lon = data(:,2);
+heading = data(:,14);
 t = data(:,4);
 %"lat","lon","gpstime","time","accel1x","accel1y","accel2x","accel2y",
 %"accel3x","accel3y","gyro1","gyro2","gyro3","heading","temp1","temp2",
 %"temp3","Points:0","Points:1","Points:2"
+
+interpts_GPS = 250;
+method_GPS = 'cubic';
 
 %plot lat -----------------------------------------------------------------
 figure()
@@ -18,24 +22,71 @@ hold on
 % lat(lat == 0) = [];
 idx = find(lat == 0);
 lat(idx) = [];
+lon(idx) = [];
 t(idx) = [];
-
+heading(idx) = [];
 %flip latitdue upside down (to match positive y for now...)
 lat = -lat;
+
+latq = linspace(1,max(size(lat)),interpts_GPS);
+interp_lat = interp1(lat, latq, method_GPS);
+
+latq2 = linspace(1,interpts_GPS, max(size(lat)));
+interp_lat2 = interp1(interp_lat, latq2, method_GPS);
+% interp_lat2 = interp_lat2.';
 plot(t,lat)
+%interp_lat2 and lat are in different time scales
+%this results in data that is horizontally shifted (not good)
+% t_interp = linspace(min(t),max(t),max(size(lat))); 
+t_interp = movmean(t,50);
+plot(t_interp, interp_lat2);
+
+legend('actual','interpolated')
 title('lat');
+xlabel('timestep')
+ylabel('lat (m)')
 hold off
  
 %plot lon------------------------------------------------------------------
 figure()
 hold on
-lon(lon == 0) = [];
-lon = -lon;
+lon = -lon; 
 
-plot(lon)
+lonq = linspace(1,max(size(lon)),interpts_GPS);
+interp_lon = interp1(lon, lonq, method_GPS);
+
+lonq2 = linspace(1,interpts_GPS, max(size(lon)));
+interp_lon2 = interp1(interp_lon, lonq2, method_GPS); 
+t_interp = movmean(t,50);
+
+plot(t,lon)
+plot(t_interp, interp_lon2);
+legend('actual','interpolated')
 title('lon')
+xlabel('timestep')
+ylabel('lon (m)')
+
 hold off
 
+% plot heading ------------------------------------------------------------
+figure()
+hold on
+
+headingq = linspace(1,max(size(heading)),interpts_GPS);
+interp_heading = interp1(heading, headingq, method_GPS);
+
+headingq2 = linspace(1,interpts_GPS, max(size(heading)));
+interp_heading2 = interp1(interp_heading, headingq2, method_GPS); 
+t_interp = movmean(t,50);
+
+plot(t,heading);
+plot(t_interp, interp_heading2);
+legend('actual','interpolated')
+title('heading')
+xlabel('timestep')
+ylabel('heading (deg)')
+
+hold off
 %plot time-----------------------------------------------------------------
 % figure()
 % hold on
@@ -45,3 +96,46 @@ hold off
 % plot(t);
 % 
 % hold off
+
+% % put everything together to get final R matrix----------------------------
+figure()
+hold on
+plot(lon, lat);
+plot(interp_lon2, interp_lat2);
+legend('actual','interpolated')
+title('Path (GPS data)')
+xlabel('lon (deg)')
+ylabel('lat (deg)')
+hold off
+
+dlat = lat - interp_lat2.';
+dlon = lon - interp_lon2.';
+dheading = heading - interp_heading2.';
+
+%in degrees
+std_lat = std(dlat);
+std_lon = std(dlon);
+std_heading = std(dheading);
+
+%convert to m
+std_lat = deg2km(std_lat)*1000
+std_lon = 40075*cos(deg2rad(lat(1)))*std_lon
+
+std_heading = deg2rad(std_heading)
+
+R = zeros(3);
+R(1,1) = std_lon^2;
+R(2,2) = std_lat^2;
+R(3,3) = std_heading^2;
+%get non-diagonal elements
+cov_xy = cov(dlon, dlat); %should this be in car frame or world frame?
+R(1,2) = cov_xy(1,2);
+R(2,1) = cov_xy(1,2);
+cov_xheading = cov(dlon, dheading);
+R(1,3) = cov_xheading(1,2);
+R(3,1) = cov_xheading(1,2);
+cov_yheading = cov(dlat,dheading);
+R(2,3) = cov_yheading(1,2);
+R(3,2) = cov_yheading(1,2);
+
+R

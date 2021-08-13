@@ -28,7 +28,19 @@
 % timeFrame: [2851×2 double] :
     % Columns: 1: Lidar time (in seconds)
     % Columns: 2: Lidar frame# associated with Lidar time that are accepted since they pass the distance moved threshold.
-    
+
+%plot time for debug
+figure()
+hold on
+t = Store.timeFrame(:,1);
+plot(t)
+title('time for lidar')
+xlabel('step')
+ylabel('lidar time')
+
+hold off
+
+
 %Get RPY ------------------------------------------------------------------
 %get orientation data from CSV
 
@@ -77,8 +89,8 @@ ylabel('y (m)')
 
 figure()
 hold on
-plot(pos_x_lidar)
-plot(interp_x2)
+plot(t,pos_x_lidar)
+plot(t,interp_x2)
 % plot(linspace(1,max(size(pos_x_lidar)), interpts),interp_x)
 legend('actual','interpolated')
 xlabel('t (s)')
@@ -87,8 +99,8 @@ hold off
 
 figure()
 hold on
-plot(pos_y_lidar)
-plot(interp_y2)
+plot(t, pos_y_lidar)
+plot(t, interp_y2)
 legend('actual','interpolated')
 xlabel('t (s)')
 ylabel('dy (m)')
@@ -96,8 +108,8 @@ hold off
 
 figure()
 hold on
-plot(yaw_lidar)
-plot(interp_yaw2)
+plot(t, yaw_lidar)
+plot(t, interp_yaw2)
 legend('actual','interpolated')
 xlabel('t (s)')
 ylabel('yaw (rad)')
@@ -107,14 +119,21 @@ hold off
 dx = pos_x_lidar - interp_x2.';
 dy = pos_y_lidar - interp_y2.';
 dyaw = yaw_lidar - interp_yaw2.';
-% 
-% figure()
-% hold on
+
+bfx_world = movmean(abs(dx),50);
+bfy_world = movmean(abs(dy),50);
+
+figure()
+hold on
 % plot(abs(dx))
-% title('error in x')
-% ylabel('error')
-% xlabel('t (s)')
-% hold off
+% plot(abs(dy))
+plot(bfx_world)
+plot(bfy_world)
+title('error in world frame')
+legend('error x (world frame)','error y (world frame)')
+ylabel('error(m)')
+xlabel('t (s)')
+hold off
 
 % 3) take std of residual error
 std_x = std(dx)
@@ -125,5 +144,43 @@ std_yaw = std(dyaw)
 % transform errors in world frame X and Y into frame of vechicle at
 % corresponding point in time.
 
-dx_car_frame = dx*np.cos(interp_yaw2);
+dx_car_frame = dx.*cos(interp_yaw2.') - dy.*sin(interp_yaw2.');
+dy_car_frame = dx.*sin(interp_yaw2.') + dy.*cos(interp_yaw2.');
 
+std_x_car_frame = std(dx_car_frame)
+std_y_car_frame = std(dy_car_frame)
+
+bfx = movmean(abs(dx_car_frame),50);
+bfy = movmean(abs(dy_car_frame),50);
+
+figure()
+hold on
+% plot(abs(dx_car_frame))
+% plot(abs(dy_car_frame))
+plot(bfx)
+plot(bfy)
+legend('error x (car frame)','error y (car frame)')
+xlabel('t (s)')
+ylabel('error (m)')
+hold off
+
+% put everything together to get final Q matrix----------------------------
+Q = zeros(3);
+Q(1,1) = std_x^2;
+Q(2,2) = std_y^2;
+Q(3,3) = std_yaw^2;
+%get non-diagonal elements
+cov_xy = cov(dx, dy); %should this be in car frame or world frame?
+Q(1,2) = cov_xy(1,2);
+Q(2,1) = cov_xy(1,2);
+cov_xyaw = cov(dx, dyaw);
+Q(1,3) = cov_xyaw(1,2);
+Q(3,1) = cov_xyaw(1,2);
+cov_yyaw = cov(dy,dyaw);
+Q(2,3) = cov_yyaw(1,2);
+Q(3,2) = cov_yyaw(1,2);
+
+Q
+
+close all
+ 

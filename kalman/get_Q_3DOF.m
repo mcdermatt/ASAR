@@ -163,3 +163,24 @@ legend('error x (car frame)','error y (car frame)')
 xlabel('t (s)')
 ylabel('error (m)')
 hold off
+
+% put everything together to get final Q matrix----------------------------
+Q = zeros(3);
+Q(1,1) = std_x^2;
+Q(2,2) = std_y^2;
+Q(3,3) = std_yaw^2;
+%get non-diagonal elements
+cov_xy = cov(dx, dy); %should this be in car frame or world frame?
+Q(1,2) = cov_xy(1,2);
+Q(2,1) = cov_xy(1,2);
+cov_xyaw = cov(dx, dyaw);
+Q(1,3) = cov_xyaw(1,2);
+Q(3,1) = cov_xyaw(1,2);
+cov_yyaw = cov(dy,dyaw);
+Q(2,3) = cov_yyaw(1,2);
+Q(3,2) = cov_yyaw(1,2);
+
+Q
+
+% close all
+ 
