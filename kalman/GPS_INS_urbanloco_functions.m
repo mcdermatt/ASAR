@@ -581,6 +581,9 @@ end
 
 
 % ins_mechanization_compact.m:
+% The INS mechanization equations are used to convert the inertial measures (accelerations and
+%   angular rates along the three orthogonal directions) from the body frame (b-fame) to the navigation
+%   frame
 function [lla, vel, rpy, ned, dv, qbn, xHatP, PP, gpsUpdated, gpsCnt, gps_res] = ins_gps(lla0, vel0, rpy0, dv0, qbn0, msrk, msrk1, gpsmsr, xHatP, PP, gpsCnt, gps_res)
 % TM- As far as I can tell right now, the code from here to the comment
 %     "Phi-Error Model" is exactly the same as the last function without GPS 

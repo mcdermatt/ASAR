@@ -1,32 +1,32 @@
 %file used to generate R matrix from GPS Data
 
-%import data file
-filename = '2021-03-10-16-43-50_Velodyne-VLP-16-Data_garminSignage-position.csv';
-% opts = detectImportOptions(filename);
-data = readmatrix(filename);
-lat = data(:,1);
-lon = data(:,2);
-heading = data(:,14);
-t = data(:,4);
-%"lat","lon","gpstime","time","accel1x","accel1y","accel2x","accel2y",
-%"accel3x","accel3y","gyro1","gyro2","gyro3","heading","temp1","temp2",
-%"temp3","Points:0","Points:1","Points:2"
+% %DIRECT FROM GPS DATA -----------------------------------------------------
+% %import data file
+% filename = '2021-03-10-16-43-50_Velodyne-VLP-16-Data_garminSignage-position.csv';
+% % opts = detectImportOptions(filename);
+% data = readmatrix(filename);
+% lat = data(:,1);
+% lon = data(:,2);
+% h = data(:,14);
+% t = data(:,4);
+% %"lat","lon","gpstime","time","accel1x","accel1y","accel2x","accel2y",
+% %"accel3x","accel3y","gyro1","gyro2","gyro3","heading","temp1","temp2",
+% %"temp3","Points:0","Points:1","Points:2"
+% %--------------------------------------------------------------------------
 
-interpts_GPS = 250;
+%FROM BESTPOS--------------------------------------------------------------
+lon = x_gps;
+lat = y_gps;
+% t_bp = nxrx; %broken
+t_bp = 1:max(size(x_gps));
+%Need to get h from kalman demo script...
+%--------------------------------------------------------------------------
+interpts_GPS = 110;
 method_GPS = 'cubic';
 
 %plot lat -----------------------------------------------------------------
 figure()
 hold on
-%remove zeros
-% lat(lat == 0) = [];
-idx = find(lat == 0);
-lat(idx) = [];
-lon(idx) = [];
-t(idx) = [];
-heading(idx) = [];
-%flip latitdue upside down (to match positive y for now...)
-lat = -lat;
 
 latq = linspace(1,max(size(lat)),interpts_GPS);
 interp_lat = interp1(lat, latq, method_GPS);
@@ -34,12 +34,11 @@ interp_lat = interp1(lat, latq, method_GPS);
 latq2 = linspace(1,interpts_GPS, max(size(lat)));
 interp_lat2 = interp1(interp_lat, latq2, method_GPS);
 % interp_lat2 = interp_lat2.';
-plot(t,lat)
+plot(t_bp,lat)
 %interp_lat2 and lat are in different time scales
 %this results in data that is horizontally shifted (not good)
-% t_interp = linspace(min(t),max(t),max(size(lat))); 
-t_interp = movmean(t,50);
-plot(t_interp, interp_lat2);
+% t_bp = linspace(min(t),max(t),max(size(lat))); 
+plot(t_bp, interp_lat2);
 
 legend('actual','interpolated')
 title('lat');
@@ -50,17 +49,15 @@ hold off
 %plot lon------------------------------------------------------------------
 figure()
 hold on
-lon = -lon; 
 
 lonq = linspace(1,max(size(lon)),interpts_GPS);
 interp_lon = interp1(lon, lonq, method_GPS);
 
 lonq2 = linspace(1,interpts_GPS, max(size(lon)));
 interp_lon2 = interp1(interp_lon, lonq2, method_GPS); 
-t_interp = movmean(t,50);
 
-plot(t,lon)
-plot(t_interp, interp_lon2);
+plot(t_bp,lon)
+plot(t_bp, interp_lon2);
 legend('actual','interpolated')
 title('lon')
 xlabel('timestep')
@@ -72,15 +69,15 @@ hold off
 figure()
 hold on
 
-headingq = linspace(1,max(size(heading)),interpts_GPS);
-interp_heading = interp1(heading, headingq, method_GPS);
+headingq = linspace(1,max(size(h)),interpts_GPS);
+interp_heading = interp1(h, headingq, method_GPS);
 
-headingq2 = linspace(1,interpts_GPS, max(size(heading)));
+headingq2 = linspace(1,interpts_GPS, max(size(h)));
 interp_heading2 = interp1(interp_heading, headingq2, method_GPS); 
-t_interp = movmean(t,50);
 
-plot(t,heading);
-plot(t_interp, interp_heading2);
+% plot(t_bp, interp_heading2); %not working...
+plot(h);
+plot(interp_heading2)
 legend('actual','interpolated')
 title('heading')
 xlabel('timestep')
@@ -110,16 +107,13 @@ hold off
 
 dlat = lat - interp_lat2.';
 dlon = lon - interp_lon2.';
-dheading = heading - interp_heading2.';
+dheading = h - interp_heading2.';
 
-%in degrees
+%in m already
 std_lat = std(dlat);
 std_lon = std(dlon);
 std_heading = std(dheading);
 
-%convert to m
-std_lat = deg2km(std_lat)*1000
-std_lon = 40075*cos(deg2rad(lat(1)))*std_lon
 
 std_heading = deg2rad(std_heading)
 

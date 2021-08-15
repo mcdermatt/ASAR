@@ -120,13 +120,13 @@ dx = pos_x_lidar - interp_x2.';
 dy = pos_y_lidar - interp_y2.';
 dyaw = yaw_lidar - interp_yaw2.';
 
-bfx_world = movmean(abs(dx),50);
-bfy_world = movmean(abs(dy),50);
+bfx_world = movmean(dx,50);
+bfy_world = movmean(dy,50);
 
 figure()
 hold on
-% plot(abs(dx))
-% plot(abs(dy))
+% plot(dx)
+% plot(dy)
 plot(bfx_world)
 plot(bfy_world)
 title('error in world frame')
@@ -150,13 +150,12 @@ dy_car_frame = dx.*sin(interp_yaw2.') + dy.*cos(interp_yaw2.');
 std_x_car_frame = std(dx_car_frame)
 std_y_car_frame = std(dy_car_frame)
 
-bfx = movmean(abs(dx_car_frame),50);
-bfy = movmean(abs(dy_car_frame),50);
+bfx = movmean(dx_car_frame,50);
+bfy = movmean(dy_car_frame,50);
 
 figure()
 hold on
-% plot(abs(dx_car_frame))
-% plot(abs(dy_car_frame))
+
 plot(bfx)
 plot(bfy)
 legend('error x (car frame)','error y (car frame)')
