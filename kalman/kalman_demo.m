@@ -11,18 +11,18 @@ runlen = max(size(lat)); %needs debug
 %Q and R from get_Q_3DOF, get_R_3DOF
 %noise covariance matrix (estimated from Lidar data)
 %   units in m, rad
-Q = [[0.0987    0.0020   -0.0002];
-     [0.0020    0.0358    0.0003];
-     [-0.0002    0.0003    0.0007]];
+Q = [[0.0987    0.0000   -0.000];
+     [0.000    0.0358    0.000];
+     [-0.000    0.000    0.0007]];
 
 % measurement covariance matrix (estimated from GPS data)
 %   units in m, rad
 % R = [[0.1829    0.0000   -0.0000];
 %      [0.0000    0.6226   -0.0000];
 %      [-0.0000   -0.0000    0.0587]]; %was this 8/15
-R = [[0.094    0.00   -0.0];
+R = [[0.05    0.00   -0.0];
      [0.00    0.05   -0.0];
-     [-0.0   -0.0    0.0031]];
+     [-0.0   -0.0    0.00031]];
  
 
 % state transition model
@@ -32,7 +32,7 @@ F = eye(3);
 H = eye(3); %TOD0: change this so we can take in measurements in lat,lon,deg
 
 I = eye(3);
-P_plus = R;
+P_plus = R; %init here...
 x_plus = zeros(3,1);
 
 sigma_x_history = zeros(1,runlen);
@@ -43,8 +43,8 @@ while count <= runlen
    
     %prediciton step --------------------------------------
     % get relative transformation estimate from NDT
-    Gu = [Store.relPose(count,1), Store.relPose(count,2), rad2deg(Store.relPose(count,4))].'; 
-    x_minus = F*x_plus; %+ Gu; 
+    Gu = [Store.relPose(count,1), Store.relPose(count,2), rad2deg(Store.relAngle(count,3))].';   
+    x_minus = F*x_plus + Gu; 
     
     P_minus = F*P_plus*(F.') + Q;
     %------------------------------------------------------
@@ -90,10 +90,12 @@ h_interp = interp1(t_h,h,t_yaw); %interpolate along t_yaw because lidar is non-u
 %TODO: change it so both h_interp and yaw_lidar are both sampled uniformly
 
 %repeat for x and y data
-% convert bplon to meters
-x_gps = -deg2km(bplon)*1000;
-% y_gps = 40075*sin(deg2rad(bplon)).*(bplat); %why is this not working???
-y_gps = -deg2km(bplat)*1000;
+% gps_in_m = Wgslla2xyz(bplat, bplon, bphgt); %nope
+gps_enu = Wgslla2enu(bplat, bplon, bphgt, bplat(1), bplon(1), bphgt(1));
+x_gps = -gps_enu(1,:);
+y_gps = -gps_enu(2,:);
+% yaw_gps = gps_in_m(3,:); %not needed?
+
 x_gps(1:1150) = [];
 x_gps(525:end) = [];
 y_gps(1:1150) = [];
@@ -101,23 +103,23 @@ y_gps(525:end) = [];
 x_gps = x_gps - x_gps(1); %ititialize at 0
 y_gps = y_gps - y_gps(1);
 
-figure()
-hold on
-plot(t_yaw,h_interp)
-plot(t_yaw,yaw_lidar_deg)
-title('GPS vs Lidar Heading')
-legend('GPS', 'Lidar')
-xlabel('timestep')
-ylabel('heading (deg)')
-hold off
+% figure()
+% hold on
+% plot(t_yaw,h_interp)
+% plot(t_yaw,yaw_lidar_deg)
+% title('GPS vs Lidar Heading')
+% legend('GPS', 'Lidar')
+% xlabel('timestep')
+% ylabel('heading (deg)')
+% hold off
 
-figure()
-hold on
-title("heading difference between BESTPOS and Lidar")
-xlabel('timestep')
-ylabel('difference (deg)')
-plot(h_interp - yaw_lidar_deg);
-hold off
+% figure()
+% hold on
+% title("heading difference between BESTPOS and Lidar")
+% xlabel('timestep')
+% ylabel('difference (deg)')
+% plot(h_interp - yaw_lidar_deg);
+% hold off
 
 % figure()
 % hold on
@@ -131,31 +133,31 @@ hold off
 % plot(x_gps)
 % hold off
 
-figure()
-hold on
-title("GPS vs Lidar")
-xlabel('x (m)')
-ylabel('y (m)')
-plot(x_gps, y_gps)
-plot(interp_x2,interp_y2)
-legend('GPS (BESTPOS)' , 'Lidar')
-hold off
-
-figure()
-hold on
-title('x gps vs x lidar')
-plot(t_h,x_gps)
-plot(t,interp_x2)
-legend('GPS (BESTPOS)', 'Lidar')
-hold off
-
-figure()
-hold on
-title('y gps vs y lidar')
-plot(t_h,y_gps)
-plot(t,interp_y2)
-legend('GPS (BESTPOS)', 'Lidar')
-hold off
+% figure()
+% hold on
+% title("GPS vs Lidar")
+% xlabel('x (m)')
+% ylabel('y (m)')
+% plot(x_gps, y_gps)
+% plot(interp_x2,interp_y2)
+% legend('GPS (BESTPOS)' , 'Lidar')
+% hold off
+% 
+% figure()
+% hold on
+% title('x gps vs x lidar')
+% plot(t_h,x_gps)
+% plot(t,interp_x2)
+% legend('GPS (BESTPOS)', 'Lidar')
+% hold off
+% 
+% figure()
+% hold on
+% title('y gps vs y lidar')
+% plot(t_h,y_gps)
+% plot(t,interp_y2)
+% legend('GPS (BESTPOS)', 'Lidar')
+% hold off
 
 
 %-------------------------------------------------------------------------
@@ -170,22 +172,39 @@ hold off
 % %
 
 % % Trajectory ----------------------
-% figure()
-% hold on
-% title('kalman filtered trajectory')
-% plot(state_estimate(1,:),state_estimate(2,:))
-% hold off
+figure()
+hold on
+title('kalman filtered trajectory')
+plot(x_gps, y_gps)
+plot(pos_x_lidar,pos_y_lidar)
+plot(state_estimate(2,:),state_estimate(1,:))
+legend("BESTPOS", "Lidar", "Kalman")
+hold off
 
 % %Heading --------------------------
 figure()
 hold on
 plot(t_h,h)
-plot(t_h,interp_heading2)
+% plot(t_h,interp_heading2)
 plot(t_yaw,yaw_lidar_deg)
-plot(t_h,state_estimate(3,:))
+plot(t_h,state_estimate(3,:)) %need to offset time so kalman data is not shifted
 title('Heading: Raw GPS vs Spline GPS vs Lidar vs Kalman')
 xlabel('time (s)')
 ylabel('heading (deg)')
-legend('raw GPS data', 'spline smoothed GPS data', 'Raw lidar', 'Kalman Filtered (GPS+LIDAR)')
+% legend('raw GPS data', 'spline smoothed GPS data', 'Raw lidar', 'Kalman Filtered (GPS+LIDAR)')
+legend('raw GPS data', 'Raw lidar', 'Kalman Filtered (GPS+LIDAR)')
+hold off
 
+% pos x --------------------------
+figure()
+hold on
+plot(t_h,x_gps)
+% plot(t_h,interp_heading2)
+plot(t,interp_x2)
+plot(t_h,state_estimate(2,:)) %need to offset time so kalman data is not shifted
+title('X: Raw GPS vs Spline GPS vs Lidar vs Kalman')
+xlabel('time (s)')
+ylabel('x (m)')
+% legend('raw GPS data', 'spline smoothed GPS data', 'Raw lidar', 'Kalman Filtered (GPS+LIDAR)')
+legend('raw GPS data', 'Raw lidar', 'Kalman Filtered (GPS+LIDAR)')
 hold off

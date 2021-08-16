@@ -8,7 +8,7 @@
 % lat = data(:,1);
 % lon = data(:,2);
 % h = data(:,14);
-% t = data(:,4);
+% t_bp = data(:,4);
 % %"lat","lon","gpstime","time","accel1x","accel1y","accel2x","accel2y",
 % %"accel3x","accel3y","gyro1","gyro2","gyro3","heading","temp1","temp2",
 % %"temp3","Points:0","Points:1","Points:2"
@@ -21,7 +21,7 @@ lat = y_gps;
 t_bp = 1:max(size(x_gps));
 %Need to get h from kalman demo script...
 %--------------------------------------------------------------------------
-interpts_GPS = 110;
+interpts_GPS = 250;
 method_GPS = 'cubic';
 
 %plot lat -----------------------------------------------------------------
@@ -105,17 +105,17 @@ xlabel('lon (deg)')
 ylabel('lat (deg)')
 hold off
 
-dlat = lat - interp_lat2.';
-dlon = lon - interp_lon2.';
+dlat = lat - interp_lat2;
+dlon = lon - interp_lon2;
 dheading = h - interp_heading2.';
 
-%in m already
-std_lat = std(dlat);
-std_lon = std(dlon);
-std_heading = std(dheading);
+%in m already if using lat/ lon == x_gps/ y_gps from kalman_demo file
+std_lat = std(dlat)
+std_lon = std(dlon)
+std_heading = std(dheading)
 
 
-std_heading = deg2rad(std_heading)
+% std_heading = deg2rad(std_heading)
 
 R = zeros(3);
 R(1,1) = std_lon^2;
