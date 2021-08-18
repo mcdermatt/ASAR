@@ -1,0 +1,14 @@
+%the purpuse of this script is to get rid of excessive erros that happen
+%where two cubic curves meet, especially when little data is available
+
+%get dx from getQ or getR...
+
+NthErrs = zeros(1,windowFullWidth);
+
+for i = 1:windowFullWidth
+    
+    NthErrs(i) = sum(abs(dx(i:windowFullWidth:max(size(dx)))));
+    
+end
+
+plot(NthErrs)

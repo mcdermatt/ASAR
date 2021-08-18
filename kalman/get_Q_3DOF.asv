@@ -208,7 +208,7 @@ hold off
 
 nexttile
 hold on
-title("σ_x = " + num2str(round(std_x,2)) + ",    mean = " + num2str(round(mean(dx),4)))
+title("σ = " + num2str(std_x))
 plot(t - t(1),dx)
 xlabel("time (s)")
 ylabel("spline fit error (m)")
@@ -216,7 +216,7 @@ hold off
 
 nexttile
 hold on
-title("σ_y = " + num2str(round(std_y,2)) + ",    mean = " + num2str(round(mean(dy),4)))
+title("Spline Fit Error: y")
 plot(t - t(1),dy)
 xlabel("time (s)")
 ylabel("spline fit error (m)")
@@ -224,7 +224,7 @@ hold off
 
 nexttile
 hold on
-title("σ_y_a_w = " + num2str(round(std_yaw,2)) + ",    mean = " + num2str(round(mean(dyaw),4)))
+title("Spline Fit Error: Yaw")
 plot(t - t(1),dyaw)
 xlabel("time (s)")
 ylabel("spline fit error (deg)")

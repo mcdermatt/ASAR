@@ -7,32 +7,37 @@
 
 % runlen = 1500;
 runlen = max(size(lat)); %needs debug
+% runlen = max(size(pos_x_lidar));
 
 %Q and R from get_Q_3DOF, get_R_3DOF
 %noise covariance matrix (estimated from Lidar data)
 %   units in m, rad
-Q = [[0.0987    0.0000   -0.000];
-     [0.000    0.0358    0.000];
-     [-0.000    0.000    0.0007]];
-
+% Q = [[0.0987    0.0000   -0.000];
+%      [0.000    0.0358    0.000];
+%      [-0.000    0.000    0.0007]];
+Q = [[0.0008    0.0000   -0.000];
+     [0.000    0.0005    0.000];
+     [-0.000    0.000    0.0056]];
+ 
 % measurement covariance matrix (estimated from GPS data)
 %   units in m, rad
 % R = [[0.1829    0.0000   -0.0000];
 %      [0.0000    0.6226   -0.0000];
 %      [-0.0000   -0.0000    0.0587]]; %was this 8/15
-R = [[0.05    0.00   -0.0];
-     [0.00    0.05   -0.0];
-     [-0.0   -0.0    0.00031]];
- 
-
+R = [[0.0097    0.00   -0.0];
+     [0.00    0.0034   -0.0];
+     [-0.0   -0.0    0.2618]];
+  
 % state transition model
 F = eye(3);
 
 % observation model
 H = eye(3); %TOD0: change this so we can take in measurements in lat,lon,deg
+% H(3,3) = 0.1;
 
 I = eye(3);
-P_plus = R; %init here...
+% P_plus = R; %init here...
+P_plus = eye(3);
 x_plus = zeros(3,1);
 
 sigma_x_history = zeros(1,runlen);
@@ -78,7 +83,7 @@ h(1186:1646) = h(1186:1646) - 360;
 h(1:1150) = []; %chop off beginning to get data to start at the same time
 h(525:end) = []; %chop off end to make vectors same length of time
 
-yaw_lidar_deg = -rad2deg(yaw_lidar);
+yaw_lidar_deg = -yaw_lidar; %-rad2deg(yaw_lidar);
 yaw_lidar_deg(1:156) = []; %remove flat data at beginning
 t_yaw = t;
 t_yaw(1:156) = [];
@@ -176,7 +181,7 @@ figure()
 hold on
 title('kalman filtered trajectory')
 plot(x_gps, y_gps)
-plot(pos_x_lidar,pos_y_lidar)
+scatter(pos_x_lidar,pos_y_lidar)
 plot(state_estimate(2,:),state_estimate(1,:))
 legend("BESTPOS", "Lidar", "Kalman")
 hold off
