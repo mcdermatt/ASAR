@@ -144,19 +144,22 @@ interp_yaw2(end-windowHalfWidth:end) = yaw_lidar(end-windowHalfWidth:end);
 dyaw = yaw_lidar - interp_yaw2;
 
 %------------------------------------------------------
-plot(t)
+% plot(t)
 
+figure()
+hold on
+plot(pos_x_lidar, pos_y_lidar)
+plot(interp_x2, interp_y2)
+legend('actual','interpolated')
+xlabel('x (m)')
+ylabel('y (m)')
+hold off
+% 
+
+figure()
 tiledlayout(2,3)
 
-% figure()
-% hold on
-% plot(pos_x_lidar, pos_y_lidar)
-% plot(interp_x2, interp_y2)
-% legend('actual','interpolated')
-% xlabel('x (m)')
-% ylabel('y (m)')
-% hold off
-% 
+
 
 % 2) subtract off cubic spline fit 
 dx = pos_x_lidar - interp_x2;

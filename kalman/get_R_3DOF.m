@@ -1,52 +1,55 @@
 %file used to generate R matrix from GPS Data
 
 % % %DIRECT FROM GPS DATA -----------------------------------------------------
-%import data file
-filename = '2021-03-10-16-43-50_Velodyne-VLP-16-Data_garminSignage-position.csv';
-% opts = detectImportOptions(filename);
-data = readmatrix(filename);
-lat = -data(:,1);
-lon = -data(:,2);
-h = data(:,14);
-t_bp = data(:,4);
-%"lat","lon","gpstime","time","accel1x","accel1y","accel2x","accel2y",
-%"accel3x","accel3y","gyro1","gyro2","gyro3","heading","temp1","temp2",
-%"temp3","Points:0","Points:1","Points:2"
-
-timeRef = t_bp(1); % units sec 
-timeVec = t_bp;    % units sec
-
-%get idx where data is zero
-idx = find(lon);
-lat = lat(idx);
-lon = lon(idx);
-h = h(idx);
-t_bp = t_bp(idx);
-
-%convert to ENU
-% gps_enu = Wgslla2enu(bplat, bplon, bphgt, bplat(1), bplon(1), bphgt(1));
-
-
-%adjust h for continuous rotation
-
-%fix timescale in h
-
-%DEBUG: apply moving average
-% h = movmean(h, 25);
-% lat = movmean(lat, 2);
-% lon = movmean(lon, 2);
-
-% % %--------------------------------------------------------------------------
+% %import data file
+% filename = '2021-03-10-16-43-50_Velodyne-VLP-16-Data_garminSignage-position.csv';
+% % opts = detectImportOptions(filename);
+% data = readmatrix(filename);
+% lat = -data(:,1);
+% lon = -data(:,2);
+% h = -data(:,14);
+% t_bp = data(:,4);
+% %"lat","lon","gpstime","time","accel1x","accel1y","accel2x","accel2y",
+% %"accel3x","accel3y","gyro1","gyro2","gyro3","heading","temp1","temp2",
+% %"temp3","Points:0","Points:1","Points:2"
+% 
+% timeRef = t_bp(1); % units sec 
+% timeVec = t_bp;    % units sec
+% 
+% %get idx where data is zero
+% idx = find(lon);
+% lat = lat(idx);
+% lon = lon(idx);
+% h = h(idx);
+% t_bp = t_bp(idx);
+% 
+% %convert to ENU
+% % gps_enu = Wgslla2enu(bplat, bplon, bphgt, bplat(1), bplon(1), bphgt(1));
+% 
+% 
+% %adjust h for continuous rotation
+% h(444:end) = h(444:end) + 180;
+% h(4395:end) = h(4395:end) + 360; 
+% h(5160:end) = h(5160:end) - 360;
+% 
+% %fix timescale in h
+% 
+% %DEBUG: apply moving average
+% % h = movmean(h, 25);
+% % lat = movmean(lat, 2);
+% % lon = movmean(lon, 2);
+% % 
+% % % %--------------------------------------------------------------------------
 
 %FROM BESTPOS--------------------------------------------------------------
-% lon = x_gps.';
-% lat = y_gps.';
-% % t_bp = nxrx; %broken
-% t_bp = 1:max(size(x_gps));
-% %Need to get h from kalman demo script...
-% 
-% timeRef = t(1); % units sec 
-% timeVec = t;    % units sec
+lon = x_gps.';
+lat = y_gps.';
+% t_bp = nxrx; %broken
+t_bp = 1:max(size(x_gps));
+%Need to get h from kalman demo script...
+
+timeRef = t(1); % units sec 
+timeVec = t;    % units sec
 % -------------------------------------------------------------------------
 
 
@@ -140,39 +143,39 @@ dheading = h - interp_heading2;
 
 
 %plot lat -----------------------------------------------------------------
-figure()
-hold on
-% interp_lat2 = interp_lat2.';
-plot(t_bp,lat)
-%interp_lat2 and lat are in different time scales
-%this results in data that is horizontally shifted (not good)
-% t_bp = linspace(min(t),max(t),max(size(lat))); 
-plot(t_bp, interp_lat2);
-
-legend('actual','interpolated')
-title('lat');
-xlabel('timestep')
-ylabel('lat (m)')
-hold off
- 
+% figure()
+% hold on
+% % interp_lat2 = interp_lat2.';
+% plot(t_bp,lat)
+% %interp_lat2 and lat are in different time scales
+% %this results in data that is horizontally shifted (not good)
+% % t_bp = linspace(min(t),max(t),max(size(lat))); 
+% plot(t_bp, interp_lat2);
+% 
+% legend('actual','interpolated')
+% title('lat');
+% xlabel('timestep')
+% ylabel('lat (m)')
+% hold off
+%  
 %plot lon------------------------------------------------------------------
-figure()
-hold on
-plot(t_bp,lon)
-plot(t_bp, interp_lon2);
-legend('actual','interpolated')
-title('lon')
-xlabel('timestep')
-ylabel('lon (m)')
-
-hold off
+% figure()
+% hold on
+% plot(t_bp,lon)
+% plot(t_bp, interp_lon2);
+% legend('actual','interpolated')
+% title('lon')
+% xlabel('timestep')
+% ylabel('lon (m)')
+% 
+% hold off
 
 % plot heading ------------------------------------------------------------
 figure()
 hold on
 % plot(t_bp, interp_heading2); %not working...
-plot(h);
-plot(interp_heading2)
+plot(t_bp, h);
+plot(t_bp, interp_heading2)
 legend('actual','interpolated')
 title('heading')
 xlabel('timestep')
@@ -180,15 +183,15 @@ ylabel('heading (deg)')
 hold off
 
 % % put everything together to get final R matrix----------------------------
-figure()
-hold on
-plot(lon, lat);
-plot(interp_lon2, interp_lat2);
-legend('actual','interpolated')
-title('Path (GPS data)')
-xlabel('lon (deg)')
-ylabel('lat (deg)')
-hold off
+% figure()
+% hold on
+% plot(lon, lat);
+% plot(interp_lon2, interp_lat2);
+% legend('actual','interpolated')
+% title('Path (GPS data)')
+% xlabel('lon (deg)')
+% ylabel('lat (deg)')
+% hold off
 
 dlat = lat - interp_lat2;
 dlon = lon - interp_lon2;
@@ -199,15 +202,14 @@ std_lat = std(dlat)
 std_lon = std(dlon)
 std_heading = std(dheading)
 
-% std_heading = deg2rad(std_heading)
-
+% % std_heading = deg2rad(std_heading)
+% %plot heading error -------------------------------------------------------
 figure()
 hold on
 plot(dheading)
 title("heading error: mean = " + num2str(mean(dheading)) +  " std heading = " + num2str(std_heading))
 xlabel("timestep (s)")
 ylabel("error (deg)")
-
 hold off
 
 R = zeros(3);
