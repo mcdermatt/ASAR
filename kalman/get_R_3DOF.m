@@ -1,55 +1,55 @@
 %file used to generate R matrix from GPS Data
 
 % % %DIRECT FROM GPS DATA -----------------------------------------------------
-% %import data file
-% filename = '2021-03-10-16-43-50_Velodyne-VLP-16-Data_garminSignage-position.csv';
-% % opts = detectImportOptions(filename);
-% data = readmatrix(filename);
-% lat = -data(:,1);
-% lon = -data(:,2);
-% h = -data(:,14);
-% t_bp = data(:,4);
-% %"lat","lon","gpstime","time","accel1x","accel1y","accel2x","accel2y",
-% %"accel3x","accel3y","gyro1","gyro2","gyro3","heading","temp1","temp2",
-% %"temp3","Points:0","Points:1","Points:2"
-% 
-% timeRef = t_bp(1); % units sec 
-% timeVec = t_bp;    % units sec
-% 
-% %get idx where data is zero
-% idx = find(lon);
-% lat = lat(idx);
-% lon = lon(idx);
-% h = h(idx);
-% t_bp = t_bp(idx);
-% 
-% %convert to ENU
-% % gps_enu = Wgslla2enu(bplat, bplon, bphgt, bplat(1), bplon(1), bphgt(1));
-% 
-% 
-% %adjust h for continuous rotation
-% h(444:end) = h(444:end) + 180;
-% h(4395:end) = h(4395:end) + 360; 
-% h(5160:end) = h(5160:end) - 360;
-% 
-% %fix timescale in h
-% 
-% %DEBUG: apply moving average
-% % h = movmean(h, 25);
-% % lat = movmean(lat, 2);
-% % lon = movmean(lon, 2);
+%import data file
+filename = '2021-03-10-16-43-50_Velodyne-VLP-16-Data_garminSignage-position.csv';
+% opts = detectImportOptions(filename);
+data = readmatrix(filename);
+lat = -data(:,1);
+lon = -data(:,2);
+h = -data(:,14);
+t_bp = data(:,4);
+%"lat","lon","gpstime","time","accel1x","accel1y","accel2x","accel2y",
+%"accel3x","accel3y","gyro1","gyro2","gyro3","heading","temp1","temp2",
+%"temp3","Points:0","Points:1","Points:2"
+
+timeRef = t_bp(1); % units sec 
+timeVec = t_bp;    % units sec
+
+%get idx where data is zero
+idx = find(lon);
+lat = lat(idx);
+lon = lon(idx);
+h = h(idx);
+t_bp = t_bp(idx);
+
+%convert to ENU
+% gps_enu = Wgslla2enu(bplat, bplon, bphgt, bplat(1), bplon(1), bphgt(1));
+
+
+%adjust h for continuous rotation
+h(444:end) = h(444:end) + 180;
+h(4395:end) = h(4395:end) + 360; 
+h(5160:end) = h(5160:end) - 360;
+
+%fix timescale in h
+
+%DEBUG: apply moving average
+% h = movmean(h, 25);
+% lat = movmean(lat, 2);
+% lon = movmean(lon, 2);
 % % 
 % % % %--------------------------------------------------------------------------
 
 %FROM BESTPOS--------------------------------------------------------------
-lon = x_gps.';
-lat = y_gps.';
-% t_bp = nxrx; %broken
-t_bp = 1:max(size(x_gps));
-%Need to get h from kalman demo script...
-
-timeRef = t(1); % units sec 
-timeVec = t;    % units sec
+% lon = x_gps.';
+% lat = y_gps.';
+% % t_bp = nxrx; %broken
+% t_bp = 1:max(size(x_gps));
+% %Need to get h from kalman demo script...
+% 
+% timeRef = t(1); % units sec 
+% timeVec = t;    % units sec
 % -------------------------------------------------------------------------
 
 
@@ -90,7 +90,7 @@ timeIntoExperiment = timeVec-timeRef;
 
 % Initialize fit
 interp_lon2 = zeros(size(lon))*NaN;  % Initialize fit to values of "Not a Number"
-dlon = interp_lat2;
+dlon = interp_lon2;
 
 interp_lat2 = zeros(size(lat))*NaN;  % Initialize fit to values of "Not a Number"
 dlat = interp_lat2;

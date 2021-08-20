@@ -144,19 +144,24 @@ interp_yaw2(end-windowHalfWidth:end) = yaw_lidar(end-windowHalfWidth:end);
 dyaw = yaw_lidar - interp_yaw2;
 
 %------------------------------------------------------
-plot(t)
+% plot(t)
 
+fig1 = figure()
+fig1.Color = 'white'
+hold on
+plot(pos_x_lidar, pos_y_lidar)
+plot(interp_x2, interp_y2)
+legend('actual','interpolated')
+xlabel('x (m)')
+ylabel('y (m)')
+hold off
+% 
+
+fig2 = figure()
+fig2.Color = 'white'
 tiledlayout(2,3)
 
-% figure()
-% hold on
-% plot(pos_x_lidar, pos_y_lidar)
-% plot(interp_x2, interp_y2)
-% legend('actual','interpolated')
-% xlabel('x (m)')
-% ylabel('y (m)')
-% hold off
-% 
+
 
 % 2) subtract off cubic spline fit 
 dx = pos_x_lidar - interp_x2;
@@ -175,9 +180,9 @@ hold on
 % scatter(t-t(1),interp_x2, 3, 'Filled')
 title("x")
 plot(t-t(1),pos_x_lidar)
-plot(t-t(1),interp_x2)
+% plot(t-t(1),interp_x2)
 % plot(linspace(1,max(size(pos_x_lidar)), interpts),interp_x)
-legend('Raw Lidar','Cubic Fit')
+% legend('Raw Lidar','Cubic Fit')
 xlabel('t (s)')
 ylabel('x (m)')
 hold off
@@ -186,10 +191,10 @@ nexttile
 hold on
 title("y")
 plot(t-t(1), pos_y_lidar)
-plot(t-t(1), interp_y2)
+% plot(t-t(1), interp_y2)
 % scatter(t-t(1), pos_y_lidar, 3, 'Filled')
 % scatter(t-t(1), interp_y2, 3, 'Filled')
-legend('Raw Lidar','Cubic Fit')
+% legend('Raw Lidar','Cubic Fit')
 xlabel('t (s)')
 ylabel('y (m)')
 hold off
@@ -197,18 +202,18 @@ hold off
 nexttile
 hold on
 plot(t-t(1), yaw_lidar)
-plot(t-t(1), interp_yaw2)
+% plot(t-t(1), interp_yaw2)
 title("yaw")
 % scatter(t-t(1), yaw_lidar, 3, 'Filled')
 % scatter(t-t(1), interp_yaw2, 3, 'Filled')
-legend('Raw Lidar','Cubic Fit')
+% legend('Raw Lidar','Cubic Fit')
 xlabel('t (s)')
 ylabel('yaw (deg)')
 hold off
 
 nexttile
 hold on
-title("σ = " + num2str(std_x))
+title("σ_x = " + num2str(round(std_x,2)) + ",    mean = " + num2str(round(mean(dx),4)))
 plot(t - t(1),dx)
 xlabel("time (s)")
 ylabel("spline fit error (m)")
@@ -216,7 +221,7 @@ hold off
 
 nexttile
 hold on
-title("Spline Fit Error: y")
+title("σ_y = " + num2str(round(std_y,2)) + ",    mean = " + num2str(round(mean(dy),4)))
 plot(t - t(1),dy)
 xlabel("time (s)")
 ylabel("spline fit error (m)")
@@ -224,7 +229,7 @@ hold off
 
 nexttile
 hold on
-title("Spline Fit Error: Yaw")
+title("σ_y_a_w = " + num2str(round(std_yaw,2)) + ",    mean = " + num2str(round(mean(dyaw),4)))
 plot(t - t(1),dyaw)
 xlabel("time (s)")
 ylabel("spline fit error (deg)")
@@ -288,5 +293,30 @@ Q(3,3) = std_yaw^2;
 
 Q
 
-% close all
- 
+
+fig3 = figure();
+fig3.Color = 'white';
+subplot(3,1,1)
+% plot(t - t(1),dx);
+plot(dx);
+zSigma = std(dx,'omitnan');
+text(200,0.25,['\sigma = ' num2str(zSigma,'%.3f')]);
+title('Lidar')
+hold on; grid on;
+ylabel('Latitude Error (meters)');
+subplot(3,1,2)
+% plot(t - t(1),dy);
+plot(dy)
+zSigma = std(dy,'omitnan');
+text(200,0.05,['\sigma = ' num2str(zSigma,'%.3f')]);
+hold on; grid on;
+ylabel('Longitude Error (meters)');
+subplot(3,1,3)
+% plot(t - t(1), dyaw)
+plot(dyaw)
+zSigma = std(dyaw,'omitnan');
+text(200,0.15,['\sigma = ' num2str(zSigma,'%.3f')]);
+hold on; grid on;
+ylabel('Azimuth Error (degrees)');
+% xlabel('Time (s)');
+xlam

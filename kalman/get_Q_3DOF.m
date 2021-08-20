@@ -293,5 +293,30 @@ Q(3,3) = std_yaw^2;
 
 Q
 
-% close all
- 
+
+fig3 = figure();
+fig3.Color = 'white';
+subplot(3,1,1)
+% plot(t - t(1),dx);
+plot(dx);
+zSigma = std(dx,'omitnan');
+text(200,0.25,['\sigma = ' num2str(zSigma,'%.3f')]);
+title('Lidar')
+hold on; grid on;
+ylabel('Latitude Error (meters)');
+subplot(3,1,2)
+% plot(t - t(1),dy);
+plot(dy)
+zSigma = std(dy,'omitnan');
+text(200,0.05,['\sigma = ' num2str(zSigma,'%.3f')]);
+hold on; grid on;
+ylabel('Longitude Error (meters)');
+subplot(3,1,3)
+% plot(t - t(1), dyaw)
+plot(dyaw)
+zSigma = std(dyaw,'omitnan');
+text(200,0.15,['\sigma = ' num2str(zSigma,'%.3f')]);
+hold on; grid on;
+ylabel('Azimuth Error (degrees)');
+% xlabel('Time (s)');
+xlabel('sample number')
