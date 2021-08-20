@@ -146,7 +146,8 @@ dyaw = yaw_lidar - interp_yaw2;
 %------------------------------------------------------
 % plot(t)
 
-figure()
+fig1 = figure()
+fig1.Color = 'white'
 hold on
 plot(pos_x_lidar, pos_y_lidar)
 plot(interp_x2, interp_y2)
@@ -156,7 +157,8 @@ ylabel('y (m)')
 hold off
 % 
 
-figure()
+fig2 = figure()
+fig2.Color = 'white'
 tiledlayout(2,3)
 
 
@@ -178,9 +180,9 @@ hold on
 % scatter(t-t(1),interp_x2, 3, 'Filled')
 title("x")
 plot(t-t(1),pos_x_lidar)
-plot(t-t(1),interp_x2)
+% plot(t-t(1),interp_x2)
 % plot(linspace(1,max(size(pos_x_lidar)), interpts),interp_x)
-legend('Raw Lidar','Cubic Fit')
+% legend('Raw Lidar','Cubic Fit')
 xlabel('t (s)')
 ylabel('x (m)')
 hold off
@@ -189,10 +191,10 @@ nexttile
 hold on
 title("y")
 plot(t-t(1), pos_y_lidar)
-plot(t-t(1), interp_y2)
+% plot(t-t(1), interp_y2)
 % scatter(t-t(1), pos_y_lidar, 3, 'Filled')
 % scatter(t-t(1), interp_y2, 3, 'Filled')
-legend('Raw Lidar','Cubic Fit')
+% legend('Raw Lidar','Cubic Fit')
 xlabel('t (s)')
 ylabel('y (m)')
 hold off
@@ -200,11 +202,11 @@ hold off
 nexttile
 hold on
 plot(t-t(1), yaw_lidar)
-plot(t-t(1), interp_yaw2)
+% plot(t-t(1), interp_yaw2)
 title("yaw")
 % scatter(t-t(1), yaw_lidar, 3, 'Filled')
 % scatter(t-t(1), interp_yaw2, 3, 'Filled')
-legend('Raw Lidar','Cubic Fit')
+% legend('Raw Lidar','Cubic Fit')
 xlabel('t (s)')
 ylabel('yaw (deg)')
 hold off
