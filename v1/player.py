@@ -29,6 +29,7 @@ class Player():
 		self.fovfid = 1000 #50 #number of lidar points in FOV #------------------------
 		self.lidar = np.zeros([self.fovfid])
 		self.noise = True #adds noise to LIDAR
+		self.noiseScale = 0.5
 
 		self.scale_percent = 100 # percent of original size
 		self.width = int(img.shape[1] * self.scale_percent / 100)
@@ -59,7 +60,7 @@ class Player():
 
 		pass
 
-	def draw(self):
+	def draw(self, show = True, ignore_boundary = False):
 
 		#TODO where do I put this??		
 		# if self.heading >= np.pi:
@@ -87,21 +88,31 @@ class Player():
 			# xy = np.array([[self.fovXendL, self.fovYendL],[self.fovXendR, self.fovYendR], [self.pos[0], self.pos[1]]])
 			xy = np.array([[self.fovXendL, self.fovYendL]])
 			
+			hitters = np.zeros(self.fovfid)
 			#loop through ray tracing a few times in here to get more points on the polygon
 			for i in range(self.fovfid - 1):
-				X, Y, _ = self.RT(self.pos,self.heading + self.FOV/2 - i*(self.FOV/self.fovfid))
+				X, Y, hit = self.RT(self.pos,self.heading + self.FOV/2 - i*(self.FOV/self.fovfid))
 				
 				if self.noise == True:
-					noiseScale = 0.5 #5
-					X = X + np.random.randn()*noiseScale
-					Y = Y + np.random.randn()*noiseScale
+					X = X + np.random.randn()*self.noiseScale
+					Y = Y + np.random.randn()*self.noiseScale
 
 				xy = np.concatenate((xy, np.array([[X,Y]])))
+
+				#inefficient way for not drawing boundary collisions
+				if ignore_boundary:
+					if (hit == 1):
+						hitters[i] = 1
+						if (show == True):
+							self.axis.plot(X, Y, 'r.', markersize = 2)
+						
 
 
 			#save lidar 
 			self.lidar = xy
-			self.L, = self.axis.plot(xy[:,0],xy[:,1],'k.', markersize = 2)
+			#normal fast way
+			if ignore_boundary == False:
+				self.L, = self.axis.plot(xy[:,0],xy[:,1],'k.', markersize = 2)
 			#adjust lidar to be distance measurements
 			self.lidar = np.sqrt((self.lidar[:,0]-self.pos[0])**2 + (self.lidar[:,1]-self.pos[1])**2) 
 
@@ -127,10 +138,13 @@ class Player():
 		# write health of player
 		# n = [69]
 		# for i, txt in enumerate(n):
-		self.h = self.axis.annotate(self.health, (self.pos[0]-20,self.pos[1]+40))
+		# self.h = self.axis.annotate(self.health, (self.pos[0]-20,self.pos[1]+40))
 
 		# plt.pause(0.01)
 		# self.fig.canvas.draw() #debug, this causes stuttering if called twice in a row??
+
+		if ignore_boundary:
+			return hitters
 
 	def RT(self, start, heading, endCond = np.array([0,0,0]), numPts = 1000):
 		"""Ray Tracing operation (through map features)

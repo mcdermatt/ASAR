@@ -157,7 +157,7 @@ def subdivide_scan(pp, fig, ax, fidelity = 5, overlap = False, min_num_pts = 5, 
 
 	return E
 
-def draw_scan(scan, fig, ax, FOV = 60, pt = 0):
+def draw_scan(scan, fig, ax, FOV = 60, pt = 0, hitters = None, ignore_boundary = False):
 
 	#init array to store xy pos of points from lidar relative to frame of robot
 	point_pos = np.zeros([np.shape(scan)[0],2])
@@ -170,7 +170,10 @@ def draw_scan(scan, fig, ax, FOV = 60, pt = 0):
 		color = (0,0,0,0)
 
 	#draw base point
-	ax.plot(0,0,'rx', markersize = 5)
+	if ignore_boundary == False:
+		ax.plot(0,0,'rx', markersize = 5)
+	# if ignore_boundary == True:
+		# ax.plot(0,0,'g.', markersize  = 20) #not sure if I should plot this...
 
 	#draw FOV boundary
 	# ax.plot([0,100],[0,100],'r--', lw = 1)
@@ -183,8 +186,13 @@ def draw_scan(scan, fig, ax, FOV = 60, pt = 0):
 		x = np.sin(np.deg2rad(step))*scan[i]
 		y = np.cos(np.deg2rad(step))*scan[i]
 
-		if pt != 2: #runs faster without plotting clear pts
-			ax.plot(x,y, color)
+		#normal
+		if ignore_boundary == False:
+			if pt != 2: #runs faster without plotting clear pts
+				ax.plot(x,y, color)
+		if ignore_boundary == True:
+			if (pt != 2) and (hitters[i-1] == 1):
+				ax.plot(x,y,'r.', markersize = 2) 
 
 		#store estimated xy of each point relative to robot's current position
 		point_pos[i,0] = x
@@ -231,11 +239,11 @@ def generate_along_track_data(fig,ax,draw = True):
 	pp2 = pp2.T
 
 	#make data cross track instead
-	rot_cross = R(np.pi/2)
-	pp1 = rot_cross.dot(pp1.T)
-	pp1 = pp1.T
-	pp2 = rot_cross.dot(pp2.T)
-	pp2 = pp2.T
+	# rot_cross = R(np.pi/2)
+	# pp1 = rot_cross.dot(pp1.T)
+	# pp1 = pp1.T
+	# pp2 = rot_cross.dot(pp2.T)
+	# pp2 = pp2.T
 	
 
 	ax.plot(pp1[:,0], pp1[:,1], color = (0.25,0.8,0.25,0.0375), ls = '', marker = '.', markersize = 20)

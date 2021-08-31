@@ -136,7 +136,7 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True):
 		#THIS IS CURRENTLY WRONG:
 		# ((H.T)(W)(H) + I*10e-6(max(eig)))^-1   <- correct way to do this WITHIN main inverse NOT AFTER
 		#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-		#check if H is positive definite
+		#check if H is positive definite (fixes non-invertability issue with HTWH)
 		# posdef = np.all(np.linalg.eigvals(np.linalg.pinv(H)) > 0)
 		# lam = 10
 		# while posdef == False:

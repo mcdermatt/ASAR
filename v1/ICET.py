@@ -97,6 +97,7 @@ def get_condition(H_w1):
 				# H_w1 = np.identity(1) <- does not work?
 				# condition = 1
 				L2 = np.zeros([3,3])
+				# L2 = np.identity(3)
 				print("TODO: fix this case")
 
 		if len(np.shape(L2)) > 2:
@@ -385,9 +386,9 @@ def get_dx(y, y0, x, cov1, cov2, npts1, npts2, L, U):
 
 	#CHECK CONDITION
 	L2, lam, U2 = get_condition(HTWH)
-	print("L2: \n", L2) # -> removes axis
-	print("lam: \n", lam) # -> 3x3 diagonal array with eigenvalues of HTWH
-	print("U2: \n", U2) # -> COLUMNS are eigenvecs
+	# print("L2: \n", L2) # -> removes axis
+	# print("lam: \n", lam) # -> 3x3 diagonal array with eigenvalues of HTWH
+	# print("U2: \n", U2) # -> COLUMNS are eigenvecs
 	
 	#pythonic way------------------------------
 	#z_k = (1/lam_k)[(U.T)(H.T)(W)(y)]_k
@@ -744,7 +745,7 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True, a
 		error[cycle] = np.sum(abs(y_reshape- y0_reshape))
 
 		#draw progression of centers of ellipses
-		ax.plot(y.T[0,:], y.T[1,:], color = (1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),0.25), ls = '', marker = '.', markersize = 10)
+		# ax.plot(y.T[0,:], y.T[1,:], color = (1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),0.25), ls = '', marker = '.', markersize = 10)
 		
 		# #draw all points progressing through transformation
 		# ax.plot(P_corrected.T[0,:], P_corrected.T[1,:], color = (1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),0.025), ls = '', marker = '.', markersize = 20)
