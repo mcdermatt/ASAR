@@ -216,7 +216,7 @@ def generate_along_track_data(fig,ax,draw = True):
 	pp1 = np.zeros([npts,2])
 	pp2 = np.zeros([npts,2])
 
-	theta = np.random.randn()*np.pi/20
+	theta = np.random.randn()*np.pi/45
 	rot = R(theta)
 	t = np.random.randn(2)*tscale
 

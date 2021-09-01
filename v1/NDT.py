@@ -7,7 +7,7 @@ from utils import *
 #TODO:
 #	account for overlapping grid cells
 
-def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True):
+def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True, along_track_demo = False):
 
 	"""from Peter Biber, 2003
 	
@@ -35,9 +35,12 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True):
 	# P = P[::10]
 	# print("after ", np.shape(P))
 
-	#get point positions in 2d space and draw 1st and 2nd scans
-	pp1 = draw_scan(Q,fig,ax, pt = 2) # set as 2 to hide it so we can see ellipses
-	pp2 = draw_scan(P,fig,ax, pt = 1) #pt number assigns color for plotting
+	if along_track_demo == False:
+		#get point positions in 2d space and draw 1st and 2nd scans
+		pp1 = draw_scan(Q,fig,ax, pt = 2) # set as 2 to hide it so we can see ellipses
+		pp2 = draw_scan(P,fig,ax, pt = 1) #pt number assigns color for plotting
+	if along_track_demo == True:
+		pp1, pp2 = generate_along_track_data(fig,ax, draw = True)
 
 	P_corrected = pp2.T
 
@@ -81,13 +84,15 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True):
 			eigenval = eig[0]
 			eigenvec = eig[1]
 
-			q = P_corrected[:,index][:,None] - mu #q is the distance between a point and the nearest ellipse center
-			# print("q = ", q)
-			# print("sigma", sigma)
+			q = (P_corrected[:,index][:,None] - mu) #q is the distance between a point and the nearest ellipse center
+
 			E = np.linalg.pinv(sigma)
-			# print("E", E)
-			score_i = -np.exp( (-(q).T.dot(E).dot(q) )/2 ) # was this
-			# print("score_i: ", score_i)
+
+			# score_i = np.exp( (-(q).T.dot(E).dot(q) ) /2 ) # was this
+			# score_i = 10*np.exp( (-(q).T.dot(E).dot(q) ) /2 ) # test
+			score_i = (q).T.dot(E).dot(q) #test
+
+
 			score += score_i
 
 			
@@ -155,16 +160,18 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True):
 		# print("x = ",x)
 
 		#draw all points progressing through transformation
-		rot = R(x[2])
-		t = x[0:2]
-		P_corrected = rot.dot(pp2.T) + t
-		# P_corrected = P_corrected.T
-		ax.plot(P_corrected[0,:], P_corrected[1,:], color = (1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),0.025), ls = '', marker = '.', markersize = 20)
+		rot = R(-x[2])
+		t = -x[0:2]
+		P_corrected = rot.dot(pp2.T) + t #was this
+		# P_corrected = rot.dot(P_corrected) + t #test
+
+		#plot progression
+		ax.plot(P_corrected[0,:], P_corrected[1,:], color = (1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),0.0025), ls = '', marker = '.', markersize = 20)
 
 
 	#draw transformed point set
-	rot_final = R(x[2])
-	t_final = x[:2]
+	rot_final = R(-x[2])
+	t_final = -x[:2]
 
 	P_corrected = rot_final.dot(pp2.T) + t_final
 	ax.plot(P_corrected[0,:], P_corrected[1,:], color = (1,0,0,0.0625), ls = '', marker = '.', markersize = 15)
@@ -173,6 +180,8 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True):
 	# get_correspondence(P_corrected,ctr.T,fig,ax, draw = True)
 
 		
+	print("Final transformation estimate: ", x)
+
 	return x[2], t_final, results
 
 
