@@ -125,7 +125,7 @@ def subdivide_scan(pp, fig, ax, fidelity = 5, overlap = False, min_num_pts = 5, 
 	Y = np.linspace(miny,maxy,fidelity)
 
 	if flag:
-		X = np.linspace(-1200,1200,4)
+		X = np.linspace(-400,400,4)
 
 	for x in range(len(X)-1):
 		for y in range(len(Y)-1):
