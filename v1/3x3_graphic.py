@@ -11,6 +11,10 @@ from game import game
 #	get noisy scans
 #	only consider points that are hitters
 
+high_noise = 15
+low_noise = 0.1
+FOV = 135 #for wall
+fid = 2
 
 fig, ax = plt.subplots(nrows = 3, ncols = 3)
 # fig.tight_layout() #meh
@@ -34,8 +38,15 @@ for i in range(3):
 		# else:
 		# 	ax[i,j].set_aspect('0.333')
 
+#make grid for wall plots
+ax[0,2].plot([800,800],[-10,800], linestyle = '-', color = (0,0,0,0.5))
+ax[0,2].plot([1600,1600],[-10,800], linestyle = '-', color = (0,0,0,0.5))
+ax[1,2].plot([-400,-400],[0,800], linestyle = '-', color = (0,0,0,0.5))
+ax[1,2].plot([400,400],[0,800], linestyle = '-', color = (0,0,0,0.5))
+ax[2,2].plot([-400,-400],[0,800], linestyle = '-', color = (0,0,0,0.5))
+ax[2,2].plot([400,400],[0,800], linestyle = '-', color = (0,0,0,0.5))
 
-# show actual objects -----------------------------------------
+# show base objects -------------------------------------------
 sign_file = "assets/sign.png"
 sign_img = cv2.imread(sign_file)
 ax[0,0].imshow(sign_img,cmap="gray", interpolation = 'bicubic')
@@ -50,18 +61,23 @@ ax[0,2].imshow(wall_img,cmap="gray", interpolation = 'bicubic')
 # -------------------------------------------------------------
 
 
-# Generate first scans ----------------------------------------
+# Generate scans ----------------------------------------------
 #sign
 g0 = game(fig, ax[0,0], sign_img)#cv2.flip(sign_img,0))
 g0.p.fovfid = 100
 g0.p.pos = np.array([400,800])
 g0.p.heading = np.pi #0 #looking straight up
+#high noise scan - do first
+g0.p.noiseScale = high_noise
+g0hit2 = g0.p.draw(show = False, ignore_boundary = True)
+pp0_high = draw_scan(g0.p.lidar, fig, ax[2,0], FOV = 60, ignore_boundary = True, hitters = g0hit2)
+ax[2,0].axes.set_aspect('equal')
+ax[2,0].set_xlim(-400,400)
+ax[2,0].set_ylim(0,800)
+#low noise scan - do this 2nd
+g0.p.noiseScale = low_noise
 g0hit = g0.p.draw(ignore_boundary = True)
-
-
-
-#low noise scan
-pp0 = draw_scan(g0.p.lidar, fig, ax[1,0], FOV = 60, ignore_boundary = True, hitters = g0hit)
+pp0_low = draw_scan(g0.p.lidar, fig, ax[1,0], FOV = 60, ignore_boundary = True, hitters = g0hit)
 ax[1,0].axes.set_aspect('equal')
 ax[1,0].set_xlim(-400,400)
 ax[1,0].set_ylim(0,800)
@@ -71,9 +87,17 @@ g1 = game(fig, ax[0,1], car_img)#cv2.flip(car_img,0))
 g1.p.fovfid = 100
 g1.p.pos = np.array([400,800])
 g1.p.heading = np.pi #0 #looking straight up
-g1hit = g1.p.draw(ignore_boundary = True)
+#high noise scan
+g1.p.noiseScale = high_noise
+g1hit2 = g1.p.draw(show = False, ignore_boundary = True)
+pp1_high = draw_scan(g1.p.lidar, fig, ax[2,1], FOV = 60, ignore_boundary = True, hitters = g1hit2)
+ax[2,1].axes.set_aspect('equal')
+ax[2,1].set_xlim(-400,400)
+ax[2,1].set_ylim(0,800)
 #low noise scan
-pp1 = draw_scan(g1.p.lidar, fig, ax[1,1], FOV = 60, ignore_boundary = True, hitters = g1hit)
+g1.p.noiseScale = low_noise
+g1hit = g1.p.draw(ignore_boundary = True)
+pp1_low = draw_scan(g1.p.lidar, fig, ax[1,1], FOV = 60, ignore_boundary = True, hitters = g1hit)
 ax[1,1].axes.set_aspect('equal')
 ax[1,1].set_xlim(-400,400)
 ax[1,1].set_ylim(0,800)
@@ -81,54 +105,44 @@ ax[1,1].set_ylim(0,800)
 
 #wall
 g2 = game(fig, ax[0,2], wall_img)#cv2.flip(wall_img,0)
+g2.p.FOV = np.deg2rad(FOV)
 g2.p.fovfid = 100
 g2.p.pos = np.array([1200,800])
 g2.p.heading = np.pi #0 #looking straight up
-g2hit = g2.p.draw(ignore_boundary = True)
+#high noise scan
+g2.p.noiseScale = high_noise
+g2hit2 = g2.p.draw(show = False, ignore_boundary = True)
+pp2_high = draw_scan(g2.p.lidar, fig, ax[2,2], FOV = FOV, ignore_boundary = True, hitters = g2hit2)
+ax[2,2].axes.set_aspect('equal')
+ax[2,2].set_xlim(-1200,1200)
+ax[2,2].set_ylim(0,800)
 #low noise scan
-pp2 = draw_scan(g2.p.lidar, fig, ax[1,2], FOV = 60, ignore_boundary = True, hitters = g2hit)
+g2.p.noiseScale = low_noise
+g2hit = g2.p.draw(ignore_boundary = True)
+pp2_low = draw_scan(g2.p.lidar, fig, ax[1,2], FOV = FOV, ignore_boundary = True, hitters = g2hit)
 ax[1,2].axes.set_aspect('equal')
 ax[1,2].set_xlim(-1200,1200)
 ax[1,2].set_ylim(0,800)
+
 #-------------------------------------------------------------
 
-# Generate seccond scans ----------------------------------------
+
+#generate covariance ellipses --------------------------------
+
 #sign
-g0.p.noiseScale = 10
-g0hit2 = g0.p.draw(show = False, ignore_boundary = True)
-#low noise scan
-pp0 = draw_scan(g0.p.lidar, fig, ax[2,0], FOV = 60, ignore_boundary = True, hitters = g0hit2)
-ax[2,0].axes.set_aspect('equal')
-ax[2,0].set_xlim(-400,400)
-ax[2,0].set_ylim(0,800)
-print(g0hit2)
+subdivide_scan(pp0_low[np.squeeze(np.argwhere(g0hit))], fig, ax[1,0], fidelity = fid, min_num_pts = 5)
+subdivide_scan(pp0_high[np.squeeze(np.argwhere(g0hit2))], fig, ax[2,0], fidelity = fid, min_num_pts = 5)
 
+#car
+subdivide_scan(pp1_low[np.squeeze(np.argwhere(g1hit))], fig, ax[1,1], fidelity = fid, min_num_pts = 5)
+subdivide_scan(pp1_high[np.squeeze(np.argwhere(g1hit2))], fig, ax[2,1], fidelity = fid, min_num_pts = 5)
 
-# #car
-# g1 = game(fig, ax[0,1], car_img)#cv2.flip(car_img,0))
-# g1.p.fovfid = 100
-# g1.p.pos = np.array([400,800])
-# g1.p.heading = np.pi #0 #looking straight up
-# g1hit = g1.p.draw(ignore_boundary = True)
-# #low noise scan
-# pp1 = draw_scan(g1.p.lidar, fig, ax[1,1], FOV = 60, ignore_boundary = True, hitters = g1hit)
-# ax[1,1].axes.set_aspect('equal')
-# ax[1,1].set_xlim(-400,400)
-# ax[1,1].set_ylim(0,800)
-# #TODO: get elements of pp1 where g1hit==1
+#wall
+subdivide_scan(pp2_low[np.squeeze(np.argwhere(g2hit))], fig, ax[1,2], fidelity = fid, min_num_pts = 5, flag = True)
+subdivide_scan(pp2_high[np.squeeze(np.argwhere(g2hit2))], fig, ax[2,2], fidelity = fid, min_num_pts = 5, flag = True)
 
-# #wall
-# g2 = game(fig, ax[0,2], wall_img)#cv2.flip(wall_img,0)
-# g2.p.fovfid = 100
-# g2.p.pos = np.array([1200,800])
-# g2.p.heading = np.pi #0 #looking straight up
-# g2hit = g2.p.draw(ignore_boundary = True)
-# #low noise scan
-# pp2 = draw_scan(g2.p.lidar, fig, ax[1,2], FOV = 60, ignore_boundary = True, hitters = g2hit)
-# ax[1,2].axes.set_aspect('equal')
-# ax[1,2].set_xlim(-1200,1200)
-# ax[1,2].set_ylim(0,800)
-# #-------------------------------------------------------------
+# ------------------------------------------------------------
+# ax[2,2].grid(color = 'r', linestyle = '-', linewidth = 2, zorder = 1)
 
 
 

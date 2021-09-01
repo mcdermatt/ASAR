@@ -125,7 +125,8 @@ class Player():
 			#create FOV patch for player object
 			xy = np.concatenate((xy,np.array([[self.fovXendR, self.fovYendR],[self.pos[0],self.pos[1]]]))) #add on starting point to close polygon
 			self.poly = Polygon(xy, closed=True, color=(0.8,0.9,1.0))
-			self.axis.add_patch(self.poly)
+			if show != False:
+				self.axis.add_patch(self.poly)
 
 		#draw main player body
 		if self.team == 0:
