@@ -81,8 +81,8 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True, along_track_demo = Fa
 			# print("mu", mu, np.shape(mu))
 			# print("x_i", P_corrected[:,index])
 			eig = np.linalg.eig(sigma)
-			eigenval = eig[0]
-			eigenvec = eig[1]
+			eigenval = eig[0] #not needed?
+			eigenvec = eig[1] #not needed?
 
 			q = (P_corrected[:,index][:,None] - mu) #q is the distance between a point and the nearest ellipse center
 
@@ -104,8 +104,16 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True, along_track_demo = Fa
 			# print(J2)
 
 			#update gradient-----
-			g += (q).T.dot(E).dot(J).T*(-score_i)
+			#J == dq/dp_i
 
+			#was this
+			g += (q).T.dot(E).dot(J).T*(-score_i)
+			# (does the same thing)
+			# g_i = np.zeros([3,1])
+			# for ct in range(3):
+			# 	g_i[ct] = (q).T.dot(E).dot(J[:,ct][:,None])*(-score_i)
+			# g += g_i
+		
 			#update Hessian----- H(f(x)) == J(grad_f(x))
 
 			# index h_i and h_j are used in place of i and j since I already used those variables...
@@ -115,20 +123,24 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True, along_track_demo = Fa
 					#manually calculate 2nd deriv
 					if h_i == 2 and h_j == 2:
 						d2q_dxidxj = np.array([-x[0]*np.cos(x[2]) + x[1]*np.sin(x[2]), -x[0]*np.sin(x[2]) - x[1]*np.cos(x[2])])
+						# d2q_dxidxj = np.array([-P_corrected[0,index]*np.cos(x[2]) + P_corrected[1,index]*np.sin(x[2]), -P_corrected[0,index]*np.sin(x[2]) - P_corrected[1,index]*np.cos(x[2])])
 					else:
 						d2q_dxidxj = np.zeros([2,1])
 
 					# print("\n J[:,h_i][:,None] \n", J[:,h_i][:,None])
 					# print("\n J[:,h_j][:,None] \n", J[:,h_j][:,None])
 
-					#calculate component of ith summand of H
-					H_i[h_i,h_j] = score_i*( (-q.T.dot(E).dot(J[:,h_i][:,None]))*( -q.T.dot(E).dot(J[:,h_j][:,None]) )
-											+ (-q.T.dot(E).dot(d2q_dxidxj)) + (-J[:,h_j].T.dot(E).dot(J[:,h_i])))
+					# #calculate component of ith summand of H
+					# H_i[h_i,h_j] = score_i*( (-q.T.dot(E).dot(J[:,h_i][:,None]))*( -q.T.dot(E).dot(J[:,h_j][:,None]) )
+					# 						+ (-q.T.dot(E).dot(d2q_dxidxj)) + (-J[:,h_j].T.dot(E).dot(J[:,h_i]))) 
+					H_i[h_i,h_j] = score_i*( (-q.T.dot(E).dot(J[:,h_i][:,None])).dot( -q.T.dot(E).dot(J[:,h_j][:,None]) )
+											+ (-q.T.dot(E).dot(d2q_dxidxj)) + (-J[:,h_j].T.dot(E).dot(J[:,h_i]))) 
 
-
-			H += H_i
+					# H[h_i,h_j] += H_i[h_i,h_j]
+				H += H_i
 
 		results = np.append(results, score)
+		# print(score)
 
 		#	-----------------------------------------------------------------
 		#6) Calculate a new parameter estimate by trying to
@@ -143,21 +155,27 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True, along_track_demo = Fa
 		# ((H.T)(W)(H) + I*10e-6(max(eig)))^-1   <- correct way to do this WITHIN main inverse NOT AFTER
 		#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 		#check if H is positive definite (fixes non-invertability issue with HTWH)
-		# posdef = np.all(np.linalg.eigvals(np.linalg.pinv(H)) > 0)
-		# lam = 10
-		# while posdef == False:
-		# 	H = H + lam*np.identity(3)
-		# 	posdef = np.all(np.linalg.eigvals(np.linalg.pinv(H)) > 0)
-		# 	# print(posdef)
-		# 	lam = lam*2
+		posdef = np.all(np.linalg.eigvals(np.linalg.pinv(H)) > 0)
+		if posdef == False:
+			print("WARNING: not posdef")
+		lam = 10e-6
+		while posdef == False:
+			H = H + lam*np.identity(3)
+			posdef = np.all(np.linalg.eigvals(np.linalg.pinv(H)) > 0)
+			# print(posdef)
+			lam = lam*2
 		#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-		# print("g",g)
+		# print("g", g)
+		# print("H", H)
 		# print("H^-1", np.linalg.pinv(H))
 
 		#was this
 		dx = np.linalg.pinv(H).dot(-g)
-		x += dx
+		x -= dx
+		# dx = (-g.T).dot(np.linalg.pinv(H))
+		# print(" dx = \n",dx)
+		# x -= dx.T
 
 		# dx_dumb = np.linalg.pinv(H.dot(np.linalg.pinv(-g.T)))
 		# print("dx ",dx, "\ndx_dumb ", dx_dumb)
@@ -165,8 +183,8 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True, along_track_demo = Fa
 		# print("x = ",x)
 
 		#draw all points progressing through transformation
-		rot = R(-x[2])
-		t = -x[0:2]
+		rot = R(x[2])
+		t = x[0:2]
 		P_corrected = rot.dot(pp2.T) + t #was this
 		# P_corrected = rot.dot(P_corrected) + t #test
 
@@ -175,8 +193,8 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True, along_track_demo = Fa
 
 
 	#draw transformed point set
-	rot_final = R(-x[2])
-	t_final = -x[:2]
+	rot_final = R(x[2])
+	t_final = x[:2]
 
 	P_corrected = rot_final.dot(pp2.T) + t_final
 	ax.plot(P_corrected[0,:], P_corrected[1,:], color = (1,0,0,0.0625), ls = '', marker = '.', markersize = 15)

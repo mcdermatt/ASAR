@@ -28,7 +28,7 @@ def vanilla_ICP(Q,P, fig, ax, num_cycles = 3, draw = True):
 	moved_data = P
 	P_corrected = moved_data
 
-	center_q = true_data.mean(axis=1)
+	center_q = true_data.mean(axis=1) #TODO - error might be in only doing mean on axis = 1???
 	print("center_q ", center_q)
 	centered_true = true_data.T - center_q
 	# ax.plot(centered_true[:,0],centered_true[:,1],'r-.') #draw Q recentered at zero ---------
@@ -37,33 +37,27 @@ def vanilla_ICP(Q,P, fig, ax, num_cycles = 3, draw = True):
 	for _ in range(num_cycles):
 
 		#center data
-		#TODO- account for outliars here (ignore poitns > nstd when computing mean)
 		center_p = moved_data.mean(axis=1)
-		print("center_p ", center_p) 	#debug: centers not changing over time?
+		print("center_p ", center_p)
 
 		moved_data = moved_data.T - center_p
-		# ax.plot(moved_data[:,0],moved_data[:,1],'b-.') #draw moved data -------------------------
+		# ax.plot(moved_data[:,0],moved_data[:,1],'b-.') #draws moved data
 		moved_data = moved_data.T
 
 		moved_correspondence = get_correspondence(moved_data, centered_true, fig, ax, draw = draw)
 
 
-		#calculate cross covariance: describes how a point in P will change along with changes in Q
+		#calculate cross covariance: describes how a point in P will change 
+		#	along with changes in Q
 		cov = get_cross_cov(moved_data, centered_true, moved_correspondence)
 
-		#TODO: replace with least squares approach
-		#~~~
 		#get R and t from cross covariance 
-		U, S, V_T = np.linalg.svd(cov) #TODO - compute this manually to review SVD
+		U, S, V_T = np.linalg.svd(cov)
 		R_found = U.dot(V_T)
 		t_found = center_q - R_found.dot(center_p)
 
 		#apply estimated R and t
 		P_corrected = R_found.dot(P_corrected) + t_found[:,None] #TODO: fix this!!
-
-		# print("PC ", P_corrected)
-		# print("Squared diff: (P_corrected - Q) = ", np.linalg.norm(P_corrected - Q))
-		#~~~
 
 		moved_data = P_corrected
 

@@ -209,16 +209,16 @@ def draw_scan(scan, fig, ax, FOV = 60, pt = 0, hitters = None, ignore_boundary =
 def generate_along_track_data(fig,ax,draw = True):
 
 	tracklen = 800 
-	npts = 1000
+	npts = 500 #1000
 	tscale = 100
 	xy_noise_scale = 3
 
 	pp1 = np.zeros([npts,2])
 	pp2 = np.zeros([npts,2])
 
-	theta = np.random.randn()*np.pi/45
+	theta = 0.1 #np.random.randn()*np.pi/45
 	rot = R(theta)
-	t = np.random.randn(2)*tscale
+	t = np.ones(2)*50 #np.random.randn(2)*tscale
 
 	#moves half of points to left wall and half to right
 	xshift = np.ones(npts)*-200
