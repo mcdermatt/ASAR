@@ -89,7 +89,7 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True, along_track_demo = Fa
 			E = np.linalg.pinv(sigma)
 
 			# score_i = -np.exp( (-(q).T.dot(E).dot(q) ) /2 ) # was this
-			score_i = (q).T.dot(E).dot(q) #test
+			score_i = (q).T.dot(E).dot(q) #WORKS (slowly)
 
 			score += score_i
 
