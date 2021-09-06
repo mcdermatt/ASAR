@@ -69,7 +69,6 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True, along_track_demo = Fa
 		# 	dc = False 
 		dc = False
 		correspondences = get_correspondence(P_corrected,ctr.T,fig,ax, draw = dc)
-		# print("c ", correspondences[0], np.shape(correspondences))
 
 		score = 0
 		H = np.zeros([3,3])
@@ -88,8 +87,9 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True, along_track_demo = Fa
 
 			E = np.linalg.pinv(sigma)
 
-			# score_i = -np.exp( (-(q).T.dot(E).dot(q) ) /2 ) # was this
-			score_i = (q).T.dot(E).dot(q) #WORKS (slowly)
+			# score_i = np.exp( (-(q.T).dot(E).dot(q) ) /2 ) # according to Biber
+			score_i = np.exp( (-(q.T).dot(E).dot(q) ) /40 ) #more forgiving -> voxel size is around 40 in this case. Converges in ~70
+			# score_i = (q).T.dot(E).dot(q) #Matt's method -> WORKS (slowly). Converges in ~400
 
 			score += score_i
 
@@ -106,9 +106,9 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True, along_track_demo = Fa
 			#update gradient-----
 			#J == dq/dp_i
 
-			#was this
+			#this
 			g += (q).T.dot(E).dot(J).T*(-score_i)
-			# (does the same thing)
+			# does the same thing as:
 			# g_i = np.zeros([3,1])
 			# for ct in range(3):
 			# 	g_i[ct] = (q).T.dot(E).dot(J[:,ct][:,None])*(-score_i)
@@ -137,7 +137,7 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True, along_track_demo = Fa
 											+ (-q.T.dot(E).dot(d2q_dxidxj)) + (-J[:,h_j].T.dot(E).dot(J[:,h_i]))) 
 
 					# H[h_i,h_j] += H_i[h_i,h_j]
-				H += H_i
+			H += H_i
 
 		results = np.append(results, score)
 		# print(score)
@@ -156,8 +156,8 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True, along_track_demo = Fa
 		#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 		#check if H is positive definite (fixes non-invertability issue with HTWH)
 		posdef = np.all(np.linalg.eigvals(np.linalg.pinv(H)) > 0)
-		if posdef == False:
-			print("WARNING: not posdef")
+		# if posdef == False:
+		# 	print("WARNING: not posdef")
 		lam = 10e-6
 		while posdef == False:
 			H = H + lam*np.identity(3)
@@ -166,15 +166,21 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True, along_track_demo = Fa
 			lam = lam*2
 		#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-		# print("g", g)
-		# print("H", H)
+
 		# print("H^-1", np.linalg.pinv(H))
 
 		#was this
 		dx = np.linalg.pinv(H).dot(-g)
-		x -= dx
+		#testing
+		# dx = -g.dot(np.linalg.pinv(H))
+
+		# x += dx #Biber
+		x -= dx #Matt
 		# dx = (-g.T).dot(np.linalg.pinv(H))
-		# print(" dx = \n",dx)
+		# if cycle%10 == 0:
+		# 	print(" dx = \n",dx)
+		# 	print("g", g)
+		# 	print("H", H)
 		# x -= dx.T
 
 		# dx_dumb = np.linalg.pinv(H.dot(np.linalg.pinv(-g.T)))
@@ -186,7 +192,7 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True, along_track_demo = Fa
 		rot = R(x[2])
 		t = x[0:2]
 		P_corrected = rot.dot(pp2.T) + t #was this
-		# P_corrected = rot.dot(P_corrected) + t #test
+		# P_corrected = rot.dot(P_corrected) + t #wrong
 
 		#plot progression
 		# ax.plot(P_corrected[0,:], P_corrected[1,:], color = (1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),0.0025), ls = '', marker = '.', markersize = 20)
