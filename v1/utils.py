@@ -206,19 +206,19 @@ def draw_scan(scan, fig, ax, FOV = 60, pt = 0, hitters = None, ignore_boundary =
 
 	return point_pos
 
-def generate_along_track_data(fig,ax,draw = True):
+def generate_along_track_data(fig,ax,draw = True, output_actual = False):
 
 	tracklen = 800 
 	npts = 500 #1000
-	tscale = 100
+	tscale = 25
 	xy_noise_scale = 3
 
 	pp1 = np.zeros([npts,2])
 	pp2 = np.zeros([npts,2])
 
-	theta = 0.1 #np.random.randn()*np.pi/45
+	theta = np.random.randn()*0.2 #0.1
 	rot = R(theta)
-	t = np.ones(2)*50 #np.random.randn(2)*tscale
+	t = np.random.randn(2)*tscale
 
 	#moves half of points to left wall and half to right
 	xshift = np.ones(npts)*-200
@@ -253,7 +253,11 @@ def generate_along_track_data(fig,ax,draw = True):
 	ax.plot(pp1[:,0], pp1[:,1], color = (0.25,0.8,0.25,0.0375), ls = '', marker = '.', markersize = 20)
 	ax.plot(pp2[:,0], pp2[:,1], color = (0.25,0.25,0.8,0.0375), ls = '', marker = '.', markersize = 20)
 
-	return pp1, pp2
+	if output_actual == False:
+		return pp1, pp2
+	if output_actual == True:
+		x_actual = np.array([t[0], t[1], theta])
+		return pp1, pp2, x_actual
 
 def fit_gaussian(points):
 

@@ -7,11 +7,12 @@ from utils import *
 #TODO:
 #	account for overlapping grid cells
 
-def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True, along_track_demo = False):
+def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True, along_track_demo = False, output_actual = False):
 
 	"""from Peter Biber, 2003
 	
-		fid -> breaks map down into fid x fid pieces """
+		fid -> breaks map down into fid x fid pieces 
+		output_actual -> returns transformation ground truth when using along track demo"""
 
 	# 1) Build the NDT of the first scan.
 	# 2) Initialize the estimate for the parameters (by zero or
@@ -40,7 +41,10 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True, along_track_demo = Fa
 		pp1 = draw_scan(Q,fig,ax, pt = 2) # set as 2 to hide it so we can see ellipses
 		pp2 = draw_scan(P,fig,ax, pt = 1) #pt number assigns color for plotting
 	if along_track_demo == True:
-		pp1, pp2 = generate_along_track_data(fig,ax, draw = True)
+		if output_actual == False:
+			pp1, pp2 = generate_along_track_data(fig,ax, draw = True, output_actual = False)
+		if output_actual == True:
+			pp1, pp2, x_actual = generate_along_track_data(fig,ax, draw = True, output_actual = True)
 
 	P_corrected = pp2.T
 
@@ -59,6 +63,8 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True, along_track_demo = Fa
 	# ax.plot(ctr[:,0], ctr[:,1], 'ko')
 
 	results = []
+	x_best = np.zeros([3,1])
+	maxscore = 0
 
 	for cycle in range(num_cycles):
 
@@ -140,7 +146,6 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True, along_track_demo = Fa
 			H += H_i
 
 		results = np.append(results, score)
-		# print(score)
 
 		#	-----------------------------------------------------------------
 		#6) Calculate a new parameter estimate by trying to
@@ -168,6 +173,13 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True, along_track_demo = Fa
 
 
 		# print("H^-1", np.linalg.pinv(H))
+
+		if score > maxscore:
+			maxscore = score
+			x_best[:] = x[:]
+			# print("maxscore: \n", maxscore, "\n x_best: \n", x_best)
+		else:
+			x[:] = x_best[:] #prevents resetting to zero
 
 		#was this
 		dx = np.linalg.pinv(H).dot(-g)
@@ -197,10 +209,13 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True, along_track_demo = Fa
 		#plot progression
 		# ax.plot(P_corrected[0,:], P_corrected[1,:], color = (1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),0.0025), ls = '', marker = '.', markersize = 20)
 
+	#draw transformed point set (last point)
+	# rot_final = R(x[2])
+	# t_final = x[:2]
+	#best overall
+	rot_final = R(x_best[2])
+	t_final = x_best[:2]
 
-	#draw transformed point set
-	rot_final = R(x[2])
-	t_final = x[:2]
 
 	P_corrected = rot_final.dot(pp2.T) + t_final
 	ax.plot(P_corrected[0,:], P_corrected[1,:], color = (1,0,0,0.0625), ls = '', marker = '.', markersize = 15)
@@ -208,10 +223,11 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True, along_track_demo = Fa
 	#draw correspondences of final state
 	# get_correspondence(P_corrected,ctr.T,fig,ax, draw = True)
 
-		
-	print("Final transformation estimate: ", x)
+	if (output_actual == False) and (along_track_demo == True):
+		return x_best[2], t_final, results
 
-	return x[2], t_final, results
+	if (output_actual == True) and (along_track_demo == True):
+		return x_best[2], t_final, results, x_actual
 
 
 

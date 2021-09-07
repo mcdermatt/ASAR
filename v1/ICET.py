@@ -156,7 +156,7 @@ def visualize_U(U, L, ctr1, cov1, fig, ax):
 		if np.all(L[i] == np.array([[0,1]])):
 			ax.arrow(ctr1[i,0], ctr1[i,1], major_stop[0], major_stop[1], length_includes_head = True, lw = 1, head_width = hw)
 			ax.arrow(ctr1[i,0], ctr1[i,1], -major_stop[0], -major_stop[1], length_includes_head = True, lw = 1, head_width = hw)
-			print("special case")
+			# print("special case")
 
 def get_U_and_L(cov1, cellsize = np.array([100,100])):
 
@@ -179,7 +179,7 @@ def get_U_and_L(cov1, cellsize = np.array([100,100])):
 	# cellsize = np.array([0,0])
 	cellsize = cellsize/2
 
-	print("Using cellsize = ", cellsize)
+	# print("Using cellsize = ", cellsize)
 
 	U = np.zeros([np.shape(cov1)[0],2,2])
 
@@ -577,7 +577,7 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True, a
 
 	if along_track_demo == True:
 
-		pp1, pp2 = generate_along_track_data(fig,ax, draw = True)
+		pp1, pp2, x_actual = generate_along_track_data(fig,ax, draw = True, output_actual = True)
 
 	else:
 		#get point positions in 2d space and draw 1st and 2nd scans
@@ -618,7 +618,7 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True, a
 	visualize_U(U, L, ctr1, cov1, fig, ax)
 	#---------------------------------------------------------------------------------
 
-	print("L \n", L, np.shape(L))
+	# print("L \n", L, np.shape(L))
 
 	#inital estimate for transformation
 	#TODO: improve initial estimated transform (start with zeros here, could potentially use wheel odometry) 
@@ -759,7 +759,10 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True, a
 	P_final = rot.dot(pp2.T) + t
 	ax.plot(P_final.T[:,0], P_final.T[:,1], color = (1,0,0,0.0375), ls = '', marker = '.', markersize = 20)
 
-	return x, Q, error
+	if along_track_demo == True:
+		return x, Q, error, x_actual
+	else:
+		return x, Q, error
 
 def ICET_v1(Q, P, fig, ax, fid = 10, num_cycles = 1, draw = True):
 
