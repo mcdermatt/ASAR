@@ -131,31 +131,31 @@ def visualize_U(U, L, ctr1, cov1, fig, ax):
 
 		#get minor axis
 		minor_radius = np.array([np.sqrt(min(eigenval))*2, 0]) #np.array([10,0])
-		# minor_stop = minor_radius.dot(U[i]) + ctr1[i,:]
 		# ax.plot([ctr1[i,0], minor_stop[0]], [ctr1[i,1], minor_stop[1]], 'k-' , lw = 2)
 		minor_stop = minor_radius.dot(U[i])
 
 		#get major axis
 		U_alt = R_alt(U[i])
 		major_radius = np.array([np.sqrt(max(eigenval))*2, 0]) #np.array([10,0])
-		major_stop = major_radius.dot(U_alt) #+ ctr1[i,:]
+		major_stop = major_radius.dot(U_alt)
+		# major_stop = major_radius.dot(U[i])
 
 		#draw
 		hw = 0 #arrow head width
 		#case 1: no extended axis
 		if np.all(L[i] == np.identity(2)):
-			ax.arrow(ctr1[i,0],  ctr1[i,1], minor_stop[0], minor_stop[1], length_includes_head = True, lw = 1, head_width = hw)
-			ax.arrow(ctr1[i,0], ctr1[i,1], major_stop[0], major_stop[1], length_includes_head = True, lw = 1, head_width = hw)
-			ax.arrow(ctr1[i,0],  ctr1[i,1], -minor_stop[0], -minor_stop[1], length_includes_head = True, lw = 1, head_width = hw) #repeat
-			ax.arrow(ctr1[i,0], ctr1[i,1], -major_stop[0], -major_stop[1], length_includes_head = True, lw = 1, head_width = hw)
+			ax.arrow(ctr1[i,0],  ctr1[i,1], minor_stop[0], -minor_stop[1], length_includes_head = True, lw = 1, head_width = hw)
+			ax.arrow(ctr1[i,0], ctr1[i,1], major_stop[0], -major_stop[1], length_includes_head = True, lw = 1, head_width = hw)
+			ax.arrow(ctr1[i,0],  ctr1[i,1], -minor_stop[0], minor_stop[1], length_includes_head = True, lw = 1, head_width = hw) #repeat
+			ax.arrow(ctr1[i,0], ctr1[i,1], -major_stop[0], major_stop[1], length_includes_head = True, lw = 1, head_width = hw)
 
 		if np.all(L[i] == np.array([[1,0]])):
-			ax.arrow(ctr1[i,0],  ctr1[i,1], minor_stop[0], minor_stop[1], length_includes_head = True, lw = 1, head_width = hw)
-			ax.arrow(ctr1[i,0],  ctr1[i,1], -minor_stop[0], -minor_stop[1], length_includes_head = True, lw = 1, head_width = hw)
+			ax.arrow(ctr1[i,0],  ctr1[i,1], -minor_stop[0], minor_stop[1], length_includes_head = True, lw = 1, head_width = hw)
+			ax.arrow(ctr1[i,0],  ctr1[i,1], minor_stop[0], -minor_stop[1], length_includes_head = True, lw = 1, head_width = hw)
 
 		if np.all(L[i] == np.array([[0,1]])):
-			ax.arrow(ctr1[i,0], ctr1[i,1], major_stop[0], major_stop[1], length_includes_head = True, lw = 1, head_width = hw)
-			ax.arrow(ctr1[i,0], ctr1[i,1], -major_stop[0], -major_stop[1], length_includes_head = True, lw = 1, head_width = hw)
+			ax.arrow(ctr1[i,0], ctr1[i,1], -major_stop[0], major_stop[1], length_includes_head = True, lw = 1, head_width = hw)
+			ax.arrow(ctr1[i,0], ctr1[i,1], major_stop[0], -major_stop[1], length_includes_head = True, lw = 1, head_width = hw)
 			# print("special case")
 
 def get_U_and_L(cov1, cellsize = np.array([100,100])):
@@ -195,19 +195,29 @@ def get_U_and_L(cov1, cellsize = np.array([100,100])):
 
 		#get new coordinate frame
 		# theta_temp = np.arctan(eigenvec[0,1]/eigenvec[0,0]) #was this
-		theta_temp = np.arcsin(eigenvec[0,1]/eigenvec[0,0]) #improves steady state default dataset at 20 cycles??
+		# if eigenvec[0,1] < eigenvec[0,0]:
+			# theta_temp += np.pi/2
+		theta_temp = np.arctan2(eigenvec[0,1],eigenvec[0,0]) #test
 
-		if eigenvec[0,1] < eigenvec[0,0]:
-			theta_temp += np.pi/2
+		# print(theta_temp)
 
 		#get U matrix requred to rotate future P points so that x', y' axis align with major and minor axis of ellipse
-		U[i] = R(theta_temp) #was this
-		# U[i] = eigenvec #according to Jason???
+		# print("eigenvec", eigenvec)
+		if np.cos(theta_temp) > 0:
+			U[i] = eigenvec.dot(R(np.pi/2)) #if not rotated past 45 deg
+		else:
+			U[i] = -eigenvec #if rotated past 45 deg
+
+		# U[i] = -eigenvec #if not rotated past 45 deg
+		# U[i] = eigenvec.dot(R(np.pi/2)) #if rotated past 45 deg
+
 
 		# get L matrix 
 		# NOTE: axis1 is not always the bigger or smaller axis...
 		# axis1 = np.sqrt(eigenval[0])
 		# axis2 = np.sqrt(eigenval[1])
+
+		# print(eigenval)
 
 		#test
 		axis1 = np.sqrt(max(eigenval))
@@ -361,6 +371,7 @@ def get_dx(y, y0, x, cov1, cov2, npts1, npts2, L, U):
 	#fast way of getting HTWH--------------------
 	HTWH = np.zeros([3,3])
 	HTW = np.zeros([3, np.shape(y)[0]])
+	Q = np.zeros([3,3])
 	for i in range(np.shape(y)[0]//2):
 		#estimate R_noise for voxel j
 		# R_noise = (cov2[i] / (npts2[i] - 1))
@@ -378,11 +389,33 @@ def get_dx(y, y0, x, cov1, cov2, npts1, npts2, L, U):
 		HTW_j = H_z.T.dot(np.linalg.pinv(R_noise))
 		HTW[:,2*i:2*i+2] = HTW_j
 
-	#not actually needed
-	# W = get_weighting_matrix(cov1, npts1, cov2, npts2, L, U)
-	# print("W \n", W[:4,:4])
-	#-------------------------------------------
-	# print("HTWH (from get_dx) = \n", HTWH)
+		#update Q matrix (P in paper) ---------------------------------------
+		# #using H_z and W_z WRONG
+		# H_wj = np.linalg.pinv(HTWH_j).dot(HTW_j)
+		# #don't use R_noise since its brought into U coordinate frame
+		# Q_j = H_wj.dot(np.linalg.multi_dot((L[i], (cov1[i] / (npts1[i] - 1)) + (cov2[i] / (npts2[i] - 1)), L[i].T))).dot(H_wj.T)
+		# Q += Q_j
+
+		#using direct
+		# Q += (np.linalg.pinv(HTWH_j).dot(HTW_j)).dot((np.linalg.pinv(HTWH_j).dot(HTW_j)).T)
+
+		#calculate Q withot truncation or rotation into U coordinate frame
+		# print(U[i])
+		W_simple = np.linalg.pinv(U[i].T.dot((cov1[i] / (npts1[i] - 1)) + (cov2[i] / (npts2[i] - 1))).dot(U[i]))
+		H_temp = U[i].T.dot(H[2*i:2*i+2])
+		HTWH_simple = H_temp.T.dot(W_simple).dot(H_temp)
+		HTW_simple = H_temp.T.dot(W_simple)
+		H_w = np.linalg.pinv(HTWH_simple).dot(HTW_simple)
+		Q_j = H_w.dot((cov1[i] / (npts1[i] - 1)) + (cov2[i] / (npts2[i] - 1))).dot(H_w.T)
+		Q += Q_j
+
+	# #Calculate matrices and multiply at the end??
+	# W_simple = np.zeros(np.shape(cov1))
+	# for c in range(np.shape(y)[0]//2):
+	# 	W_simple[i:i+2,:] = np.linalg.pinv((cov1[i] / (npts1[i] - 1)) + (cov2[i] / (npts2[i] - 1)))
+	# H_w_simple = np.linalg.pinv(H.T.dot(W_simple).dot(H.T)).dot(H.T).dot(W_simple)
+	# Q = H_w_simple.dot((cov1[i] / (npts1[i] - 1)) + (cov2[i] / (npts2[i] - 1))).H_w_simple.T
+
 
 	#CHECK CONDITION
 	L2, lam, U2 = get_condition(HTWH)
@@ -419,10 +452,8 @@ def get_dx(y, y0, x, cov1, cov2, npts1, npts2, L, U):
 	#------------------------------------------
 
 	# without pruning from L2
-	Q = np.linalg.pinv(HTWH)
-	
-	# Q = L2.dot(np.linalg.pinv(HTWH))
-
+	# Q = np.linalg.pinv(HTWH) #was this
+	# print(np.shape(Q))
 
 	return dx, Q
 
@@ -623,12 +654,14 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True, a
 	#inital estimate for transformation
 	#TODO: improve initial estimated transform (start with zeros here, could potentially use wheel odometry) 
 	x = np.zeros([3,1])
+	best_x = np.zeros([3,1])
 
 	y0 = ctr1
 	y0_init = ctr1 #hold on to initial centers so we don't lose information when doing correspondences
 	P_corrected = pp2 #for debug
 
 	error = np.zeros(num_cycles)
+	best_error = 10e6
 
 	for cycle in range(num_cycles):
 
@@ -707,12 +740,14 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True, a
 		# Fast weighted psudoinverse ---------------------------------------
 		H_w = fast_weighted_psudoinverse(y_reshape, x, cov1reorder, npts1reorder, cov2, npts2, L_i, U_i)
 		# print("H_w: \n", H_w, np.shape(H_w))
+		# print("Q_test = ", H_w.dot(cov1).dot((H_w.T)))
 		#-------------------------------------------------------------------
 
 		#NOTE 7/21: I think I should be using L and lambda OUTSIDE fast_weighted_psudoinverse()
 		dxTest, Q = get_dx(y_reshape, y0_reshape, x, cov1reorder, cov2, npts1reorder, npts2, L_i, U_i)
 		# print("dxTest = \n", dxTest)
 		#TODO: I'm getting different HTWH values when using fast weighted psudoinverse and getdx
+		# print(Q)
 		#-------------------------------------------------------------------
 
 		z = np.zeros(np.shape(y_reshape))
@@ -744,6 +779,12 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True, a
 		# print("error: \n", np.sum(abs(y_reshape- y0_reshape))) #----------
 		error[cycle] = np.sum(abs(y_reshape- y0_reshape))
 
+		#save best transformation
+		if error[cycle] < best_error:
+			best_error = error[cycle]
+			best_x[:] = x[:]
+			# print(best_error)
+			# print(best_x)
 		#draw progression of centers of ellipses
 		# ax.plot(y.T[0,:], y.T[1,:], color = (1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),0.25), ls = '', marker = '.', markersize = 10)
 		
@@ -754,15 +795,15 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True, a
 	# ax.plot(P_corrected.T[0,:], P_corrected.T[1,:], color = (1,0,0,0.0375), ls = '', marker = '.', markersize = 20)
 
 	#draw final translated points using initial P and final X
-	rot = R(x[2])
-	t = x[:2]
+	rot = R(best_x[2])
+	t = best_x[:2]
 	P_final = rot.dot(pp2.T) + t
 	ax.plot(P_final.T[:,0], P_final.T[:,1], color = (1,0,0,0.0375), ls = '', marker = '.', markersize = 20)
 
 	if along_track_demo == True:
-		return x, Q, error, x_actual
+		return best_x, Q, error, x_actual
 	else:
-		return x, Q, error
+		return best_x, Q, error
 
 def ICET_v1(Q, P, fig, ax, fid = 10, num_cycles = 1, draw = True):
 

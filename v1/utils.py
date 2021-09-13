@@ -149,7 +149,7 @@ def subdivide_scan(pp, fig, ax, fidelity = 5, overlap = False, min_num_pts = 5, 
 				eigenval = eig[0]
 				eigenvec = eig[1]
 
-				rot = -np.rad2deg(np.arcsin(eigenvec[0,1]/eigenvec[0,0]))
+				rot = -np.rad2deg(np.arctan(eigenvec[0,1]/eigenvec[0,0]))
 				width = 2*nstd*np.sqrt(eigenval[0])
 				height = 2*nstd*np.sqrt(eigenval[1])
 
@@ -209,22 +209,22 @@ def draw_scan(scan, fig, ax, FOV = 60, pt = 0, hitters = None, ignore_boundary =
 def generate_along_track_data(fig,ax,draw = True, output_actual = False):
 
 	tracklen = 800 
-	npts = 500 #1000
-	tscale = 25
-	xy_noise_scale = 3
+	npts = 500 #1000 #500
+	tscale = 10 #25
+	xy_noise_scale = 3 #3
 
 	pp1 = np.zeros([npts,2])
 	pp2 = np.zeros([npts,2])
 
-	theta = np.random.randn()*0.2 #0.1
+	theta = np.random.randn()*0.2 #0.2
 	rot = R(theta)
 	t = np.random.randn(2)*tscale
 
 	#moves half of points to left wall and half to right
 	xshift = np.ones(npts)*-200
 	xshift[(npts//2):] = 200
-	yshift = np.zeros(npts)
-	yshift[(npts//2):] = -npts//2
+	yshift = np.zeros(npts) - 100
+	yshift[(npts//2):] = -npts//2 - 100
 
 	#left wall
 	for i in range(npts):
@@ -242,8 +242,8 @@ def generate_along_track_data(fig,ax,draw = True, output_actual = False):
 	pp2 = rot.dot(pp2.T)
 	pp2 = pp2.T
 
-	#make data cross track instead
-	# rot_cross = R(np.pi/2)
+	# make data cross track instead
+	# rot_cross = R(np.pi/8)
 	# pp1 = rot_cross.dot(pp1.T)
 	# pp1 = pp1.T
 	# pp2 = rot_cross.dot(pp2.T)
