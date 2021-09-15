@@ -171,20 +171,13 @@ def get_U_and_L(cov1, cellsize = np.array([100,100])):
 				 L -> reduced dimension array used to ignore extended axis directions
 	
 			"""	
-
-	#for debug
-	# cellsize = np.array([1000,3])
-	# cellsize = np.array([2,1000])
-	# cellsize = np.array([1000,1000])
-	# cellsize = np.array([0,0])
-	cellsize = cellsize/2
-
+	# cellsize = cellsize*0.9 #to be a little extra conservative
 	# print("Using cellsize = ", cellsize)
 
 	U = np.zeros([np.shape(cov1)[0],2,2])
 
 	# don't know what size L is going to be before we start 
-	L = [] #was this
+	L = []
 
 	#loop through every voxel in scan 1 (only do this once per keyframe)
 	for i in range(np.shape(cov1)[0]):
@@ -232,11 +225,11 @@ def get_U_and_L(cov1, cellsize = np.array([100,100])):
 		axis2y = abs(np.sin(theta_temp + np.pi/2)*axis2)
 
 		#base case: no elongated directions
-		if axis1x<(cellsize[0]/4)**2 and axis1y<(cellsize[1]/4)**2 and axis2x<(cellsize[0]/4)**2 and axis2y<(cellsize[1]/4)**2:
+		if axis1x<(cellsize[0]/4) and axis1y<(cellsize[1]/4) and axis2x<(cellsize[0]/4) and axis2y<(cellsize[1]/4):
 			L_i = np.array([[1,0],[0,1]])
 		#elongated axis1
-		if (axis1x>(cellsize[0]/4)**2 or axis1y>(cellsize[1]/4)**2):
-			if (axis2x<(cellsize[0]/4)**2 and axis2y<(cellsize[1]/4)**2):
+		if (axis1x>(cellsize[0]/4) or axis1y>(cellsize[1]/4)):
+			if (axis2x<(cellsize[0]/4) and axis2y<(cellsize[1]/4)):
 				L_i = np.array([[1,0]])
 			else:
 				#both elongated
@@ -245,8 +238,8 @@ def get_U_and_L(cov1, cellsize = np.array([100,100])):
 
 
 		#elongated axis2
-		if (axis2x>(cellsize[0]/4)**2 or axis2y>(cellsize[1]/4)**2):
-			if (axis1x<(cellsize[0]/4)**2 and axis1y<(cellsize[1]/4)**2):
+		if (axis2x>(cellsize[0]/4) or axis2y>(cellsize[1]/4)):
+			if (axis1x<(cellsize[0]/4) and axis1y<(cellsize[1]/4)):
 				L_i = np.array([[0,1]])
 
 		# L = np.append(L, L_i, axis = 0)
@@ -370,18 +363,18 @@ def get_dx(y, y0, x, cov1, cov2, npts1, npts2, L, U):
 
 	#fast way of getting HTWH--------------------
 	HTWH = np.zeros([3,3])
+	HTWH_alt = np.zeros([3,3]) #need this while I debug because there is a sign error somewhere
 	HTW = np.zeros([3, np.shape(y)[0]])
 	Q = np.zeros([3,3])
-	for i in range(np.shape(y)[0]//2):
+	for i in range(np.shape(y)[0]//2): #loop through each usable voxel
 		#estimate R_noise for voxel j
-		# R_noise = (cov2[i] / (npts2[i] - 1))
-		R_noise = (cov1[i] / (npts1[i] - 1)) + (cov2[i] / (npts2[i] - 1)) #debug this..
-		R_noise = np.linalg.multi_dot((L[i], U[i].T, R_noise, U[i], L[i].T))
+		R_noise = (cov1[i] / (npts1[i] - 1)) + (cov2[i] / (npts2[i] - 1))
+		R_noise = np.linalg.multi_dot((L[i], U[i].T, R_noise, U[i], L[i].T)) # was this
+		# R_noise = np.linalg.multi_dot((L[i], U[i], R_noise, U[i].T, L[i].T)) #test
 		#calclate voxel j's contribution to the first term of H_w -------------------------
 		# H_w1  = [ H_wj1[0] + H_wj1[1] + H_wj1[2] + ... ] <- should be a 3x3 matrix
 		# H_wj1 = (H.T)(W)(H) = (H.T)(R^-1)(H)
-		H_z = L[i].dot(U[i].T).dot(H[2*i:2*i+2]) #was this
-		# H_z = L[i].dot(U[i]).dot(H[2*i:2*i+2]) #test
+		H_z = L[i].dot(U[i].T).dot(H[2*i:2*i+2])
 		HTWH_j = H_z.T.dot(np.linalg.pinv(R_noise)).dot(H_z)
 		#add contributions of j
 		HTWH += HTWH_j
@@ -390,32 +383,18 @@ def get_dx(y, y0, x, cov1, cov2, npts1, npts2, L, U):
 		HTW[:,2*i:2*i+2] = HTW_j
 
 		#update Q matrix (P in paper) ---------------------------------------
-		# #using H_z and W_z WRONG
-		# H_wj = np.linalg.pinv(HTWH_j).dot(HTW_j)
-		# #don't use R_noise since its brought into U coordinate frame
-		# Q_j = H_wj.dot(np.linalg.multi_dot((L[i], (cov1[i] / (npts1[i] - 1)) + (cov2[i] / (npts2[i] - 1)), L[i].T))).dot(H_wj.T)
-		# Q += Q_j
-
-		#using direct
-		# Q += (np.linalg.pinv(HTWH_j).dot(HTW_j)).dot((np.linalg.pinv(HTWH_j).dot(HTW_j)).T)
-
-		#calculate Q withot truncation or rotation into U coordinate frame
-		# print(U[i])
-		W_simple = np.linalg.pinv(U[i].T.dot((cov1[i] / (npts1[i] - 1)) + (cov2[i] / (npts2[i] - 1))).dot(U[i]))
-		H_temp = U[i].T.dot(H[2*i:2*i+2])
-		HTWH_simple = H_temp.T.dot(W_simple).dot(H_temp)
-		HTW_simple = H_temp.T.dot(W_simple)
-		H_w = np.linalg.pinv(HTWH_simple).dot(HTW_simple)
-		Q_j = H_w.dot((cov1[i] / (npts1[i] - 1)) + (cov2[i] / (npts2[i] - 1))).dot(H_w.T)
-		Q += Q_j
-
-	# #Calculate matrices and multiply at the end??
-	# W_simple = np.zeros(np.shape(cov1))
-	# for c in range(np.shape(y)[0]//2):
-	# 	W_simple[i:i+2,:] = np.linalg.pinv((cov1[i] / (npts1[i] - 1)) + (cov2[i] / (npts2[i] - 1)))
-	# H_w_simple = np.linalg.pinv(H.T.dot(W_simple).dot(H.T)).dot(H.T).dot(W_simple)
-	# Q = H_w_simple.dot((cov1[i] / (npts1[i] - 1)) + (cov2[i] / (npts2[i] - 1))).H_w_simple.T
-
+		# https://www.sciencedirect.com/topics/engineering/error-covariance-matrix
+		# print(H[2*i:2*i+2])
+		# print("L_i: ",L[i])
+		# print("U_i: ", U[i])
+		H_alt = H[2*i:2*i+2]
+		H_alt[0,0] = -1
+		H_alt[1,1] = -1
+		R_noise_alt = np.ones([2,2])
+		R_noise_alt = np.linalg.multi_dot((L[i], U[i].T, R_noise_alt, U[i], L[i].T))
+		H_z_alt = L[i].dot(U[i].T).dot(H_alt)
+		HTWH_j_alt = H_z_alt.T.dot(np.linalg.pinv(R_noise_alt)).dot(H_z_alt)
+		HTWH_alt += HTWH_j_alt
 
 	#CHECK CONDITION
 	L2, lam, U2 = get_condition(HTWH)
@@ -444,16 +423,21 @@ def get_dx(y, y0, x, cov1, cov2, npts1, npts2, L, U):
 	# (z) = (U.T)(x)
 
 	dy = y - y0
-	# dx = np.linalg.pinv( L2.dot(lam).dot(U2.T) ).dot(L2).dot(U2.T).dot(H.T).dot(W).dot(dy) #works
 
-	#needs debug
+	#works
 	dx = np.linalg.pinv( L2.dot(lam).dot(U2.T) ).dot(L2).dot(U2.T).dot(HTW).dot(dy)
+
+	# with no L2 pruning (will explode in geometrically ambiguous situations)
+	# dx = np.linalg.pinv(HTWH).dot(HTW).dot(dy)
 	
 	#------------------------------------------
 
 	# without pruning from L2
-	# Q = np.linalg.pinv(HTWH) #was this
-	# print(np.shape(Q))
+	Q = np.linalg.pinv(HTWH) #CORRECT FOR OUTPUT COVARIANCE MATRIX
+	# Q = np.linalg.pinv(HTWH_alt)
+
+	#dumb way that might work
+	# Q = dx.dot(np.linalg.pinv(HTW.dot(dy)))
 
 	return dx, Q
 
@@ -623,13 +607,15 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True, a
 
 	cy = (maxy - miny) / (fid) #cellsize x
 	cx = (maxx - minx) / (fid) #cellsize y
-	cellsize = np.array([cx, cy]) / 2
+	cellsize = np.array([cx, cy]) #/ 2
 	# cellsize = (cx+cy)/2
 	# cellsize = 10
 
 	#group points into ellipses
-	E1 = subdivide_scan(pp1,fig,ax, fidelity = fid, pt = 0, min_num_pts = min_num_pts)
-	_ = subdivide_scan(pp2,fig,ax, fidelity = fid, pt = 1, min_num_pts = min_num_pts) #added back for viz
+	E1, pp1_lims = subdivide_scan(pp1,fig,ax, fidelity = fid, pt = 0, 
+		min_num_pts = min_num_pts, output_lims = True)
+	_ = subdivide_scan(pp2,fig,ax, fidelity = fid, pt = 1, 
+		min_num_pts = min_num_pts, lims = pp1_lims) #added back for viz
 
 	#extract: center data from E1, E2 -> center points are a 2d array
 	#         covariance data from E1, E2 
@@ -668,7 +654,8 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True, a
 		# print("cycle ", cycle, " --------------------")
 
 		#Refit 2nd scan into voxels on each iteration
-		E2 = subdivide_scan(P_corrected,fig,ax, fidelity = fid, pt = 2, min_num_pts = min_num_pts)
+		E2 = subdivide_scan(P_corrected,fig,ax, fidelity = fid, pt = 2, 
+				min_num_pts = min_num_pts, lims = pp1_lims)
 
 		ctr2 = np.zeros([len(E2),2])
 		cov2 = np.zeros([len(E2),2,2])
@@ -712,7 +699,7 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True, a
 		# reorder cov1 and npts1 according to correspondences
 		# print(np.shape(npts1), np.shape(npts2))
 		# need to get reverse correspondences for cov1 and npts1
-		reverse_corr = get_correspondence(y0_init.T, y.T,fig,ax,draw=False)[0].astype(int)
+		# reverse_corr = get_correspondence(y0_init.T, y.T,fig,ax,draw=False)[0].astype(int)
 		# print("correspondences: \n", reverse_corr, np.shape(reverse_corr))
 		# print("cov1: \n", np.shape(cov1))
 		# cov1 = cov1[reverse_corr]
@@ -755,6 +742,7 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True, a
 		for count in range(np.shape(U_i)[0]//2):
 			#y_hat = (U.T).dot(y_reshape) <- need to loop through U's to get rotation
 			#	NOTE: U_i[count].T.dot(...) == np.linalg.pinv(U_i[count].T).dot(...)
+
 			z[2*count:2*count+2] = U_i[count].T.dot(y_reshape[2*count:2*count+2]) #these were using U instead of U_i...
 			z0[2*count:2*count+2] = U_i[count].T.dot(y0_reshape[2*count:2*count+2])
 
@@ -776,8 +764,9 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True, a
 		P_corrected = P_corrected.T
 
 		y0 = y0_init
-		# print("error: \n", np.sum(abs(y_reshape- y0_reshape))) #----------
+
 		error[cycle] = np.sum(abs(y_reshape- y0_reshape))
+		# print(y_reshape[:4].T, "\n", y0_reshape[:4].T, "\n", y_reshape[:4].T-y0_reshape[:4].T)
 
 		#save best transformation
 		if error[cycle] < best_error:

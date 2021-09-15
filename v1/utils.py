@@ -96,7 +96,8 @@ def get_correspondence(P,Q, fig, ax, draw = False):
 
 	return correspondences
 
-def subdivide_scan(pp, fig, ax, fidelity = 5, overlap = False, min_num_pts = 5, nstd = 2, pt = 0, flag = False):
+def subdivide_scan(pp, fig, ax, fidelity = 5, overlap = False, 
+	min_num_pts = 5, nstd = 2, pt = 0, flag = False, output_lims = False, lims = None):
 	#flag is for making demo figure where extended feature takes up 3 voxels in x direction
 
 	#color differently depending on which scan
@@ -108,18 +109,25 @@ def subdivide_scan(pp, fig, ax, fidelity = 5, overlap = False, min_num_pts = 5, 
 
 	E = []
 
-	#define bounding box surrounding all points
-	#adaptive grid cell size
-	minx = np.min(pp[:,0])
-	maxx = np.max(pp[:,0])
-	miny = np.min(pp[:,1])
-	maxy = np.max(pp[:,1])
+	#use existing voxel positions established at beginning of scan-matching routine
+	if type(lims) == np.ndarray:
+		minx = lims[0]
+		maxx = lims[1]
+		miny = lims[2]
+		maxy = lims[3]
+	else:
+		#define bounding box surrounding all points
+		#adaptive grid cell size
+		minx = np.min(pp[:,0])
+		maxx = np.max(pp[:,0])
+		miny = np.min(pp[:,1])
+		maxy = np.max(pp[:,1])
 
 	#fixed grid cell size
-	# minx = np.min(pp[:,0])
-	# maxx = np.max(pp[:,0])
-	# miny = np.min(pp[:,1])
-	# maxy = np.max(pp[:,1])
+	minx = np.min(-500)
+	maxx = np.max(500)
+	miny = np.min(-500)
+	maxy = np.max(500)
 
 	X = np.linspace(minx,maxx,fidelity)
 	Y = np.linspace(miny,maxy,fidelity)
@@ -159,7 +167,11 @@ def subdivide_scan(pp, fig, ax, fidelity = 5, overlap = False, min_num_pts = 5, 
 
 				E.append((mu, sigma,  np.shape(within_box)[0]))
 
-	return E
+	if output_lims == False:
+		return E
+	else:
+		lims = np.array([minx, maxx, miny, maxy])
+		return E, lims
 
 def draw_scan(scan, fig, ax, FOV = 60, pt = 0, hitters = None, ignore_boundary = False):
 
@@ -209,7 +221,7 @@ def draw_scan(scan, fig, ax, FOV = 60, pt = 0, hitters = None, ignore_boundary =
 def generate_along_track_data(fig,ax,draw = True, output_actual = False):
 
 	tracklen = 800 
-	npts = 500 #1000 #500
+	npts = 750 #1000 #500 #setting this too high increases risk of non-invertability
 	tscale = 10 #25
 	xy_noise_scale = 3 #3
 
@@ -238,16 +250,25 @@ def generate_along_track_data(fig,ax,draw = True, output_actual = False):
 	#stretch scan 1 in the vertical direction
 	pp1[:,1] = pp1[:,1]*1.5
 
-	#rotate and translate scan2
+	#rotate scan2
 	pp2 = rot.dot(pp2.T)
 	pp2 = pp2.T
 
+
+
+
+
 	# make data cross track instead
-	# rot_cross = R(np.pi/8)
+	# rot_cross = R(np.pi/4)
 	# pp1 = rot_cross.dot(pp1.T)
 	# pp1 = pp1.T
 	# pp2 = rot_cross.dot(pp2.T)
 	# pp2 = pp2.T
+
+	# #add curves to left wall
+	# for i in range(npts//2):
+	# 	pp1[i,0] += 35*np.sin(i/50)
+	# 	pp2[i,0] += 35*np.sin(i/100)
 	
 
 	ax.plot(pp1[:,0], pp1[:,1], color = (0.25,0.8,0.25,0.0375), ls = '', marker = '.', markersize = 20)
