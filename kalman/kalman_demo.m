@@ -5,8 +5,8 @@
 
 %imoport data on lidar distances traveled each step
 
-% runlen = 1500;
-runlen = max(size(lat)); %needs debug
+% runlen = 524;
+runlen = max(size(h)); %needs debug
 % runlen = max(size(pos_x_lidar));
 
 %Q and R from get_Q_3DOF, get_R_3DOF
@@ -181,7 +181,7 @@ figure()
 hold on
 title('kalman filtered trajectory')
 plot(x_gps, y_gps)
-scatter(pos_x_lidar,pos_y_lidar)
+plot(pos_x_lidar,pos_y_lidar)
 plot(state_estimate(2,:),state_estimate(1,:))
 legend("BESTPOS", "Lidar", "Kalman")
 hold off

@@ -24,7 +24,7 @@ h = h(idx);
 t_bp = t_bp(idx);
 
 %convert to ENU
-% gps_enu = Wgslla2enu(bplat, bplon, bphgt, bplat(1), bplon(1), bphgt(1));
+gps_enu = Wgslla2enu(bplat, bplon, bphgt, bplat(1), bplon(1), bphgt(1));
 
 
 %adjust h for continuous rotation
@@ -143,32 +143,32 @@ dheading = h - interp_heading2;
 
 
 %plot lat -----------------------------------------------------------------
-% figure()
-% hold on
-% % interp_lat2 = interp_lat2.';
-% plot(t_bp,lat)
-% %interp_lat2 and lat are in different time scales
-% %this results in data that is horizontally shifted (not good)
-% % t_bp = linspace(min(t),max(t),max(size(lat))); 
-% plot(t_bp, interp_lat2);
-% 
-% legend('actual','interpolated')
-% title('lat');
-% xlabel('timestep')
-% ylabel('lat (m)')
-% hold off
+figure()
+hold on
+% interp_lat2 = interp_lat2.';
+plot(t_bp,lat)
+%interp_lat2 and lat are in different time scales
+%this results in data that is horizontally shifted (not good)
+% t_bp = linspace(min(t),max(t),max(size(lat))); 
+plot(t_bp, interp_lat2);
+
+legend('actual','interpolated')
+title('lat');
+xlabel('timestep')
+ylabel('lat (m)')
+hold off
 %  
 %plot lon------------------------------------------------------------------
-% figure()
-% hold on
-% plot(t_bp,lon)
-% plot(t_bp, interp_lon2);
-% legend('actual','interpolated')
-% title('lon')
-% xlabel('timestep')
-% ylabel('lon (m)')
-% 
-% hold off
+figure()
+hold on
+plot(t_bp,lon)
+plot(t_bp, interp_lon2);
+legend('actual','interpolated')
+title('lon')
+xlabel('timestep')
+ylabel('lon (m)')
+
+hold off
 
 % plot heading ------------------------------------------------------------
 figure()
