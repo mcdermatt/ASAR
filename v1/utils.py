@@ -3,6 +3,7 @@ from matplotlib import pyplot as plt
 from matplotlib.patches import Ellipse
 from scipy import misc
 
+
 def R(theta):
 	"""Rotation Matrix"""
 	mat = np.array([[np.cos(theta), -np.sin(theta)],
@@ -118,16 +119,31 @@ def subdivide_scan(pp, fig, ax, fidelity = 5, overlap = False,
 	else:
 		#define bounding box surrounding all points
 		#adaptive grid cell size
-		minx = np.min(pp[:,0])
-		maxx = np.max(pp[:,0])
-		miny = np.min(pp[:,1])
-		maxy = np.max(pp[:,1])
+		# minx = np.min(pp[:,0])
+		# maxx = np.max(pp[:,0])
+		# miny = np.min(pp[:,1])
+		# maxy = np.max(pp[:,1])
 
-	#fixed grid cell size
-	minx = np.min(-500)
-	maxx = np.max(500)
-	miny = np.min(-500)
-	maxy = np.max(500)
+		bound = 250
+		minx = np.min(-bound)
+		maxx = np.max(bound)
+		miny = np.min(-bound)
+		maxy = np.max(bound)
+
+		#draw grid lines on figure
+		xticks = np.linspace(minx,maxx,fidelity)
+		ax.axes.xaxis.set_ticks(xticks)
+		yticks = np.linspace(miny,maxy,fidelity)
+		ax.axes.yaxis.set_ticks(yticks)
+		ax.grid(color=(0,0,0), linestyle='-', linewidth=0.5)
+		ax.set_xlim([minx,maxx])
+		ax.set_ylim([miny,maxy])
+
+	# DEBUG: fixed grid cell size - need to change with each scan!!!
+	# minx = np.min(-500)
+	# maxx = np.max(500)
+	# miny = np.min(-500)
+	# maxy = np.max(500)
 
 	X = np.linspace(minx,maxx,fidelity)
 	Y = np.linspace(miny,maxy,fidelity)
@@ -158,8 +174,13 @@ def subdivide_scan(pp, fig, ax, fidelity = 5, overlap = False,
 				eigenvec = eig[1]
 
 				rot = -np.rad2deg(np.arctan(eigenvec[0,1]/eigenvec[0,0]))
-				width = 2*nstd*np.sqrt(eigenval[0])
-				height = 2*nstd*np.sqrt(eigenval[1])
+				#was this
+				# width = 2*nstd*np.sqrt(eigenval[0])
+				# height = 2*nstd*np.sqrt(eigenval[1])
+				#debug
+				width = 2*nstd*np.sqrt(abs(eigenval[0]))
+				height = 2*nstd*np.sqrt(abs(eigenval[1]))
+
 
 				if pt != 2:
 					ell = Ellipse((mu[0],mu[1]),width, height, angle = rot, fill = False, color = color)
@@ -220,46 +241,62 @@ def draw_scan(scan, fig, ax, FOV = 60, pt = 0, hitters = None, ignore_boundary =
 
 def generate_along_track_data(fig,ax,draw = True, output_actual = False):
 
-	tracklen = 800 
-	npts = 750 #1000 #500 #setting this too high increases risk of non-invertability
-	tscale = 10 #25
-	xy_noise_scale = 3 #3
+	npts = 2000 #1000 #500
+	tscale = 30 #10
+	x_noise_scale = 3#3 #5
+	y_noise_scale = 3#3
 
-	pp1 = np.zeros([npts,2])
+	pp1 = np.zeros([npts*2,2])
 	pp2 = np.zeros([npts,2])
 
 	theta = np.random.randn()*0.2 #0.2
 	rot = R(theta)
 	t = np.random.randn(2)*tscale
 
+	xshift1 = np.ones(npts*2)*-100
+	xshift1[(npts):] = 100
+	yshift1 = np.zeros(npts*2) - 250
+	yshift1[(npts):] = -500 - 250
+	
+
+	for i in range(npts*2):
+		pp1[i,0] = xshift1[i] + np.random.randn()*x_noise_scale
+		pp1[i,1] = i*500/npts + yshift1[i] + np.random.randn()*y_noise_scale
+
 	#moves half of points to left wall and half to right
-	xshift = np.ones(npts)*-200
-	xshift[(npts//2):] = 200
-	yshift = np.zeros(npts) - 100
-	yshift[(npts//2):] = -npts//2 - 100
+	xshift = np.ones(npts)*-100
+	xshift[(npts//2):] = 100
+	yshift = np.zeros(npts) - 125
+	yshift[(npts//2):] = -250 - 125
 
-	#left wall
 	for i in range(npts):
-		pp1[i,0] = xshift[i] + np.random.randn()*xy_noise_scale
-		pp1[i,1] = i + yshift[i] + np.random.randn()*xy_noise_scale
-
-		pp2[i,0] = xshift[i] + np.random.randn()*xy_noise_scale + t[0]
-		pp2[i,1] = i + yshift[i] + np.random.randn()*xy_noise_scale + t[1]
+		pp2[i,0] = xshift[i] + np.random.randn()*x_noise_scale# + t[0]
+		pp2[i,1] = i*500/npts + yshift[i] + np.random.randn()*y_noise_scale #+ t[1]
 
 
 	#stretch scan 1 in the vertical direction
-	pp1[:,1] = pp1[:,1]*1.5
+	# pp1[:,1] = pp1[:,1]*1.5
 
-	#rotate scan2
+	#make the data in the center of pp1 look like pp2
+	pp1[npts//4: 3*npts//4,:] = pp2[:npts//2,:]
+	pp1[5*npts//4: 7*npts//4,:] = pp2[npts//2:,:]
+
+
+	#add small cross track indexing features
+	# newPts = np.array([np.linspace(0,50,100),np.linspace(50,75,100)]).T + np.random.randn(100,2)*0.001
+	# pp2 = np.append(pp2, newPts, axis =0)
+	# pp1 = np.append(pp1, newPts, axis =0)
+
+
+	#transform scan2
+	pp2 += t #was this
 	pp2 = rot.dot(pp2.T)
 	pp2 = pp2.T
-
-
-
+	# pp2 += t #try this
 
 
 	# make data cross track instead
-	# rot_cross = R(np.pi/4)
+	# rot_cross = R(np.pi/2.01)
 	# pp1 = rot_cross.dot(pp1.T)
 	# pp1 = pp1.T
 	# pp2 = rot_cross.dot(pp2.T)

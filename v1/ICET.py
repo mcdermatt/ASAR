@@ -99,6 +99,7 @@ def get_condition(H_w1):
 				L2 = np.zeros([3,3])
 				# L2 = np.identity(3)
 				print("TODO: fix this case")
+				print(eigenval)
 
 		if len(np.shape(L2)) > 2:
 			L2 = np.squeeze(L2)
@@ -129,6 +130,8 @@ def visualize_U(U, L, ctr1, cov1, fig, ax):
 		eig = np.linalg.eig(cov1[i])
 		eigenval = eig[0]
 
+		# print(eigenval)
+
 		#get minor axis
 		minor_radius = np.array([np.sqrt(min(eigenval))*2, 0]) #np.array([10,0])
 		# ax.plot([ctr1[i,0], minor_stop[0]], [ctr1[i,1], minor_stop[1]], 'k-' , lw = 2)
@@ -136,6 +139,7 @@ def visualize_U(U, L, ctr1, cov1, fig, ax):
 
 		#get major axis
 		U_alt = R_alt(U[i])
+		# U_alt = U[i] #debug
 		major_radius = np.array([np.sqrt(max(eigenval))*2, 0]) #np.array([10,0])
 		major_stop = major_radius.dot(U_alt)
 		# major_stop = major_radius.dot(U[i])
@@ -197,9 +201,9 @@ def get_U_and_L(cov1, cellsize = np.array([100,100])):
 		#get U matrix requred to rotate future P points so that x', y' axis align with major and minor axis of ellipse
 		# print("eigenvec", eigenvec)
 		if np.cos(theta_temp) > 0:
-			U[i] = eigenvec.dot(R(np.pi/2)) #if not rotated past 45 deg
+			U[i] = eigenvec.dot(R(np.pi/2))
 		else:
-			U[i] = -eigenvec #if rotated past 45 deg
+			U[i] = -eigenvec
 
 		# U[i] = -eigenvec #if not rotated past 45 deg
 		# U[i] = eigenvec.dot(R(np.pi/2)) #if rotated past 45 deg
@@ -353,6 +357,8 @@ def get_dx(y, y0, x, cov1, cov2, npts1, npts2, L, U):
 			   TAKE INTO ACCOUNT MAIN L AND U -> is this being done in getting Weighting matrix
 		'''
 
+	#TODO: make sure cov2 is cacluated when scan 2 is transformed by X[]
+
 	H = get_H(y,x)
 	#slow way of getting HTWH -------------------
 	# W = get_weighting_matrix(cov, npts, L, U)
@@ -388,13 +394,18 @@ def get_dx(y, y0, x, cov1, cov2, npts1, npts2, L, U):
 		# print("L_i: ",L[i])
 		# print("U_i: ", U[i])
 		H_alt = H[2*i:2*i+2]
-		H_alt[0,0] = -1
-		H_alt[1,1] = -1
-		R_noise_alt = np.ones([2,2])
-		R_noise_alt = np.linalg.multi_dot((L[i], U[i].T, R_noise_alt, U[i], L[i].T))
-		H_z_alt = L[i].dot(U[i].T).dot(H_alt)
-		HTWH_j_alt = H_z_alt.T.dot(np.linalg.pinv(R_noise_alt)).dot(H_z_alt)
-		HTWH_alt += HTWH_j_alt
+		H_alt[0,0] = 1 #was -1 (wrong I think)
+		H_alt[1,1] = 1 #was -1
+		# R_noise_alt = np.ones([2,2]) #TODO: DUBUG HERE
+		R_noise_alt = (cov1[i] / (npts1[i] - 1)) + (cov2[i] / (npts2[i] - 1))
+		# R_noise_alt = np.linalg.multi_dot((L[i], U[i].T, R_noise_alt, U[i], L[i].T))
+		# H_z_alt = L[i].dot(U[i].T).dot(H_alt)
+		# HTWH_j_alt = H_z_alt.T.dot(np.linalg.pinv(R_noise_alt)).dot(H_z_alt)
+		# HTWH_alt += HTWH_j_alt
+
+
+		# print(R_noise_alt)
+		# print(R_noise)
 
 	#CHECK CONDITION
 	L2, lam, U2 = get_condition(HTWH)
@@ -422,10 +433,20 @@ def get_dx(y, y0, x, cov1, cov2, npts1, npts2, L, U):
 	# (L)(U2.T)(H.T)(W)(y-y0) = (L)(lam)(U.T)(x)
 	# (z) = (U.T)(x)
 
-	dy = y - y0
+	# Using dy works(?)
+	# dy = y - y0
+	# dx = np.linalg.pinv( L2.dot(lam).dot(U2.T) ).dot(L2).dot(U2.T).dot(HTW).dot(dy)
 
-	#works
-	dx = np.linalg.pinv( L2.dot(lam).dot(U2.T) ).dot(L2).dot(U2.T).dot(HTW).dot(dy)
+	# Using dz instead of dy
+	z = np.zeros(np.shape(y))
+	z0 = np.zeros(np.shape(y0))
+	for count in range(np.shape(U)[0]//2):
+		#	NOTE: U_i[count].T.dot(...) == np.linalg.pinv(U_i[count].T).dot(...)
+		z[2*count:2*count+2] = L[count].dot(U[count].T.dot(y[2*count:2*count+2]))
+		z0[2*count:2*count+2] = L[count].dot(U[count].T.dot(y0[2*count:2*count+2]))
+	dz = z - z0
+	dx = np.linalg.pinv( L2.dot(lam).dot(U2.T) ).dot(L2).dot(U2.T).dot(HTW).dot(dz)
+
 
 	# with no L2 pruning (will explode in geometrically ambiguous situations)
 	# dx = np.linalg.pinv(HTWH).dot(HTW).dot(dy)
@@ -436,10 +457,9 @@ def get_dx(y, y0, x, cov1, cov2, npts1, npts2, L, U):
 	Q = np.linalg.pinv(HTWH) #CORRECT FOR OUTPUT COVARIANCE MATRIX
 	# Q = np.linalg.pinv(HTWH_alt)
 
-	#dumb way that might work
-	# Q = dx.dot(np.linalg.pinv(HTW.dot(dy)))
+	condinfo = [L2, lam, U2]
 
-	return dx, Q
+	return dx, Q, condinfo, dz
 
 def fast_weighted_psudoinverse(y, x, cov1, npts1, cov2, npts2, L, U):
 
@@ -590,6 +610,8 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True, a
 
 	"""similar to v1 except uses "weighted" psudoinverse instead of LSICP"""
 
+	fid = fid+1 #need n+1 points to subdivide into n columns/rows
+
 	if along_track_demo == True:
 
 		pp1, pp2, x_actual = generate_along_track_data(fig,ax, draw = True, output_actual = True)
@@ -646,7 +668,10 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True, a
 	y0_init = ctr1 #hold on to initial centers so we don't lose information when doing correspondences
 	P_corrected = pp2 #for debug
 
-	error = np.zeros(num_cycles)
+	x_hat_hist = np.zeros([num_cycles, 3])
+	y_hist = np.zeros(num_cycles)
+	z_hist = np.zeros(num_cycles)
+	
 	best_error = 10e6
 
 	for cycle in range(num_cycles):
@@ -663,6 +688,7 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True, a
 		for idx2, c2 in enumerate(E2):
 			ctr2[idx2,:] = c2[0]
 			cov2[idx2,:] = c2[1]
+			# cov2[idx2,:] = c2[1].dot(R(x[2]))   #test -> trying to make sure mean error in rotation is zero-centered
 			npts2[idx2] = c2[2]
 		# print("cov2: \n", cov2, np.shape(cov2)) #cov2 may change size on every iteration as voxles recieve more or less than the required min_num_pts
 
@@ -731,7 +757,7 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True, a
 		#-------------------------------------------------------------------
 
 		#NOTE 7/21: I think I should be using L and lambda OUTSIDE fast_weighted_psudoinverse()
-		dxTest, Q = get_dx(y_reshape, y0_reshape, x, cov1reorder, cov2, npts1reorder, npts2, L_i, U_i)
+		dxTest, Q, condinfo, dz = get_dx(y_reshape, y0_reshape, x, cov1reorder, cov2, npts1reorder, npts2, L_i, U_i)
 		# print("dxTest = \n", dxTest)
 		#TODO: I'm getting different HTWH values when using fast weighted psudoinverse and getdx
 		# print(Q)
@@ -743,11 +769,17 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True, a
 			#y_hat = (U.T).dot(y_reshape) <- need to loop through U's to get rotation
 			#	NOTE: U_i[count].T.dot(...) == np.linalg.pinv(U_i[count].T).dot(...)
 
-			z[2*count:2*count+2] = U_i[count].T.dot(y_reshape[2*count:2*count+2]) #these were using U instead of U_i...
-			z0[2*count:2*count+2] = U_i[count].T.dot(y0_reshape[2*count:2*count+2])
+			#was this
+			# z[2*count:2*count+2] = U_i[count].T.dot(y_reshape[2*count:2*count+2])
+			# z0[2*count:2*count+2] = U_i[count].T.dot(y0_reshape[2*count:2*count+2])
 
-		dz = z - z0
-		dx = H_w.dot(dz)
+			#9/21 - not actually being used here but I think this is more correct...
+			z[2*count:2*count+2] = L_i[count].dot(U_i[count].T.dot(y_reshape[2*count:2*count+2]))
+			z0[2*count:2*count+2] = L_i[count].dot(U_i[count].T.dot(y0_reshape[2*count:2*count+2]))
+
+
+		# dz = z - z0
+		# dx = H_w.dot(dz)
 		# dy = y_reshape - y0_reshape
 		# dx = H_w.dot(dy) #for no U,L		
 		# x -= dx #from fast weighted psudoinverse
@@ -765,13 +797,21 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True, a
 
 		y0 = y0_init
 
-		error[cycle] = np.sum(abs(y_reshape- y0_reshape))
-		# print(y_reshape[:4].T, "\n", y0_reshape[:4].T, "\n", y_reshape[:4].T-y0_reshape[:4].T)
+		y_hist[cycle] = np.sum(abs(y_reshape - y0_reshape)) #was this
+		# error[cycle] = np.log(abs(x[0]))
+		x_hat_hist[cycle] = np.squeeze(x[:])
+		z_hist[cycle] = np.sum(abs(z - z0))
+		# error[cycle] = np.sum(abs(y_reshape[:,0] - y0_reshape[:,0]))
+		# print(error[cycle])
+		# print(abs(y_reshape - y0_reshape))
+		# error[cycle] = np.sum(y_reshape - y0_reshape) #test
+		# print(abs(y_reshape - y0_reshape))
+		# print(abs(y_reshape[:4].T), "\n", abs(y0_reshape[:4].T), "\n", abs(y_reshape[:4].T-y0_reshape[:4].T))
 
 		#save best transformation
-		if error[cycle] < best_error:
-			best_error = error[cycle]
-			best_x[:] = x[:]
+		# if error[cycle] < best_error:
+		# 	best_error = error[cycle]
+		# 	best_x[:] = x[:]
 			# print(best_error)
 			# print(best_x)
 		#draw progression of centers of ellipses
@@ -784,15 +824,18 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True, a
 	# ax.plot(P_corrected.T[0,:], P_corrected.T[1,:], color = (1,0,0,0.0375), ls = '', marker = '.', markersize = 20)
 
 	#draw final translated points using initial P and final X
+	best_x[:] = x[:] #debug
 	rot = R(best_x[2])
 	t = best_x[:2]
 	P_final = rot.dot(pp2.T) + t
 	ax.plot(P_final.T[:,0], P_final.T[:,1], color = (1,0,0,0.0375), ls = '', marker = '.', markersize = 20)
 
+	hist = [x_hat_hist, y_hist, z_hist]
+
 	if along_track_demo == True:
-		return best_x, Q, error, x_actual
+		return best_x, Q, hist, x_actual, condinfo
 	else:
-		return best_x, Q, error
+		return best_x, Q, hist, condinfo
 
 def ICET_v1(Q, P, fig, ax, fid = 10, num_cycles = 1, draw = True):
 

@@ -46,20 +46,23 @@ ygpsi = interp1(ygpsi, 1:max(size(ygpsi)), method);
 ygpsi = interp1(ygpsi, yspangps, method);
 ygpsi(1:cutoff) = []; %get rid of NaNs
 
-
-yawlidar = interp_yaw2(cutoff:2720); %make copy so we don't mess up the OG var
-yawgpsi = heading(1:495);
-yawspangps = t - t(cutoff);
+yawcutoff = 200;
+yawlidar = interp_yaw2(yawcutoff:2720); %make copy so we don't mess up the OG var
+yawgpsi = -h(7:495);
+yawspangps = t - t(yawcutoff);
 %upscale y_gps to same number of points as lidar
 yawgpsi = interp1(yawgpsi, 1:max(size(yawgpsi)), method);
 %move into lidar timeframe
 yawgpsi = interp1(yawgpsi, yspangps, method);
-yawgpsi(1:cutoff) = []; %get rid of NaNs
+yawgpsi(1:yawcutoff) = []; %get rid of NaNs
 
 
 
 lidar_error_x = [];
 lidar_error_y = [];
+lidar_error_yaw = [];
+dxlidar = [];
+dxgps = [];
 step_size = 1;
 for ct = 1:step_size:(max(size(xlidar ))-step_size)
     
@@ -70,15 +73,56 @@ for ct = 1:step_size:(max(size(xlidar ))-step_size)
     end
     
     dlidarx = (xlidar(ct+step_size) - xlidar(ct)) - (xgpsi(ct + step_size) - xgpsi(ct));
+    dxlidar = [dxlidar, xlidar(ct+step_size) - xlidar(ct)];
+    dxgps = [dxgps, xgpsi(ct + step_size) - xgpsi(ct)];
     lidar_error_x = [lidar_error_x, dlidarx];
 
     dlidary = (ylidar(ct+step_size) - ylidar(ct)) - (ygpsi(ct + step_size) - ygpsi(ct));
+    dxlidar = [dylidar, ylidar(ct+step_size) - ylidar(ct)];
+    dxgps = [dxgps, xgpsi(ct + step_size) - ygpsi(ct)];
     lidar_error_y = [lidar_error_y, dlidary];
     
     dlidaryaw = (yawlidar(ct+step_size) - yawlidar(ct)) - (yawgpsi(ct + step_size) - yawgpsi(ct));
     lidar_error_yaw = [lidar_error_yaw, dlidaryaw];
 
 end
+
+lidar_error_x = rmmissing(lidar_error_x);
+lidar_error_y = rmmissing(lidar_error_y);
+lidar_error_yaw = rmmissing(lidar_error_yaw);
+
+fig0 = figure();
+fig0.Color = 'white';
+hold on
+plot(t(1:length(dxlidar)) - t(1), dxlidar)
+plot(t(1:length(dxgps)) - t(1),dxgps)
+title("Change in x position per time step")
+legend('Lidar', 'GPS, in lidar timescale')
+ylabel("position (m)")
+xlabel("time (s)")
+hold off
+
+fig10 = figure();
+fig10.Color = 'white';
+hold on
+plot(t(1:length(dylidar)) - t(1), dylidar)
+plot(t(1:length(dygps)) - t(1),dygps)
+title("Change in y position per time step")
+legend('Lidar', 'GPS, in lidar timescale')
+ylabel("position (m)")
+xlabel("time (s)")
+hold off
+
+fig11 = figure();
+fig11.Color = 'white';
+hold on
+plot(t(1:length(dxlidar)) - t(1), dxlidar)
+plot(t(1:length(dxgps)) - t(1),dxgps)
+title("Change in x position per time step")
+legend('Lidar', 'GPS, in lidar timescale')
+ylabel("position (m)")
+xlabel("time (s)")
+hold off
 
 % fig1 = figure();
 % hold on
@@ -87,69 +131,86 @@ end
 % ylabel("position error (m)")
 % xlabel("time (s)")
 % hold off
-
-fig1 = figure()
-fig1.Color = 'white'
-hold on
-plot(x_gps_m , y_gps_m );
-plot(pos_x_lidar, pos_y_lidar)
-plot(interp_x2, interp_y2)
-legend('GPS','Lidar')
-ylabel('x (m)')
-xlabel('y (m)')
-hold off
-
-
+% 
+% fig1 = figure()
+% fig1.Color = 'white'
+% hold on
+% plot(x_gps_m , y_gps_m );
+% plot(pos_x_lidar, pos_y_lidar)
+% plot(interp_x2, interp_y2)
+% legend('GPS','Lidar')
+% ylabel('x (m)')
+% xlabel('y (m)')
+% hold off
 
 fig2 = figure();
+fig2.Color = 'white';
 hold on
 % plot(interp_x2)
-plot(xlidar)
+plot(t(1:length(xlidar)) - t(1), xlidar)
 % plot(t_h,x_gps)
-plot(xgpsi)
-title("x trajectory")
-legend('Lidar, origonal timescale', 'GPS, in lidar timescale')
+plot(t(1:length(xgpsi)) - t(1),xgpsi)
+title("Accumulated x position")
+legend('Lidar', 'GPS, in lidar timescale')
 ylabel("position (m)")
 xlabel("time (s)")
 hold off
 
 fig3 = figure();
+fig3.Color = 'white';
 hold on
-plot(ylidar)
-plot(ygpsi)
-title("y trajectory")
-legend('Lidar, origonal timescale', 'GPS, in lidar timescale')
+plot(t(1:length(ylidar)) - t(1), ylidar)
+plot(t(1:length(ygpsi)) - t(1),ygpsi)
+title("Accumulated y position")
+legend('Lidar', 'GPS, in lidar timescale')
 ylabel("position (m)")
 xlabel("time (s)")
 hold off
+
+fig5 = figure();
+fig5.Color = 'white';
+hold on
+plot(t(1:length(yawlidar)) - t(1), yawlidar)
+plot(t(1:length(yawgpsi)) - t(1),yawgpsi)
+title("Accumulated yaw") 
+legend('Lidar', 'GPS, in lidar timescale')
+ylabel("rotation (deg)")
+xlabel("time (s)")
+hold off
+
 
 % %main fig------------------------------------------------------------------
 fig4 = figure();
 fig4.Color = 'white';
 subplot(3,1,1)
 % plot(t - t(1),dx);
-
 % plot(dx);
-plot(1:step_size:(max(size(xlidar))-step_size),lidar_error_x)
-% xSigma = std(dx,'omitnan');
-% text(200,0.25,['\sigma = ' num2str(xSigma,'%.3f')]);
-title('Lidar Error')
+% scatter(1:step_size:(max(size(yawlidar))-step_size),lidar_error_x, 2)
+scatter(t(1:length(lidar_error_x)) - t(1),lidar_error_x, 2)
+xSigma = std(lidar_error_x,'omitnan');
+text(10,0.25,['\sigma = ' num2str(xSigma,'%.3f')]);
+title('Pose Change in One Time Step for LIDAR as compared to GPS/INS')
 hold on; grid on;
 ylabel('Latitude Error (meters)');
+xlim([0 550]);
+
 subplot(3,1,2)
 % plot(t - t(1),dy);
-
-plot(1:step_size:(max(size(ylidar))-step_size),lidar_error_y)
-% ySigma = std(dy,'omitnan');
-% text(200,0.05,['\sigma = ' num2str(ySigma,'%.3f')]);
+% scatter(1:step_size:(max(size(yawlidar))-step_size),lidar_error_y, 2)
+scatter(t(1:length(lidar_error_y)) - t(1),lidar_error_y, 2)
+ySigma = std(lidar_error_y,'omitnan');
+text(10,0.25,['\sigma = ' num2str(ySigma,'%.3f')]);
 hold on; grid on;
 ylabel('Longitude Error (meters)');
+xlim([0 550]);
+
 subplot(3,1,3)
 % plot(t - t(1), dyaw)
-
-plot(1:step_size:(max(size(yawlidar))-step_size),lidar_error_yaw)
-% zSigma = std(dyaw,'omitnan');
-% text(200,0.15,['\sigma = ' num2str(zSigma,'%.3f')]);
+% scatter(1:step_size:(max(size(yawlidar))-step_size),lidar_error_yaw, 2)
+scatter(t(1:length(lidar_error_yaw)) - t(1),lidar_error_yaw, 2)
+yawSigma = std(lidar_error_yaw);
+text(10,0.6,['\sigma = ' num2str(zSigma,'%.3f')]);
 hold on; grid on;
 ylabel('Azimuth Error (degrees)');
-xlabel('Lidar timestep')
+xlabel('time (s)')
+xlim([0 550]);
