@@ -242,9 +242,9 @@ def draw_scan(scan, fig, ax, FOV = 60, pt = 0, hitters = None, ignore_boundary =
 def generate_along_track_data(fig,ax,draw = True, output_actual = False):
 
 	npts = 2000 #1000 #500
-	tscale = 30 #10
-	x_noise_scale = 3#3 #5
-	y_noise_scale = 3#3
+	tscale = 10 #10
+	x_noise_scale = 1#3 #5
+	y_noise_scale = 1#3
 
 	pp1 = np.zeros([npts*2,2])
 	pp2 = np.zeros([npts,2])
@@ -278,14 +278,14 @@ def generate_along_track_data(fig,ax,draw = True, output_actual = False):
 	# pp1[:,1] = pp1[:,1]*1.5
 
 	#make the data in the center of pp1 look like pp2
-	pp1[npts//4: 3*npts//4,:] = pp2[:npts//2,:]
-	pp1[5*npts//4: 7*npts//4,:] = pp2[npts//2:,:]
+	# pp1[npts//4: 3*npts//4,:] = pp2[:npts//2,:]
+	# pp1[5*npts//4: 7*npts//4,:] = pp2[npts//2:,:]
 
 
-	#add small cross track indexing features
-	# newPts = np.array([np.linspace(0,50,100),np.linspace(50,75,100)]).T + np.random.randn(100,2)*0.001
-	# pp2 = np.append(pp2, newPts, axis =0)
-	# pp1 = np.append(pp1, newPts, axis =0)
+	#add small cross track indexing feature
+	newPts = np.array([np.linspace(-100,50,150),np.linspace(50,75,150)]).T + np.random.randn(150,2)*1
+	pp2 = np.append(pp2, newPts, axis =0)
+	pp1 = np.append(pp1, newPts, axis =0)
 
 
 	#transform scan2
