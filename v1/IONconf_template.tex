@@ -1,0 +1,223 @@
+\documentclass[letterpaper,times]{IONconf}
+%
+% If IONconf.cls has not been installed into the LaTeX system files,
+% manually specify the path as follows or keep a copy in the same 
+% folder as the document itself:
+% \documentclass{../sty/IONconf}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Common packages to import
+
+% ### MATH PACKAGE
+%\usepackage{amsmath}
+% A popular package from the American Mathematical Society that provides
+% many useful and powerful commands for dealing with mathematics.
+% If bold math operators are desired, the bm package is suggested
+%\usepackage{bm}
+% its documentation can be found at http://www.ctan.org/pkg/bm
+
+
+
+% ### CITATION PACKAGE
+%\usepackage{cite}
+% cite.sty was written by Donald Arseneau.
+% Loading the cite package will result in citation numbers being
+% automatically sorted and properly "compressed/ranged". e.g., [1], [9],
+% [2], [7], [5], [6] without using cite.sty will become [1], [2],
+% [5]--[7], [9] using cite.sty.
+% \cite will automatically add leading space, if needed. Use cite.sty's
+% noadjust option (cite.sty V3.8 and later) if you want to turn this off
+% such as if a citation ever needs to be enclosed in parenthesis.
+% cite.sty is already installed on most LaTeX systems. Be sure and use
+% version 5.0 (2009-03-20) and later if using hyperref.sty.
+% The latest version can be obtained at:
+% http://www.ctan.org/pkg/cite
+% The documentation is contained in the cite.sty file itself.
+
+
+
+% ### GRAPHICS PACKAGE
+% \usepackage[pdftex]{graphicx}
+% to ensure centered multiline captions, the centering package should 
+% be called as well.
+% \usepackage[justification=centering]{caption}
+% To declare the path(s) where your graphic files are use
+% \graphicspath{{figures/}}
+% To declare their extensions so you won't have to specify these with
+% every instance of \includegraphics:
+% \DeclareGraphicsExtensions{.pdf,.jpeg,.png}
+% graphicx was written by David Carlisle and Sebastian Rahtz. It is
+% required if you want graphics, photos, etc. graphicx.sty is already
+% installed on most LaTeX systems. The latest version and documentation
+% can be obtained at: 
+% http://www.ctan.org/pkg/graphicx
+% Another good source of documentation is "Using Imported Graphics in
+% LaTeX2e" by Keith Reckdahl which can be found at:
+% http://www.ctan.org/pkg/epslatex
+%
+% latex, and pdflatex in dvi mode, support graphics in encapsulated
+% postscript (.eps) format. pdflatex in pdf mode supports graphics
+% in .pdf, .jpeg, .png and .mps (metapost) formats. Users should ensure
+% that all non-photo figures use a vector format (.eps, .pdf, .mps) and
+% not a bitmapped formats (.jpeg, .png).
+
+
+
+% ### ALGORITHM PACKAGE
+%\usepackage{algorithmic}
+% This package provides an algorithmic environment fo describing algorithms.
+% You can use the algorithmic environment in-text or within a figure
+% environment to provide for a floating algorithm.
+
+
+
+% ### TABLE AND ALIGNMENT PACKAGE
+%\usepackage{array}
+% Frank Mittelbach's and David Carlisle's array.sty patches and improves
+% the standard LaTeX2e array and tabular environments to provide better
+% appearance and additional user controls.
+
+
+
+% ### URL PACKAGE
+\usepackage{url}
+% url.sty was written by Donald Arseneau. It provides better support for
+% handling and breaking URLs. url.sty is already installed on most LaTeX
+% systems. The latest version and documentation can be obtained at:
+% http://www.ctan.org/pkg/url
+% Basically, \url{my_url_here}.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Document starts here
+
+\title{ION Conference Paper Draft}
+
+% Authors are grouped by institution. Institution names are italicized.
+% Author groups are separated by '\vspace{1mm} \\' for a line 
+% break with proper spacing.
+% This template shows an example of three authors, where author 1 and 
+% author 2 are from the same institution:
+
+\author{
+    First~Author, John~Doe, \textit{Mystery~University}% <- this '%' removes a trailing whitespace
+    \vspace{1mm} \\%
+    Jane~Doe, \textit{Unknown~Institution}%
+    }
+
+
+\begin{document}
+
+\maketitle
+
+% biography section. The * indicates a section excluded from numbering.
+\section*{biography}
+
+% Biographies are defined as follows:
+% \biography{Author name}{author biography text}
+
+\biography{First author}{biography text goes here (50 words or less).}
+
+\biography{John Doe}{biography text goes here (50 words or less).}
+
+\biography{Jane Doe}{biography text goes here (50 words or less).}
+
+
+% The Abstract. The * indicates a section excluded from numbering.
+\section*{Abstract}
+
+Insert abstract here (approximately 300 words).
+
+
+% The introduction. Section numbering starts here.
+\section{Introduction}
+
+This document serves as a \LaTeX  draft for paper submissions to conferences of the Institute of Navigation (ION). It is intended to support and facilitate manuscript preparation for authors.
+
+
+\section{Paper organization}
+
+Paper may be broken into sub-sections as desired. Sub-section titles should be initial capitalization only.
+
+Papers submitted for peer review should not exceed the Maximum of 15 Pages. Unlimited page number is allow for papers not being peer reviewed.\\
+Full justify your text. Use automatic hyphenation and check spelling. Digitize or paste down figures.\\
+Disclaimers or notes should be placed at the end of the article just prior to references.
+
+\subsection{Use of Figures}
+
+Incorporate tables and graphs in the body of the text. We encourage you to incorporate any images which may be used in your oral presentations into the body of your paper when appropriate.
+
+% % Graphics are placed like in the following example (where the width should be adjusted depending on the image).
+% \begin{figure}[h]
+% \centering
+% \includegraphics[width=2.5in]{myFigure}
+% % where an .eps filename suffix will be assumed under latex, 
+% % and a .pdf suffix will be assumed for pdflatex; or what has been declared
+% % via \DeclareGraphicsExtensions. Other suffixes like .png are added manually.
+% \caption{The ION turns 75 in 2020.}
+% \label{fig:example}
+% \end{figure}
+
+\subsection{Use of Tables}
+
+Tables should be centered within the text. Table captions should be centered above the table. Avoid placing tables before their first mention in the text. Identify each table with a bold numeric reference and center it at the top of your table.
+
+
+% % A table adhering to these guidelines is created in this example.
+% \begin{table}[h]
+% % increase table row spacing, adjust to taste
+% \renewcommand{\arraystretch}{1.3}
+% % if using array.sty, it might be a good idea to tweak the value of
+% % \extrarowheight as needed to properly center the text within the cells
+% \caption{An Example of a Table}
+% \label{tab:example}
+% \centering
+% \begin{tabular}{|c||c|}
+% \hline
+% One & Two\\
+% \hline
+% Three & Four\\
+% \hline
+% \end{tabular}
+% \end{table}
+
+\subsection{References}
+
+Only initials of authors' first and middle names are given. If there is more than one initial, there should be a space between them.
+
+\begin{itemize}
+    \item All titles of articles should be within quotation marks. Titles of journals, conference proceedings and books should be italicized
+    \item Spell out all names of journals, proceedings, universities and names of companies.
+    \item Inclusive page numbers should be given for referenced journal articles
+\end{itemize}
+
+In this template, Biblatex is used. The style \verb|\bibliographystyle{IEEEtran}| matches the described format.
+
+
+\section{language}
+
+Your paper must be in English.
+
+\section{additional instructions for electronic paper preparation for publication}
+
+Electronic files (PDF File) should be uploaded the ION’s Abstract Management Portal at \url{www.ion.org/abstracts}. If your paper was created in \LaTeX, convert to PDF file before submitting.
+
+
+\section{acceptable software}
+
+Adope Acrobat PDF files are acceptable.
+
+ION cannot accept \LaTeX files, all \LaTeX documents must be converted to PDF file prior to submission. Make sure the file is formatted properly before uploading to the AMP.  Documents converted from the \LaTeX or TeX typesetting language into the Adobe’s Postscript of PDF files usually contain fixed-resolution bitmap fonts that do not print or display well on a variety of printer and computer screens.  
+
+Secure files can cause problems with: opening the document; printing the document; indexing for searchability on the CD-ROM. \textbf{\large{Please do not secure your files.}}
+
+
+\section*{acknowledgements}
+
+Any acknowledgements should appear just before the references section at the END of the paper.
+
+% the IEEE bibliography style matches the ION bibliography style guidelines.
+\bibliographystyle{IEEEtran}
+\bibliography{template_bibliography}
+
+\end{document}

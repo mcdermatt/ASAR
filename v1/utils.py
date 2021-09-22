@@ -241,15 +241,16 @@ def draw_scan(scan, fig, ax, FOV = 60, pt = 0, hitters = None, ignore_boundary =
 
 def generate_along_track_data(fig,ax,draw = True, output_actual = False):
 
-	npts = 2000 #1000 #500
+	npts = 1000 #1000 #500
 	tscale = 10 #10
-	x_noise_scale = 1#3 #5
-	y_noise_scale = 1#3
+	x_noise_scale = 3#3 #5
+	y_noise_scale = 3#3
 
 	pp1 = np.zeros([npts*2,2])
 	pp2 = np.zeros([npts,2])
 
-	theta = np.random.randn()*0.2 #0.2
+	#ADJUST NET ROTATION HERE
+	theta = np.random.randn()*0.1 #+np.pi
 	rot = R(theta)
 	t = np.random.randn(2)*tscale
 
@@ -283,9 +284,9 @@ def generate_along_track_data(fig,ax,draw = True, output_actual = False):
 
 
 	#add small cross track indexing feature
-	newPts = np.array([np.linspace(-100,50,150),np.linspace(50,75,150)]).T + np.random.randn(150,2)*1
-	pp2 = np.append(pp2, newPts, axis =0)
-	pp1 = np.append(pp1, newPts, axis =0)
+	# newPts = np.array([np.linspace(-100,50,150),np.linspace(50,75,150)]).T + np.random.randn(150,2)*1
+	# pp2 = np.append(pp2, newPts, axis =0)
+	# pp1 = np.append(pp1, newPts, axis =0)
 
 
 	#transform scan2
@@ -294,19 +295,13 @@ def generate_along_track_data(fig,ax,draw = True, output_actual = False):
 	pp2 = pp2.T
 	# pp2 += t #try this
 
-
+	# DEBUG THIS....
 	# make data cross track instead
-	# rot_cross = R(np.pi/2.01)
+	# rot_cross = R(np.pi)
 	# pp1 = rot_cross.dot(pp1.T)
 	# pp1 = pp1.T
 	# pp2 = rot_cross.dot(pp2.T)
 	# pp2 = pp2.T
-
-	# #add curves to left wall
-	# for i in range(npts//2):
-	# 	pp1[i,0] += 35*np.sin(i/50)
-	# 	pp2[i,0] += 35*np.sin(i/100)
-	
 
 	ax.plot(pp1[:,0], pp1[:,1], color = (0.25,0.8,0.25,0.0375), ls = '', marker = '.', markersize = 20)
 	ax.plot(pp2[:,0], pp2[:,1], color = (0.25,0.25,0.8,0.0375), ls = '', marker = '.', markersize = 20)

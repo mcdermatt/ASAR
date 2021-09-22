@@ -380,7 +380,7 @@ def get_dx(y, y0, x, cov1, cov2, npts1, npts2, L, U):
 		#calclate voxel j's contribution to the first term of H_w -------------------------
 		# H_w1  = [ H_wj1[0] + H_wj1[1] + H_wj1[2] + ... ] <- should be a 3x3 matrix
 		# H_wj1 = (H.T)(W)(H) = (H.T)(R^-1)(H)
-		H_z = L[i].dot(U[i].T).dot(H[2*i:2*i+2])
+		H_z = L[i].dot(U[i].T).dot(H[2*i:2*i+2]) #TODO: DEBUG U.T here
 		HTWH_j = H_z.T.dot(np.linalg.pinv(R_noise)).dot(H_z)
 		#add contributions of j
 		HTWH += HTWH_j
@@ -809,8 +809,8 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True, a
 		# print(abs(y_reshape[:4].T), "\n", abs(y0_reshape[:4].T), "\n", abs(y_reshape[:4].T-y0_reshape[:4].T))
 
 		#save best transformation
-		# if error[cycle] < best_error:
-		# 	best_error = error[cycle]
+		# if z_hist[cycle] < best_error:
+		# 	best_error = z_hist[cycle]
 		# 	best_x[:] = x[:]
 			# print(best_error)
 			# print(best_x)
