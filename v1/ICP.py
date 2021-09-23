@@ -68,7 +68,7 @@ def vanilla_ICP(Q,P, fig, ax, num_cycles = 3, draw = True):
 
 	return R, t
 
-def ICP_least_squares(Q,P, fig, ax, num_cycles = 1, draw = False):
+def ICP_least_squares(Q,P, fig, ax, num_cycles = 1, draw = False, draw_output = True):
 
 
 	x = np.zeros([3,1])
@@ -115,7 +115,8 @@ def ICP_least_squares(Q,P, fig, ax, num_cycles = 1, draw = False):
 		P_corrected = rot.dot(P_corrected) + t
 		P_corrected = np.squeeze(P_corrected)
 
-	ax.plot(P_corrected[0,:], P_corrected[1,:], color = (1,0,0,0.125), ls = '', marker = '.', markersize = 20)
+	if draw_output:
+		ax.plot(P_corrected[0,:], P_corrected[1,:], color = (1,0,0,0.125), lw = '', marker = '.', markersize = 20)
 
 	return P_corrected, t, rot
 

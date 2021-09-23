@@ -7,7 +7,7 @@ from utils import *
 #TODO:
 #	account for overlapping grid cells
 
-def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True, along_track_demo = False, output_actual = False):
+def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True, draw_output = True, min_num_pts = 5, along_track_demo = False, output_actual = False, lims = None):
 
 	"""from Peter Biber, 2003
 	
@@ -35,6 +35,7 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True, along_track_demo = Fa
 	# print("before ", np.shape(P))
 	# P = P[::10]
 	# print("after ", np.shape(P))
+	dc = False #draw correspondences
 
 	if along_track_demo == False:
 		#get point positions in 2d space and draw 1st and 2nd scans
@@ -46,11 +47,21 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True, along_track_demo = Fa
 		if output_actual == True:
 			pp1, pp2, x_actual = generate_along_track_data(fig,ax, draw = True, output_actual = True)
 
+	#for inputting custom point cloud when generating the graphic in the introduction of the paper
+	if along_track_demo == 'generate_graphic':
+		pp1 = Q.T
+		pp2 = P.T
+		dc = True
+		min_num_pts = 3
+
 	P_corrected = pp2.T
 
 	# Build the NDT of the first scan.
-	E1 = subdivide_scan(pp1,fig,ax, fidelity = fid, pt = 0)
-
+	if type(lims) == np.ndarray: 
+		E1 = subdivide_scan(pp1,fig,ax, fidelity = fid, min_num_pts = min_num_pts, pt = 0, lims = lims)
+	else:
+		E1 = subdivide_scan(pp1,fig,ax, fidelity = fid, min_num_pts = min_num_pts, pt = 0)
+	
 	#Initialize the estimate for the parameters 
 	x = np.zeros([3,1]) #[ t_x, t_y, theta] }we want to optimize a single euler angle rather than a matrix
 
@@ -73,7 +84,9 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True, along_track_demo = Fa
 		# 	dc = True
 		# else:
 		# 	dc = False 
-		dc = False
+		if cycle != 0:
+			dc = False
+		
 		correspondences = get_correspondence(P_corrected,ctr.T,fig,ax, draw = dc)
 
 		score = 0
@@ -137,14 +150,13 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True, along_track_demo = Fa
 					# print("\n J[:,h_j][:,None] \n", J[:,h_j][:,None])
 
 					# #calculate component of ith summand of H
-					# H_i[h_i,h_j] = score_i*( (-q.T.dot(E).dot(J[:,h_i][:,None]))*( -q.T.dot(E).dot(J[:,h_j][:,None]) )
-					# 						+ (-q.T.dot(E).dot(d2q_dxidxj)) + (-J[:,h_j].T.dot(E).dot(J[:,h_i]))) 
 					H_i[h_i,h_j] = score_i*( (-q.T.dot(E).dot(J[:,h_i][:,None])).dot( -q.T.dot(E).dot(J[:,h_j][:,None]) )
 											+ (-q.T.dot(E).dot(d2q_dxidxj)) + (-J[:,h_j].T.dot(E).dot(J[:,h_i]))) 
 
 					# H[h_i,h_j] += H_i[h_i,h_j]
 			H += H_i
 
+		# print(score)
 		results = np.append(results, score)
 
 		#	-----------------------------------------------------------------
@@ -178,8 +190,8 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True, along_track_demo = Fa
 			maxscore = score
 			x_best[:] = x[:]
 			# print("maxscore: \n", maxscore, "\n x_best: \n", x_best)
-		else:
-			x[:] = x_best[:] #prevents resetting to zero
+		# else:
+		# 	x[:] = x_best[:] #prevents resetting to zero
 
 		#was this
 		dx = np.linalg.pinv(H).dot(-g)
@@ -196,7 +208,6 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True, along_track_demo = Fa
 		# x -= dx.T
 
 		# dx_dumb = np.linalg.pinv(H.dot(np.linalg.pinv(-g.T)))
-		# print("dx ",dx, "\ndx_dumb ", dx_dumb)
 		# x += dx_dumb.T
 		# print("x = ",x)
 
@@ -204,7 +215,6 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True, along_track_demo = Fa
 		rot = R(x[2])
 		t = x[0:2]
 		P_corrected = rot.dot(pp2.T) + t #was this
-		# P_corrected = rot.dot(P_corrected) + t #wrong
 
 		#plot progression
 		# ax.plot(P_corrected[0,:], P_corrected[1,:], color = (1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),1-(cycle+1)/(num_cycles+1),0.0025), ls = '', marker = '.', markersize = 20)
@@ -218,12 +228,14 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True, along_track_demo = Fa
 
 
 	P_corrected = rot_final.dot(pp2.T) + t_final
-	ax.plot(P_corrected[0,:], P_corrected[1,:], color = (1,0,0,0.0625), ls = '', marker = '.', markersize = 15)
+	if draw_output:
+		ax.plot(P_corrected[0,:], P_corrected[1,:], color = (1,0,0,0.0625), ls = '', marker = '.', markersize = 15)
 
 	#draw correspondences of final state
 	# get_correspondence(P_corrected,ctr.T,fig,ax, draw = True)
 
-	if (output_actual == False) and (along_track_demo == True):
+	#TODO- DEBUG THIS
+	if (output_actual == False):
 		return x_best[2], t_final, results
 
 	if (output_actual == True) and (along_track_demo == True):
