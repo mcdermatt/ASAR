@@ -13,7 +13,7 @@ from matplotlib.ticker import NullFormatter
 
 
 
-fig, ax = plt.subplots(nrows = 3, ncols = 3)
+fig, ax = plt.subplots(nrows = 2, ncols = 3) #set rows to 3 for debug
 fig.subplots_adjust(left = 0.1, right = 0.9, hspace = 0.03, wspace = 0.03) #slightly better
 
 ax[0,0].set_title("ICP")
@@ -27,8 +27,8 @@ for i in range(2):
 		ax[i, j].xaxis.set_ticks_position('none')
 		ax[i, j].yaxis.set_major_formatter(NullFormatter())
 		ax[i, j].yaxis.set_ticks_position('none')
-		ax[i, j].set_xlim([-5,35])
-		ax[i, j].set_ylim([-10,5])
+		ax[i, j].set_xlim([-1,31])
+		ax[i, j].set_ylim([-16,16])
 
 ax[0,0].set_ylabel("Association")
 ax[1,0].set_ylabel("Transformation")
@@ -59,11 +59,11 @@ ICP_q1, = ax[0, 0].plot(ICP_Q[0,:], ICP_Q[1,:], 'b.', ms = markersize)
 
 ICP_p2, t, rot = ICP_least_squares(ICP_Q,ICP_P,fig,ax[0,0], num_cycles = 1, draw = True, draw_output = False)
 
-ICP_p2, = ax[1, 0].plot(ICP_p2[0,:],ICP_p2[1,:], 'g.', ms = markersize)
-ICP_q2, = ax[1, 0].plot(ICP_Q[0,:], ICP_Q[1,:], 'b.', ms = markersize)
+ax[1, 0].plot(ICP_p2[0,:],ICP_p2[1,:], 'g.', ms = markersize)
+ax[1, 0].plot(ICP_Q[0,:], ICP_Q[1,:], 'b.', ms = markersize)
 #---------------------------------
 
-#ICP point-to-plane---------------
+#ICP point-to-plane---------------------------------------------------------------
 ICP_p2p_p1, = ax[0, 1].plot(ICP_P[0,:],ICP_P[1,:], 'g.', ms = markersize)
 ICP_p2p_q1, = ax[0, 1].plot(ICP_Q[0,:], ICP_Q[1,:], 'b.', ms = markersize)
 
@@ -74,6 +74,7 @@ plane3 = true_data[:, 2*num_points//3:]
 
 #generate a best fit line to represent each plane
 bf1 = np.polyfit(plane1[0,:], plane1[1,:], 1) #y = mx + b
+#l1(x) places point correctly on y coordinate of plane 1 line
 l1 = lambda x: x*bf1[0] + bf1[1]
 line1, = ax[0,1].plot(plane1[0,:], l1(plane1[0,:]), '-', color = (0,0,0,0.5) )
 
@@ -85,25 +86,50 @@ bf3 = np.polyfit(plane3[0,:], plane3[1,:], 1) #y = mx + b
 l3 = lambda x: x*bf3[0] + bf3[1]
 line3, = ax[0,1].plot(plane3[0,:], l3(plane3[0,:]), '-', color = (0,0,0,0.5) )
 
+on_line = np.zeros([2, max(np.shape(ICP_P))])
+for i in range(max(np.shape(ICP_P))):
+	#get correspondences- draw line between points in pp2 and closest corresponding points on best fit lines
+	pt = ICP_P[:,i] #arbitrary test point (TODO: put in loop)
 
-#get correspondences- draw line between points in pp2 and closest corresponding points on
-# best fit lines
-# test = lambda x: (-bf1[1]*bf1[0])/(bf1[0]**2 + 1) wrong
-# ax[0,1].plot([test(1), test(2), test(3)], [l1(test(1)), l1(test(2)), l1(test(3))], '.')
+	if pt[0] < plane1[0,-1]:
+		#gets y intercetp for line passing through desired point
+		# y = mx + b -> b = y - mx
+		get_b = lambda pt: pt[1] + (1/bf1[0])*pt[0]
+		b = get_b(pt)
+		x = (b - bf1[1])/(bf1[0]+ (1/bf1[0]))
+		ax[0,1].plot([pt[0],x],[pt[1], l1(x)], '--', color =(0,0,0,1), lw = 1)
+		on_line[:,i] = [x, l1(x)]
 
-pt = ICP_P[:,0]
-get_b = lambda pt: pt[1] + (1/bf1[0])*pt[0] #gets y intercetp for line passing through desired point
-b = get_b(pt)
-print(b)
-y = lambda x: (-1/bf1[0])*x + b 
-# x = lambda y: (y - bf1[1]) / bf1[0]
-# print(y(pt[0]))
-# ax[0,1].plot([pt[0], x(pt[0])], [pt[1], l1(x(pt[0]))], '-', color = (0,0,0,0.5) )
-ax[0,1].plot([pt[0], y(pt[0])], [pt[1], l1(y(pt[0]))], '-', color = (0,0,0,0.5) )
+	if pt[0] > plane1[0,-1] and pt[0] < plane2[0,-1] :
+		#gets y intercetp for line passing through desired point
+		# y = mx + b -> b = y - mx
+		get_b = lambda pt: pt[1] + (1/bf2[0])*pt[0]
+		b = get_b(pt)
+		x = (b - bf2[1])/(bf2[0]+ (1/bf2[0]))
+		ax[0,1].plot([pt[0],x],[pt[1], l2(x)], '--', color =(0,0,0,1), lw = 1)
+		on_line[:,i] = [x, l2(x)]
 
 
+	if pt[0] > plane2[0,-1] :
+		#gets y intercetp for line passing through desired point
+		# y = mx + b -> b = y - mx
+		get_b = lambda pt: pt[1] + (1/bf3[0])*pt[0]
+		b = get_b(pt)
+		x = (b - bf3[1])/(bf3[0]+ (1/bf3[0]))
+		ax[0,1].plot([pt[0],x],[pt[1], l3(x)], '--', color =(0,0,0,1), lw = 1)
+		on_line[:,i] = [x, l3(x)]
 
-#---------------------------------
+
+	#add to array containing all closest points on best fit line
+# print(on_line)
+#just doing least squares ICP on points projected on best fit planes
+ICP_p2p, t, rot = ICP_least_squares(on_line,ICP_P,fig,ax[0,1], num_cycles = 1, draw = False, draw_output = False)
+# print(t, rot)
+
+ax[1, 1].plot(ICP_p2p[0,:],ICP_p2[1,:], 'g.', ms = markersize)
+ax[1, 1].plot(ICP_Q[0,:], ICP_Q[1,:], 'b.', ms = markersize)
+
+#---------------------------------------------------------------------------
 
 #NDT------------------------------
 
@@ -125,7 +151,7 @@ P_corrected = P_corrected.T
 NDT_p2 = ax[1, 2].plot(P_corrected[0,:],P_corrected[1,:], 'g.', ms = markersize)
 NDT_q2 = NDT_q1, = ax[1, 2].plot(true_data[0,:], true_data[1,:], 'b.', ms = markersize)
 
-ax[2,2].plot(results) #for debug
+# ax[2,2].plot(results) #for debug
 
 #---------------------------------
 
