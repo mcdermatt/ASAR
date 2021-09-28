@@ -1,16 +1,47 @@
+"""Use a variant of the Moving Least Squares (MLS)
+algorithm to project a cloud of points to become a smooth surface.
+In the second window we show the error estimated for
+each point in color scale (left) or in size scale (right)."""
 from vedo import *
+import numpy as np
+printc(__doc__, invert=1)
 
-# Load a polygonal mesh, make it white and glossy:
-man = Mesh('https://vedo.embl.es/example/data/man.vtk')
-man.c('white').lighting('glossy')
+plt1 = Plotter(N=3, axes=1)
 
-# Create two points:
-p1 = Point([ 1,0,1], c='yellow')
-p2 = Point([-1,0,2], c='red')
+mesh = Mesh(dataurl+"bunny.obj").normalize().subdivide()
 
-# Add colored light sources at the point positions:
-l1 = Light(p1, c='yellow')
-l2 = Light(p2, c='red')
+pts = mesh.points(copy=True)  # pts is a copy of the points not a reference
+pts += np.random.randn(len(pts), 3)/20  # add noise, will not mess up the original points
 
-# Show everything in one go:
-show(man, l1, l2, p1, p2, "Hello World", axes=True)
+
+#################################### smooth cloud with MLS
+# build the mesh points
+s0 = Points(pts, r=3).color("blue")
+plt1.show(s0, "original point cloud + noise", at=0)
+
+# project s1 points into a smooth surface of points
+# The parameter f controls the size of the local regression.
+mls1 = s0.clone().smoothMLS2D(f=0.5)
+plt1.show(mls1, "MLS first pass, f=0.5", at=1)
+
+# mls1 is an Assembly so unpack it to get the first object it contains
+mls2 = mls1.clone().smoothMLS2D(radius=0.1)
+plt1.show(mls2, "MLS second pass, radius=0.1", at=2)
+
+
+#################################### draw errors
+plt2 = Plotter(pos=(300, 400), N=2, axes=1)
+
+variances = mls2.info["variances"]
+vmin, vmax = np.min(variances), np.max(variances)
+print("min and max of variances:", vmin, vmax)
+vcols = [colorMap(v, "jet", vmin, vmax) for v in variances]  # scalars->colors
+
+sp0 = Spheres(mls2.points(), c=vcols, r=0.02) # error as color
+sp1 = Spheres(mls2.points(), c="red", r=variances/4) # error as point size
+
+mesh.color("k").alpha(0.05).wireframe()
+
+plt2.show(sp0, "Use color to represent variance", at=0)
+plt2.show(sp1, "point size to represent variance", at=1, zoom=1.3, interactive=1).close()
+plt1.close()

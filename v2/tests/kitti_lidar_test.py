@@ -25,9 +25,9 @@ VISLIB = "matplotlib"
 # basedir = '/home/dodo_brain/kitti_data/'
 # date = '2011_09_26'
 # drive = '0005'
-basedir = 'C:/'
+basedir = 'C:/kitti/'
 date = '2011_09_26'
-drive = '0001'
+drive = '0005'
 
 # Optionally, specify the frame range to load
 # since we are only visualizing one frame, we will restrict what we load

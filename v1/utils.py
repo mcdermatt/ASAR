@@ -130,6 +130,12 @@ def subdivide_scan(pp, fig, ax, fidelity = 5, overlap = False,
 		miny = np.min(-bound)
 		maxy = np.max(bound)
 
+		# minx = -1
+		# maxx = 31
+		# miny = -16
+		# maxy = 16
+
+
 		#draw grid lines on figure
 		xticks = np.linspace(minx,maxx,fidelity)
 		ax.axes.xaxis.set_ticks(xticks)

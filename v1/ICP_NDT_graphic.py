@@ -54,17 +54,17 @@ ICP_P = moved_data[:,:]
 markersize = 5
 
 #ICP (vanilla)--------------------
-ICP_p1, = ax[0, 0].plot(ICP_P[0,:],ICP_P[1,:], 'g.', ms = markersize)
+ICP_p1, = ax[0, 0].plot(ICP_P[0,:],ICP_P[1,:], 'go', ms = markersize, fillstyle ='none')
 ICP_q1, = ax[0, 0].plot(ICP_Q[0,:], ICP_Q[1,:], 'b.', ms = markersize)
 
 ICP_p2, t, rot = ICP_least_squares(ICP_Q,ICP_P,fig,ax[0,0], num_cycles = 1, draw = True, draw_output = False)
 
-ax[1, 0].plot(ICP_p2[0,:],ICP_p2[1,:], 'g.', ms = markersize)
+ax[1, 0].plot(ICP_p2[0,:],ICP_p2[1,:], 'go', ms = markersize, fillstyle ='none')
 ax[1, 0].plot(ICP_Q[0,:], ICP_Q[1,:], 'b.', ms = markersize)
 #---------------------------------
 
 #ICP point-to-plane---------------------------------------------------------------
-ICP_p2p_p1, = ax[0, 1].plot(ICP_P[0,:],ICP_P[1,:], 'g.', ms = markersize)
+ICP_p2p_p1, = ax[0, 1].plot(ICP_P[0,:],ICP_P[1,:], 'go', ms = markersize, fillstyle ='none')
 ICP_p2p_q1, = ax[0, 1].plot(ICP_Q[0,:], ICP_Q[1,:], 'b.', ms = markersize)
 
 #subdivide base scan into 3 "planes"
@@ -133,22 +133,29 @@ ax[1, 1].plot(ICP_Q[0,:], ICP_Q[1,:], 'b.', ms = markersize)
 
 #NDT------------------------------
 
-NDT_p1, = ax[0, 2].plot(moved_data[0,:],moved_data[1,:], 'g.', ms = markersize)
+#add grid for NDT
+ax[0,2].axes.xaxis.set_ticks([10,20])
+ax[0,2].axes.yaxis.set_ticks([32/6,-32/6])
+# ax[0,2].grid(color=(0,0,0), linestyle='-', linewidth=0.5)
+
+NDT_p1, = ax[0, 2].plot(moved_data[0,:],moved_data[1,:], 'go', ms = markersize, fillstyle = 'none')
 NDT_q1, = ax[0, 2].plot(true_data[0,:], true_data[1,:], 'b.', ms = markersize)
 # print(np.shape(true_data))
+# print(true_data)
 minx = np.min(true_data[0,:])
 maxx = np.max(true_data[0,:])
 miny = np.min(true_data[1,:])
 maxy = np.max(true_data[1,:])
 lims = np.array([minx, maxx, miny, maxy])
-# print(lims)
+print(lims)
 r, t, results = NDT(true_data[:,:],moved_data[:,:],fig,ax[0,2], fid = 4, 
-                              num_cycles = 100, along_track_demo = 'generate_graphic', lims = lims, draw_output = False)
+                              num_cycles = 100, along_track_demo = 'generate_graphic', 
+                              draw_output = False)
 # print(r, t)
 P_corrected = moved_data.T.dot(R(-r)) + t.T 
 P_corrected = P_corrected.T
 # NDT_p1, = ax[1, 2].plot(moved_data[0,:],moved_data[1,:], 'g.', ms = markersize)
-NDT_p2 = ax[1, 2].plot(P_corrected[0,:],P_corrected[1,:], 'g.', ms = markersize)
+NDT_p2 = ax[1, 2].plot(P_corrected[0,:],P_corrected[1,:], 'go', ms = markersize, fillstyle = 'none')
 NDT_q2 = NDT_q1, = ax[1, 2].plot(true_data[0,:], true_data[1,:], 'b.', ms = markersize)
 
 # ax[2,2].plot(results) #for debug
