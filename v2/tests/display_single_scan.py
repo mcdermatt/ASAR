@@ -4,7 +4,7 @@ import pykitti
 import os
 from time import sleep
 
-numEll = 100
+numEll = 0
 basedir = 'C:/kitti/'
 date = '2011_09_26'
 drive = '0005'
