@@ -100,33 +100,33 @@ lidar_error_yaw = rmmissing(lidar_error_yaw);
 fig0 = figure();
 fig0.Color = 'white';
 hold on
-plot(t(1:length(dxlidar)) - t(1), dxlidar)
-plot(t(1:length(dxgps)) - t(1),dxgps)
+plot(t(1:length(dxlidar)) - t(1), dxlidar,'Marker', '.', 'MarkerSize', 5)
+plot(t(1:length(dxgps)) - t(1),dxgps,'Marker', '.', 'MarkerSize', 5)
 title("Change in x position per time step")
-legend('Lidar', 'GPS, in lidar timescale')
-ylabel("position (m)")
+legend('Lidar', 'GPS (interpolated)')
+ylabel("Displacement (m)")
 xlabel("time (s)")
 hold off
 
 fig10 = figure();
 fig10.Color = 'white';
 hold on
-plot(t(1:length(dylidar)) - t(1), dylidar)
-plot(t(1:length(dygps)) - t(1),dygps)
+plot(t(1:length(dylidar)) - t(1), dylidar,'Marker', '.', 'MarkerSize', 5)
+plot(t(1:length(dygps)) - t(1),dygps,'Marker', '.', 'MarkerSize', 5)
 title("Change in y position per time step")
-legend('Lidar', 'GPS, in lidar timescale')
-ylabel("position (m)")
+legend('Lidar', 'GPS (interpolated)')
+ylabel("Displacement (m)")
 xlabel("time (s)")
 hold off
 
 fig11 = figure();
 fig11.Color = 'white';
 hold on
-plot(t(1:length(dyawlidar)) - t(1), dyawlidar)
-plot(t(1:length(dyawgps)) - t(1),dyawgps)
+plot(t(1:length(dyawlidar)) - t(1), dyawlidar,'Marker', '.', 'MarkerSize', 5)
+plot(t(1:length(dyawgps)) - t(1),dyawgps,'Marker', '.', 'MarkerSize', 5)
 title("Change in yaw per time step")
-legend('Lidar', 'GPS, in lidar timescale')
-ylabel("yaw (deg)")
+legend('Lidar', 'GPS (interpolated)')
+ylabel("Displacement (deg)")
 xlabel("time (s)")
 hold off
 
@@ -153,34 +153,34 @@ fig2 = figure();
 fig2.Color = 'white';
 hold on
 % plot(interp_x2)
-plot(t(1:length(xlidar)) - t(1), xlidar)
+plot(t(1:length(xlidar)) - t(1), xlidar,'Marker', '.', 'MarkerSize', 5)
 % plot(t_h,x_gps)
-plot(t(1:length(xgpsi)) - t(1),xgpsi)
+plot(t(1:length(xgpsi)) - t(1),xgpsi,'Marker', '.', 'MarkerSize', 5)
 title("Accumulated x position")
-legend('Lidar', 'GPS, in lidar timescale')
-ylabel("position (m)")
+legend('Lidar', 'GPS (interpolated)')
+ylabel("Position (m)")
 xlabel("time (s)")
 hold off
 
 fig3 = figure();
 fig3.Color = 'white';
 hold on
-plot(t(1:length(ylidar)) - t(1), ylidar)
-plot(t(1:length(ygpsi)) - t(1),ygpsi)
+plot(t(1:length(ylidar)) - t(1), ylidar,'Marker', '.', 'MarkerSize', 5)
+plot(t(1:length(ygpsi)) - t(1),ygpsi,'Marker', '.', 'MarkerSize', 5)
 title("Accumulated y position")
-legend('Lidar', 'GPS, in lidar timescale')
-ylabel("position (m)")
+legend('Lidar', 'GPS (interpolated)')
+ylabel("Position (m)")
 xlabel("time (s)")
 hold off
 
 fig5 = figure();
 fig5.Color = 'white';
 hold on
-plot(t(1:length(yawlidar)) - t(1), yawlidar)
-plot(t(1:length(yawgpsi)) - t(1),yawgpsi)
+plot(t(1:length(yawlidar)) - t(1), yawlidar,'Marker', '.', 'MarkerSize', 5)
+plot(t(1:length(yawgpsi)) - t(1),yawgpsi,'Marker', '.', 'MarkerSize', 5)
 title("Accumulated yaw") 
-legend('Lidar', 'GPS, in lidar timescale')
-ylabel("rotation (deg)")
+legend('Lidar', 'GPS (interpolated)')
+ylabel("Rotation (deg)")
 xlabel("time (s)")
 hold off
 
@@ -220,3 +220,21 @@ hold on; grid on;
 ylabel('Azimuth Error (degrees)');
 xlabel('time (s)')
 xlim([0 550]);
+
+ dxlidarmat = [t(1:length(dxlidar)) - t(1), dxlidar'];
+ dxgpsmat = [t(1:length(dxgps)) - t(1), dxgps'];
+ dylidarmat = [t(1:length(dylidar)) - t(1), dylidar'];
+ dygpsmat = [t(1:length(dygps)) - t(1), dygps'];
+ dyawlidarmat = [t(1:length(dyawlidar)) - t(1), dyawlidar'];
+ dyawgpsmat = [t(1:length(dyawgps)) - t(1), dyawgps'];
+ 
+ xlidarmat = [t(1:length(xlidar)) - t(1), xlidar];
+ xgpsmat = [t(1:length(xgpsi)) - t(1), xgpsi];
+ ylidarmat = [t(1:length(ylidar)) - t(1), ylidar];
+ ygpsmat = [t(1:length(ygpsi)) - t(1), ygpsi];
+ yawlidarmat = [t(1:length(yawlidar)) - t(1), yawlidar];
+ yawgpsmat = [t(1:length(yawgpsi)) - t(1), yawgpsi];
+  
+ 
+ save volpe.mat dxlidarmat dxgpsmat dylidarmat dygpsmat dyawlidarmat dyawgpsmat xlidarmat xgpsmat ylidarmat ygpsmat yawlidarmat yawgpsmat
+ 

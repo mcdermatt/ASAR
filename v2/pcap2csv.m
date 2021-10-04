@@ -33,6 +33,8 @@ end
 
     %you can then plot, save, aggregate, or process the extracted data
 
+%store cloud from middle of drive
+ptCloudObj = readFrame(veloReader, 1000);
 a = size(ptCloudObj.Location);
 pts = [];
 for ct = 1:a(1)

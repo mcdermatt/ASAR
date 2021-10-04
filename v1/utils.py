@@ -290,9 +290,9 @@ def generate_along_track_data(fig,ax,draw = True, output_actual = False):
 
 
 	#add small cross track indexing feature
-	# newPts = np.array([np.linspace(-100,50,150),np.linspace(50,75,150)]).T + np.random.randn(150,2)*1
-	# pp2 = np.append(pp2, newPts, axis =0)
-	# pp1 = np.append(pp1, newPts, axis =0)
+	newPts = np.array([np.linspace(-100,50,350),np.linspace(50,75,350)]).T + np.random.randn(350,2)*y_noise_scale
+	pp2 = np.append(pp2, newPts, axis =0)
+	pp1 = np.append(pp1, newPts, axis =0)
 
 
 	#transform scan2

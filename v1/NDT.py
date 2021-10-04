@@ -107,8 +107,9 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True, draw_output = True, m
 			E = np.linalg.pinv(sigma)
 
 			# score_i = np.exp( (-(q.T).dot(E).dot(q) ) /2 ) # according to Biber
-			score_i = np.exp( (-(q.T).dot(E).dot(q) ) /40 ) #more forgiving -> voxel size is around 40 in this case. Converges in ~70
+			# score_i = np.exp( (-(q.T).dot(E).dot(q) ) /40 ) #more forgiving -> voxel size is around 40 in this case. Converges in ~70
 			# score_i = (q).T.dot(E).dot(q) #Matt's method -> WORKS (slowly). Converges in ~400
+			score_i = np.exp( (-(q.T).dot(E).dot(q) ) /200 ) #trying to get best performance for paper...
 
 			score += score_i
 

@@ -5,8 +5,8 @@
 
 %imoport data on lidar distances traveled each step
 
-% runlen = 524;
-runlen = max(size(h)); %needs debug
+runlen = 524;
+% runlen = max(size(h)); %needs debug
 % runlen = max(size(pos_x_lidar));
 
 %Q and R from get_Q_3DOF, get_R_3DOF

@@ -4,7 +4,7 @@ import pykitti
 import os
 from time import sleep
 
-numEll = 0
+numEll = 10
 basedir = 'C:/kitti/'
 date = '2011_09_26'
 drive = '0005'
@@ -37,4 +37,4 @@ for i in range(numEll):
 
 	E.append(ell)
 
-plt1.show(c,E, "Ell", at =0).close()
+plt1.show(c,E, "Kitti Data Test", at =0).close()
