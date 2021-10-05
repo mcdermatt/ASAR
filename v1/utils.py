@@ -39,9 +39,10 @@ def jacobian(x, p_point):
 	"""outputs: (2,3) np array"""
 	theta = x[2]
 	J = np.zeros((2, 3))
-	J[0:2, 0:2] = np.identity(2) #TODO -> double check signs on identity
-	J[0:2, [2]] = dR(0).dot(p_point)[:,None]
-	# print("jacobian: ", J, np.shape(J))
+	J[0:2, 0:2] = np.identity(2)
+	# J[0:2, [2]] = dR(0).dot(p_point)[:,None] #was this -> wrong!!!
+	J[0:2, [2]] = dR(theta[0]).dot(p_point)[:,None] #changed to this 10/5
+
 	return J
 
 def error(x, p_point, q_point):
@@ -303,7 +304,7 @@ def generate_along_track_data(fig,ax,draw = True, output_actual = False):
 
 	# DEBUG THIS....
 	# make data cross track instead
-	# rot_cross = R(np.pi)
+	# rot_cross = R(np.pi/16)
 	# pp1 = rot_cross.dot(pp1.T)
 	# pp1 = pp1.T
 	# pp2 = rot_cross.dot(pp2.T)
