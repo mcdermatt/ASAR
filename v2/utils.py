@@ -19,10 +19,34 @@ def R(angs):
 
 	return mat
 
-def jacobian(mat, p_point):
-	"""calculates jacobian for point"""
+def jacobian(angs, p_point):
+	"""calculates jacobian for point
+		angs = np.array(phi, theta, psi) aka (x,y,z)"""
 
-	
+	phi = angs[0]
+	theta = angs[1]
+	psi = angs[2]
+
+	J = np.zeros([3,6])
+	J[:3,:3] = np.identity(3)
+
+	# (deriv of R() wrt phi).dot(p_point)
+	J[:3,3] = np.array([[0, -sin(psi)*sin(phi) + cos(phi)*sin(theta)*cos(psi), cos(phi)*sin(psi) + sin(theta)*sin(phi)*cos(psi)],
+						[0, -sin(phi)*cos(psi) - cos(phi)*sin(theta)*sin(psi), cos(phi)*cos(psi) - sin(theta)*sin(psi)*sin(phi)], 
+						[0, -cos(phi)*cos(theta), -sin(phi)*cos(theta) ] ]).dot(p_point)
+
+	# (deriv of R() wrt theta).dot(p_point)
+	J[:3,4] = np.array([[-sin(theta)*cos(psi), cos(theta)*sin(phi)*cos(psi), -cos(theta)*cos(phi)*cos(psi)],
+						[sin(psi)*sin(theta), -cos(theta)*sin(phi)*sin(psi), cos(theta)*sin(psi)*cos(phi)],
+						[cos(theta), sin(phi)*sin(theta), -sin(theta)*cos(phi)]
+						]).dot(p_point)
+
+	J[:3,5] = np.array([[-cos(theta)*sin(psi), cos(psi)*cos(phi) - sin(phi)*sin(theta)*sin(psi), cos(psi)*sin(phi) + sin(theta)*cos(phi)*sin(psi) ],
+						[-cos(psi)*cos(theta), -sin(psi)*cos(phi) - sin(phi)*sin(theta)*cos(psi), -sin(phi)*sin(psi) + sin(theta)*cos(psi)*cos(phi)],
+						[0,0,0]
+						]).dot(p_point)
+
+	print(J)
 
 	return J
 
@@ -63,7 +87,7 @@ def R_simp(n_hat, theta):
 	return mat
 
 def dR_simp(n_hat, theta):
-	"""returns the derivative of the rotation matrix calculated from n_hat and theta using simple rotations
+	"""returns the derivative of the rotation matrix wrt theta, calculated from n_hat and theta using simple rotations
 	https://arxiv.org/ftp/arxiv/papers/1311/1311.6010.pdf """
 	#test and make sure n_hat is a unit vector
 	if np.sum((n_hat**2)) == 1:
