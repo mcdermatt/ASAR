@@ -1,5 +1,6 @@
 import numpy as np
 from vedo import *
+import vtk
 import os
 from numpy import sin, cos, tan
 
@@ -11,12 +12,10 @@ def R(angs):
 	theta = angs[1]
 	psi = angs[2]
 
-
 	mat = np.array([[cos(theta)*cos(psi), sin(psi)*cos(phi) + sin(phi)*sin(theta)*cos(psi), sin(phi)*sin(psi) - sin(theta)*cos(phi)*cos(psi)],
 					[-sin(psi)*cos(theta), cos(phi)*cos(psi) - sin(phi)*sin(theta)*sin(psi), sin(phi)*cos(psi) + sin(theta)*sin(psi)*cos(phi)],
 					[sin(theta), -sin(phi)*cos(theta), cos(phi)*cos(theta)]
 						])
-
 	return mat
 
 def jacobian(angs, p_point):
@@ -53,7 +52,7 @@ def jacobian(angs, p_point):
 def R2Euler(mat):
 	"""determines euler angles from euler rotation matrix"""
 
-	R_sum = np.sqrt( mat[0,0]**2 + mat[0,1]**2 + mat[1,2]**2 + mat[2,2]**2 ) / 2
+	R_sum = np.sqrt(( mat[0,0]**2 + mat[0,1]**2 + mat[1,2]**2 + mat[2,2]**2 ) / 2)
 
 	phi = np.arctan2(-mat[1,2],mat[2,2])
 	theta = np.arctan2(mat[0,2], R_sum)
@@ -137,6 +136,7 @@ def subdivide_scan(pc, plt, bounds = np.array([-50,50,-50,50,-10,10]), fid = np.
 	"""
 	cloud = Points(pc, c = (1,1,1), alpha = 0.5)
 	disp.append(cloud) #add point cloud object to viz
+	E = [] #strucutre to hold mus, sigmas and npts per voxel
 
 	# draw divisions between voxel cells
 	# b = shapes.Box(size=(bounds), c='g4', alpha=1) #meh
@@ -186,17 +186,50 @@ def subdivide_scan(pc, plt, bounds = np.array([-50,50,-50,50,-10,10]), fid = np.
 					eigenval = eig[0] #correspond to lengths of axis
 					eigenvec = eig[1]
 
+					# print(R2Euler(eigenvec))
 					# print(eigenvec)
 					# print(eigenval)
-					ans = nstd*np.sqrt(abs(eigenval.dot(eigenvec)))
-					# if (ans < 8).all():
+
 					# thresh = 4
 					# temp = ans[ans < thresh] 
 					# if np.shape(temp)[0] > 1: #dont want to draw stuff elongated in >1 dir
-					ell = Ellipsoid(pos=(mu[0], mu[1], mu[2]), axis1=(ans[0], 0, 0), axis2=(0, ans[1], 0), axis3=(0,0,ans[2]), 
-						c=(1,0.5,0.5), alpha=1, res=12)
+					# ell = Ellipsoid(pos=(mu[0], mu[1], mu[2]), axis1=(ans[0], 0, 0), axis2=(0, ans[1], 0), axis3=(0,0,ans[2]), 
+					# 	c=(1,0.5,0.5), alpha=1, res=12) #wrong
+
+					#
+					# major_radius = np.array([np.sqrt(max(eigenval))*2,0,0])
+					# major_stop = major_radius.dot(eigenvec)
+					# major_stop = np.array([2*np.sqrt(max(eigenval)), 0,0])
+					# # mid_radius = np.array([0,np.sqrt(np.median(eigenval))*2,0])
+					# # mid_stop = mid_radius.dot(eigenvec)
+					# mid_stop = np.array([0, 2*np.sqrt(np.median(eigenval)), 0])
+					# minor_radius = np.array([0,0,2*np.sqrt(min(eigenval))])
+					# minor_stop = minor_radius.dot(eigenvec)
+					# print("Major: ", major_stop)
+					# print("Mid: ", mid_stop)
+					# print(major_stop.dot(mid_stop))
+					#per vedo documentation
+					# print("angle: ", np.arcsin(major_stop.dot(mid_stop)))
+					# print("theta: ", np.arccos(minor_stop[2]))
+					# print("phi: ", np.arctan2(minor_stop[1], minor_stop[0]))
+					# print(R2Euler(eigenvec))
+					# print(" ")
+					
+					# a1 = max(eigenval)
+					# a2 = np.median(eigenval)
+					# a3 = min(eigenval)
+					a1 = eigenval[0]
+					a2 = eigenval[1]
+					a3 = eigenval[2]
+
+					ell = Ell(pos=(mu[0], mu[1], mu[2]), axis1 = 4*np.sqrt(a1), 
+						axis2 = 4*np.sqrt(a2), axis3 = 4*np.sqrt(a3), 
+						angs = (np.array([-R2Euler(eigenvec)[0], -R2Euler(eigenvec)[1], -R2Euler(eigenvec)[2] ])), c=(1,0.5,0.5), alpha=1, res=12)
+
+
 					disp.append(ell)
 
+					E.append((mu, sigma, np.shape(within_box)[0]))
 
 	#test- add random ellipsoids and add them to disp
 	# for i in range(10):
@@ -207,6 +240,70 @@ def subdivide_scan(pc, plt, bounds = np.array([-50,50,-50,50,-10,10]), fid = np.
 
 	plt.show(disp, "subdivide_scan", at=0) 
 
+	return E
+
+class Ell(Mesh):
+    """
+    Build a 3D ellipsoid centered at position `pos`.
+
+    |projectsphere|
+
+    |pca| |pca.py|_
+    """
+    def __init__(self, pos=(0, 0, 0), axis1= 1, axis2 = 2, axis3 = 3, angs = np.array([0,0,0]),
+                 c="cyan4", alpha=1, res=24):
+
+        self.center = pos
+        self.va_error = 0
+        self.vb_error = 0
+        self.vc_error = 0
+        self.axis1 = axis1
+        self.axis2 = axis2
+        self.axis3 = axis3
+        self.nr_of_points = 1 # used by pcaEllipsoid
+
+        if utils.isSequence(res):
+            res_t, res_phi = res
+        else:
+            res_t, res_phi = 2*res, res
+
+        elliSource = vtk.vtkSphereSource()
+        elliSource.SetThetaResolution(res_t)
+        elliSource.SetPhiResolution(res_phi)
+        elliSource.Update()
+        l1 = axis1
+        l2 = axis2
+        l3 = axis3
+        self.va = l1
+        self.vb = l2
+        self.vc = l3
+        axis1 = 1
+        axis2 = 1
+        axis3 = 1
+        angle = angs[0] #np.arcsin(np.dot(axis1, axis2))
+        theta = angs[1] #np.arccos(axis3[2])
+        phi =  angs[2] #np.arctan2(axis3[1], axis3[0])
+
+        t = vtk.vtkTransform()
+        t.PostMultiply()
+        t.Scale(l1, l2, l3)
+        t.RotateX(np.rad2deg(angle))
+        t.RotateY(np.rad2deg(theta))
+        t.RotateZ(np.rad2deg(phi))
+        tf = vtk.vtkTransformPolyDataFilter()
+        tf.SetInputData(elliSource.GetOutput())
+        tf.SetTransform(t)
+        tf.Update()
+        pd = tf.GetOutput()
+        self.transformation = t
+
+        Mesh.__init__(self, pd, c, alpha)
+        self.phong()
+        self.GetProperty().BackfaceCullingOn()
+        self.SetPosition(pos)
+        self.Length = -np.array(axis1) / 2 + pos
+        self.top = np.array(axis1) / 2 + pos
+        self.name = "Ell"
 
 
 def fit_gaussian(points):
