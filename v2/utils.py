@@ -2,11 +2,13 @@ import numpy as np
 from vedo import *
 import vtk
 import os
-from numpy import sin, cos, tan
+# from numpy import sin, cos, tan
+import tensorflow as tf
+from tensorflow.math import sin, cos, tan
 
 def R(angs):
 	"""generates rotation matrix using euler angles
-	angs = np.array(phi, theta, psi) aka (x,y,z) """
+	angs = np.array(phi, theta, psi) (aka rot about (x,y,z)) or equivalent Tensor object"""
 
 	phi = angs[0]
 	theta = angs[1]
@@ -18,8 +20,47 @@ def R(angs):
 						])
 	return mat
 
+
+def jacobian_tf(angs, p_point):
+	"""calculates jacobian for point using TensorFlow
+		angs = tf.constant(phi, theta, psi) aka (x,y,z)"""
+
+	phi = angs[0]
+	theta = angs[1]
+	psi = angs[2]
+
+	#TODO: find more efficient way to do this THIS IS SLOWING US DOWN A TON
+	# https://www.tensorflow.org/api_docs/python/tf/linalg/LinearOperatorScaledIdentity
+	eyes = tf.eye(3)
+	for c in range(tf.shape(angs)[1] - 1):
+		eyes = tf.concat([eyes, tf.eye(3)], axis = 0)
+
+	# (deriv of R() wrt phi).dot(p_point)
+	#	NOTE: any time sin/cos operator is used, output will be 1x1 instead of constant (not good)
+	Jx = tf.tensordot(tf.Variable([[tf.constant(0.), (-sin(psi)*sin(phi) + cos(phi)*sin(theta)*cos(psi))[0], (cos(phi)*sin(psi) + sin(theta)*sin(phi)*cos(psi))[0]],
+								   [tf.constant(0.), (-sin(phi)*cos(psi) - cos(phi)*sin(theta)*sin(psi))[0], (cos(phi)*cos(psi) - sin(theta)*sin(psi)*sin(phi))[0]], 
+								   [tf.constant(0.), (-cos(phi)*cos(theta))[0], (-sin(phi)*cos(theta))[0]] ]), p_point, axes = 1)
+
+	# (deriv of R() wrt theta).dot(p_point)
+	Jy = tf.tensordot(tf.Variable([[(-sin(theta)*cos(psi))[0], (cos(theta)*sin(phi)*cos(psi))[0], (-cos(theta)*cos(phi)*cos(psi))[0]],
+								   [(sin(psi)*sin(theta))[0], (-cos(theta)*sin(phi)*sin(psi))[0], (cos(theta)*sin(psi)*cos(phi))[0]],
+								   [(cos(theta))[0], (sin(phi)*sin(theta))[0], (-sin(theta)*cos(phi))[0]] ]), p_point, axes = 1)
+
+	Jtheta = tf.tensordot(tf.Variable([[(-cos(theta)*sin(psi))[0], (cos(psi)*cos(phi) - sin(phi)*sin(theta)*sin(psi))[0], (cos(psi)*sin(phi) + sin(theta)*cos(phi)*sin(psi))[0] ],
+									   [(-cos(psi)*cos(theta))[0], (-sin(psi)*cos(phi) - sin(phi)*sin(theta)*cos(psi))[0], (-sin(phi)*sin(psi) + sin(theta)*cos(psi)*cos(phi))[0]],
+									   [tf.constant(0.),tf.constant(0.),tf.constant(0.)]]), p_point, axes = 1)
+
+
+	Jx_reshape = tf.reshape(tf.transpose(Jx), shape = (tf.shape(Jx)[0]*tf.shape(Jx)[1],1))
+	Jy_reshape = tf.reshape(tf.transpose(Jy), shape = (tf.shape(Jy)[0]*tf.shape(Jy)[1],1))
+	Jtheta_reshape = tf.reshape(tf.transpose(Jtheta), shape = (tf.shape(Jtheta)[0]*tf.shape(Jtheta)[1],1))
+
+	J = tf.concat([eyes, Jx_reshape, Jy_reshape, Jtheta_reshape], axis = 1)
+
+	return J
+
 def jacobian(angs, p_point):
-	"""calculates jacobian for point
+	"""calculates jacobian for point using numpy
 		angs = np.array(phi, theta, psi) aka (x,y,z)"""
 
 	phi = angs[0]
@@ -30,9 +71,9 @@ def jacobian(angs, p_point):
 	J[:3,:3] = np.identity(3)
 
 	# (deriv of R() wrt phi).dot(p_point)
-	J[:3,3] = np.array([[0, -sin(psi)*sin(phi) + cos(phi)*sin(theta)*cos(psi), cos(phi)*sin(psi) + sin(theta)*sin(phi)*cos(psi)],
-						[0, -sin(phi)*cos(psi) - cos(phi)*sin(theta)*sin(psi), cos(phi)*cos(psi) - sin(theta)*sin(psi)*sin(phi)], 
-						[0, -cos(phi)*cos(theta), -sin(phi)*cos(theta) ] ]).dot(p_point)
+	J[:3,3] = np.array([[0., -sin(psi)*sin(phi) + cos(phi)*sin(theta)*cos(psi), cos(phi)*sin(psi) + sin(theta)*sin(phi)*cos(psi)],
+						[0., -sin(phi)*cos(psi) - cos(phi)*sin(theta)*sin(psi), cos(phi)*cos(psi) - sin(theta)*sin(psi)*sin(phi)], 
+						[0., -cos(phi)*cos(theta), -sin(phi)*cos(theta) ] ]).dot(p_point)
 
 	# (deriv of R() wrt theta).dot(p_point)
 	J[:3,4] = np.array([[-sin(theta)*cos(psi), cos(theta)*sin(phi)*cos(psi), -cos(theta)*cos(phi)*cos(psi)],
@@ -42,10 +83,10 @@ def jacobian(angs, p_point):
 
 	J[:3,5] = np.array([[-cos(theta)*sin(psi), cos(psi)*cos(phi) - sin(phi)*sin(theta)*sin(psi), cos(psi)*sin(phi) + sin(theta)*cos(phi)*sin(psi) ],
 						[-cos(psi)*cos(theta), -sin(psi)*cos(phi) - sin(phi)*sin(theta)*cos(psi), -sin(phi)*sin(psi) + sin(theta)*cos(psi)*cos(phi)],
-						[0,0,0]
+						[0.,0.,0.]
 						]).dot(p_point)
 
-	print(J)
+	# print(J)
 
 	return J
 
@@ -122,7 +163,7 @@ def dR_simp(n_hat, theta):
 	return mat
 
 def subdivide_scan(pc, plt, bounds = np.array([-50,50,-50,50,-10,10]), fid = np.array([10,10,3]), disp = [],
-					min_num_pts = 20, nstd = 2, draw_grid = True):
+					min_num_pts = 20, nstd = 2, draw_grid = True, show_pc = True):
 
 	""" Subdivide point cloud into consistantly sized rectangular voxles. Outputs mean center and
 		covariance matrix for each voxel
@@ -135,7 +176,8 @@ def subdivide_scan(pc, plt, bounds = np.array([-50,50,-50,50,-10,10]), fid = np.
 
 	"""
 	cloud = Points(pc, c = (1,1,1), alpha = 0.5)
-	disp.append(cloud) #add point cloud object to viz
+	if show_pc:
+		disp.append(cloud) #add point cloud object to viz
 	E = [] #strucutre to hold mus, sigmas and npts per voxel
 
 	# draw divisions between voxel cells
