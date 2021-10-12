@@ -8,7 +8,7 @@ from tensorflow.math import sin, cos, tan
 
 def R(angs):
 	"""generates rotation matrix using euler angles
-	angs = np.array(phi, theta, psi) (aka rot about (x,y,z)) or equivalent Tensor object"""
+	angs = np.array(phi, theta, psi) (aka rot about (x,y,z))"""
 
 	phi = angs[0]
 	theta = angs[1]
@@ -21,6 +21,44 @@ def R(angs):
 	return mat
 
 
+def R_tf(angs):
+	"""generates rotation matrix using euler angles
+	angs = tf.constant(phi, theta, psi) (aka rot about (x,y,z))"""
+
+	phi = angs[0]
+	theta = angs[1]
+	psi = angs[2]
+
+	mat = tf.Variable([[cos(theta)*cos(psi), sin(psi)*cos(phi) + sin(phi)*sin(theta)*cos(psi), sin(phi)*sin(psi) - sin(theta)*cos(phi)*cos(psi)],
+					[-sin(psi)*cos(theta), cos(phi)*cos(psi) - sin(phi)*sin(theta)*sin(psi), sin(phi)*cos(psi) + sin(theta)*sin(psi)*cos(phi)],
+					[sin(theta), -sin(phi)*cos(theta), cos(phi)*cos(theta)]
+						])
+	return mat
+
+def jacobian(angs, p_point):
+	"""calculates jacobian for point using numpy
+		angs = np.array(phi, theta, psi) aka (x,y,z)"""
+	phi = angs[0]
+	theta = angs[1]
+	psi = angs[2]
+	J = np.zeros([3,6])
+	J[:3,:3] = np.identity(3)
+	# (deriv of R() wrt phi).dot(p_point)
+	J[:3,3] = np.array([[0., -sin(psi)*sin(phi) + cos(phi)*sin(theta)*cos(psi), cos(phi)*sin(psi) + sin(theta)*sin(phi)*cos(psi)],
+						[0., -sin(phi)*cos(psi) - cos(phi)*sin(theta)*sin(psi), cos(phi)*cos(psi) - sin(theta)*sin(psi)*sin(phi)], 
+						[0., -cos(phi)*cos(theta), -sin(phi)*cos(theta) ] ]).dot(p_point)
+	# (deriv of R() wrt theta).dot(p_point)
+	J[:3,4] = np.array([[-sin(theta)*cos(psi), cos(theta)*sin(phi)*cos(psi), -cos(theta)*cos(phi)*cos(psi)],
+						[sin(psi)*sin(theta), -cos(theta)*sin(phi)*sin(psi), cos(theta)*sin(psi)*cos(phi)],
+						[cos(theta), sin(phi)*sin(theta), -sin(theta)*cos(phi)]
+						]).dot(p_point)
+	J[:3,5] = np.array([[-cos(theta)*sin(psi), cos(psi)*cos(phi) - sin(phi)*sin(theta)*sin(psi), cos(psi)*sin(phi) + sin(theta)*cos(phi)*sin(psi) ],
+						[-cos(psi)*cos(theta), -sin(psi)*cos(phi) - sin(phi)*sin(theta)*cos(psi), -sin(phi)*sin(psi) + sin(theta)*cos(psi)*cos(phi)],
+						[0.,0.,0.]
+						]).dot(p_point)
+
+	return J
+
 def jacobian_tf(angs, p_point):
 	"""calculates jacobian for point using TensorFlow
 		angs = tf.constant(phi, theta, psi) aka (x,y,z)"""
@@ -29,11 +67,22 @@ def jacobian_tf(angs, p_point):
 	theta = angs[1]
 	psi = angs[2]
 
-	#TODO: find more efficient way to do this THIS IS SLOWING US DOWN A TON
-	# https://www.tensorflow.org/api_docs/python/tf/linalg/LinearOperatorScaledIdentity
-	eyes = tf.eye(3)
-	for c in range(tf.shape(angs)[1] - 1):
-		eyes = tf.concat([eyes, tf.eye(3)], axis = 0)
+	#correct method using tf.tile
+	eyes = tf.tile(tf.eye(3), [tf.shape(phi)[0] , 1])
+
+	# slow method with for loop
+	# eyes = tf.eye(3)
+	# for c in range(tf.shape(angs)[1] - 1):
+	# 	eyes = tf.concat([eyes, tf.eye(3)], axis = 0)
+
+	# alt method using tf.while_loop()
+	# i0 = tf.constant(1)
+	# m0 = tf.constant([[1., 0., 0.], [0., 1., 0.] , [0., 0., 1.] ])
+	# c = lambda i, m: i < (tf.shape(phi)[0]) #condition
+	# b = lambda i, m: [i+1, tf.concat([m, m0], axis=0)] #while loop body
+	# m, eyes = tf.while_loop(
+	# 	c, b, loop_vars=[i0, m0],
+	# 	shape_invariants=None)
 
 	# (deriv of R() wrt phi).dot(p_point)
 	#	NOTE: any time sin/cos operator is used, output will be 1x1 instead of constant (not good)
@@ -56,38 +105,7 @@ def jacobian_tf(angs, p_point):
 	Jtheta_reshape = tf.reshape(tf.transpose(Jtheta), shape = (tf.shape(Jtheta)[0]*tf.shape(Jtheta)[1],1))
 
 	J = tf.concat([eyes, Jx_reshape, Jy_reshape, Jtheta_reshape], axis = 1)
-
-	return J
-
-def jacobian(angs, p_point):
-	"""calculates jacobian for point using numpy
-		angs = np.array(phi, theta, psi) aka (x,y,z)"""
-
-	phi = angs[0]
-	theta = angs[1]
-	psi = angs[2]
-
-	J = np.zeros([3,6])
-	J[:3,:3] = np.identity(3)
-
-	# (deriv of R() wrt phi).dot(p_point)
-	J[:3,3] = np.array([[0., -sin(psi)*sin(phi) + cos(phi)*sin(theta)*cos(psi), cos(phi)*sin(psi) + sin(theta)*sin(phi)*cos(psi)],
-						[0., -sin(phi)*cos(psi) - cos(phi)*sin(theta)*sin(psi), cos(phi)*cos(psi) - sin(theta)*sin(psi)*sin(phi)], 
-						[0., -cos(phi)*cos(theta), -sin(phi)*cos(theta) ] ]).dot(p_point)
-
-	# (deriv of R() wrt theta).dot(p_point)
-	J[:3,4] = np.array([[-sin(theta)*cos(psi), cos(theta)*sin(phi)*cos(psi), -cos(theta)*cos(phi)*cos(psi)],
-						[sin(psi)*sin(theta), -cos(theta)*sin(phi)*sin(psi), cos(theta)*sin(psi)*cos(phi)],
-						[cos(theta), sin(phi)*sin(theta), -sin(theta)*cos(phi)]
-						]).dot(p_point)
-
-	J[:3,5] = np.array([[-cos(theta)*sin(psi), cos(psi)*cos(phi) - sin(phi)*sin(theta)*sin(psi), cos(psi)*sin(phi) + sin(theta)*cos(phi)*sin(psi) ],
-						[-cos(psi)*cos(theta), -sin(psi)*cos(phi) - sin(phi)*sin(theta)*cos(psi), -sin(phi)*sin(psi) + sin(theta)*cos(psi)*cos(phi)],
-						[0.,0.,0.]
-						]).dot(p_point)
-
-	# print(J)
-
+	
 	return J
 
 def R2Euler(mat):
@@ -101,6 +119,27 @@ def R2Euler(mat):
 
 	angs = np.array([phi, theta, psi])
 	return angs
+
+
+def R2Euler_tf(mat):
+	"""determines euler angles from euler rotation matrix using tensorflow framework"""
+	#TODO: get this working with vectorized operations
+
+	R_sum = tf.math.sqrt(( mat[0,0]**2 + mat[0,1]**2 + mat[1,2]**2 + mat[2,2]**2 ) / 2)
+
+	phi = tf.math.atan2(-mat[1,2],mat[2,2])
+	theta = tf.math.atan2(mat[0,2], R_sum)
+	psi = tf.math.atan2(-mat[0,1], mat[0,0])
+
+	# angs = [phi, theta, psi]
+	# print(phi, theta, psi)
+	# angs = tf.concat([phi,psi], axis = 0)
+	angs = tf.concat([tf.cast(phi, tf.float32), tf.cast(theta, tf.float32), tf.cast(psi, tf.float32)], axis = 0)
+
+	angs = tf.reshape(tf.transpose(angs), [3, tf.shape(mat)[2]]) #not reordering correctly
+
+	return angs
+
 
 
 def R_simp(n_hat, theta):
