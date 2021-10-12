@@ -5,6 +5,7 @@ import os
 # from numpy import sin, cos, tan
 import tensorflow as tf
 from tensorflow.math import sin, cos, tan
+import tensorflow_probability as tfp
 
 def R(angs):
 	"""generates rotation matrix using euler angles
@@ -125,6 +126,11 @@ def R2Euler_tf(mat):
 	"""determines euler angles from euler rotation matrix using tensorflow framework"""
 	#TODO: get this working with vectorized operations
 
+	# print("mat \n", mat)
+	# mat = tf.cast(mat, dtype= tf.float32) #debug
+	# print("mat \n", mat)
+
+
 	R_sum = tf.math.sqrt(( mat[0,0]**2 + mat[0,1]**2 + mat[1,2]**2 + mat[2,2]**2 ) / 2)
 
 	phi = tf.math.atan2(-mat[1,2],mat[2,2])
@@ -136,7 +142,8 @@ def R2Euler_tf(mat):
 	# angs = tf.concat([phi,psi], axis = 0)
 	angs = tf.concat([tf.cast(phi, tf.float32), tf.cast(theta, tf.float32), tf.cast(psi, tf.float32)], axis = 0)
 
-	angs = tf.reshape(tf.transpose(angs), [3, tf.shape(mat)[2]]) #not reordering correctly
+	#TODO: fix this
+	# angs = tf.reshape(tf.transpose(angs), [3, tf.shape(mat)[2]]) #not reordering correctly
 
 	return angs
 
@@ -267,38 +274,6 @@ def subdivide_scan(pc, plt, bounds = np.array([-50,50,-50,50,-10,10]), fid = np.
 					eigenval = eig[0] #correspond to lengths of axis
 					eigenvec = eig[1]
 
-					# print(R2Euler(eigenvec))
-					# print(eigenvec)
-					# print(eigenval)
-
-					# thresh = 4
-					# temp = ans[ans < thresh] 
-					# if np.shape(temp)[0] > 1: #dont want to draw stuff elongated in >1 dir
-					# ell = Ellipsoid(pos=(mu[0], mu[1], mu[2]), axis1=(ans[0], 0, 0), axis2=(0, ans[1], 0), axis3=(0,0,ans[2]), 
-					# 	c=(1,0.5,0.5), alpha=1, res=12) #wrong
-
-					#
-					# major_radius = np.array([np.sqrt(max(eigenval))*2,0,0])
-					# major_stop = major_radius.dot(eigenvec)
-					# major_stop = np.array([2*np.sqrt(max(eigenval)), 0,0])
-					# # mid_radius = np.array([0,np.sqrt(np.median(eigenval))*2,0])
-					# # mid_stop = mid_radius.dot(eigenvec)
-					# mid_stop = np.array([0, 2*np.sqrt(np.median(eigenval)), 0])
-					# minor_radius = np.array([0,0,2*np.sqrt(min(eigenval))])
-					# minor_stop = minor_radius.dot(eigenvec)
-					# print("Major: ", major_stop)
-					# print("Mid: ", mid_stop)
-					# print(major_stop.dot(mid_stop))
-					#per vedo documentation
-					# print("angle: ", np.arcsin(major_stop.dot(mid_stop)))
-					# print("theta: ", np.arccos(minor_stop[2]))
-					# print("phi: ", np.arctan2(minor_stop[1], minor_stop[0]))
-					# print(R2Euler(eigenvec))
-					# print(" ")
-					
-					# a1 = max(eigenval)
-					# a2 = np.median(eigenval)
-					# a3 = min(eigenval)
 					a1 = eigenval[0]
 					a2 = eigenval[1]
 					a3 = eigenval[2]
@@ -319,6 +294,88 @@ def subdivide_scan(pc, plt, bounds = np.array([-50,50,-50,50,-10,10]), fid = np.
 	# 	c=(np.random.rand(), np.random.rand(), np.random.rand()), alpha=1, res=12)
 	# 	disp.append(ell)
 
+	plt.show(disp, "subdivide_scan", at=0) 
+
+	return E
+
+
+def subdivide_scan_tf(pc, plt, bounds = tf.constant([-50.,50.,-50.,50.,-10.,10.]), fid = tf.constant([10,10,3]), disp = [],
+					min_num_pts = 20, nstd = 2, draw_grid = True, show_pc = True):
+
+	cloud = Points(pc, c = (1,1,1), alpha = 0.5)
+	if show_pc:
+		disp.append(cloud) #add point cloud object to viz
+
+	c = tf.convert_to_tensor(pc, np.float32)
+	#establish grid cells
+	startx = bounds[0].numpy()
+	stopx = bounds[1].numpy()
+	numx = fid[0].numpy() + 1 #TODO: do I need to add 1 to these values??
+	edgesx = tf.linspace(startx, stopx, numx)
+	xbins = tfp.stats.find_bins(c[:,0], edgesx)
+	# print(xbins)
+	starty = bounds[2].numpy()
+	stopy = bounds[3].numpy()
+	numy = fid[1].numpy() + 1
+	edgesy = tf.linspace(starty, stopy, numy)
+	ybins = tfp.stats.find_bins(c[:,1], edgesy)
+	# print(ybins)
+	startz = bounds[4].numpy()
+	stopz = bounds[5].numpy()
+	numz = fid[2].numpy() +1
+	edgesz = tf.linspace(startz, stopz, numz)
+	zbins = tfp.stats.find_bins(c[:,2], edgesz)
+	#print(zbins)
+
+	E = []
+
+	# print("shape of cloud: \n", tf.shape(c))
+
+	#subdivide points into grid
+	for x in range(numx):
+		for y in range(numy):
+			for z in range(numz):
+				#only do calculations if there are a sufficicently high number of points in the bin
+				xin = tf.where(xbins == x)[:,0]
+				if tf.shape(xin)[0] > min_num_pts:
+					#get index for the subset of points in y that are also within a the correct x direction
+					yin = tf.where(tf.gather(ybins, xin) == y)[:,0] #only want the first column of gather
+					# print("shape of yin \n", tf.shape(yin))
+					if tf.shape(yin)[0] > min_num_pts:
+						idx = tf.where(tf.gather(zbins, yin) == z)
+						# print("shape of idx \n", tf.shape(idx))
+						num_in_cell = tf.shape(idx)[0]
+						# print(num_in_cell)
+						if num_in_cell > min_num_pts:
+
+							# print(tf.gather(c,idx, axis = 0)) #bug here?
+							# print("shape of input for fit gaussian \n",tf.squeeze(tf.gather(c,idx)))
+							mu, sigma = fit_gaussian_tf(tf.squeeze(tf.gather(c,idx)))
+
+							eig = tf.linalg.eig(sigma)
+							# print(eig)
+							eigenval = tf.cast(eig[0], tf.float32)
+							eigenvec = tf.cast(eig[1], tf.float32)
+							# print(eigenval, eigenvec)
+
+							a1 = 4*tf.math.sqrt(eigenval[0])
+							a2 = 4*tf.math.sqrt(eigenval[1])
+							a3 = 4*tf.math.sqrt(eigenval[2])
+
+							# print(a1)
+							# print(a2)
+							# print(a3)
+							print(mu)
+
+							ell = Ell(pos=(mu[0], mu[1], mu[2]), axis1 = a1, 
+								axis2 = a2, axis3 = a3, 
+								angs = ([-R2Euler_tf(eigenvec)[0], -R2Euler_tf(eigenvec)[1], -R2Euler_tf(eigenvec)[2] ]), c=(1,0.5,0.5), alpha=1, res=12)
+
+							disp.append(ell)
+
+							E.append((mu, sigma, num_in_cell))
+			
+							# print(E)
 	plt.show(disp, "subdivide_scan", at=0) 
 
 	return E
@@ -406,6 +463,32 @@ def fit_gaussian(points):
 
 
 	sigma = np.array([[std_x**2, E_xy, E_xz],
+					  [E_xy, std_y**2, E_yz],
+					  [E_xz, E_yz, std_z**2]])
+
+	return mu, sigma
+
+def fit_gaussian_tf(points):
+
+	x = tf.math.reduce_mean(points[:,0])
+	y = tf.math.reduce_mean(points[:,1])
+	z = tf.math.reduce_mean(points[:,2])
+	# print(type(x))
+	mu = tf.Variable([x, y, z])
+
+
+	#standard deviations
+	#DEBUG REDUCE SUM/ MEAN
+	std_x = tf.math.sqrt(tf.math.reduce_sum( (points[:,0] - mu[0])**2) / tf.shape(points)[0].numpy() )
+	std_y = tf.math.sqrt(tf.math.reduce_sum( (points[:,1] - mu[1])**2) / tf.shape(points)[0].numpy() )
+	std_z = tf.math.sqrt(tf.math.reduce_sum( (points[:,2] - mu[2])**2) / tf.shape(points)[0].numpy() )
+
+	E_xy = tf.math.reduce_mean( (points[:,0] - mu[0]) * (points[:,1] - mu[1]) ) 	#expected value
+	E_xz = tf.math.reduce_mean( (points[:,0] - mu[0]) * (points[:,2] - mu[2]) )
+	E_yz = tf.math.reduce_mean( (points[:,1] - mu[1]) * (points[:,2] - mu[2]) )	
+
+
+	sigma = tf.Variable([[std_x**2, E_xy, E_xz],
 					  [E_xy, std_y**2, E_yz],
 					  [E_xz, E_yz, std_z**2]])
 
