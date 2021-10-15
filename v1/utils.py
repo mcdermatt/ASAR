@@ -246,72 +246,101 @@ def draw_scan(scan, fig, ax, FOV = 60, pt = 0, hitters = None, ignore_boundary =
 
 	return point_pos
 
+# def generate_along_track_data(fig,ax,draw = True, output_actual = False):
+
+# 	""" Generates straight road scan (ambiguous case) """
+
+# 	npts = 1000
+# 	tscale = 10
+# 	x_noise_scale = 3
+# 	y_noise_scale = 3
+
+# 	pp1 = np.zeros([npts,2])
+# 	pp2 = np.zeros([npts,2])
+
+# 	#ADJUST NET ROTATION HERE
+# 	theta = np.random.randn()*0.1 #+np.pi
+# 	rot = R(theta)
+# 	t = np.random.randn(2)*tscale
+
+# 	#moves half of points to left wall and half to right
+# 	xshift = np.ones(npts)*-100
+# 	xshift[(npts//2):] = 100
+# 	yshift = np.zeros(npts) - 250
+# 	yshift[(npts//2):] = -750
+
+# 	for i in range(npts):
+# 		pp1[i,0] = xshift[i] + np.random.randn()*x_noise_scale
+# 		pp1[i,1] = i*1000/npts + yshift[i] + np.random.randn()*y_noise_scale
+
+# 	for i in range(npts):
+# 		pp2[i,0] = xshift[i] + np.random.randn()*x_noise_scale# + t[0]
+# 		pp2[i,1] = i*1000/npts + yshift[i] + np.random.randn()*y_noise_scale #+ t[1]
+
+# 	#transform scan2
+# 	pp2 += t
+# 	pp2 = rot.dot(pp2.T)
+# 	pp2 = pp2.T
+
+# 	ax.plot(pp1[:,0], pp1[:,1], color = (0.25,0.8,0.25,0.0375), ls = '', marker = '.', markersize = 20)
+# 	ax.plot(pp2[:,0], pp2[:,1], color = (0.25,0.25,0.8,0.0375), ls = '', marker = '.', markersize = 20)
+
+# 	if output_actual == False:
+# 		return pp1, pp2
+# 	if output_actual == True:
+# 		x_actual = np.array([t[0], t[1], theta])
+# 		return pp1, pp2, x_actual
+
 def generate_along_track_data(fig,ax,draw = True, output_actual = False):
 
-	npts = 1000 #1000 #500
-	tscale = 10 #10
-	x_noise_scale = 3#3 #5
-	y_noise_scale = 3#3
+	""" Generates T shaped scan (non-ambiguous case) """
 
-	pp1 = np.zeros([npts*2,2])
+	npts =  4200 #16800
+	tscale = 5#10
+	noise_scale = 2
+
+	pp1 = np.zeros([npts,2])
 	pp2 = np.zeros([npts,2])
 
+
 	#ADJUST NET ROTATION HERE
-	theta = np.random.randn()*0.1 #+np.pi
+	# theta = np.random.randn()*0.05 #0.1
+	# t = np.random.randn(2)*tscale
+	theta = 0.1
+	t = np.array([5,10])
+
 	rot = R(theta)
-	t = np.random.randn(2)*tscale
-
-	xshift1 = np.ones(npts*2)*-100
-	xshift1[(npts):] = 100
-	yshift1 = np.zeros(npts*2) - 250
-	yshift1[(npts):] = -500 - 250
-	
-
-	for i in range(npts*2):
-		pp1[i,0] = xshift1[i] + np.random.randn()*x_noise_scale
-		pp1[i,1] = i*500/npts + yshift1[i] + np.random.randn()*y_noise_scale
-
-	#moves half of points to left wall and half to right
-	xshift = np.ones(npts)*-100
-	xshift[(npts//2):] = 100
-	yshift = np.zeros(npts) - 125
-	yshift[(npts//2):] = -250 - 125
-
-	for i in range(npts):
-		pp2[i,0] = xshift[i] + np.random.randn()*x_noise_scale# + t[0]
-		pp2[i,1] = i*500/npts + yshift[i] + np.random.randn()*y_noise_scale #+ t[1]
 
 
-	#stretch scan 1 in the vertical direction
-	# pp1[:,1] = pp1[:,1]*1.5
+	#top part of T
+	pp1[:int(npts/3), :] = np.array([np.linspace(-250,250,int(npts/3)),125+10*np.sin(np.linspace(-2,2,int(npts/3)))]).T #wavy
+	# pp1[:int(npts/3), :] = np.array([np.linspace(-250,250,int(npts/3)),125*np.ones(int(npts/3))]).T #flat
+	#left horizontal
+	pp1[int(npts/3):int(npts/2), :] = np.array([np.linspace(-250,-75,int(npts/6)),np.ones(int(npts/6))*-75]).T
+	#left vertical
+	pp1[int(npts/2):int(2*npts/3), :] = np.array([np.ones(int(npts/6))*-75 ,np.linspace(-250,-75,int(npts/6))]).T
+	#right vertical
+	pp1[int(2*npts/3):int(5*npts/6), :] = np.array([np.ones(int(npts/6))*75 ,np.linspace(-250,-75,int(npts/6))]).T
+	#right horizontal
+	pp1[int(5*npts/6):, :] = np.array([np.linspace(75,250,int(npts/6)),np.ones(int(npts/6))*-75]).T
 
-	#make the data in the center of pp1 look like pp2
-	# pp1[npts//4: 3*npts//4,:] = pp2[:npts//2,:]
-	# pp1[5*npts//4: 7*npts//4,:] = pp2[npts//2:,:]
+	#rotate 90 deg
+	# temp = np.array([pp1[:,1], pp1[:,0]]).T
+	# pp1[:,:] = temp[:,:]
 
-
-	#add small cross track indexing feature
-	newPts = np.array([np.linspace(-100,50,350),np.linspace(50,75,350)]).T + np.random.randn(350,2)*y_noise_scale
-	pp2 = np.append(pp2, newPts, axis =0)
-	pp1 = np.append(pp1, newPts, axis =0)
-
+	pp2[:,:] = pp1[:,:]
 
 	#transform scan2
-	pp2 += t #was this
+	pp2 += t
 	pp2 = rot.dot(pp2.T)
 	pp2 = pp2.T
-	# pp2 += t #try this
 
-	# DEBUG THIS....
-	# make data cross track instead
-	# rot_cross = R(np.pi/16)
-	# pp1 = rot_cross.dot(pp1.T)
-	# pp1 = pp1.T
-	# pp2 = rot_cross.dot(pp2.T)
-	# pp2 = pp2.T
+	#add noise to pp1 and pp2 SEPERATELY
+	pp1 += np.random.randn(npts, 2)*noise_scale
+	pp2 += np.random.randn(npts, 2)*noise_scale
 
-	ax.plot(pp1[:,0], pp1[:,1], color = (0.25,0.8,0.25,0.0375), ls = '', marker = '.', markersize = 20)
-	ax.plot(pp2[:,0], pp2[:,1], color = (0.25,0.25,0.8,0.0375), ls = '', marker = '.', markersize = 20)
+	# ax.plot(pp1[:,0], pp1[:,1], color = (0.25,0.8,0.25,0.0125), ls = '', marker = '.', markersize = 20)
+	# ax.plot(pp2[:,0], pp2[:,1], color = (0.25,0.25,0.8,0.0125), ls = '', marker = '.', markersize = 20)
 
 	if output_actual == False:
 		return pp1, pp2

@@ -175,7 +175,8 @@ def get_U_and_L(cov1, cellsize = np.array([100,100])):
 				 L -> reduced dimension array used to ignore extended axis directions
 	
 			"""	
-	# cellsize = cellsize*0.9 #to be a little extra conservative
+	# cellsize = cellsize*2 #for debug
+	# cellsize = cellsize*0.7 #to be a little extra conservative
 	# print("Using cellsize = ", cellsize)
 
 	U = np.zeros([np.shape(cov1)[0],2,2])
@@ -374,9 +375,11 @@ def get_dx(y, y0, x, cov1, cov2, npts1, npts2, L, U):
 	Q = np.zeros([3,3])
 	for i in range(np.shape(y)[0]//2): #loop through each usable voxel
 		#estimate R_noise for voxel j
-		R_noise = (cov1[i] / (npts1[i] - 1)) + (cov2[i] / (npts2[i] - 1))
+		R_noise = (cov1[i] / (npts1[i])) + (cov2[i] / (npts2[i])) #don't need to subtract 1...? 10/14/21
 		R_noise = np.linalg.multi_dot((L[i], U[i].T, R_noise, U[i], L[i].T)) # was this
-		# R_noise = np.linalg.multi_dot((L[i], U[i], R_noise, U[i].T, L[i].T)) #test
+
+		#QUESTION: Do I need both cov matrices in the same frame here?
+
 		#calclate voxel j's contribution to the first term of H_w -------------------------
 		# H_w1  = [ H_wj1[0] + H_wj1[1] + H_wj1[2] + ... ] <- should be a 3x3 matrix
 		# H_wj1 = (H.T)(W)(H) = (H.T)(R^-1)(H)
@@ -809,9 +812,9 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True, a
 		# print(abs(y_reshape[:4].T), "\n", abs(y0_reshape[:4].T), "\n", abs(y_reshape[:4].T-y0_reshape[:4].T))
 
 		#save best transformation
-		# if z_hist[cycle] < best_error:
-		# 	best_error = z_hist[cycle]
-		# 	best_x[:] = x[:]
+		if z_hist[cycle] < best_error:
+			best_error = z_hist[cycle]
+			best_x[:] = x[:]
 			# print(best_error)
 			# print(best_x)
 		#draw progression of centers of ellipses
@@ -824,7 +827,8 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True, a
 	# ax.plot(P_corrected.T[0,:], P_corrected.T[1,:], color = (1,0,0,0.0375), ls = '', marker = '.', markersize = 20)
 
 	#draw final translated points using initial P and final X
-	best_x[:] = x[:] #debug
+	# best_x[:] = x[:] #debug
+	# print("last x: \n", x)
 	rot = R(best_x[2])
 	t = best_x[:2]
 	P_final = rot.dot(pp2.T) + t
@@ -873,10 +877,3 @@ def ICET_v1(Q, P, fig, ax, fid = 10, num_cycles = 1, draw = True):
 	P_corrected, t, rot = ICP_least_squares(ctr1.T, ctr2.T, fig, ax, num_cycles = num_cycles, draw = True)
 
 	return t, rot
-
-def get_state_error():
-
-	P = None #TODO
-
-	return P 
-

@@ -61,7 +61,7 @@ def vanilla_ICP(Q,P, fig, ax, num_cycles = 3, draw = True):
 
 		moved_data = P_corrected
 
-	ax.plot(P_corrected[0,:], P_corrected[1,:], color = (1,0,0,0.125), ls = '', marker = '.', markersize = 20)
+	ax.plot(P_corrected[0,:], P_corrected[1,:], color = (1,0,0,0.25), ls = '', marker = '.', markersize = 20)
 
 	R = R_found
 	t = t_found
@@ -116,7 +116,7 @@ def ICP_least_squares(Q,P, fig, ax, num_cycles = 1, draw = False, draw_output = 
 		P_corrected = np.squeeze(P_corrected)
 
 	if draw_output:
-		ax.plot(P_corrected[0,:], P_corrected[1,:], color = (1,0,0,0.125), lw = '', marker = '.', markersize = 20)
+		ax.plot(P_corrected[0,:], P_corrected[1,:], color = (1,0,0,0.25), lw = 0, marker = '.', markersize = 20)
 
 	return P_corrected, t, rot
 
