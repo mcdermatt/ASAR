@@ -375,8 +375,14 @@ def get_dx(y, y0, x, cov1, cov2, npts1, npts2, L, U):
 	Q = np.zeros([3,3])
 	for i in range(np.shape(y)[0]//2): #loop through each usable voxel
 		#estimate R_noise for voxel j
-		R_noise = (cov1[i] / (npts1[i])) + (cov2[i] / (npts2[i])) #don't need to subtract 1...? 10/14/21
-		R_noise = np.linalg.multi_dot((L[i], U[i].T, R_noise, U[i], L[i].T)) # was this
+
+		 # was this- was having issues with experimental results not being as good as predicted
+		# R_noise = (cov1[i] / (npts1[i])) + (cov2[i] / (npts2[i])) #don't need to subtract 1...? 10/14/21
+		# R_noise = np.linalg.multi_dot((L[i], U[i].T, R_noise, U[i], L[i].T))
+
+		# test 10/14 - seems to be performing way better...
+		R_noise = (cov1[i] / np.sqrt(npts1[i])) + (cov2[i] / np.sqrt(npts2[i]))  #don't need to subtract 1...? 10/14/21
+		R_noise = np.linalg.multi_dot((L[i], U[i], R_noise, U[i].T, L[i].T)) 
 
 		#QUESTION: Do I need both cov matrices in the same frame here?
 
@@ -832,7 +838,7 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True, a
 	rot = R(best_x[2])
 	t = best_x[:2]
 	P_final = rot.dot(pp2.T) + t
-	ax.plot(P_final.T[:,0], P_final.T[:,1], color = (1,0,0,0.0375), ls = '', marker = '.', markersize = 20)
+	ax.plot(P_final.T[:,0], P_final.T[:,1], color = (1,0,0,0.01), ls = '', marker = '.', markersize = 20)
 
 	hist = [x_hat_hist, y_hist, z_hist]
 

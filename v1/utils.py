@@ -264,8 +264,8 @@ def draw_scan(scan, fig, ax, FOV = 60, pt = 0, hitters = None, ignore_boundary =
 # 	t = np.random.randn(2)*tscale
 
 # 	#moves half of points to left wall and half to right
-# 	xshift = np.ones(npts)*-100
-# 	xshift[(npts//2):] = 100
+# 	xshift = np.ones(npts)*-125
+# 	xshift[(npts//2):] = 125
 # 	yshift = np.zeros(npts) - 250
 # 	yshift[(npts//2):] = -750
 
@@ -282,8 +282,11 @@ def draw_scan(scan, fig, ax, FOV = 60, pt = 0, hitters = None, ignore_boundary =
 # 	pp2 = rot.dot(pp2.T)
 # 	pp2 = pp2.T
 
-# 	ax.plot(pp1[:,0], pp1[:,1], color = (0.25,0.8,0.25,0.0375), ls = '', marker = '.', markersize = 20)
-# 	ax.plot(pp2[:,0], pp2[:,1], color = (0.25,0.25,0.8,0.0375), ls = '', marker = '.', markersize = 20)
+# 	# ax.plot(pp1[:,0], pp1[:,1], color = (0.25,0.8,0.25,0.0375), ls = '', marker = '.', markersize = 20)
+# 	# ax.plot(pp2[:,0], pp2[:,1], color = (0.25,0.25,0.8,0.0375), ls = '', marker = '.', markersize = 20)
+
+# 	ax.plot(pp1[:,0], pp1[:,1], color = (0.25,0.8,0.25), ls = '', marker = '.', markersize = 1)
+# 	ax.plot(pp2[:,0], pp2[:,1], color = (0.25,0.25,0.8), ls = '', marker = '.', markersize = 1)
 
 # 	if output_actual == False:
 # 		return pp1, pp2
@@ -339,8 +342,8 @@ def generate_along_track_data(fig,ax,draw = True, output_actual = False):
 	pp1 += np.random.randn(npts, 2)*noise_scale
 	pp2 += np.random.randn(npts, 2)*noise_scale
 
-	# ax.plot(pp1[:,0], pp1[:,1], color = (0.25,0.8,0.25,0.0125), ls = '', marker = '.', markersize = 20)
-	# ax.plot(pp2[:,0], pp2[:,1], color = (0.25,0.25,0.8,0.0125), ls = '', marker = '.', markersize = 20)
+	ax.plot(pp1[:,0], pp1[:,1], color = (0.25,0.8,0.25,0.125), ls = '', marker = '.', markersize = 1)
+	ax.plot(pp2[:,0], pp2[:,1], color = (0.25,0.25,0.8,0.125), ls = '', marker = '.', markersize = 1)
 
 	if output_actual == False:
 		return pp1, pp2
