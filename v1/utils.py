@@ -250,18 +250,20 @@ def draw_scan(scan, fig, ax, FOV = 60, pt = 0, hitters = None, ignore_boundary =
 
 # 	""" Generates straight road scan (ambiguous case) """
 
-# 	npts = 1000
+# 	npts = 4200
 # 	tscale = 10
-# 	x_noise_scale = 3
-# 	y_noise_scale = 3
+# 	noise_scale = 2
 
 # 	pp1 = np.zeros([npts,2])
 # 	pp2 = np.zeros([npts,2])
 
 # 	#ADJUST NET ROTATION HERE
-# 	theta = np.random.randn()*0.1 #+np.pi
+# 	# theta = np.random.randn()*0.1 #+np.pi
+# 	# t = np.random.randn(2)*tscale
+# 	theta = 0.1
+# 	t = np.array([5,10])
+
 # 	rot = R(theta)
-# 	t = np.random.randn(2)*tscale
 
 # 	#moves half of points to left wall and half to right
 # 	xshift = np.ones(npts)*-125
@@ -270,12 +272,15 @@ def draw_scan(scan, fig, ax, FOV = 60, pt = 0, hitters = None, ignore_boundary =
 # 	yshift[(npts//2):] = -750
 
 # 	for i in range(npts):
-# 		pp1[i,0] = xshift[i] + np.random.randn()*x_noise_scale
-# 		pp1[i,1] = i*1000/npts + yshift[i] + np.random.randn()*y_noise_scale
+# 		pp1[i,0] = xshift[i] #+ np.random.randn()*x_noise_scale
+# 		pp1[i,1] = i*1000/npts + yshift[i] #+ np.random.randn()*y_noise_scale
 
-# 	for i in range(npts):
-# 		pp2[i,0] = xshift[i] + np.random.randn()*x_noise_scale# + t[0]
-# 		pp2[i,1] = i*1000/npts + yshift[i] + np.random.randn()*y_noise_scale #+ t[1]
+# 	# pp1 = R(np.pi/3).dot(pp1.T)
+# 	# pp1 = pp1.T
+
+# 	pp2[:,:] = pp1[:,:]
+# 	pp1 += np.random.randn(npts,2)*noise_scale
+# 	pp2 += np.random.randn(npts,2)*noise_scale
 
 # 	#transform scan2
 # 	pp2 += t
@@ -294,56 +299,122 @@ def draw_scan(scan, fig, ax, FOV = 60, pt = 0, hitters = None, ignore_boundary =
 # 		x_actual = np.array([t[0], t[1], theta])
 # 		return pp1, pp2, x_actual
 
+# def generate_along_track_data(fig,ax,draw = True, output_actual = False):
+
+# 	""" Generates T shaped scan (non-ambiguous case) """
+
+# 	npts =  4200 #16800
+# 	tscale = 5#10
+# 	noise_scale = 2
+
+# 	pp1 = np.zeros([npts,2])
+# 	pp2 = np.zeros([npts,2])
+
+
+# 	#ADJUST NET ROTATION HERE
+# 	# theta = np.random.randn()*0.05 #0.1
+# 	# t = np.random.randn(2)*tscale
+# 	theta = 0.1
+# 	t = np.array([5,10])
+
+# 	rot = R(theta)
+
+
+# 	#top part of T
+# 	pp1[:int(npts/3), :] = np.array([np.linspace(-250,250,int(npts/3)),125+10*np.sin(np.linspace(-2,2,int(npts/3)))]).T #wavy
+# 	# pp1[:int(npts/3), :] = np.array([np.linspace(-250,250,int(npts/3)),125*np.ones(int(npts/3))]).T #flat
+# 	#left horizontal
+# 	pp1[int(npts/3):int(npts/2), :] = np.array([np.linspace(-250,-75,int(npts/6)),np.ones(int(npts/6))*-75]).T
+# 	#left vertical
+# 	pp1[int(npts/2):int(2*npts/3), :] = np.array([np.ones(int(npts/6))*-75 ,np.linspace(-250,-75,int(npts/6))]).T
+# 	#right vertical
+# 	pp1[int(2*npts/3):int(5*npts/6), :] = np.array([np.ones(int(npts/6))*75 ,np.linspace(-250,-75,int(npts/6))]).T
+# 	#right horizontal
+# 	pp1[int(5*npts/6):, :] = np.array([np.linspace(75,250,int(npts/6)),np.ones(int(npts/6))*-75]).T
+
+# 	#rotate 90 deg
+# 	# temp = np.array([pp1[:,1], pp1[:,0]]).T
+# 	# pp1[:,:] = temp[:,:]
+
+# 	pp2[:,:] = pp1[:,:]
+
+# 	#transform scan2
+# 	pp2 += t
+# 	pp2 = rot.dot(pp2.T)
+# 	pp2 = pp2.T
+
+# 	#add noise to pp1 and pp2 SEPERATELY
+# 	pp1 += np.random.randn(npts, 2)*noise_scale
+# 	pp2 += np.random.randn(npts, 2)*noise_scale
+
+# 	# ax.plot(pp1[:,0], pp1[:,1], color = (0.25,0.8,0.25,0.125), ls = '', marker = '.', markersize = 1)
+# 	# ax.plot(pp2[:,0], pp2[:,1], color = (0.25,0.25,0.8,0.125), ls = '', marker = '.', markersize = 1)
+
+# 	if output_actual == False:
+# 		return pp1, pp2
+# 	if output_actual == True:
+# 		x_actual = np.array([t[0], t[1], theta])
+# 		return pp1, pp2, x_actual
+
 def generate_along_track_data(fig,ax,draw = True, output_actual = False):
 
-	""" Generates T shaped scan (non-ambiguous case) """
+	""" Generates 10x10 unstructured scan for debugging """
 
-	npts =  4200 #16800
-	tscale = 5#10
-	noise_scale = 2
+	npts =  320 #16800
+	tscale = 5
+	noise_scale_x = 3 #debug notes: I am getting equal performance in x and y when I double x noise... (predicted error in x is still double predicted in y tho)
+	noise_scale_y = 3
 
 	pp1 = np.zeros([npts,2])
 	pp2 = np.zeros([npts,2])
 
 
 	#ADJUST NET ROTATION HERE
-	# theta = np.random.randn()*0.05 #0.1
-	# t = np.random.randn(2)*tscale
-	theta = 0.1
-	t = np.array([5,10])
+	theta = np.random.randn()*0.05 #0.1
+	t = np.random.randn(2)*tscale
+	# theta = 0.1
+	# t = np.array([5,10])
 
 	rot = R(theta)
 
+	xctrs = [-175, -75, 75 , 175]
+	yctrs = [-175, -75, 75, 175]
 
-	#top part of T
-	pp1[:int(npts/3), :] = np.array([np.linspace(-250,250,int(npts/3)),125+10*np.sin(np.linspace(-2,2,int(npts/3)))]).T #wavy
-	# pp1[:int(npts/3), :] = np.array([np.linspace(-250,250,int(npts/3)),125*np.ones(int(npts/3))]).T #flat
-	#left horizontal
-	pp1[int(npts/3):int(npts/2), :] = np.array([np.linspace(-250,-75,int(npts/6)),np.ones(int(npts/6))*-75]).T
-	#left vertical
-	pp1[int(npts/2):int(2*npts/3), :] = np.array([np.ones(int(npts/6))*-75 ,np.linspace(-250,-75,int(npts/6))]).T
-	#right vertical
-	pp1[int(2*npts/3):int(5*npts/6), :] = np.array([np.ones(int(npts/6))*75 ,np.linspace(-250,-75,int(npts/6))]).T
-	#right horizontal
-	pp1[int(5*npts/6):, :] = np.array([np.linspace(75,250,int(npts/6)),np.ones(int(npts/6))*-75]).T
+	count = 1
+	for i in range(4):
+		for j in range(4):
+
+			pp1[(count-1)*(npts//16):(count)*(npts//16)] = np.array([xctrs[i],yctrs[j]])
+			count += 1
 
 	#rotate 90 deg
 	# temp = np.array([pp1[:,1], pp1[:,0]]).T
 	# pp1[:,:] = temp[:,:]
 
+	# r2 = R(np.pi/3)
+	# pp1 = r2.dot(pp1.T)
+	# pp1 = pp1.T
+
 	pp2[:,:] = pp1[:,:]
+
+	#add noise to pp1 and pp2 SEPERATELY
+	pp1[:,0] += np.random.randn(npts)*noise_scale_x
+	pp1[:,1] += np.random.randn(npts)*noise_scale_y
+	pp2[:,0] += np.random.randn(npts)*noise_scale_x
+	pp2[:,1] += np.random.randn(npts)*noise_scale_y
+
+	# pp2[:,:] = pp1[:,:]
+	# pp2[:,0] += np.random.randn(npts)*0.01
+	# pp2[:,1] += np.random.randn(npts)*0.01
+
 
 	#transform scan2
 	pp2 += t
 	pp2 = rot.dot(pp2.T)
 	pp2 = pp2.T
 
-	#add noise to pp1 and pp2 SEPERATELY
-	pp1 += np.random.randn(npts, 2)*noise_scale
-	pp2 += np.random.randn(npts, 2)*noise_scale
-
-	ax.plot(pp1[:,0], pp1[:,1], color = (0.25,0.8,0.25,0.125), ls = '', marker = '.', markersize = 1)
-	ax.plot(pp2[:,0], pp2[:,1], color = (0.25,0.25,0.8,0.125), ls = '', marker = '.', markersize = 1)
+	# ax.plot(pp1[:,0], pp1[:,1], color = (0.25,0.8,0.25,0.125), ls = '', marker = '.', markersize = 1)
+	# ax.plot(pp2[:,0], pp2[:,1], color = (0.25,0.25,0.8,0.125), ls = '', marker = '.', markersize = 1)
 
 	if output_actual == False:
 		return pp1, pp2
@@ -379,21 +450,28 @@ def fit_gaussian(points):
 		#covariance of x and y
 		# cov_xy = np.cov(points.T) #not needed?
 
-		#standard deviations
-		std_x = np.sqrt(np.sum( (points[:,0] - mu_x)**2 ) / np.shape(points)[0] )
-		std_y = np.sqrt(np.sum( (points[:,1] - mu_y)**2 ) / np.shape(points)[0] )
 
-		#expected value
-		E = np.mean( (points[:,0] - mu_x) * (points[:,1] - mu_y) )
+		#was this
+		# # standard deviations
+		# std_x = np.sqrt(np.sum( (points[:,0] - mu_x)**2 ) / (np.shape(points)[0] - 1 ))
+		# std_y = np.sqrt(np.sum( (points[:,1] - mu_y)**2 ) / (np.shape(points)[0] - 1 ))
+		# #expected value
+		# E = np.sum( (points[:,0] - mu_x) * (points[:,1] - mu_y) )/ (np.shape(points)[0] - 1)
+		# # 	rho: pearson correlation coefficient
+		# rho = E / (std_x*std_y)
+		# sigma = np.array([[std_x**2,  rho*std_x*std_y],
+		# 				  [-1*rho*std_x*std_y, std_y**2 ]])
+		# print("sigma:",sigma)
 
-		# 	rho: pearson correlation coefficient
-		rho = E / (std_x*std_y)
+		#test
+		std_x = np.sum( (points[:,0] - mu_x)*(points[:,0] - mu_x) ) / (np.shape(points)[0] - 1 )
+		std_y = np.sum( (points[:,1] - mu_y)*(points[:,1] - mu_y) ) / (np.shape(points)[0] - 1 )
+		std_xy= np.sum((points[:,0] - mu_x)*(points[:,1] - mu_y) ) / (np.shape(points)[0] - 1)
+		# std_yx= np.sum((points[:,1] - mu_y)*(points[:,0] - mu_x) ) / (np.shape(points)[0] - 1)
+		sigma = np.array([[std_x,  std_xy],
+						  [std_xy, std_y]])
 
-		sigma = np.array([[std_x**2,  rho*std_x*std_y],
-						  [rho*std_x*std_y, std_y**2 ]])
 
-
-		output = (mu, sigma)
-	
+		output = (mu, sigma)	
 	return output
 
