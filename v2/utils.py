@@ -325,99 +325,103 @@ def subdivide_scan_tf(pc, plt, bounds = tf.constant([-50.,50.,-50.,50.,-10.,10.]
 	if show_pc:
 		disp.append(cloud) #add point cloud object to viz
 
-	c = tf.convert_to_tensor(pc, np.float32)
+	cloud_tensor = tf.convert_to_tensor(pc, np.float32)
+	# print("cloud_tensor: \n", cloud_tensor)
+
 	#establish grid cells
 	startx = bounds[0].numpy()
 	stopx = bounds[1].numpy()
 	numx = fid[0].numpy() + 1
 	edgesx = tf.linspace(startx, stopx, numx)
-	xbins = tfp.stats.find_bins(c[:,0], edgesx)
+	xbins = tfp.stats.find_bins(cloud_tensor[:,0], edgesx)
 	# print(xbins)
 	starty = bounds[2].numpy()
 	stopy = bounds[3].numpy()
 	numy = fid[1].numpy() + 1
 	edgesy = tf.linspace(starty, stopy, numy)
-	ybins = tfp.stats.find_bins(c[:,1], edgesy)
+	ybins = tfp.stats.find_bins(cloud_tensor[:,1], edgesy)
 	# print(ybins)
 	startz = bounds[4].numpy()
 	stopz = bounds[5].numpy()
 	numz = fid[2].numpy() +1
 	edgesz = tf.linspace(startz, stopz, numz)
-	zbins = tfp.stats.find_bins(c[:,2], edgesz)
+	zbins = tfp.stats.find_bins(cloud_tensor[:,2], edgesz)
 	#print(zbins)
 
-	E = []
+	#create [N,3] query tensor containing the indices of all N bins
+	fida = fid[0].numpy() 
+	fidb = fid[1].numpy()
+	fidc = fid[2].numpy()
+	a = tf.linspace(0,fida-1,fida)[:,None]
+	b = tf.linspace(0,fidb-1,fidb)[:,None]
+	c = tf.linspace(0,fidc-1,fidc)[:,None]
+	ansa = tf.tile(a, [fidb*fidc, 1])
+	ansb = tf.tile(tf.reshape(tf.tile(b, [1,fida]), [-1,1] ), [(fidc), 1])
+	ansc = tf.reshape(tf.tile(c, [1,fida*fidb]), [-1,1] )
+	q = tf.cast(tf.squeeze(tf.transpose(tf.Variable([ansa,ansb,ansc]))), tf.float32)[:,None]
+	# print("query: \n", q) #correct format
 
-	# print("shape of cloud: \n", tf.shape(c))
+	#estabilsh tensor containing all points rounded to the nearest bin
+	bins = tf.transpose(tf.Variable([xbins, ybins, zbins]))
+	# print("bins \n", bins) #correct format
 
-	total_time = 0
-	#subdivide points into grid
-	for x in range(fid[0]):
-		for y in range(fid[1]):
-			for z in range(fid[2]):
-				loop_start = time.time()
-				#only do calculations if there are a sufficicently high number of points in the bin
-				xin = tf.transpose(tf.where(xbins == x))#[:,0]
-				# print("shape of xin \n", tf.shape(xin))
-				#get index for the subset of points in y that are also within a the correct x direction
-				# yin = tf.where(tf.gather(ybins, xin) == y)[:,0] #only want the first column of gather
-				yin = tf.transpose(tf.where(ybins == y))#[:,0]
-				# print("shape of yin \n", tf.shape(yin))
-				# idx = tf.where(tf.gather(zbins, yin) == z)
-				zin = tf.transpose(tf.where(zbins == z))#[:,0]
-				# print(xin[:10])
-				# print(yin[:10])
-				# print(zin[:10])
-				idx = tf.sets.intersection(xin, yin)
-				idx = tf.sparse.to_dense(idx)
+	idx = tf.equal(bins, q)
+	# print("idx: \n", idx)
 
-				idx = tf.sets.intersection(idx, zin)
-				idx = tf.sparse.to_dense(idx)
+	#loc outputs tensor of shape [N,2], where:
+	#  [[voxel number, index of [x,y,z] in cloud that corresponds to bin #],
+	#   [voxel number,index of [x,y,z] in cloud that corresponds to bin #]...]  
+	loc = tf.where(tf.math.reduce_all(idx, axis = 2) == True)
 
-				# print("shape of idx \n", tf.shape(idx))
-				num_in_cell = tf.shape(idx)[1]
+	#Need to "ungroup" so that we can fit_gaussian_tf() to each individual voxel...
+	s = tf.shape(loc)
+	group_ids, group_idx = tf.unique(loc[:, 0], out_idx=s.dtype)
+	num_groups = tf.reduce_max(group_idx) + 1
+	# print(group_ids, group_idx, num_groups)
+	sizes = tf.math.bincount(group_idx)
 
-				# print(num_in_cell)
-				if num_in_cell > min_num_pts:
-
-					# print(tf.squeeze(tf.gather(c,idx))) #bug here?
-					# print("shape of input for fit gaussian \n",tf.squeeze(tf.gather(c,idx)))
-					mu, sigma = fit_gaussian_tf(tf.squeeze(tf.gather(c,idx)))
-
-					eig = tf.linalg.eig(sigma)
-					eigenval = tf.cast(eig[0], tf.float32)
-					eigenvec = tf.cast(eig[1], tf.float32)
-					#for some reason TF likes to output eigs the opposite way as np...
-					eigenval = tf.reverse(eigenval, axis = [0])
-					eigenvec = tf.reverse(eigenvec, axis = [1])
-					# print(eigenval, eigenvec)
+	#replace <bins> here with <cloud_tensor> when done debugging
+	rag = tf.RaggedTensor.from_row_lengths(tf.gather(cloud_tensor, loc[:,1]), sizes) 
+	# print("ragged: \n", rag.bounding_shape())
 
 
-					a1 = 4*tf.math.sqrt(eigenval[0])
-					a2 = 4*tf.math.sqrt(eigenval[1])
-					a3 = 4*tf.math.sqrt(eigenval[2])
+	print(sizes)
 
-					# print(a1)
-					# print(a2)
-					# print(a3)
-					# print(mu)
+	#TODO: we don't need any individual voxel to have 6.02e23 points in it (this kills the RAM)
+	#			when we convert the ragged to standard tensor try to only keep 30 points max
 
-					ell = Ell(pos=(mu[0], mu[1], mu[2]), axis1 = a1, 
-						axis2 = a2, axis3 = a3, 
-						angs = ([-R2Euler_tf(eigenvec)[0], -R2Euler_tf(eigenvec)[1], -R2Euler_tf(eigenvec)[2] ]), c=(1,0.5,0.5), alpha=1, res=12)
+	#Run on GPU as vectorized operation (WAAAAAY Faster) ----------------------------
+	reg = tf.RaggedTensor.to_tensor(rag) #was this-> works but is VERY memory intensive
 
-					disp.append(ell)
+	#new strategy
+	# reg = tf.RaggedTensor.to_sparse(rag) #convert ragged tensor to sparse 
+	#chop off any data beyond 100 points per voxel (way more than enough)
+	#convert to dense for use in fit_gaussian
 
-					E.append((mu, sigma, num_in_cell))
 
-					loop_time = time.time() - loop_start
-					total_time += loop_time
-			
-							# print(E)
-	plt.show(disp, "subdivide_scan", at=0) 
+	# print("\n regular tensor: \n", reg)
+	mu, sigma = fit_gaussian_tf(reg)
+	# print("mu: \n", mu)
+	# print("sigma: \n", sigma)
+	#--------------------------------------------------------------------------------- 
 
-	print("took", total_time/ (fid[0].numpy()*fid[1].numpy()*fid[2].numpy()), "seconds per loop")
+	# # works but uses loop (runs on CPU -> slow) -------------------------------------
+	# A =  tf.data.Dataset.from_tensor_slices(rag)
+	# mus = []
+	# sigmas = []
+	# for i in range(len(A)):
+	#     mu, sigma = fit_gaussian_tf(rag[i])
+	#     mus.append(mu)
+	#     sigmas.append(sigma)
+	# print(mus, sigmas)
+	# #--------------------------------------------------------------------------------
 
+
+	E = [mu, sigma]
+
+
+	# plt.show(disp, "subdivide_scan", at=0) 
+	# print("took", total_time/ (fid[0].numpy()*fid[1].numpy()*fid[2].numpy()), "seconds per loop")
 	return E
 
 class Ell(Mesh):
@@ -512,6 +516,9 @@ def fit_gaussian_tf(points):
 	"""input: [N,3] tensor"""
 
 	#TODO: remove elements from tensors that are all zeros -> need them to convert from raggedtensor type
+	#TODO: get working with KITTI data formats
+
+	# print("input to fit_gaussian_tf(): \n", points)
 
 	x = tf.math.reduce_mean(points[:,:,0], axis = 1)
 	y = tf.math.reduce_mean(points[:,:,1], axis = 1)
@@ -532,9 +539,9 @@ def fit_gaussian_tf(points):
 	std_y = tf.math.reduce_sum( (tf.transpose(points[:,:,1]) - mu[:,1])**2, axis = 0) / tf.shape(points)[0].numpy()
 	std_z = tf.math.reduce_sum( (tf.transpose(points[:,:,2]) - mu[:,2])**2, axis = 0) / tf.shape(points)[0].numpy()
 
-	print("std_x \n",std_x)
-	print("std_y \n",std_y)
-	print("std_z \n",std_z)
+	# print("std_x \n",std_x)
+	# print("std_y \n",std_y)
+	# print("std_z \n",std_z)
 
 	E_xy = tf.math.reduce_mean( (tf.transpose(points[:,:,0]) - mu[:,0]) * ( tf.transpose(points[:,:,1]) - mu[:,1]), axis =0 ) 	#expected value
 	E_xz = tf.math.reduce_mean( (tf.transpose(points[:,:,0]) - mu[:,0]) * ( tf.transpose(points[:,:,2]) - mu[:,2]), axis =0 )
