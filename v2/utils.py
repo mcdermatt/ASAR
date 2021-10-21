@@ -222,6 +222,9 @@ def subdivide_scan(pc, plt, bounds = np.array([-50,50,-50,50,-10,10]), fid = np.
 	fid = np.array([ncellsx, ncellsy, ncellsz])
 
 	"""
+
+	start = time.time()
+
 	cloud = Points(pc, c = (1,1,1), alpha = 0.5)
 	if show_pc:
 		disp.append(cloud) #add point cloud object to viz
@@ -254,13 +257,10 @@ def subdivide_scan(pc, plt, bounds = np.array([-50,50,-50,50,-10,10]), fid = np.
 				z_lines = shapes.Line(p0, p1, closed=False, c='white', alpha=1, lw=0.25, res=0)
 				disp.append(z_lines)
 
-	total_time = 0
-
 	#loop through each voxel
 	for x in range(fid[0]):
 		for y in range(fid[1]):
 			for z in range(fid[2]):
-				loop_start = time.time()
 				within_x = pc[pc[:,0] > xbound[x]]
 				within_x = within_x[within_x[:,0] < xbound[x+1] ]
 
@@ -278,7 +278,7 @@ def subdivide_scan(pc, plt, bounds = np.array([-50,50,-50,50,-10,10]), fid = np.
 					eigenvec = eig[1]
 					# print(eigenval,"\n", eigenvec)
 
-					#was this
+					##was this
 					# a1 = eigenval[0]
 					# a2 = eigenval[1]
 					# a3 = eigenval[2]
@@ -301,8 +301,6 @@ def subdivide_scan(pc, plt, bounds = np.array([-50,50,-50,50,-10,10]), fid = np.
 					disp.append(ell)
 
 					E.append((mu, sigma, np.shape(within_box)[0]))
-					loop_time = time.time() - loop_start
-					total_time += loop_time
 
 	#test- add random ellipsoids and add them to disp
 	# for i in range(10):
@@ -312,21 +310,23 @@ def subdivide_scan(pc, plt, bounds = np.array([-50,50,-50,50,-10,10]), fid = np.
 	# 	disp.append(ell)
 
 	plt.show(disp, "subdivide_scan", at=0) 
-	print("took", total_time/ (fid[0]*fid[1]*fid[2]), "seconds per loop")
+	print("took", time.time() - start, "seconds with numpy")
 
 
 	return E
 
 
-def subdivide_scan_tf(pc, plt, bounds = tf.constant([-50.,50.,-50.,50.,-10.,10.]), fid = tf.constant([10,10,3]), disp = [],
+def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.,-10.,10.]), fid = tf.constant([10,10,3]), disp = [],
 					min_num_pts = 20, nstd = 2, draw_grid = True, show_pc = True):
 
-	cloud = Points(pc, c = (1,1,1), alpha = 0.5)
+	cloud = Points(cloud_tensor, c = (1,1,1), alpha = 0.5)
 	if show_pc:
 		disp.append(cloud) #add point cloud object to viz
 
-	cloud_tensor = tf.convert_to_tensor(pc, np.float32)
+	# cloud_tensor = tf.convert_to_tensor(pc, np.float32)
 	# print("cloud_tensor: \n", cloud_tensor)
+
+	start = time.time()
 
 	#establish grid cells
 	startx = bounds[0].numpy()
@@ -379,31 +379,60 @@ def subdivide_scan_tf(pc, plt, bounds = tf.constant([-50.,50.,-50.,50.,-10.,10.]
 	num_groups = tf.reduce_max(group_idx) + 1
 	# print(group_ids, group_idx, num_groups)
 	sizes = tf.math.bincount(group_idx)
+	# print(sizes)
 
 	#replace <bins> here with <cloud_tensor> when done debugging
 	rag = tf.RaggedTensor.from_row_lengths(tf.gather(cloud_tensor, loc[:,1]), sizes) 
 	# print("ragged: \n", rag.bounding_shape())
 
-
-	print(sizes)
-
 	#TODO: we don't need any individual voxel to have 6.02e23 points in it (this kills the RAM)
-	#			when we convert the ragged to standard tensor try to only keep 30 points max
+	#			when we convert the ragged to standard tensor try to only keep ~30(?) points max
+
+	#test with just working with ragged tensors..------------------------------------
+
+	mu = tf.math.reduce_mean(rag, axis=1)
+	std = tf.math.reduce_std(rag, axis = 1)
+	# print(mu)
+	# print(std)
+
+	#temp
+	sigma = std
+
+	#--------------------------------------------------------------------------------
 
 	#Run on GPU as vectorized operation (WAAAAAY Faster) ----------------------------
-	reg = tf.RaggedTensor.to_tensor(rag) #was this-> works but is VERY memory intensive
-
-	#new strategy
-	# reg = tf.RaggedTensor.to_sparse(rag) #convert ragged tensor to sparse 
-	#chop off any data beyond 100 points per voxel (way more than enough)
-	#convert to dense for use in fit_gaussian
-
-
+	# reg = tf.RaggedTensor.to_tensor(rag) #was this-> works but is VERY memory intensive
 	# print("\n regular tensor: \n", reg)
-	mu, sigma = fit_gaussian_tf(reg)
+	# reg = tf.RaggedTensor.to_tensor(rag, shape = (None, 100, 3)) #limits to max N points per voxel (still has zeros)
+	# print("\n truncated reg: \n", reg)
+	# mu, sigma = fit_gaussian_tf(reg)
 	# print("mu: \n", mu)
 	# print("sigma: \n", sigma)
 	#--------------------------------------------------------------------------------- 
+
+	#Alternate approach using only sparse tensors  -----------------------------------
+	# st = tf.RaggedTensor.to_sparse(rag)
+	# print("\n st: \n", st)
+	# st_shape = st.get_shape()
+	# # print("\n",st_shape)
+	# # print(st_shape[0])
+	# print("dense shape: \n", st.dense_shape)
+	# stsums = tf.sparse.reduce_sum(st, axis = 1)
+	# # print(stsums) #no longer a sparse tensor
+	# mu = stsums/tf.cast(sizes[:,None], tf.float32)
+	# print("mu: \n", mu) #no longer a sparse tensor
+
+	# xpts = tf.sparse.slice(st, [0,0,0], [st.dense_shape[0], st.dense_shape[1] , 1])
+	# print("\n xpoints: \n",xpts)
+	# ##TODO: why is this not doing anything???
+	# xpts = tf.sparse.reshape(xpts, (st.dense_shape[0], st.dense_shape[1], 1))
+	# print("\n xpoints: \n",xpts)
+
+	# x_std = tf.sparse.add(xpts, mu)
+	# print("\n",x_std)
+	# # print(tf.sparse.add(stsums, mu))
+
+	#----------------------------------------------------------------------------------
 
 	# # works but uses loop (runs on CPU -> slow) -------------------------------------
 	# A =  tf.data.Dataset.from_tensor_slices(rag)
@@ -417,11 +446,11 @@ def subdivide_scan_tf(pc, plt, bounds = tf.constant([-50.,50.,-50.,50.,-10.,10.]
 	# #--------------------------------------------------------------------------------
 
 
-	E = [mu, sigma]
+	E = [mu, sigma, sizes]
 
 
 	# plt.show(disp, "subdivide_scan", at=0) 
-	# print("took", total_time/ (fid[0].numpy()*fid[1].numpy()*fid[2].numpy()), "seconds per loop")
+	print("took", time.time() - start, "seconds with tensorflow")
 	return E
 
 class Ell(Mesh):
@@ -516,7 +545,6 @@ def fit_gaussian_tf(points):
 	"""input: [N,3] tensor"""
 
 	#TODO: remove elements from tensors that are all zeros -> need them to convert from raggedtensor type
-	#TODO: get working with KITTI data formats
 
 	# print("input to fit_gaussian_tf(): \n", points)
 
@@ -524,15 +552,19 @@ def fit_gaussian_tf(points):
 	y = tf.math.reduce_mean(points[:,:,1], axis = 1)
 	z = tf.math.reduce_mean(points[:,:,2], axis = 1)
 	mu = tf.transpose(tf.Variable([x, y, z]))
-	# print("mu: \n", mu)
 
 
-	# print("pointsx: \n" , points[:,:,0])
+	# print("points: \n" , points)
 	# print("mux: \n", mu[:,0])
 
 	# print("pointsx - mux \n", tf.transpose(points[:, :, 0]) - mu[:,0])
 
 	# print("\n tf.math.reduce_sum(points[:,0] - mu[0]) \n", tf.math.reduce_sum((points[:,0] - mu[0])))
+
+	# nonzeroxidx = tf.math.not_equal(points, tf.constant([[0.,0.,0.]])) 
+	# print(nonzeroxidx)
+	# nonzerox = tf.squeeze(tf.gather(points,tf.where(tf.math.reduce_any(nonzeroxidx, axis = 2) == True)))
+	# print(nonzerox)
 
 	#standard deviations
 	std_x = tf.math.reduce_sum( (tf.transpose(points[:,:,0]) - mu[:,0])**2, axis = 0) / tf.shape(points)[0].numpy()
