@@ -322,6 +322,15 @@ def subdivide_scan(pc, plt, bounds = np.array([-50,50,-50,50,-10,10]), fid = np.
 def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.,-10.,10.]), fid = tf.constant([10,10,3]), disp = [],
 					min_num_pts = 20, nstd = 2, draw_grid = True, show_pc = True):
 
+	"""Subdivide point cloud into voxels and calculate means and covaraince matrices for each voxels
+			cloud_tensor = point cloud input
+			bounds = x, y, z lims 
+			fid = number of voxel cells in x y and z
+			disp = existing scene objects to draw on top of
+			min_num_pts = only perform operations on voxels containing this many points or greater
+
+			"""
+
 	cloud = Points(cloud_tensor, c = (1,1,1), alpha = 0.5)
 	if show_pc:
 		disp.append(cloud) #add point cloud object to viz
@@ -402,7 +411,7 @@ def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.
 	# 				loc = tf.constant([[j,i]])
 	#-------------------------------------------------------------------------------
 
-	print("took", time.time() - loctime, "s to get loc")
+	# print("took", time.time() - loctime, "s to get loc")
 
 	#Need to "ungroup" so that we can fit_gaussian_tf() to each individual voxel...
 	s = tf.shape(loc)
@@ -410,7 +419,6 @@ def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.
 	num_groups = tf.reduce_max(group_idx) + 1
 	# print(group_ids, group_idx, num_groups)
 	sizes = tf.math.bincount(group_idx)
-	# print(sizes)
 
 	#replace <bins> here with <cloud_tensor> when done debugging
 	rag = tf.RaggedTensor.from_row_lengths(tf.gather(cloud_tensor, loc[:,1]), sizes) 
@@ -419,15 +427,35 @@ def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.
 	#TODO: we don't need any individual voxel to have 6.02e23 points in it (this kills the RAM)
 	#			when we convert the ragged to standard tensor try to only keep ~30(?) points max
 
-	#test with just working with ragged tensors..------------------------------------
+	# fastest to only use ragged tensors ----------------------------------------------
 
 	mu = tf.math.reduce_mean(rag, axis=1)
-	std = tf.math.reduce_std(rag, axis = 1)
-	print(mu)
-	print(std)
+	#correct standard deviation but does not affect covariance
+	# std = tf.math.reduce_std(rag, axis = 1) 
 
-	#temp
-	sigma = std
+	#TODO multiply by sparse identity matrix to remove axis containing all zeros
+	#	we already know how many elements are sizes with (shape - sizes[i])
+
+	# #fast(ish) but includes zeros (messes up results) ----------------------------------
+	sigma = tfp.stats.covariance(rag.to_tensor(), sample_axis = 0, event_axis = 2) 
+	# #-----------------------------------------------------------------------------------
+
+	# #correct (ignores zeros) but way slower ---------------------------------------------
+	# vox_with_zeros = rag.to_tensor() #[voxel #, point in voxel #, x y or z]
+	# # print(vox_with_zeros)
+	# sigma = tfp.stats.covariance(vox_with_zeros[0,:sizes[0],:], sample_axis = 0, event_axis = 1)[:,None]
+	# for i in range(tf.shape(vox_with_zeros)[0] - 1):
+	# 	sigma = tf.concat((sigma, tfp.stats.covariance(vox_with_zeros[i,:sizes[i],:], sample_axis = 0, event_axis = 1)[:,None]), axis = 1 )
+	# 	#TODO make sure this is concating in the correct order (1,2,3 vs 3,2,1...)
+	# # -----------------------------------------------------------------------------------
+
+
+	# print("\n sigma: \n", sigma)
+
+	# print(mu)
+	##print(std)
+	# print(sigma)
+	# print(sizes)
 
 	#--------------------------------------------------------------------------------
 
