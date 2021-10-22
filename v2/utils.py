@@ -279,13 +279,14 @@ def subdivide_scan(pc, plt, bounds = np.array([-50,50,-50,50,-10,10]), fid = np.
 					# print(eigenval,"\n", eigenvec)
 
 					##was this
-					# a1 = eigenval[0]
-					# a2 = eigenval[1]
-					# a3 = eigenval[2]
-					# ell = Ell(pos=(mu[0], mu[1], mu[2]), axis1 = 4*np.sqrt(a1), 
-					# 	axis2 = 4*np.sqrt(a2), axis3 = 4*np.sqrt(a3), 
-					# 	angs = (np.array([-R2Euler(eigenvec)[0], -R2Euler(eigenvec)[1], -R2Euler(eigenvec)[2] ])), c=(1,0.5,0.5), alpha=1, res=12)
+					a1 = eigenval[0]
+					a2 = eigenval[1]
+					a3 = eigenval[2]
+					ell = Ell(pos=(mu[0], mu[1], mu[2]), axis1 = 4*np.sqrt(a1), 
+						axis2 = 4*np.sqrt(a2), axis3 = 4*np.sqrt(a3), 
+						angs = (np.array([-R2Euler(eigenvec)[0], -R2Euler(eigenvec)[1], -R2Euler(eigenvec)[2] ])), c=(1,0.5,0.5), alpha=1, res=12)
 
+					# more consistant eigenvalue orders (similar to TF implementation) but worse(?) performance
 					big = np.argwhere(eigenval == np.max(eigenval))
 					middle = np.argwhere(eigenval == np.median(eigenval))
 					small = np.argwhere(eigenval == np.min(eigenval))
@@ -293,12 +294,14 @@ def subdivide_scan(pc, plt, bounds = np.array([-50,50,-50,50,-10,10]), fid = np.
 					a1 = eigenval[big]
 					a2 = eigenval[middle]
 					a3 = eigenval[small]
-					ell = Ell(pos=(mu[0], mu[1], mu[2]), axis1 = 4*np.sqrt(a1), 
+
+					ell2 = Ell(pos=(mu[0], mu[1], mu[2]), axis1 = 4*np.sqrt(a1), 
 						axis2 = 4*np.sqrt(a2), axis3 = 4*np.sqrt(a3), 
-						angs = (np.array([-R2Euler(eigenvec)[big], -R2Euler(eigenvec)[middle], -R2Euler(eigenvec)[small] ])), c=(1,0.5,0.5), alpha=1, res=12)
+						angs = (np.array([-R2Euler(eigenvec)[big], -R2Euler(eigenvec)[middle], -R2Euler(eigenvec)[small] ])), c=(0.5,0.5,1), alpha=1, res=12)
 
 
 					disp.append(ell)
+					disp.append(ell2)
 
 					E.append((mu, sigma, np.shape(within_box)[0]))
 
@@ -365,13 +368,41 @@ def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.
 	bins = tf.transpose(tf.Variable([xbins, ybins, zbins]))
 	# print("bins \n", bins) #correct format
 
-	idx = tf.equal(bins, q)
-	# print("idx: \n", idx)
-
+	loctime = time.time()
 	#loc outputs tensor of shape [N,2], where:
 	#  [[voxel number, index of [x,y,z] in cloud that corresponds to bin #],
 	#   [voxel number,index of [x,y,z] in cloud that corresponds to bin #]...]  
-	loc = tf.where(tf.math.reduce_all(idx, axis = 2) == True)
+
+	#takes ~0.65s with (25,25,4) grid-----------------------------------------------
+	# This is where the largest biggest bottleneck is
+	# https://stackoverflow.com/questions/46644796/which-one-is-more-efficient-tf-where-or-element-wise-multiplication
+
+	# idx = tf.equal(bins, q)
+	# loc = tf.where(tf.math.equal(tf.math.reduce_all(idx, axis = 2), True))
+	# # print("idx: \n", idx)
+	#-------------------------------------------------------------------------------
+
+	# Use binned point xyz location as hash for bin number -------------------------
+	num = tf.cast( ( bins[:,0] + fida*bins[:,1] + (fida*fidb)*bins[:,2] ), tf.int32)
+	loc = tf.concat((num[:,None], tf.cast(tf.linspace(0, tf.shape(bins)[0], tf.shape(bins)[0]  )[:,None],
+                                      dtype = tf.int32) ), axis = 1 )
+
+	#remove elements of tensor that are outside limits of voxel grid
+	# ------------------------------------------------------------------------------- 
+
+	#VERY slow (takes minutes) ----------------------------------------------------
+	# loc = None
+	# for i in range(tf.shape(bins)[0]):
+	# 	for j in range(tf.shape(q)[0]):
+	# 		if tf.reduce_all(bins[i] == q[j]):
+	# 			print(j,i)
+	# 			try:
+	# 				loc = tf.concat((loc2, tf.constant([[j,i]])), axis = 0)
+	# 			except:
+	# 				loc = tf.constant([[j,i]])
+	#-------------------------------------------------------------------------------
+
+	print("took", time.time() - loctime, "s to get loc")
 
 	#Need to "ungroup" so that we can fit_gaussian_tf() to each individual voxel...
 	s = tf.shape(loc)
@@ -392,8 +423,8 @@ def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.
 
 	mu = tf.math.reduce_mean(rag, axis=1)
 	std = tf.math.reduce_std(rag, axis = 1)
-	# print(mu)
-	# print(std)
+	print(mu)
+	print(std)
 
 	#temp
 	sigma = std
