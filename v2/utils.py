@@ -429,7 +429,7 @@ def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.
 
 	# fastest to only use ragged tensors ----------------------------------------------
 
-	mu = tf.math.reduce_mean(rag, axis=1)
+	# mu = tf.math.reduce_mean(rag, axis=1)
 	#correct standard deviation but does not affect covariance
 	# std = tf.math.reduce_std(rag, axis = 1) 
 
@@ -437,18 +437,43 @@ def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.
 	#	we already know how many elements are sizes with (shape - sizes[i])
 
 	# #fast(ish) but includes zeros (messes up results) ----------------------------------
-	sigma = tfp.stats.covariance(rag.to_tensor(), sample_axis = 0, event_axis = 2) 
+	# sigma = tfp.stats.covariance(rag.to_tensor(), sample_axis = 0, event_axis = 2) 
 	# #-----------------------------------------------------------------------------------
 
 	# #correct (ignores zeros) but way slower ---------------------------------------------
 	# vox_with_zeros = rag.to_tensor() #[voxel #, point in voxel #, x y or z]
 	# # print(vox_with_zeros)
-	# sigma = tfp.stats.covariance(vox_with_zeros[0,:sizes[0],:], sample_axis = 0, event_axis = 1)[:,None]
+	# sigma_slow = tfp.stats.covariance(vox_with_zeros[0,:sizes[0],:], sample_axis = 0, event_axis = 1)[:,None]
 	# for i in range(tf.shape(vox_with_zeros)[0] - 1):
-	# 	sigma = tf.concat((sigma, tfp.stats.covariance(vox_with_zeros[i,:sizes[i],:], sample_axis = 0, event_axis = 1)[:,None]), axis = 1 )
+	# 	sigma_slow = tf.concat((sigma_slow, tfp.stats.covariance(vox_with_zeros[i,:sizes[i],:], sample_axis = 0, event_axis = 1)[:,None]), axis = 1 )
 	# 	#TODO make sure this is concating in the correct order (1,2,3 vs 3,2,1...)
-	# # -----------------------------------------------------------------------------------
+	# print(sigma_slow[:,1,:])
+	# # # -----------------------------------------------------------------------------------
 
+	## use mask to ignore sums of 0 and mu to caclualte cov--------------------------------
+	mu = tf.math.reduce_mean(rag, axis=1)
+
+	vox_with_zeros = rag.to_tensor() #[voxel #, point in voxel #, x y or z]
+	# print(tf.shape(vox_with_zeros[:,:,0]))
+	# print(tf.shape(mu[:,0]))
+
+	#need to create mask vector to ignore all summation results from places where vox_with_zeros is 0,0,0
+		#create a ragged tensor of ones using shape "sizes" and then convert to a standard tensor
+	mask = tf.RaggedTensor.from_row_lengths(tf.ones(tf.math.reduce_sum(sizes)), sizes).to_tensor()
+	
+	std_x = tf.reduce_sum( (((vox_with_zeros[:,:,0] - mu[:,0][:,None])*mask)**2) , axis = 1)/ tf.cast(sizes, tf.float32)
+	std_y = tf.reduce_sum( (((vox_with_zeros[:,:,0] - mu[:,1][:,None])*mask)**2) , axis = 1)/ tf.cast(sizes, tf.float32)
+	std_z = tf.reduce_sum( (((vox_with_zeros[:,:,0] - mu[:,2][:,None])*mask)**2) , axis = 1)/ tf.cast(sizes, tf.float32)
+
+	# E_xy = mean((xpts-mux)(ypts-muy))
+	E_xy = tf.reduce_sum( ((vox_with_zeros[:,:,0] - mu[:,0][:,None])*(vox_with_zeros[:,:,1] - mu[:,1][:,None]))*mask , axis = 1)/ tf.cast(sizes, tf.float32)
+	E_xz = tf.reduce_sum( ((vox_with_zeros[:,:,0] - mu[:,0][:,None])*(vox_with_zeros[:,:,2] - mu[:,2][:,None]))*mask , axis = 1)/ tf.cast(sizes, tf.float32)
+	E_yz = tf.reduce_sum( ((vox_with_zeros[:,:,1] - mu[:,1][:,None])*(vox_with_zeros[:,:,2] - mu[:,2][:,None]))*mask , axis = 1)/ tf.cast(sizes, tf.float32)
+	
+	sigma = tf.Variable([[std_x, E_xy, E_xz],
+						 [E_xy, std_y, E_yz],
+						 [E_xz, E_yz, std_z]]) 
+	## -------------------------------------------------------------------------------------
 
 	# print("\n sigma: \n", sigma)
 
