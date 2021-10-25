@@ -332,6 +332,8 @@ def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.
 			disp = existing scene objects to draw on top of
 			min_num_pts = only perform operations on voxels containing this many points or greater
 
+	TODO: fix bug where bins get messed up if points exist outside bounds
+
 			"""
 
 	cloud = Points(cloud_tensor, c = (1,1,1), alpha = 0.5)
@@ -398,8 +400,6 @@ def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.
 	loc = tf.concat((num[:,None], tf.cast(tf.linspace(0, tf.shape(bins)[0], tf.shape(bins)[0]  )[:,None],
                                       dtype = tf.int32) ), axis = 1 )
 
-	#correctly identifying which group points are in...
-
 	#VERY slow (takes minutes) ----------------------------------------------------
 	# loc = None
 	# for i in range(tf.shape(bins)[0]):
@@ -415,33 +415,35 @@ def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.
 	#Need to "ungroup" so that we can fit_gaussian_tf() to each individual voxel...
 	s = tf.shape(loc)
 	group_ids, group_idx = tf.unique(loc[:, 0], out_idx=s.dtype)
-	num_groups = tf.reduce_max(group_idx) + 1
+	# num_groups = tf.reduce_max(group_idx) + 1
 	# print(group_ids, group_idx, num_groups)
 	sizes = tf.math.bincount(group_idx)
 	# print("\n sizes \n", sizes)
 
 	# print("\n group_ids \n", group_ids)
 	# print("\n group_idx \n", group_idx)
-	# print("\n loc[:,0]: \n", loc[:,0])
+	# print("\n loc[:,0]: \n", loc)
 
 
-	#BUG IS HERE -> why am I getting idx 10 in tensor of length 10???
+	#BUG HERE? -> why am I getting idx 10 in tensor of length 10???
 	#sort loc by first element (group 0, group1, group2, etc )
 	# print("\n loc: \n", loc)
-	reordered = tf.argsort(loc, axis = 0, direction='DESCENDING')
+	reordered = tf.argsort(loc, axis = 0, direction='ASCENDING')
 	# print("\n reordered: \n", reordered)
 
 	# print("\n applied to cloud ", tf.gather(cloud_tensor, reordered[:,0]))
 
 	#updated sizes (order switches here)
-	temp = tf.gather(loc, tf.argsort(loc[:,0], direction = "DESCENDING"))[:,0]
+	temp = tf.gather(loc, tf.argsort(loc[:,0], direction = "ASCENDING"))#[:,0]
 	# print("\n temp \n", temp)
-	sizes_updated = tf.math.bincount(temp)
+	sizes_updated = tf.math.bincount(temp[:,0])
 	# print("sizes_updated \n", sizes_updated)
+
+	# print("\n test of order \n", tf.gather(cloud_tensor, temp[:,1]))
 
 	#replace <bins> here with <cloud_tensor> when done debugging
 	# rag = tf.RaggedTensor.from_row_lengths(tf.gather(cloud_tensor, loc[:,0]), sizes) #was this
-	rag = tf.RaggedTensor.from_row_lengths(tf.gather(cloud_tensor, reordered[:,0]), sizes_updated) #test
+	rag = tf.RaggedTensor.from_row_lengths(tf.gather(cloud_tensor, temp[:,1]), sizes_updated) #test
 	# print("ragged: \n", rag.bounding_shape())
 
 	# #correct (ignores zeros) but way slower ---------------------------------------------
@@ -454,24 +456,25 @@ def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.
 	# print(sigma_slow[:,1,:])
 	# # # -----------------------------------------------------------------------------------
 
-	mu = tf.math.reduce_mean(rag, axis=1) #WORKS
+	mu = tf.math.reduce_mean(rag, axis=1) #works correctly
 	#get rid of nan values in mu
 	mu = tf.where(tf.math.is_nan(mu), tf.zeros_like(mu), mu)
+	# print("\n mu \n", mu)
 
 	vox_with_zeros = rag.to_tensor() #[voxel #, point in voxel #, x y or z]
 	# print(vox_with_zeros)
 
-	#ERROR: this should result in 4 groups when splitting scan up into 2x2: 2 should be negative, 2 should be positive
-	# print("\n vox_with_zeros: \n", vox_with_zeros)
-
 	#need to create mask vector to ignore all summation results from places where vox_with_zeros is 0,0,0
 		#create a ragged tensor of ones using shape "sizes" and then convert to a standard tensor
-		#TODO- Transpose this??
 	mask = tf.RaggedTensor.from_row_lengths(tf.ones(tf.math.reduce_sum(sizes_updated)), sizes_updated).to_tensor()
 	# print("\n mask: \n", mask)
 
-	# mu_x = tf.reduce_sum(vox_with_zeros[:,:,0]*mask, axis = 0)/tf.cast(sizes, tf.float32)
+	#calculate mu manually (for debug)
+	# mu_x = tf.math.reduce_sum(vox_with_zeros[:,:,0]*mask, axis = 1)/tf.cast(sizes_updated,tf.float32)
 	# print(mu_x)
+
+	#ERROR: this should result in 4 groups when splitting scan up into 2x2: 2 should be negative, 2 should be positive
+	# print("\n vox_with_zeros: \n", vox_with_zeros)
 
 	# print("\n voxwzeros[:,:,0]: \n",vox_with_zeros[:,:,0])
 	# print("\n mu[:,0] \n ", mu[:,0][:,None])
@@ -494,20 +497,17 @@ def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.
 	#get rid of any nan values in sigma
 	sigma = tf.where(tf.math.is_nan(sigma), tf.zeros_like(sigma), sigma)
 
-	#UNIT TEST-
-	#	mu - outputting correctly for small point clouds, messing up full dataset
-				#note -> not getting point in all quadrants for point_cloud[:1000] 
-	#	sigmas - ???
-	#	shapes - outputting correctly for small point clouds, messing up full dataset
-
 	E = [mu, sigma, sizes]
+
+
+	print("took", time.time() - start, "seconds with tensorflow")
+
 
 	if draw == True:
 
-		draw_ell(plt, disp, E)
+		draw_ell(plt, disp, E, bounds =bounds, draw_grid = draw_grid, fid = fid)
 
 	# plt.show(disp, "subdivide_scan", at=0) 
-	print("took", time.time() - start, "seconds with tensorflow")
 	return E
 
 class Ell(Mesh):
@@ -573,7 +573,7 @@ class Ell(Mesh):
         self.top = np.array(axis1) / 2 + pos
         self.name = "Ell"
 
-def draw_ell(plt, disp, E):
+def draw_ell(plt, disp, E, draw_grid = False, fid = None, bounds =None):
 
 	"""draw distribution ellipses from E
 	 called by subdivide_scan_tf() """
@@ -586,28 +586,73 @@ def draw_ell(plt, disp, E):
 
 	for i in range(tf.shape(sigma)[2]):
 
-		eigenval, eigenvec = tf.linalg.eig(tf.transpose(sigma[:,:,i]))
-		
-		eigenvec = tf.math.real(eigenvec)
-		eigenval = tf.math.real(eigenval)
+		eig = np.linalg.eig(sigma[:,:,i].numpy())
+		eigenval = eig[0] #correspond to lengths of axis
+		eigenvec = eig[1]
 
-		a1 = eigenval[2]
+		# print(eigenvec)
+		# print(eigenval)
+
+
+		# eigenval, eigenvec = tf.linalg.eig(tf.transpose(sigma[:,:,i]))
+		# eigenvec = tf.math.real(eigenvec)
+		# eigenval = tf.math.real(eigenval)
+
+		# a1 = eigenval[2]
+		# a2 = eigenval[1]
+		# a3 = eigenval[0]
+
+		# big = np.argwhere(eigenval.numpy() == np.max(eigenval.numpy()))[0,0]
+		# middle = np.argwhere(eigenval.numpy() == np.median(eigenval.numpy()))[0,0]
+		# smol = np.argwhere(eigenval.numpy() == np.min(eigenval.numpy()))[0,0]
+
+		# a1 = eigenval[big]
+		# a2 = eigenval[middle] 
+		# a3 = eigenval[smol]
+
+		a1 = eigenval[0]
 		a2 = eigenval[1]
-		a3 = eigenval[0]
-		# print(a1,a2,a3) #floats
+		a3 = eigenval[2]
 
+		# print(a1,a2,a3) #floats
+		# print(mu)
 		# print("\n eigenvec \n", eigenvec)
 		# print("\n eigenval \n", eigenval)
 
-		# print("this ish", np.array([-R2Euler_tf(eigenvec)[2], -R2Euler_tf(eigenvec)[1], -R2Euler_tf(eigenvec)[0] ]))
+		# print(R2Euler(eigenvec))
 
 		if mu[i,0] != 0 and mu[i,1] != 0:
+			ell = Ell(pos=(mu[i,0], mu[i,1], mu[i,2]), axis1 = 4*np.sqrt(a1), 
+				axis2 = 4*np.sqrt(a2), axis3 = 4*np.sqrt(a3), 
+				angs = (np.array([-R2Euler(eigenvec)[0], -R2Euler(eigenvec)[1], -R2Euler(eigenvec)[2] ])), c=(1,0.5,0.5), alpha=1, res=12)
 
-			ell = Ell(pos=(mu[i, 0], mu[i, 1], mu[i, 2]), axis1 = 2*np.sqrt(a1), 
-							axis2 = 2*np.sqrt(a2), axis3 = 2*np.sqrt(a3), 
-							angs = (np.array([-R2Euler_tf(eigenvec)[0], -R2Euler_tf(eigenvec)[1], -R2Euler_tf(eigenvec)[2] ])), c=(1,0.5,0.5), alpha=1, res=12)
-
+			
 			disp.append(ell)
+
+	if draw_grid == True:
+
+		xbound = np.linspace(bounds[0], bounds[1], fid[0] + 1)
+		ybound = np.linspace(bounds[2], bounds[3], fid[1] + 1)
+		zbound = np.linspace(bounds[4], bounds[5], fid[2] + 1)
+
+		for y in range(fid[1]+1):
+			for z in range(fid[2]+1):
+				p0 = np.array([xbound[-1], ybound[y], zbound[z]])
+				p1 = np.array([xbound[0], ybound[y], zbound[z]])
+				x_lines = shapes.Line(p0, p1, closed=False, c='white', alpha=1, lw=0.25, res=0)
+				disp.append(x_lines)
+		for x in range(fid[0]+1):
+			for z in range(fid[2]+1):
+				p0 = np.array([xbound[x], ybound[-1], zbound[z]])
+				p1 = np.array([xbound[x], ybound[0], zbound[z]])
+				y_lines = shapes.Line(p0, p1, closed=False, c='white', alpha=1, lw=0.25, res=0)
+				disp.append(y_lines)
+		for x in range(fid[0]+1):
+			for y in range(fid[1]+1):
+				p0 = np.array([xbound[x], ybound[y], zbound[-1]])
+				p1 = np.array([xbound[x], ybound[y], zbound[0]])
+				z_lines = shapes.Line(p0, p1, closed=False, c='white', alpha=1, lw=0.25, res=0)
+				disp.append(z_lines)
 
 	plt.show(disp, "subdivide_scan", at=0) 
 
