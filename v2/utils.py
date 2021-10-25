@@ -291,22 +291,23 @@ def subdivide_scan(pc, plt, bounds = np.array([-50,50,-50,50,-10,10]), fid = np.
 						axis2 = 4*np.sqrt(a2), axis3 = 4*np.sqrt(a3), 
 						angs = (np.array([-R2Euler(eigenvec)[0], -R2Euler(eigenvec)[1], -R2Euler(eigenvec)[2] ])), c=(1,0.5,0.5), alpha=1, res=12)
 
-					# more consistant eigenvalue orders (similar to TF implementation) but worse(?) performance
-					big = np.argwhere(eigenval == np.max(eigenval))
-					middle = np.argwhere(eigenval == np.median(eigenval))
-					small = np.argwhere(eigenval == np.min(eigenval))
-					# print(eigenval[big], eigenval[middle], eigenval[small])
-					a1 = eigenval[big]
-					a2 = eigenval[middle]
-					a3 = eigenval[small]
-
-					ell2 = Ell(pos=(mu[0], mu[1], mu[2]), axis1 = 4*np.sqrt(a1), 
-						axis2 = 4*np.sqrt(a2), axis3 = 4*np.sqrt(a3), 
-						angs = (np.array([-R2Euler(eigenvec)[big], -R2Euler(eigenvec)[middle], -R2Euler(eigenvec)[small] ])), c=(0.5,0.5,1), alpha=1, res=12)
-
-
 					disp.append(ell)
-					disp.append(ell2)
+
+
+					# # more consistant eigenvalue orders (similar to TF implementation) but worse(?) performance
+					# big = np.argwhere(eigenval == np.max(eigenval))
+					# middle = np.argwhere(eigenval == np.median(eigenval))
+					# small = np.argwhere(eigenval == np.min(eigenval))
+					# # print(eigenval[big], eigenval[middle], eigenval[small])
+					# a1 = eigenval[big]
+					# a2 = eigenval[middle]
+					# a3 = eigenval[small]
+
+					# ell2 = Ell(pos=(mu[0], mu[1], mu[2]), axis1 = 4*np.sqrt(a1), 
+					# 	axis2 = 4*np.sqrt(a2), axis3 = 4*np.sqrt(a3), 
+					# 	angs = (np.array([-R2Euler(eigenvec)[big], -R2Euler(eigenvec)[middle], -R2Euler(eigenvec)[small] ])), c=(0.5,0.5,1), alpha=1, res=12)
+
+					# disp.append(ell2)
 
 					# E.append([mu, sigma, np.shape(within_box)[0]])
 
@@ -473,9 +474,6 @@ def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.
 	# mu_x = tf.math.reduce_sum(vox_with_zeros[:,:,0]*mask, axis = 1)/tf.cast(sizes_updated,tf.float32)
 	# print(mu_x)
 
-	#ERROR: this should result in 4 groups when splitting scan up into 2x2: 2 should be negative, 2 should be positive
-	# print("\n vox_with_zeros: \n", vox_with_zeros)
-
 	# print("\n voxwzeros[:,:,0]: \n",vox_with_zeros[:,:,0])
 	# print("\n mu[:,0] \n ", mu[:,0][:,None])
 	# print("\n test2 \n", ( tf.reduce_sum( tf.math.square(vox_with_zeros[:,:,0]-mu[:,0][:,None])*mask,  axis = 1) )) #correct
@@ -489,13 +487,22 @@ def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.
 	E_xz = tf.reduce_sum( ((vox_with_zeros[:,:,0] - mu[:,0][:,None])*(vox_with_zeros[:,:,2] - mu[:,2][:,None]))*mask , axis = 1)/ tf.cast(sizes_updated, tf.float32)
 	E_yz = tf.reduce_sum( ((vox_with_zeros[:,:,1] - mu[:,1][:,None])*(vox_with_zeros[:,:,2] - mu[:,2][:,None]))*mask , axis = 1)/ tf.cast(sizes_updated, tf.float32)
 	
-	sigma = tf.Variable([[std_x, E_xy, E_xz],
-						 [E_xy, std_y, E_yz],
-						 [E_xz, E_yz, std_z]]) 
-	# print("\n sigma: \n", sigma)
+	# [3,3,N]
+	# sigma = tf.Variable([[std_x, E_xy, E_xz],
+	# 					 [E_xy, std_y, E_yz],
+	# 					 [E_xz, E_yz, std_z]]) 
+
+	# [N, 3, 3]
+	sigma = tf.Variable([std_x, E_xy, E_xz,
+						 E_xy, std_y, E_yz,
+						 E_xz, E_yz, std_z]) 
+	sigma = tf.reshape(tf.transpose(sigma), (tf.shape(sigma)[1] ,3,3))
 
 	#get rid of any nan values in sigma
+
 	sigma = tf.where(tf.math.is_nan(sigma), tf.zeros_like(sigma), sigma)
+	# print(sigma)
+	# sigma = tf.reshape(sigma, (tf.shape(sigma)[2] ,3,3))
 
 	E = [mu, sigma, sizes]
 
@@ -507,7 +514,6 @@ def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.
 
 		draw_ell(plt, disp, E, bounds =bounds, draw_grid = draw_grid, fid = fid)
 
-	# plt.show(disp, "subdivide_scan", at=0) 
 	return E
 
 class Ell(Mesh):
@@ -584,9 +590,9 @@ def draw_ell(plt, disp, E, draw_grid = False, fid = None, bounds =None):
 
 	# print(sigma)
 
-	for i in range(tf.shape(sigma)[2]):
+	for i in range(tf.shape(sigma)[0]):
 
-		eig = np.linalg.eig(sigma[:,:,i].numpy())
+		eig = np.linalg.eig(sigma[i,:,:].numpy())
 		eigenval = eig[0] #correspond to lengths of axis
 		eigenvec = eig[1]
 
