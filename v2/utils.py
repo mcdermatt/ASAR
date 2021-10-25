@@ -257,6 +257,10 @@ def subdivide_scan(pc, plt, bounds = np.array([-50,50,-50,50,-10,10]), fid = np.
 				z_lines = shapes.Line(p0, p1, closed=False, c='white', alpha=1, lw=0.25, res=0)
 				disp.append(z_lines)
 
+	mus = []
+	sigmas = []
+	sizes_list = []
+
 	#loop through each voxel
 	for x in range(fid[0]):
 		for y in range(fid[1]):
@@ -272,6 +276,7 @@ def subdivide_scan(pc, plt, bounds = np.array([-50,50,-50,50,-10,10]), fid = np.
 
 				if np.shape(within_box)[0] > min_num_pts-1:
 					mu, sigma = fit_gaussian(within_box)
+					# print(mu)
 					# print(sigma)
 					eig = np.linalg.eig(sigma)
 					eigenval = eig[0] #correspond to lengths of axis
@@ -303,24 +308,22 @@ def subdivide_scan(pc, plt, bounds = np.array([-50,50,-50,50,-10,10]), fid = np.
 					disp.append(ell)
 					disp.append(ell2)
 
-					E.append((mu, sigma, np.shape(within_box)[0]))
+					# E.append([mu, sigma, np.shape(within_box)[0]])
 
-	#test- add random ellipsoids and add them to disp
-	# for i in range(10):
-	# 	ell = Ellipsoid(pos=(np.random.randn()*10, np.random.randn()*10, 
-	# 	np.random.rand()*5), axis1=(1, 0, 0), axis2=(0, 2, 0), axis3=(np.random.rand(), np.random.rand(), np.random.rand()), 
-	# 	c=(np.random.rand(), np.random.rand(), np.random.rand()), alpha=1, res=12)
-	# 	disp.append(ell)
+					mus.append(mu)
+					sigmas.append(sigma)
+					sizes_list.append(np.shape(within_box)[0])
 
 	plt.show(disp, "subdivide_scan", at=0) 
 	print("took", time.time() - start, "seconds with numpy")
 
 
-	return E
+	# return E
+	return(mus, sigmas, sizes_list)
 
 
 def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.,-10.,10.]), fid = tf.constant([10,10,3]), disp = [],
-					min_num_pts = 20, nstd = 2, draw_grid = True, show_pc = True):
+					min_num_pts = 20, draw = False, nstd = 2, draw_grid = True, show_pc = True):
 
 	"""Subdivide point cloud into voxels and calculate means and covaraince matrices for each voxels
 			cloud_tensor = point cloud input
@@ -375,16 +378,15 @@ def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.
 
 	#estabilsh tensor containing all points rounded to the nearest bin
 	bins = tf.transpose(tf.Variable([xbins, ybins, zbins]))
-	# print("bins \n", bins) #correct format
-
-	loctime = time.time()
-	#loc outputs tensor of shape [N,2], where:
-	#  [[voxel number, index of [x,y,z] in cloud that corresponds to bin #],
-	#   [voxel number,index of [x,y,z] in cloud that corresponds to bin #]...]  
+	# print("bins \n", bins) #correct format	
 
 	#takes ~0.65s with (25,25,4) grid-----------------------------------------------
 	# This is where the largest biggest bottleneck is
 	# https://stackoverflow.com/questions/46644796/which-one-is-more-efficient-tf-where-or-element-wise-multiplication
+
+	#loc outputs tensor of shape [N,2], where:
+	#  [[voxel number, index of [x,y,z] in cloud that corresponds to bin #],
+	#   [voxel number,index of [x,y,z] in cloud that corresponds to bin #]...]  
 
 	# idx = tf.equal(bins, q)
 	# loc = tf.where(tf.math.equal(tf.math.reduce_all(idx, axis = 2), True))
@@ -396,8 +398,7 @@ def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.
 	loc = tf.concat((num[:,None], tf.cast(tf.linspace(0, tf.shape(bins)[0], tf.shape(bins)[0]  )[:,None],
                                       dtype = tf.int32) ), axis = 1 )
 
-	#remove elements of tensor that are outside limits of voxel grid
-	# ------------------------------------------------------------------------------- 
+	#correctly identifying which group points are in...
 
 	#VERY slow (takes minutes) ----------------------------------------------------
 	# loc = None
@@ -411,34 +412,37 @@ def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.
 	# 				loc = tf.constant([[j,i]])
 	#-------------------------------------------------------------------------------
 
-	# print("took", time.time() - loctime, "s to get loc")
-
 	#Need to "ungroup" so that we can fit_gaussian_tf() to each individual voxel...
 	s = tf.shape(loc)
 	group_ids, group_idx = tf.unique(loc[:, 0], out_idx=s.dtype)
 	num_groups = tf.reduce_max(group_idx) + 1
 	# print(group_ids, group_idx, num_groups)
 	sizes = tf.math.bincount(group_idx)
+	# print("\n sizes \n", sizes)
+
+	# print("\n group_ids \n", group_ids)
+	# print("\n group_idx \n", group_idx)
+	# print("\n loc[:,0]: \n", loc[:,0])
+
+
+	#BUG IS HERE -> why am I getting idx 10 in tensor of length 10???
+	#sort loc by first element (group 0, group1, group2, etc )
+	# print("\n loc: \n", loc)
+	reordered = tf.argsort(loc, axis = 0, direction='DESCENDING')
+	# print("\n reordered: \n", reordered)
+
+	# print("\n applied to cloud ", tf.gather(cloud_tensor, reordered[:,0]))
+
+	#updated sizes (order switches here)
+	temp = tf.gather(loc, tf.argsort(loc[:,0], direction = "DESCENDING"))[:,0]
+	# print("\n temp \n", temp)
+	sizes_updated = tf.math.bincount(temp)
+	# print("sizes_updated \n", sizes_updated)
 
 	#replace <bins> here with <cloud_tensor> when done debugging
-	rag = tf.RaggedTensor.from_row_lengths(tf.gather(cloud_tensor, loc[:,1]), sizes) 
+	# rag = tf.RaggedTensor.from_row_lengths(tf.gather(cloud_tensor, loc[:,0]), sizes) #was this
+	rag = tf.RaggedTensor.from_row_lengths(tf.gather(cloud_tensor, reordered[:,0]), sizes_updated) #test
 	# print("ragged: \n", rag.bounding_shape())
-
-	#TODO: we don't need any individual voxel to have 6.02e23 points in it (this kills the RAM)
-	#			when we convert the ragged to standard tensor try to only keep ~30(?) points max
-
-	# fastest to only use ragged tensors ----------------------------------------------
-
-	# mu = tf.math.reduce_mean(rag, axis=1)
-	#correct standard deviation but does not affect covariance
-	# std = tf.math.reduce_std(rag, axis = 1) 
-
-	#TODO multiply by sparse identity matrix to remove axis containing all zeros
-	#	we already know how many elements are sizes with (shape - sizes[i])
-
-	# #fast(ish) but includes zeros (messes up results) ----------------------------------
-	# sigma = tfp.stats.covariance(rag.to_tensor(), sample_axis = 0, event_axis = 2) 
-	# #-----------------------------------------------------------------------------------
 
 	# #correct (ignores zeros) but way slower ---------------------------------------------
 	# vox_with_zeros = rag.to_tensor() #[voxel #, point in voxel #, x y or z]
@@ -450,88 +454,57 @@ def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.
 	# print(sigma_slow[:,1,:])
 	# # # -----------------------------------------------------------------------------------
 
-	## use mask to ignore sums of 0 and mu to caclualte cov--------------------------------
-	mu = tf.math.reduce_mean(rag, axis=1)
+	mu = tf.math.reduce_mean(rag, axis=1) #WORKS
+	#get rid of nan values in mu
+	mu = tf.where(tf.math.is_nan(mu), tf.zeros_like(mu), mu)
 
 	vox_with_zeros = rag.to_tensor() #[voxel #, point in voxel #, x y or z]
-	# print(tf.shape(vox_with_zeros[:,:,0]))
-	# print(tf.shape(mu[:,0]))
+	# print(vox_with_zeros)
+
+	#ERROR: this should result in 4 groups when splitting scan up into 2x2: 2 should be negative, 2 should be positive
+	# print("\n vox_with_zeros: \n", vox_with_zeros)
 
 	#need to create mask vector to ignore all summation results from places where vox_with_zeros is 0,0,0
 		#create a ragged tensor of ones using shape "sizes" and then convert to a standard tensor
-	mask = tf.RaggedTensor.from_row_lengths(tf.ones(tf.math.reduce_sum(sizes)), sizes).to_tensor()
-	
-	std_x = tf.reduce_sum( (((vox_with_zeros[:,:,0] - mu[:,0][:,None])*mask)**2) , axis = 1)/ tf.cast(sizes, tf.float32)
-	std_y = tf.reduce_sum( (((vox_with_zeros[:,:,0] - mu[:,1][:,None])*mask)**2) , axis = 1)/ tf.cast(sizes, tf.float32)
-	std_z = tf.reduce_sum( (((vox_with_zeros[:,:,0] - mu[:,2][:,None])*mask)**2) , axis = 1)/ tf.cast(sizes, tf.float32)
+		#TODO- Transpose this??
+	mask = tf.RaggedTensor.from_row_lengths(tf.ones(tf.math.reduce_sum(sizes_updated)), sizes_updated).to_tensor()
+	# print("\n mask: \n", mask)
+
+	# mu_x = tf.reduce_sum(vox_with_zeros[:,:,0]*mask, axis = 0)/tf.cast(sizes, tf.float32)
+	# print(mu_x)
+
+	# print("\n voxwzeros[:,:,0]: \n",vox_with_zeros[:,:,0])
+	# print("\n mu[:,0] \n ", mu[:,0][:,None])
+	# print("\n test2 \n", ( tf.reduce_sum( tf.math.square(vox_with_zeros[:,:,0]-mu[:,0][:,None])*mask,  axis = 1) )) #correct
+
+	std_x = tf.reduce_sum( tf.math.square(vox_with_zeros[:,:,0]-mu[:,0][:,None])*mask , axis = 1)/ tf.cast(sizes_updated, tf.float32)
+	std_y = tf.reduce_sum( tf.math.square(vox_with_zeros[:,:,1]-mu[:,1][:,None])*mask , axis = 1)/ tf.cast(sizes_updated, tf.float32)
+	std_z = tf.reduce_sum( tf.math.square(vox_with_zeros[:,:,2]-mu[:,2][:,None])*mask , axis = 1)/ tf.cast(sizes_updated, tf.float32)
 
 	# E_xy = mean((xpts-mux)(ypts-muy))
-	E_xy = tf.reduce_sum( ((vox_with_zeros[:,:,0] - mu[:,0][:,None])*(vox_with_zeros[:,:,1] - mu[:,1][:,None]))*mask , axis = 1)/ tf.cast(sizes, tf.float32)
-	E_xz = tf.reduce_sum( ((vox_with_zeros[:,:,0] - mu[:,0][:,None])*(vox_with_zeros[:,:,2] - mu[:,2][:,None]))*mask , axis = 1)/ tf.cast(sizes, tf.float32)
-	E_yz = tf.reduce_sum( ((vox_with_zeros[:,:,1] - mu[:,1][:,None])*(vox_with_zeros[:,:,2] - mu[:,2][:,None]))*mask , axis = 1)/ tf.cast(sizes, tf.float32)
+	E_xy = tf.reduce_sum( ((vox_with_zeros[:,:,0] - mu[:,0][:,None])*(vox_with_zeros[:,:,1] - mu[:,1][:,None]))*mask , axis = 1)/ tf.cast(sizes_updated, tf.float32)
+	E_xz = tf.reduce_sum( ((vox_with_zeros[:,:,0] - mu[:,0][:,None])*(vox_with_zeros[:,:,2] - mu[:,2][:,None]))*mask , axis = 1)/ tf.cast(sizes_updated, tf.float32)
+	E_yz = tf.reduce_sum( ((vox_with_zeros[:,:,1] - mu[:,1][:,None])*(vox_with_zeros[:,:,2] - mu[:,2][:,None]))*mask , axis = 1)/ tf.cast(sizes_updated, tf.float32)
 	
 	sigma = tf.Variable([[std_x, E_xy, E_xz],
 						 [E_xy, std_y, E_yz],
 						 [E_xz, E_yz, std_z]]) 
-	## -------------------------------------------------------------------------------------
-
 	# print("\n sigma: \n", sigma)
 
-	# print(mu)
-	##print(std)
-	# print(sigma)
-	# print(sizes)
+	#get rid of any nan values in sigma
+	sigma = tf.where(tf.math.is_nan(sigma), tf.zeros_like(sigma), sigma)
 
-	#--------------------------------------------------------------------------------
-
-	#Run on GPU as vectorized operation (WAAAAAY Faster) ----------------------------
-	# reg = tf.RaggedTensor.to_tensor(rag) #was this-> works but is VERY memory intensive
-	# print("\n regular tensor: \n", reg)
-	# reg = tf.RaggedTensor.to_tensor(rag, shape = (None, 100, 3)) #limits to max N points per voxel (still has zeros)
-	# print("\n truncated reg: \n", reg)
-	# mu, sigma = fit_gaussian_tf(reg)
-	# print("mu: \n", mu)
-	# print("sigma: \n", sigma)
-	#--------------------------------------------------------------------------------- 
-
-	#Alternate approach using only sparse tensors  -----------------------------------
-	# st = tf.RaggedTensor.to_sparse(rag)
-	# print("\n st: \n", st)
-	# st_shape = st.get_shape()
-	# # print("\n",st_shape)
-	# # print(st_shape[0])
-	# print("dense shape: \n", st.dense_shape)
-	# stsums = tf.sparse.reduce_sum(st, axis = 1)
-	# # print(stsums) #no longer a sparse tensor
-	# mu = stsums/tf.cast(sizes[:,None], tf.float32)
-	# print("mu: \n", mu) #no longer a sparse tensor
-
-	# xpts = tf.sparse.slice(st, [0,0,0], [st.dense_shape[0], st.dense_shape[1] , 1])
-	# print("\n xpoints: \n",xpts)
-	# ##TODO: why is this not doing anything???
-	# xpts = tf.sparse.reshape(xpts, (st.dense_shape[0], st.dense_shape[1], 1))
-	# print("\n xpoints: \n",xpts)
-
-	# x_std = tf.sparse.add(xpts, mu)
-	# print("\n",x_std)
-	# # print(tf.sparse.add(stsums, mu))
-
-	#----------------------------------------------------------------------------------
-
-	# # works but uses loop (runs on CPU -> slow) -------------------------------------
-	# A =  tf.data.Dataset.from_tensor_slices(rag)
-	# mus = []
-	# sigmas = []
-	# for i in range(len(A)):
-	#     mu, sigma = fit_gaussian_tf(rag[i])
-	#     mus.append(mu)
-	#     sigmas.append(sigma)
-	# print(mus, sigmas)
-	# #--------------------------------------------------------------------------------
-
+	#UNIT TEST-
+	#	mu - outputting correctly for small point clouds, messing up full dataset
+				#note -> not getting point in all quadrants for point_cloud[:1000] 
+	#	sigmas - ???
+	#	shapes - outputting correctly for small point clouds, messing up full dataset
 
 	E = [mu, sigma, sizes]
 
+	if draw == True:
+
+		draw_ell(plt, disp, E)
 
 	# plt.show(disp, "subdivide_scan", at=0) 
 	print("took", time.time() - start, "seconds with tensorflow")
@@ -600,6 +573,44 @@ class Ell(Mesh):
         self.top = np.array(axis1) / 2 + pos
         self.name = "Ell"
 
+def draw_ell(plt, disp, E):
+
+	"""draw distribution ellipses from E
+	 called by subdivide_scan_tf() """
+
+	mu = E[0]
+	sigma = E[1]
+	sizes = E[2] 
+
+	# print(sigma)
+
+	for i in range(tf.shape(sigma)[2]):
+
+		eigenval, eigenvec = tf.linalg.eig(tf.transpose(sigma[:,:,i]))
+		
+		eigenvec = tf.math.real(eigenvec)
+		eigenval = tf.math.real(eigenval)
+
+		a1 = eigenval[2]
+		a2 = eigenval[1]
+		a3 = eigenval[0]
+		# print(a1,a2,a3) #floats
+
+		# print("\n eigenvec \n", eigenvec)
+		# print("\n eigenval \n", eigenval)
+
+		# print("this ish", np.array([-R2Euler_tf(eigenvec)[2], -R2Euler_tf(eigenvec)[1], -R2Euler_tf(eigenvec)[0] ]))
+
+		if mu[i,0] != 0 and mu[i,1] != 0:
+
+			ell = Ell(pos=(mu[i, 0], mu[i, 1], mu[i, 2]), axis1 = 2*np.sqrt(a1), 
+							axis2 = 2*np.sqrt(a2), axis3 = 2*np.sqrt(a3), 
+							angs = (np.array([-R2Euler_tf(eigenvec)[0], -R2Euler_tf(eigenvec)[1], -R2Euler_tf(eigenvec)[2] ])), c=(1,0.5,0.5), alpha=1, res=12)
+
+			disp.append(ell)
+
+	plt.show(disp, "subdivide_scan", at=0) 
+
 
 def fit_gaussian(points):
 
@@ -626,9 +637,8 @@ def fit_gaussian(points):
 	return mu, sigma
 
 def fit_gaussian_tf(points):
-	"""input: [N,3] tensor"""
-
-	#TODO: remove elements from tensors that are all zeros -> need them to convert from raggedtensor type
+	"""DEPRECIATED
+	input: [N,3] tensor"""
 
 	# print("input to fit_gaussian_tf(): \n", points)
 
