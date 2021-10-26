@@ -29,10 +29,11 @@ def get_U_and_L(sigma1, bounds, fid):
 				 into frame of corresponding to ellipsoid axis in keyframe
 	   L = matrix to prune extended directions in each voxel (from keyframe)"""
 
+	# print("\n sigma1 \n", sigma1)
 
 	#use bounds and fid to calculate cellsize
 	cellsize = tf.Variable([bounds[1]-bounds[0], bounds[3]-bounds[2], bounds[5]-bounds[4]])/tf.cast(fid, tf.float32)
-	print("\n cellsize \n", cellsize)
+	# print("\n cellsize \n", cellsize)
 
 	eigenval, eigenvec = tf.linalg.eig(sigma1)
 	U = tf.math.real(eigenvec)
@@ -55,14 +56,6 @@ def get_U_and_L(sigma1, bounds, fid):
 	rotated = tf.abs(tf.matmul(U,axislen))
 	# print("\n rotated \n", tf.squeeze(rotated))
 
-	#not correct-----------------------------------------------------------------------------
-	# length of each of the ellipses' 3 axis
-	# axislen = tf.math.real(eigenval)[:,:,None]
-
-	# rotated = tf.matmul(U, axislen) 
-	# print("\n verify rotation... \n", tf.matmul(tf.transpose(U[0]), axislen[0]))
-	#-----------------------------------------------------------------------------------------
-
 	#check for overly extended axis directions
 	thresh = cellsize #temp
 	greater_than_thresh = tf.math.greater(rotated, thresh)
@@ -71,19 +64,7 @@ def get_U_and_L(sigma1, bounds, fid):
 	#identify elements along 1st axis that have rows where "greather_than_thresh" == True
 
 
-	# approach #1- geneate L as a ragged tensor ---------------------------------------------
-
-	#construct 2D [3*N,3] identity matrix
-
-	#get row IDs where "greater_than_thresh" == [False,False,False]
-
-	#use tf.gather to index long eye matrix in at above indices
-
-	#use indices with tf.RaggedTensor.____ to turn long skinny eye into L
-
-	#print("\n L \n", L)
-
-	#------or---------
+	# geneate L as a ragged tensor --------------------------------------------------------------
 
 	#get indices where greather_than_thresh == True
 	ext_idx = tf.math.reduce_any(greater_than_thresh, axis = 1) #TODO -> make sure I am reducing about correct axis
@@ -96,26 +77,21 @@ def get_U_and_L(sigma1, bounds, fid):
 
 	#only keep non-extended indices
 	L = tf.squeeze(tf.gather(L, ext_idx))
-	print("\n L \n", L)
+	# print("\n L \n", L)
 
 	#turn to ragged tensor with from_row_splits(?)
 	# first (smallest) eigenvalue is (almost) never going to be overly extended 
 	#		therefore, a row of [1,0,0] always signifies the start of a new voxel
-	starts = tf.squeeze(tf.where(L[:,0] == 1))
-	print(starts)
-	L = tf.RaggedTensor.from_row_limits(L,(1,4,7)) #TODO: fix bug here
-
+	# print(tf.cast((tf.where(L[:,0] == 1)[:,0]), tf.int32))
+	limits = tf.squeeze(tf.concat((tf.cast((tf.where(L[:,0] == 1)[:,0]), tf.int32), [tf.shape(L)[0]]), axis = 0))
+	# print("\n Limits \n",limits)
+	L = tf.RaggedTensor.from_row_limits(L,limits)[1:] #double counds first voxel without [1:]
+	# print("\n L \n", L)
+	# print("\n L \n", L.to_tensor())
 
 
 	#----------------------------------------------------------------------------------------
 
-
-	#create [N,3,3] identity matrices -> more difficult 
-	# L = tf.tile(tf.eye(3)[None,:,:], [10,1,1]) 
-
-
-	#truncate out rows where greater_than_thresh == True
-	#	TODO: debug- is it cool to zero out instead of truncating?
 	#	TODO: debug- make sure I should be getting rid of rows, not columns
 
 	return(U, L)
