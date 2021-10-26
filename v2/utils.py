@@ -731,3 +731,26 @@ def fit_gaussian_tf(points):
 					     [E_xz, E_yz, std_z]])
 
 	return mu, sigma
+
+def get_correspondences_tf(a, b):
+	"""finds closet point on b for each point in a
+			aka 1-NN 
+	"""
+	#this works BUT is very inefficient when it includes lots of zeros-------------------
+	a = a[:,None]
+
+	# print(a)
+	# print(b)
+
+	dist = tf.math.reduce_sum( (tf.square( tf.math.subtract(a, b) ))  , axis = 2)
+	# print("\n dist \n", dist)
+
+	ans = tf.where( tf.transpose(dist) ==tf.math.reduce_min(dist, axis = 1))
+	# print("\n shortest dist \n", ans)
+
+	reordered = tf.argsort(ans[:,1], axis = 0)
+	corr = tf.gather(ans,reordered)
+	# print("\n reordered \n", corr)
+	#------------------------------------------------------------------------------------
+
+	return(corr)

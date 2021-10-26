@@ -22,7 +22,7 @@ cloud1 = velo1[:,:3]
 c1 = Points(cloud1, c = (1,1,1), alpha = 0.2)
 c.append(c1)
 
-velo2 = dataset.get_velo(1) # Each scan is a Nx4 array of [x,y,z,reflectance]
+velo2 = dataset.get_velo(10) # Each scan is a Nx4 array of [x,y,z,reflectance]
 cloud2 = velo2[:,:3]
 c2 = Points(cloud2, c = (1,0,0), alpha = 0.2)
 c.append(c2)
