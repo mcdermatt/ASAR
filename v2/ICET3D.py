@@ -41,12 +41,14 @@ def ICET3D(pp1, pp2, plt, bounds, fid, draw = False, num_cycles = 5, min_num_pts
 	#		replace ellipsoids with arrows in compact axis directions??
 
 	#init solution vector x
-	x = tf.zeros(3)
+	x = tf.zeros(6) #[x, y, z, phi, theta, psi].T
 
 	#start with pp2_corrected with an initial transformation of [0,0,0]
 	pp2_corrected = pp2[:]
+	# print(tf.shape(pp2_corrected))
 
 	for i in range(num_cycles):
+		print(i)
 
 		#subdivide second scan
 		E2 = subdivide_scan_tf(pp2_corrected, plt, bounds, fid, draw=False)
@@ -66,18 +68,80 @@ def ICET3D(pp1, pp2, plt, bounds, fid, draw = False, num_cycles = 5, min_num_pts
 		sigma2 = tf.squeeze(tf.gather(sigma2, enough_pts2))
 
 		#determine correspondences between distribution centers of the two scans
-		# print("\n shapes of y0 and y \n", tf.shape(y0), tf.shape(y))
+		# print("\n shapes of y and y0 \n", tf.shape(y), tf.shape(y0)) #TODO: debug here
 		corr = get_correspondences_tf(y, y0)
 		# print(corr)
 
-		#reorder y0, U, and L according to correspondneces
+		#reorder y0, U, L, npts1, and cov1 according to correspondneces
+		y0_i = tf.gather(y0, corr[:,0])
+		U_i = tf.gather(U, corr[:,0])
+		L_i = tf.gather(L, corr[:,0])
+		npts1_i = tf.gather(npts1, corr[:,0])#[:,None]
+		sigma1_i = tf.gather(sigma1, corr[:,0])
+
+		#Reshape y, y0 to be [3*N, 1] <- TODO: see if I actually need to reshape
+		# print("\n y0_i \n", y0_i)
+		# print("\n y \n", y)
+
+		#get matrix containing partial derivatives for each voxel mean
+		H = jacobian_tf(tf.transpose(y), x[3:])
+		H = tf.reshape(H, (tf.shape(H)[0]//3,3,6))
+		# print("\n H \n", tf.shape(H))
+
+		#get dx--------------------------------------------------------------------
+		R_noise = (tf.transpose(tf.transpose(sigma1_i) / tf.cast(npts1_i - 1, tf.float32)) + 
+				   tf.transpose(tf.transpose(sigma2) / tf.cast(npts2 - 1, tf.float32)) )
+		# print(R_noise)
+
+		#transpose each [i,3,3] element of U_i here
+		U_iT = tf.transpose(U_i, [0,2,1])
+		# print("\n U_iT \n", U_iT)
+		LUT = tf.math.multiply(L_i.to_tensor(), U_iT)
+		# print("\n LUT \n", tf.shape(LUT))
+		H_z = tf.matmul(LUT,H)
+		# H_z = tf.tensordot(LUT,H, axes = (1,2))
+		# print(tf.shape(H_z))
+
+		#invert sensor noise matrix R to get weighting matrix W
+		W = tf.linalg.pinv(R_noise)
+
+		HTWH = tf.math.reduce_sum(tf.matmul(tf.matmul(tf.transpose(H_z, [0,2,1]), W), H_z), axis = 0)
+		# print(HTWH)
+
+		HTW = tf.matmul(tf.transpose(H_z, [0,2,1]), W)
+		# print(HTW)
+
+		#TODO check condition number
+		# L2, lam, U2 = get_condition(HTWH)
+
+		# create alternate corrdinate system to align with axis of scan 1 distributions
+		z = tf.squeeze(tf.matmul(LUT, y[:,:,None]))
+		z0 = tf.squeeze(tf.matmul(LUT, y0_i[:,:,None]))	
+		dz = z - z0
+
+		#solve for dx
+		# dx = tf.linalg.pinv()
+
+		#get output covariance matrix
+		Q = tf.linalg.pinv(HTWH)
+
+		#augment x by dx
+		dx = tf.constant([1., 2., 3., 4., 5., 6.])
+		x += dx
+
+		#transform 2nd scan by x
+		t = x[:3]
+		rot = R(x[3:])
+
+		#update pp2
+		pp2_corrected = tf.matmul(pp2, rot) + t #TODO: fix this step
+
+		# print(tf.shape(pp2_corrected))
+
+		#--------------------------------------------------------------------------
 
 
-		#Reshape y, y0 to be [3*N, 1] <- TODO: see if I actually need to do this...
-
-		print(i)
-
-	return(U, L)
+	return(Q)
 
 
 def get_U_and_L(sigma1, bounds, fid):

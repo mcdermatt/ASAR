@@ -61,16 +61,16 @@ def jacobian(angs, p_point):
 
 	return J
 
-def jacobian_tf(angs, p_point):
+def jacobian_tf(p_point, angs):
 	"""calculates jacobian for point using TensorFlow
-		angs = tf.constant(phi, theta, psi) aka (x,y,z)"""
+		angs = tf.constant[phi, theta, psi] aka (x,y,z)"""
 
 	phi = angs[0]
 	theta = angs[1]
 	psi = angs[2]
 
 	#correct method using tf.tile
-	eyes = tf.tile(tf.eye(3), [tf.shape(phi)[0] , 1])
+	eyes = tf.tile(tf.eye(3), [tf.shape(p_point)[1] , 1])
 
 	# slow method with for loop
 	# eyes = tf.eye(3)
@@ -88,17 +88,18 @@ def jacobian_tf(angs, p_point):
 
 	# (deriv of R() wrt phi).dot(p_point)
 	#	NOTE: any time sin/cos operator is used, output will be 1x1 instead of constant (not good)
-	Jx = tf.tensordot(tf.Variable([[tf.constant(0.), (-sin(psi)*sin(phi) + cos(phi)*sin(theta)*cos(psi))[0], (cos(phi)*sin(psi) + sin(theta)*sin(phi)*cos(psi))[0]],
-								   [tf.constant(0.), (-sin(phi)*cos(psi) - cos(phi)*sin(theta)*sin(psi))[0], (cos(phi)*cos(psi) - sin(theta)*sin(psi)*sin(phi))[0]], 
-								   [tf.constant(0.), (-cos(phi)*cos(theta))[0], (-sin(phi)*cos(theta))[0]] ]), p_point, axes = 1)
+	#TODO: fix naming convention on these three vars - x, y, theta is inconsistant
+	Jx = tf.tensordot(tf.Variable([[tf.constant(0.), (-sin(psi)*sin(phi) + cos(phi)*sin(theta)*cos(psi)), (cos(phi)*sin(psi) + sin(theta)*sin(phi)*cos(psi))],
+								   [tf.constant(0.), (-sin(phi)*cos(psi) - cos(phi)*sin(theta)*sin(psi)), (cos(phi)*cos(psi) - sin(theta)*sin(psi)*sin(phi))], 
+								   [tf.constant(0.), (-cos(phi)*cos(theta)), (-sin(phi)*cos(theta))] ]), p_point, axes = 1)
 
 	# (deriv of R() wrt theta).dot(p_point)
-	Jy = tf.tensordot(tf.Variable([[(-sin(theta)*cos(psi))[0], (cos(theta)*sin(phi)*cos(psi))[0], (-cos(theta)*cos(phi)*cos(psi))[0]],
-								   [(sin(psi)*sin(theta))[0], (-cos(theta)*sin(phi)*sin(psi))[0], (cos(theta)*sin(psi)*cos(phi))[0]],
-								   [(cos(theta))[0], (sin(phi)*sin(theta))[0], (-sin(theta)*cos(phi))[0]] ]), p_point, axes = 1)
+	Jy = tf.tensordot(tf.Variable([[(-sin(theta)*cos(psi)), (cos(theta)*sin(phi)*cos(psi)), (-cos(theta)*cos(phi)*cos(psi))],
+								   [(sin(psi)*sin(theta)), (-cos(theta)*sin(phi)*sin(psi)), (cos(theta)*sin(psi)*cos(phi))],
+								   [(cos(theta)), (sin(phi)*sin(theta)), (-sin(theta)*cos(phi))] ]), p_point, axes = 1)
 
-	Jtheta = tf.tensordot(tf.Variable([[(-cos(theta)*sin(psi))[0], (cos(psi)*cos(phi) - sin(phi)*sin(theta)*sin(psi))[0], (cos(psi)*sin(phi) + sin(theta)*cos(phi)*sin(psi))[0] ],
-									   [(-cos(psi)*cos(theta))[0], (-sin(psi)*cos(phi) - sin(phi)*sin(theta)*cos(psi))[0], (-sin(phi)*sin(psi) + sin(theta)*cos(psi)*cos(phi))[0]],
+	Jtheta = tf.tensordot(tf.Variable([[(-cos(theta)*sin(psi)), (cos(psi)*cos(phi) - sin(phi)*sin(theta)*sin(psi)), (cos(psi)*sin(phi) + sin(theta)*cos(phi)*sin(psi)) ],
+									   [(-cos(psi)*cos(theta)), (-sin(psi)*cos(phi) - sin(phi)*sin(theta)*cos(psi)), (-sin(phi)*sin(psi) + sin(theta)*cos(psi)*cos(phi))],
 									   [tf.constant(0.),tf.constant(0.),tf.constant(0.)]]), p_point, axes = 1)
 
 
@@ -736,10 +737,17 @@ def get_correspondences_tf(a, b):
 	"""finds closet point on b for each point in a
 			aka 1-NN 
 	"""
-	#this works BUT is very inefficient when it includes lots of zeros-------------------
-	a = a[:,None]
 
-	# print(a)
+	#TODO: fix bug that occurs when only one voxel is used in scan2
+	# print(tf.shape(tf.shape(a)))
+	if tf.shape(tf.shape(a)) == 1:
+		# print("\n before \n",a)
+		a = a[None,:][None,:]
+		# print(a)
+	else:
+		a = a[:,None]
+
+	# print("\n a \n",a)
 	# print(b)
 
 	dist = tf.math.reduce_sum( (tf.square( tf.math.subtract(a, b) ))  , axis = 2)
@@ -751,6 +759,5 @@ def get_correspondences_tf(a, b):
 	reordered = tf.argsort(ans[:,1], axis = 0)
 	corr = tf.gather(ans,reordered)
 	# print("\n reordered \n", corr)
-	#------------------------------------------------------------------------------------
 
 	return(corr)
