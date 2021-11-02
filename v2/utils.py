@@ -733,31 +733,110 @@ def fit_gaussian_tf(points):
 
 	return mu, sigma
 
-def get_correspondences_tf(a, b):
+def get_correspondences_tf(a, b, bounds, fid, method = "NN"):
 	"""finds closet point on b for each point in a
-			aka 1-NN 
 	"""
-
 	#TODO: fix bug that occurs when only one voxel is used in scan2
 	# print(tf.shape(tf.shape(a)))
-	if tf.shape(tf.shape(a)) == 1:
-		# print("\n before \n",a)
-		a = a[None,:][None,:]
-		# print(a)
-	else:
-		a = a[:,None]
 
-	# print("\n a \n",a)
-	# print(b)
+	# print(tf.shape(a), tf.shape(b))
 
-	dist = tf.math.reduce_sum( (tf.square( tf.math.subtract(a, b) ))  , axis = 2)
-	# print("\n dist \n", dist)
+	if method == "NN":
+		if tf.shape(tf.shape(a)) == 1:
+			# print("\n before \n",a)
+			a = a[None,:][None,:]
+			# print(a)
+		else:
+			a = a[:,None]
 
-	ans = tf.where( tf.transpose(dist) ==tf.math.reduce_min(dist, axis = 1))
-	# print("\n shortest dist \n", ans)
+		# using nearest neighbor (1-NN) -----------------------------------------
+		dist = tf.math.reduce_sum( (tf.square( tf.math.subtract(a, b) ))  , axis = 2)
+		# print("\n dist \n", dist)
 
-	reordered = tf.argsort(ans[:,1], axis = 0)
-	corr = tf.gather(ans,reordered)
-	# print("\n reordered \n", corr)
+		ans = tf.where( tf.transpose(dist) ==tf.math.reduce_min(dist, axis = 1))
+		# print("\n shortest dist \n", ans)
 
+		reordered = tf.argsort(ans[:,1], axis = 0)
+		corr = tf.gather(ans,reordered)
+		# print("\n reordered \n", corr)
+		#-----------------------------------------------------------------------
+
+	if method == "voxel":
+
+		#TODO: remove voxels in a with flagged indices from main loop (these have no corresponding
+		#	    b distributions in the same voxel)
+
+		#get voxel number of each distribution in a ----------------------------
+		startx = bounds[0].numpy()
+		stopx = bounds[1].numpy()
+		numx = fid[0].numpy() + 1
+		edgesx = tf.linspace(startx, stopx, numx)
+
+		starty = bounds[2].numpy()
+		stopy = bounds[3].numpy()
+		numy = fid[1].numpy() + 1
+		edgesy = tf.linspace(starty, stopy, numy)
+
+		startz = bounds[4].numpy()
+		stopz = bounds[5].numpy()
+		numz = fid[2].numpy() +1
+		edgesz = tf.linspace(startz, stopz, numz)
+
+		xbinsa = tfp.stats.find_bins(a[:,0], edgesx)
+		ybinsa = tfp.stats.find_bins(a[:,1], edgesy)
+		zbinsa = tfp.stats.find_bins(a[:,2], edgesz)
+
+		binsa = tf.transpose(tf.Variable([xbinsa, ybinsa, zbinsa]))
+		numa = tf.cast( ( binsa[:,0] + fid[0].numpy()*binsa[:,1] + (fid[0].numpy()*fid[1].numpy())*binsa[:,2] ), tf.int32)
+
+		#get voxel number of each distribution in b --------------------------
+		xbinsb = tfp.stats.find_bins(b[:,0], edgesx)
+		ybinsb = tfp.stats.find_bins(b[:,1], edgesy)
+		zbinsb = tfp.stats.find_bins(b[:,2], edgesz)
+
+		binsb = tf.transpose(tf.Variable([xbinsb, ybinsb, zbinsb]))
+		numb = tf.cast( ( binsb[:,0] + fid[0].numpy()*binsb[:,1] + (fid[0].numpy()*fid[1].numpy())*binsb[:,2] ), tf.int32)
+
+		# print("\n numa \n", numa[:50])
+		# print("\n numb \n", numb[:50])
+
+		# find indices of voxels in b (if any) that match each element of a --
+		numa = numa[:,None] #need to add axis to a so all this to be run in parallel
+
+		eq = tf.cast(tf.where(numa == numb), tf.int32)
+		#eq is correct BUT it much shorter than the origonal vec numa
+		# print("\n eq \n", eq[:5]) #[idx_a, idx_b]
+		# eq = tf.concat((eq[:,1][:,None],eq[:,0][:,None]), axis = 1) #[b,a]
+		# print(eq)
+
+		#create full length correspondence vec
+
+
+		#set points of a with no point in b to -1 ----------------------------
+		# corr = tf.concat((tf.ones(tf.shape(numa)[0])))
+
+		#find which elements of a share a point on b
+		mask_match = tf.cast(tf.math.reduce_any(tf.math.equal(numa , numb), axis = 1), tf.int32)
+		# print(mask_match)
+		no_match = tf.squeeze(tf.where(mask_match == 0))
+		# print("\n no_match \n", no_match)
+
+		# print(tf.gather(numa, no_match))
+
+		#TODO -> get this to output index # not actual value		
+		#compile all unmatched distributions of a and -1
+		bads = tf.concat(((tf.cast(no_match, tf.int32))[:,None], 
+						   tf.cast(0*tf.ones(tf.shape(no_match)[0]), tf.int32)[:,None] ), axis = 1)
+		# print(bads)
+
+		corr = tf.concat((eq, bads), axis = 0)
+		# print(corr)
+
+		order = tf.argsort(corr[:,0])
+		# print(order)
+		corr = tf.gather(corr, order)
+		#need to reverse axis
+		corr = tf.concat((corr[:,1][:,None],corr[:,0][:,None]), axis = 1)
+
+#	[cell in b, cell in a]
 	return(corr)

@@ -8,6 +8,11 @@ import tensorflow_probability as tfp
 import time
 from utils import *
 
+
+#TODO: figure out why memory usage is increasing after each loop
+# https://stackoverflow.com/questions/44825360/tensorflows-memory-cost-gradually-increasing-in-very-simple-for-loop/44825824
+
+
 def ICET3D(pp1, pp2, plt, bounds, fid, draw = False, num_cycles = 5, min_num_pts = 30):
 
 	"""3D implementation of ICET algorithm using TensorFlow library
@@ -69,7 +74,7 @@ def ICET3D(pp1, pp2, plt, bounds, fid, draw = False, num_cycles = 5, min_num_pts
 
 		#determine correspondences between distribution centers of the two scans
 		# print("\n shapes of y and y0 \n", tf.shape(y), tf.shape(y0)) #TODO: debug here
-		corr = get_correspondences_tf(y, y0)
+		corr = get_correspondences_tf(y, y0, bounds, fid)
 		# print(corr)
 
 		#reorder y0, U, L, npts1, and cov1 according to correspondneces
@@ -112,7 +117,7 @@ def ICET3D(pp1, pp2, plt, bounds, fid, draw = False, num_cycles = 5, min_num_pts
 		# print(HTW)
 
 		#TODO check condition number
-		# L2, lam, U2 = get_condition(HTWH)
+		L2, lam, U2 = check_condition(HTWH)
 
 		# create alternate corrdinate system to align with axis of scan 1 distributions
 		z = tf.squeeze(tf.matmul(LUT, y[:,:,None]))
@@ -210,3 +215,13 @@ def get_U_and_L(sigma1, bounds, fid):
 	#	TODO: debug- make sure I should be getting rid of rows, not columns
 
 	return(U, L)
+
+
+def check_condition(HTWH):
+	"""verifies that HTWH is invertable and """
+
+
+	L2 = None
+	lam = None
+	U2 = None
+	return(L2, lam, U2)

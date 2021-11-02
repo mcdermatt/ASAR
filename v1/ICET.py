@@ -153,7 +153,7 @@ def visualize_U(U, L, ctr1, cov1, fig, ax):
 			ax.arrow(ctr1[i,0],  ctr1[i,1], -minor_stop[0], minor_stop[1], length_includes_head = True, lw = 1, head_width = hw) #repeat
 			ax.arrow(ctr1[i,0], ctr1[i,1], -major_stop[0], major_stop[1], length_includes_head = True, lw = 1, head_width = hw)
 
-		if np.all(L[i] == np.array([[1,0]])):
+		if np.all(L[i] == np.array([[1,0],[0,0]])):
 			ax.arrow(ctr1[i,0],  ctr1[i,1], -minor_stop[0], minor_stop[1], length_includes_head = True, lw = 1, head_width = hw)
 			ax.arrow(ctr1[i,0],  ctr1[i,1], minor_stop[0], -minor_stop[1], length_includes_head = True, lw = 1, head_width = hw)
 
@@ -210,7 +210,7 @@ def get_U_and_L(cov1, cellsize = np.array([100,100])):
 			U[i] = -eigenvec
 
 		#test
-		# U[i] = -eigenvec 
+		# U[i] = eigenvec 
 		# U[i] = R(theta_temp)
 
 		#test
@@ -231,7 +231,8 @@ def get_U_and_L(cov1, cellsize = np.array([100,100])):
 		#elongated axis1
 		if (axis1x>(cellsize[0]/4) or axis1y>(cellsize[1]/4)):
 			if (axis2x<(cellsize[0]/4) and axis2y<(cellsize[1]/4)):
-				L_i = np.array([[1,0]])
+				# L_i = np.array([[1,0]])
+				L_i = np.array([[1,0],[0,0]])
 			else:
 				#both elongated
 				L_i = np.zeros([1,2])
@@ -377,9 +378,9 @@ def get_dx(y, y0, x, cov1, cov2, npts1, npts2, L, U):
 		R_noise = (cov1[i] / (npts1[i] - 1)) + (cov2[i] / (npts2[i] - 1 )) 
 		# R_noise_temp = R_noise[:,:]
 		R_noise_before += R_noise
-		# R_noise = np.linalg.multi_dot((L[i], U[i], R_noise, U[i].T, L[i].T)) #new
+		R_noise = np.linalg.multi_dot((L[i], U[i], R_noise, U[i].T, L[i].T)) #new
 		# print(U[i])
-		R_noise = np.linalg.multi_dot((L[i], U[i].T, R_noise, U[i], L[i].T)) #was this
+		# R_noise = np.linalg.multi_dot((L[i], U[i].T, R_noise, U[i], L[i].T)) #was this
 		R_noise_after += R_noise
 
 		# print("\n",cov1[i], "\n", cov2[i],"\n")
