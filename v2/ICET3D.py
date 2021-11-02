@@ -74,8 +74,13 @@ def ICET3D(pp1, pp2, plt, bounds, fid, draw = False, num_cycles = 5, min_num_pts
 
 		#determine correspondences between distribution centers of the two scans
 		# print("\n shapes of y and y0 \n", tf.shape(y), tf.shape(y0)) #TODO: debug here
-		corr = get_correspondences_tf(y, y0, bounds, fid)
+		corr = get_correspondences_tf(y, y0, bounds, fid, method = "voxel")
 		# print(corr)
+
+		#ignore all data from voxels in y where corresponance does not exist (does nothing if method = "NN")
+		y_i = tf.gather(y, corr[:,1])
+		sigma2_i = tf.gather(sigma2, corr[:,1])
+		npts2_i = tf.gather(npts2, corr[:,1])
 
 		#reorder y0, U, L, npts1, and cov1 according to correspondneces
 		y0_i = tf.gather(y0, corr[:,0])
@@ -89,19 +94,22 @@ def ICET3D(pp1, pp2, plt, bounds, fid, draw = False, num_cycles = 5, min_num_pts
 		# print("\n y \n", y)
 
 		#get matrix containing partial derivatives for each voxel mean
-		H = jacobian_tf(tf.transpose(y), x[3:])
+		H = jacobian_tf(tf.transpose(y_i), x[3:])
 		H = tf.reshape(H, (tf.shape(H)[0]//3,3,6))
 		# print("\n H \n", tf.shape(H))
 
 		#get dx--------------------------------------------------------------------
 		R_noise = (tf.transpose(tf.transpose(sigma1_i) / tf.cast(npts1_i - 1, tf.float32)) + 
-				   tf.transpose(tf.transpose(sigma2) / tf.cast(npts2 - 1, tf.float32)) )
+				   tf.transpose(tf.transpose(sigma2_i) / tf.cast(npts2_i - 1, tf.float32)) )
 		# print(R_noise)
 
 		#transpose each [i,3,3] element of U_i here
 		U_iT = tf.transpose(U_i, [0,2,1])
-		# print("\n U_iT \n", U_iT)
-		LUT = tf.math.multiply(L_i.to_tensor(), U_iT)
+		# print("\n U_iT \n", tf.shape(U_iT)) 		  #[19, 3, 3]
+		# print("\n L_i \n", tf.shape(L_i.to_tensor())) #[19, 2, 3] with only [5,5,2] fidelity
+		LUT = tf.math.multiply(L_i.to_tensor(), U_iT) #TODO -> FIX BUG HERE
+		#NOTE: this bug happens when the every voxel has at least one ambigious direction
+
 		# print("\n LUT \n", tf.shape(LUT))
 		H_z = tf.matmul(LUT,H)
 		# H_z = tf.tensordot(LUT,H, axes = (1,2))
@@ -120,7 +128,7 @@ def ICET3D(pp1, pp2, plt, bounds, fid, draw = False, num_cycles = 5, min_num_pts
 		L2, lam, U2 = check_condition(HTWH)
 
 		# create alternate corrdinate system to align with axis of scan 1 distributions
-		z = tf.squeeze(tf.matmul(LUT, y[:,:,None]))
+		z = tf.squeeze(tf.matmul(LUT, y_i[:,:,None]))
 		z0 = tf.squeeze(tf.matmul(LUT, y0_i[:,:,None]))	
 		dz = z - z0
 
@@ -212,16 +220,59 @@ def get_U_and_L(sigma1, bounds, fid):
 
 	#----------------------------------------------------------------------------------------
 
-	#	TODO: debug- make sure I should be getting rid of rows, not columns
+	#	TODO: debug- make sure L should be getting rid of rows, not columns
 
 	return(U, L)
 
 
 def check_condition(HTWH):
-	"""verifies that HTWH is invertable and """
+	"""verifies that HTWH is invertable and if not, 
+		reduces dimensions to make inversion possible
+
+		L2 = identity matrix which keeps non-extended axis of solution
+		lam = diagonal eigenvalue matrix
+		U2 = rotation matrix to transform for L2 pruning 
+		"""
+
+	cutoff = 10e3 #10e5
+
+	#do eigendecomposition
+	eigenval, eigenvec = tf.linalg.eig(HTWH)
+	eigenval = tf.math.real(eigenval)
+	eigenvec = tf.math.real(eigenvec)
+
+	# print("\n eigenvals \n", eigenval)
+	# print("\n eigenvec \n", eigenvec)
 
 
-	L2 = None
-	lam = None
-	U2 = None
+	#sort eigenvals by size -default sorts small to big
+	# small2big = tf.sort(eigenval)
+	# print("\n sorted \n", small2big)
+
+	#test if condition number is bigger than cutoff
+	condition = eigenval[-1] / eigenval[0]
+
+	everyaxis = tf.cast(tf.linspace(0,5,6), dtype=tf.int32)
+	remainingaxis = everyaxis
+	i = tf.Variable([0],dtype = tf.int32) #count var
+	#loop until condition number is small enough to make matrix invertable
+	while condition > cutoff:
+
+		condition = eigenval[-1] / tf.gather(eigenval, i)
+
+		i.assign_add(tf.Variable([1],dtype = tf.int32))
+
+		remainingaxis = everyaxis[i.numpy()[0]:]
+
+		# print(remainingaxis)
+
+	#create identity matrix truncated to only have the remaining axis
+	L2 = tf.gather(tf.eye(6), remainingaxis)
+	# print("\n L2 \n", L2)
+
+	U2 = eigenvec
+
+	lam = tf.eye(6)*eigenval
+	# print("\n lam \n", lam)
+
 	return(L2, lam, U2)

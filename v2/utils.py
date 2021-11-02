@@ -733,11 +733,11 @@ def fit_gaussian_tf(points):
 
 	return mu, sigma
 
-def get_correspondences_tf(a, b, bounds, fid, method = "NN"):
+def get_correspondences_tf(a, b, bounds, fid, method = "voxel"):
 	"""finds closet point on b for each point in a
 	"""
 	#TODO: fix bug that occurs when only one voxel is used in scan2
-	# print(tf.shape(tf.shape(a)))
+	#TODO: get rid of unnecessary operations in voxel method
 
 	# print(tf.shape(a), tf.shape(b))
 
@@ -806,37 +806,37 @@ def get_correspondences_tf(a, b, bounds, fid, method = "NN"):
 		eq = tf.cast(tf.where(numa == numb), tf.int32)
 		#eq is correct BUT it much shorter than the origonal vec numa
 		# print("\n eq \n", eq[:5]) #[idx_a, idx_b]
-		# eq = tf.concat((eq[:,1][:,None],eq[:,0][:,None]), axis = 1) #[b,a]
-		# print(eq)
 
-		#create full length correspondence vec
+		# #create full length correspondence vec -----------------------------------
+		# #set points of a with no point in b to -1 
+		# # corr = tf.concat((tf.ones(tf.shape(numa)[0])))
 
+		# #find which elements of a share a point on b
+		# mask_match = tf.cast(tf.math.reduce_any(tf.math.equal(numa , numb), axis = 1), tf.int32)
+		# # print(mask_match)
+		# no_match = tf.squeeze(tf.where(mask_match == 0))
+		# # print("\n no_match \n", no_match)
 
-		#set points of a with no point in b to -1 ----------------------------
-		# corr = tf.concat((tf.ones(tf.shape(numa)[0])))
+		# # print(tf.gather(numa, no_match))
 
-		#find which elements of a share a point on b
-		mask_match = tf.cast(tf.math.reduce_any(tf.math.equal(numa , numb), axis = 1), tf.int32)
-		# print(mask_match)
-		no_match = tf.squeeze(tf.where(mask_match == 0))
-		# print("\n no_match \n", no_match)
+		# #TODO -> get this to output index # not actual value		
+		# #compile all unmatched distributions of a and -1
+		# bads = tf.concat(((tf.cast(no_match, tf.int32))[:,None], 
+		# 				   tf.cast(-1*tf.ones(tf.shape(no_match)[0]), tf.int32)[:,None] ), axis = 1)
+		# # print(bads)
 
-		# print(tf.gather(numa, no_match))
+		# corr = tf.concat((eq, bads), axis = 0)
+		# # print(corr)
 
-		#TODO -> get this to output index # not actual value		
-		#compile all unmatched distributions of a and -1
-		bads = tf.concat(((tf.cast(no_match, tf.int32))[:,None], 
-						   tf.cast(0*tf.ones(tf.shape(no_match)[0]), tf.int32)[:,None] ), axis = 1)
-		# print(bads)
+		# order = tf.argsort(corr[:,0])
+		# # print(order)
+		# corr = tf.gather(corr, order)
+		# #need to reverse axis
+		# corr = tf.concat((corr[:,1][:,None],corr[:,0][:,None]), axis = 1)
+		# #-----------------------------------------------------------------------------
 
-		corr = tf.concat((eq, bads), axis = 0)
-		# print(corr)
-
-		order = tf.argsort(corr[:,0])
-		# print(order)
-		corr = tf.gather(corr, order)
-		#need to reverse axis
-		corr = tf.concat((corr[:,1][:,None],corr[:,0][:,None]), axis = 1)
-
+		#switch order and only return elements that are useful
+		corr = tf.concat((eq[:,1][:,None],eq[:,0][:,None]), axis = 1) #[b,a]
+		
 #	[cell in b, cell in a]
 	return(corr)
