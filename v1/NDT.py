@@ -59,6 +59,7 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True, draw_output = True, m
 	# Build the NDT of the first scan.
 	if type(lims) == np.ndarray: 
 		E1 = subdivide_scan(pp1,fig,ax, fidelity = fid, min_num_pts = min_num_pts, pt = 0, lims = lims)
+		# print("\n using lims \n", lims)
 	else:
 		E1 = subdivide_scan(pp1,fig,ax, fidelity = fid, min_num_pts = min_num_pts, pt = 0)
 	
@@ -86,12 +87,26 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True, draw_output = True, m
 		# 	dc = False 
 		if cycle != 0:
 			dc = False
-		
+
+		# print("\n P_corrected \n", np.shape(P_corrected))
+
+		xbins_p = np.digitize(P_corrected[0,:], np.linspace(lims[0], lims[1], fid))
+		ybins_p = np.digitize(P_corrected[1,:], np.linspace(lims[2], lims[3], fid))
+		# print("\n xbins_p \n", xbins_p)
+		# print("\n ybins_p \n", ybins_p)
+
+		xbins_ctr = np.digitize(ctr[:,0], np.linspace(lims[2], lims[3], fid))
+		ybins_ctr = np.digitize(ctr[:,1], np.linspace(lims[2], lims[3], fid))
+		# print("\n xbins_ctr \n", xbins_ctr)
+		# print("\n ybins_ctr \n", ybins_ctr)
+
 		correspondences = get_correspondence(P_corrected,ctr.T,fig,ax, draw = dc)
+		# print("\n correspondences \n", correspondences[0])
 
 		score = 0
 		H = np.zeros([3,3])
 		g = np.zeros([3,1])
+		matches = 0
 		for index, i in enumerate(correspondences[0]): 
 			H_i = np.zeros([3,3])
 			mu = E1[int(i)][0][:,None]  	#center of corresponding point cloud from 1st scan (q_i in Biber paper)
@@ -106,12 +121,31 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True, draw_output = True, m
 
 			E = np.linalg.pinv(sigma)
 
-			# score_i = np.exp( (-(q.T).dot(E).dot(q) ) /2 ) # according to Biber
-			# score_i = np.exp( (-(q.T).dot(E).dot(q) ) /40 ) #more forgiving -> voxel size is around 40 in this case. Converges in ~70
-			# score_i = (q).T.dot(E).dot(q) #Matt's method -> WORKS (slowly). Converges in ~400
-			score_i = np.exp( (-(q.T).dot(E).dot(q) ) /200 ) #trying to get best performance for paper...
+			## was this: Nearest-Neighbor correspondance ------------------------------
+			## score_i = np.exp( (-(q.T).dot(E).dot(q) ) /2 ) # according to Biber
+			## score_i = np.exp( (-(q.T).dot(E).dot(q) ) /40 ) #more forgiving -> voxel size is around 40 in this case. Converges in ~70
+			## score_i = (q).T.dot(E).dot(q) #Matt's method -> WORKS (slowly). Converges in ~400
+			# score_i = np.exp( (-(q.T).dot(E).dot(q) ) /200 ) #trying to get best performance for paper...
+			# score += score_i
+			## ------------------------------------------------------------------------
 
-			score += score_i
+			# NEW 11/3 - voxel-based correspondance ----------------------------------
+			# trying this to use more robust correspondance metrics  
+			#exclude points from score if they do not fall in same voxel as corresponding distribution
+				#slightly less efficient for first iterations but should achieve same final accuracy... just looking for results here...
+			# print(np.shape(xbins_p))
+
+			# if the point in consideration is within the same x and y bins as the corresponding distribution center
+			#BUG IS HERE??
+			if (xbins_p[index] == xbins_ctr[i.astype(int)]) and ( ybins_p[index] == ybins_ctr[i.astype(int)]):
+				score_i = np.exp( (-(q.T).dot(E).dot(q) ) /200 ) # according to Biber
+				score += score_i
+				matches += 1 #for debug
+				# print(xbins_p[index], xbins_ctr[i.astype(int)])
+			else:
+				score_i = 0
+			#--------------------------------------------------------------------------
+
 
 			#DEBUG THIS - be careful of mixing up x and p
 			#get jacobian
@@ -234,6 +268,8 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True, draw_output = True, m
 
 	#draw correspondences of final state
 	# get_correspondence(P_corrected,ctr.T,fig,ax, draw = True)
+
+	# print(matches)
 
 	#TODO- DEBUG THIS
 	if (output_actual == False):

@@ -100,7 +100,7 @@ def get_correspondence(P,Q, fig, ax, draw = False):
 	return correspondences
 
 def get_correspondence_voxel(P,Q, fid, lims):
-	"""calculates points in Q in the same voxel as each point in P.
+	"""calculates points in Q (y0) in the same voxel as each point in P (y).
 		if no point exists for voxel of P, returns -1 with that point"""
 
 	correspondences = -1*np.ones(np.shape(P)[0])
@@ -114,7 +114,7 @@ def get_correspondence_voxel(P,Q, fid, lims):
 	x_bins_q = np.digitize(Q[:,0], np.linspace(lims[0], lims[1], fid))
 	y_bins_q = np.digitize(Q[:,1], np.linspace(lims[2], lims[3], fid))
 
-	# print("shape", np.shape(P)[0])
+	# print("shape of input P, Q", np.shape(P)[0], np.shape(Q)[0])
 
 	for p in range(np.shape(P)[0]):
 		for q in range(np.shape(Q)[0]):
@@ -281,17 +281,17 @@ def draw_scan(scan, fig, ax, FOV = 60, pt = 0, hitters = None, ignore_boundary =
 # 	""" Generates straight road scan (ambiguous case) """
 
 # 	npts = 4200 #4200
-# 	tscale = 10
+# 	tscale = 5#10
 # 	noise_scale = 2
 
 # 	pp1 = np.zeros([npts,2])
 # 	pp2 = np.zeros([npts,2])
 
 # 	#ADJUST NET ROTATION HERE
-# 	# theta = np.random.randn()*0.1 #+np.pi
-# 	# t = np.random.randn(2)*tscale
-# 	theta = 0.1
-# 	t = np.array([5,10])
+# 	theta = np.random.randn()*0.1 #+np.pi
+# 	t = np.random.randn(2)*tscale
+# 	# theta = 0.1
+# 	# t = np.array([5,10])
 
 # 	rot = R(theta)
 
@@ -333,7 +333,7 @@ def generate_along_track_data(fig,ax,draw = True, output_actual = False):
 
 	""" Generates T shaped scan (non-ambiguous case) """
 
-	npts =  4200 #16800
+	npts =  420 #4200
 	tscale = 5#10
 	noise_scale = 2
 

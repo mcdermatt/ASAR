@@ -671,58 +671,70 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True, a
 		if cycle == 0:
 			y_init = ctr2 #save for later translations
 
-		#DO CORRESPONDENCES WITH NEAREST-NEIGHBOR (OLD) ---------------------------------------------
-		#get correspondences needs to take in 2d array of points
-		correspondences = get_correspondence(y.T, y0.T, fig, ax, draw = False)
-		y0 = y0[correspondences[0].astype(int)]
-		#reshape Ys to be [ 2N , 1] 
-		y_reshape = np.reshape(y, (np.shape(y)[0]*2,1), order='C')
-		y0_reshape = np.reshape(y0, (np.shape(y0)[0]*2,1), order='C')
-		# print("y0_reshape: \n", np.shape(y0_reshape))
-		#reorder U and L according to correspondences
-		#	NOTE: here the subscript _i refers to the fact that this is the COMPLETE vector at cycle i
-		U_i = U[correspondences[0].astype(int)] #this is straightforward for U
-		#rearrange L_i to be in order of correspondances
-		L_i = []
-		for i in correspondences[0].astype(int):
-			L_i.append(L[i])
-		#create array the same size as cov2 that holds the covariance matrices from cov1 that 
-		#	are associated with are nearest point accoring to the correspondance array
-		cov1reorder = np.zeros(np.shape(cov2))
-		npts1reorder = np.zeros(np.shape(npts2))
-		for c in range(np.shape(cov1reorder)[0]):
-			cov1reorder[c] = cov1[correspondences[0].astype(int)[c]]
-			npts1reorder[c] = npts1[correspondences[0].astype(int)[c]]
-		#---------------------------------------------------------------------------------------------
+		# #DO CORRESPONDENCES WITH NEAREST-NEIGHBOR (OLD) ---------------------------------------------
+		# #get correspondences needs to take in 2d array of points
+		# correspondences = get_correspondence(y.T, y0.T, fig, ax, draw = False)
+		# y0 = y0[correspondences[0].astype(int)]
+		# #reshape Ys to be [ 2N , 1] 
+		# y_reshape = np.reshape(y, (np.shape(y)[0]*2,1), order='C')
+		# y0_reshape = np.reshape(y0, (np.shape(y0)[0]*2,1), order='C')
+		# # print("y0_reshape: \n", np.shape(y0_reshape))
+		# #reorder U and L according to correspondences
+		# #	NOTE: here the subscript _i refers to the fact that this is the COMPLETE vector at cycle i
+		# U_i = U[correspondences[0].astype(int)] #this is straightforward for U
+		# #rearrange L_i to be in order of correspondances
+		# L_i = []
+		# for i in correspondences[0].astype(int):
+		# 	L_i.append(L[i])
+		# #create array the same size as cov2 that holds the covariance matrices from cov1 that 
+		# #	are associated with are nearest point accoring to the correspondance array
+		# cov1reorder = np.zeros(np.shape(cov2))
+		# npts1reorder = np.zeros(np.shape(npts2))
+		# for c in range(np.shape(cov1reorder)[0]):
+		# 	cov1reorder[c] = cov1[correspondences[0].astype(int)[c]]
+		# 	npts1reorder[c] = npts1[correspondences[0].astype(int)[c]]
+		#for debug
+		#npts2_i = npts2
+		#cov2_i = cov2
+		# #---------------------------------------------------------------------------------------------
 
 
 		#DO CORRESPONDENCES WITHIN VOXEL (NEW)--------------------------------------------------------
 		corr_voxel = get_correspondence_voxel(y, y0, fid, pp1_lims)
-		print("\n corr_voxel \n", corr_voxel)
+		# print("\n corr_voxel \n", corr_voxel)
 
 		#Ignore flagged indices. Don't worry, this gets re-initilized every loop!
 		y0_test = y0[ corr_voxel[corr_voxel != -1].astype(int) ]
-		print("shape test", np.shape(y0), np.shape(y0_test))
+		# print("\n shape of y0, y0_test \n", np.shape(y0), np.shape(y0_test))
+		# print("\n shape of y, y_test \n ", np.shape(y), np.shape(np.squeeze(y[np.argwhere(corr_voxel != -1)])))
 
 		#reshape Ys to be [ 2N , 1] 
-		y0_test_reshape = np.reshape(y0_test, (np.shape(y0_test)[0]*2,1), order='C')
-		y_test_reshape = np.reshape( y[np.argwhere(corr_voxel != -1)] , (np.shape(y0_test)[0]*2,1), order='C')
+		y0_reshape = np.reshape(y0_test, (np.shape(y0_test)[0]*2,1), order='C')
+		y_reshape = np.reshape( np.squeeze(y[np.argwhere(corr_voxel != -1)]) , (np.shape(y0_test)[0]*2,1), order='C')
 
-		U_i_test = U[corr_voxel.astype(int)]
+		# print("\n shape of y0_reshape, y_reshape \n", np.shape(y0_reshape), np.shape(y_reshape))
 
-		L_i_test = []
-		for i in correspondences.astype(int):
-			L_i_test.append(L[i])
+		# print(np.shape(U))
+		U_i = U[corr_voxel[corr_voxel != -1].astype(int)]
+		# print("\n shape of U_i \n", np.shape(U_i))
 
-		#TODO: reorder according to correspondences these
-		cov1reorder_test = np.zeros(np.shape(cov2))
-		npts1reorder_test = np.zeros(np.shape(npts2))
+		L_i = []
+		for i in corr_voxel[corr_voxel != -1].astype(int):
+			L_i.append(L[i])
+		# print("\n shape of L_i \n", np.shape(L_i))
+
+		#TODO: need to get rid of unused voxels in cov2 and npts2
+		cov2_i = np.squeeze(cov2[np.argwhere(corr_voxel != -1)])
+		npts2_i = np.squeeze(npts2[np.argwhere(corr_voxel != -1)])
+
+		# print("\n shape of cov2_i, npts2_i \n", np.shape(cov2_i), np.shape(npts2_i))
+
+		#TODO: reorder according to correspondences
+		cov1reorder = np.zeros(np.shape(cov2))
+		npts1reorder = np.zeros(np.shape(npts2))
 		for c in range(np.shape(cov1reorder)[0]):
-			cov1reorder[c] = cov1[correspondences[0].astype(int)[c]]
-			npts1reorder[c] = npts1[correspondences[0].astype(int)[c]]
-
-		#TODO: also need to get rid of unused voxels in cov2 and npts2
-
+			cov1reorder[c] = cov1[corr_voxel.astype(int)[c]]
+			npts1reorder[c] = npts1[corr_voxel.astype(int)[c]]
 
 		#---------------------------------------------------------------------------------------------
 
@@ -736,14 +748,13 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True, a
 		# H_w = weighted_psudoinverse(H, W)
 		# ------------------------------------------------------------------
 
+		#OLD
 		# Fast weighted psudoinverse ---------------------------------------
-		H_w = fast_weighted_psudoinverse(y_reshape, x, cov1reorder, npts1reorder, cov2, npts2, L_i, U_i)
-		# print("H_w: \n", H_w, np.shape(H_w))
-		# print("Q_test = ", H_w.dot(cov1).dot((H_w.T)))
+		# H_w = fast_weighted_psudoinverse(y_reshape, x, cov1reorder, npts1reorder, cov2, npts2, L_i, U_i)
 		#-------------------------------------------------------------------
 
-		#NOTE 7/21: I think I should be using L and lambda OUTSIDE fast_weighted_psudoinverse()
-		dxTest, Q, condinfo, dz = get_dx(y_reshape, y0_reshape, x, cov1reorder, cov2, npts1reorder, npts2, L_i, U_i)
+		#NEW---------------------------------------------------------------
+		dxTest, Q, condinfo, dz = get_dx(y_reshape, y0_reshape, x, cov1reorder, cov2_i, npts1reorder, npts2_i, L_i, U_i)
 		#-------------------------------------------------------------------
 
 		z = np.zeros(np.shape(y_reshape))
