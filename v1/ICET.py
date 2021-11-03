@@ -637,10 +637,7 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True, a
 	visualize_U(U, L, ctr1, cov1, fig, ax)
 	#---------------------------------------------------------------------------------
 
-	# print("L \n", L, np.shape(L))
-
 	#inital estimate for transformation
-	#TODO: improve initial estimated transform (start with zeros here, could potentially use wheel odometry) 
 	x = np.zeros([3,1])
 	best_x = np.zeros([3,1])
 
@@ -674,31 +671,21 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True, a
 		if cycle == 0:
 			y_init = ctr2 #save for later translations
 
+		#DO CORRESPONDENCES WITH NEAREST-NEIGHBOR (OLD) ---------------------------------------------
 		#get correspondences needs to take in 2d array of points
 		correspondences = get_correspondence(y.T, y0.T, fig, ax, draw = False)
-		# print("correspondences: \n", correspondences)
-
 		y0 = y0[correspondences[0].astype(int)]
-		# print("y0: \n", y0, np.shape(y0))
-		# print("y: \n", y, np.shape(y))
-
 		#reshape Ys to be [ 2N , 1] 
 		y_reshape = np.reshape(y, (np.shape(y)[0]*2,1), order='C')
 		y0_reshape = np.reshape(y0, (np.shape(y0)[0]*2,1), order='C')
 		# print("y0_reshape: \n", np.shape(y0_reshape))
-
 		#reorder U and L according to correspondences
 		#	NOTE: here the subscript _i refers to the fact that this is the COMPLETE vector at cycle i
 		U_i = U[correspondences[0].astype(int)] #this is straightforward for U
-
-		#NEW - when L is truncated for cases with extended axis ------------------------------------
-		# print(correspondences[0].astype(int))
 		#rearrange L_i to be in order of correspondances
 		L_i = []
 		for i in correspondences[0].astype(int):
 			L_i.append(L[i])
-		#-------------------------------------------------------------------------------------------
-
 		#create array the same size as cov2 that holds the covariance matrices from cov1 that 
 		#	are associated with are nearest point accoring to the correspondance array
 		cov1reorder = np.zeros(np.shape(cov2))
@@ -706,6 +693,38 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True, a
 		for c in range(np.shape(cov1reorder)[0]):
 			cov1reorder[c] = cov1[correspondences[0].astype(int)[c]]
 			npts1reorder[c] = npts1[correspondences[0].astype(int)[c]]
+		#---------------------------------------------------------------------------------------------
+
+
+		#DO CORRESPONDENCES WITHIN VOXEL (NEW)--------------------------------------------------------
+		corr_voxel = get_correspondence_voxel(y, y0, fid, pp1_lims)
+		print("\n corr_voxel \n", corr_voxel)
+
+		#Ignore flagged indices. Don't worry, this gets re-initilized every loop!
+		y0_test = y0[ corr_voxel[corr_voxel != -1].astype(int) ]
+		print("shape test", np.shape(y0), np.shape(y0_test))
+
+		#reshape Ys to be [ 2N , 1] 
+		y0_test_reshape = np.reshape(y0_test, (np.shape(y0_test)[0]*2,1), order='C')
+		y_test_reshape = np.reshape( y[np.argwhere(corr_voxel != -1)] , (np.shape(y0_test)[0]*2,1), order='C')
+
+		U_i_test = U[corr_voxel.astype(int)]
+
+		L_i_test = []
+		for i in correspondences.astype(int):
+			L_i_test.append(L[i])
+
+		#TODO: reorder according to correspondences these
+		cov1reorder_test = np.zeros(np.shape(cov2))
+		npts1reorder_test = np.zeros(np.shape(npts2))
+		for c in range(np.shape(cov1reorder)[0]):
+			cov1reorder[c] = cov1[correspondences[0].astype(int)[c]]
+			npts1reorder[c] = npts1[correspondences[0].astype(int)[c]]
+
+		#TODO: also need to get rid of unused voxels in cov2 and npts2
+
+
+		#---------------------------------------------------------------------------------------------
 
 		# "standard" weighted psudoinverse ------------------------------------
 		#get weighting matrix from covariance matrix 

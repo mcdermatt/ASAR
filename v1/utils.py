@@ -75,7 +75,8 @@ def get_cross_cov(P,Q,correspondence):
 
 def get_correspondence(P,Q, fig, ax, draw = False):
 
-	"""generates an array containing a the closest point on Q for each point of P as well as the minimum distnace for each"""
+	"""generates an array containing a the closest point on Q for each point of P as well as 
+		the minimum distnace for each using NEAREST NEIGHBOR"""
 
 	#init array to store closest points on Q for each point on the moved data
 	correspondences = np.ones([2,np.shape(P)[1]])
@@ -95,6 +96,35 @@ def get_correspondence(P,Q, fig, ax, draw = False):
 			start = P[:,p]
 			stop = Q[:,int(correspondences[0,p])]
 			ax.plot([start[0], stop[0]], [start[1], stop[1]],'k--', lw = 1)
+
+	return correspondences
+
+def get_correspondence_voxel(P,Q, fid, lims):
+	"""calculates points in Q in the same voxel as each point in P.
+		if no point exists for voxel of P, returns -1 with that point"""
+
+	correspondences = -1*np.ones(np.shape(P)[0])
+
+	#get voxel idx for all points in P
+	x_bins_p = np.digitize(P[:,0], np.linspace(lims[0], lims[1], fid))
+	y_bins_p = np.digitize(P[:,1], np.linspace(lims[2], lims[3], fid))
+	# print(" \n x_bins_p \n" , x_bins_p)
+
+	#get voxel idx for all points in Q
+	x_bins_q = np.digitize(Q[:,0], np.linspace(lims[0], lims[1], fid))
+	y_bins_q = np.digitize(Q[:,1], np.linspace(lims[2], lims[3], fid))
+
+	# print("shape", np.shape(P)[0])
+
+	for p in range(np.shape(P)[0]):
+		for q in range(np.shape(Q)[0]):
+			#if there's a match, set correspondence to that point
+			if (x_bins_p[p] == x_bins_q[q]) and (y_bins_p[p] == y_bins_q[q]):
+			# 	#get the index of that point in Q
+				correspondences[p] = q
+
+			# # if not, leave correspondance for that element as -1
+
 
 	return correspondences
 
