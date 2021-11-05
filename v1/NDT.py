@@ -76,7 +76,8 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True, draw_output = True, m
 
 	results = []
 	x_best = np.zeros([3,1])
-	maxscore = 0
+	# maxscore = 0 # if biber
+	maxscore = 10e8 #Matt (for debug)
 
 	for cycle in range(num_cycles):
 
@@ -121,30 +122,30 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True, draw_output = True, m
 
 			E = np.linalg.pinv(sigma)
 
-			## was this: Nearest-Neighbor correspondance ------------------------------
-			## score_i = np.exp( (-(q.T).dot(E).dot(q) ) /2 ) # according to Biber
-			## score_i = np.exp( (-(q.T).dot(E).dot(q) ) /40 ) #more forgiving -> voxel size is around 40 in this case. Converges in ~70
-			## score_i = (q).T.dot(E).dot(q) #Matt's method -> WORKS (slowly). Converges in ~400
+			# was this: Nearest-Neighbor correspondance ------------------------------
+			# score_i = np.exp( (-(q.T).dot(E).dot(q) ) /2 ) # according to Biber
+			# score_i = np.exp( (-(q.T).dot(E).dot(q) ) /40 ) #more forgiving -> voxel size is around 40 in this case. Converges in ~70
+			score_i = (q).T.dot(E).dot(q) #Matt's method -> WORKS (slowly). Converges in ~400
 			# score_i = np.exp( (-(q.T).dot(E).dot(q) ) /200 ) #trying to get best performance for paper...
-			# score += score_i
-			## ------------------------------------------------------------------------
+			score += score_i
+			# ------------------------------------------------------------------------
 
-			# NEW 11/3 - voxel-based correspondance ----------------------------------
-			# trying this to use more robust correspondance metrics  
-			#exclude points from score if they do not fall in same voxel as corresponding distribution
-				#slightly less efficient for first iterations but should achieve same final accuracy... just looking for results here...
-			# print(np.shape(xbins_p))
+			# # NEW 11/3 - voxel-based correspondance ----------------------------------
+			# # trying this to use more robust correspondance metrics  
+			# #exclude points from score if they do not fall in same voxel as corresponding distribution
+			# 	#slightly less efficient for first iterations but should achieve same final accuracy... just looking for results here...
+			# # print(np.shape(xbins_p))
 
-			# if the point in consideration is within the same x and y bins as the corresponding distribution center
-			#BUG IS HERE??
-			if (xbins_p[index] == xbins_ctr[i.astype(int)]) and ( ybins_p[index] == ybins_ctr[i.astype(int)]):
-				score_i = np.exp( (-(q.T).dot(E).dot(q) ) /200 ) # according to Biber
-				score += score_i
-				matches += 1 #for debug
-				# print(xbins_p[index], xbins_ctr[i.astype(int)])
-			else:
-				score_i = 0
-			#--------------------------------------------------------------------------
+			# # if the point in consideration is within the same x and y bins as the corresponding distribution center
+			# #BUG IS HERE??
+			# if (xbins_p[index] == xbins_ctr[i.astype(int)]) and ( ybins_p[index] == ybins_ctr[i.astype(int)]):
+			# 	score_i = np.exp( (-(q.T).dot(E).dot(q) ) /200 ) # according to Biber
+			# 	score += score_i
+			# 	matches += 1 #for debug
+			# 	# print(xbins_p[index], xbins_ctr[i.astype(int)])
+			# else:
+			# 	score_i = 0
+			# #--------------------------------------------------------------------------
 
 
 			#DEBUG THIS - be careful of mixing up x and p
@@ -221,7 +222,8 @@ def NDT(Q,P,fig,ax, fid = 10, num_cycles = 1, draw = True, draw_output = True, m
 
 		# print("H^-1", np.linalg.pinv(H))
 
-		if score > maxscore:
+		# if score > maxscore: # if using Biber method
+		if score < maxscore: # if using Matt's Method
 			maxscore = score
 			x_best[:] = x[:]
 			# print("maxscore: \n", maxscore, "\n x_best: \n", x_best)

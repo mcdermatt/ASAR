@@ -739,7 +739,7 @@ def get_correspondences_tf(a, b, bounds, fid, method = "voxel"):
 	#TODO: fix bug that occurs when only one voxel is used in scan2
 	#TODO: get rid of unnecessary operations in voxel method
 
-	# print(tf.shape(a), tf.shape(b))
+	# print("\n corr shape a b \n", tf.shape(a), tf.shape(b))
 
 	if method == "NN":
 		if tf.shape(tf.shape(a)) == 1:

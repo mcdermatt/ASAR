@@ -90,8 +90,8 @@ def ICET3D(pp1, pp2, plt, bounds, fid, draw = False, num_cycles = 5, min_num_pts
 		sigma1_i = tf.gather(sigma1, corr[:,0])
 
 		#Reshape y, y0 to be [3*N, 1] <- TODO: see if I actually need to reshape
-		# print("\n y0_i \n", y0_i)
-		# print("\n y \n", y)
+		print("\n y0_i shape \n", tf.shape(y0_i))
+		# print("\n y shape \n", tf.shape(y))
 
 		#get matrix containing partial derivatives for each voxel mean
 		H = jacobian_tf(tf.transpose(y_i), x[3:])
@@ -109,6 +109,7 @@ def ICET3D(pp1, pp2, plt, bounds, fid, draw = False, num_cycles = 5, min_num_pts
 		# print("\n L_i \n", tf.shape(L_i.to_tensor())) #[19, 2, 3] with only [5,5,2] fidelity
 		LUT = tf.math.multiply(L_i.to_tensor(), U_iT) #TODO -> FIX BUG HERE
 		#NOTE: this bug happens when the every voxel has at least one ambigious direction
+		# print("\n LUT \n", tf.shape(LUT))
 
 		# print("\n LUT \n", tf.shape(LUT))
 		H_z = tf.matmul(LUT,H)
@@ -122,29 +123,43 @@ def ICET3D(pp1, pp2, plt, bounds, fid, draw = False, num_cycles = 5, min_num_pts
 		# print(HTWH)
 
 		HTW = tf.matmul(tf.transpose(H_z, [0,2,1]), W)
-		# print(HTW)
+		# print("\n HTW \n",tf.shape(HTW))
 
-		#TODO check condition number
+		#check condition number
 		L2, lam, U2 = check_condition(HTWH)
 
 		# create alternate corrdinate system to align with axis of scan 1 distributions
 		z = tf.squeeze(tf.matmul(LUT, y_i[:,:,None]))
 		z0 = tf.squeeze(tf.matmul(LUT, y0_i[:,:,None]))	
 		dz = z - z0
+		#need to add an extra dimension to dz to get the math to work out
+		dz = dz[:,:,None]
+		# print("\n dz \n", tf.shape(dz))
+
 
 		#solve for dx
-		# dx = tf.linalg.pinv()
+		# dx     = (L2 * U2.T)^-1       * L2    * U2     * HTW         *  dz
+		# [6, 1] = ([D, 6] * [6, 6])^-1 * [D,6] * [6, 6] * [B, 6, 3] * [B,3]
+		#	   D = 1-6 depending on # axis removed 
+		#	   B = batch size (num usable voxels)
+		dx = tf.squeeze(tf.matmul(tf.matmul(tf.linalg.pinv(L2 @ tf.transpose(U2)) @ L2 @ tf.transpose(U2), HTW), dz))
+		#need to add up the tensor containing the summands from each voxel to a single row matrix
+		#    [B, 6] -> [6]
+		dx = tf.math.reduce_sum(dx, axis = 0)
+		print("\n dx \n", dx)
 
 		#get output covariance matrix
 		Q = tf.linalg.pinv(HTWH)
+		# print("\n Q \n", Q)
 
 		#augment x by dx
-		dx = tf.constant([1., 2., 3., 4., 5., 6.])
 		x += dx
 
 		#transform 2nd scan by x
 		t = x[:3]
-		rot = R(x[3:])
+		rot = R_tf(x[3:])
+
+		print("\n t, rot \n", t, "\n", rot)
 
 		#update pp2
 		pp2_corrected = tf.matmul(pp2, rot) + t #TODO: fix this step
@@ -234,6 +249,8 @@ def check_condition(HTWH):
 		U2 = rotation matrix to transform for L2 pruning 
 		"""
 
+	#TODO: keep L2 as a 6x6- Yes or no?
+
 	cutoff = 10e3 #10e5
 
 	#do eigendecomposition
@@ -268,9 +285,11 @@ def check_condition(HTWH):
 
 	#create identity matrix truncated to only have the remaining axis
 	L2 = tf.gather(tf.eye(6), remainingaxis)
-	# print("\n L2 \n", L2)
+	print("\n L2 \n", L2)
 
 	U2 = eigenvec
+	# print("\n U2 \n", U2)
+
 
 	lam = tf.eye(6)*eigenval
 	# print("\n lam \n", lam)

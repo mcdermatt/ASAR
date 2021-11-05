@@ -333,7 +333,7 @@ def generate_along_track_data(fig,ax,draw = True, output_actual = False):
 
 	""" Generates T shaped scan (non-ambiguous case) """
 
-	npts =  420 #4200
+	npts =  4200 #4200
 	tscale = 5#10
 	noise_scale = 2
 

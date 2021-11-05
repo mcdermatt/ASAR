@@ -423,6 +423,7 @@ def get_dx(y, y0, x, cov1, cov2, npts1, npts2, L, U):
 		z[2*count:2*count+2] = L[count].dot(U[count].T.dot(y[2*count:2*count+2]))
 		z0[2*count:2*count+2] = L[count].dot(U[count].T.dot(y0[2*count:2*count+2]))
 	dz = z - z0
+	# print("\n dz \n",  np.shape(dz))
 	dx = np.linalg.pinv( L2.dot(lam).dot(U2.T) ).dot(L2).dot(U2.T).dot(HTW).dot(dz)
 
 
