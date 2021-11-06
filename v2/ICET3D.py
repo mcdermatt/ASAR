@@ -9,11 +9,13 @@ import time
 from utils import *
 
 
-#TODO: figure out why memory usage is increasing after each loop
-# https://stackoverflow.com/questions/44825360/tensorflows-memory-cost-gradually-increasing-in-very-simple-for-loop/44825824
+#TODO: 	figure out why memory usage is increasing after each loop
+			# https://stackoverflow.com/questions/44825360/tensorflows-memory-cost-gradually-increasing-in-very-simple-for-loop/44825824
+#TODO:	add option to display both point clouds 
+#TODO: 	draw correspondences between distribution centers
+#TODO:	CORRECT ELLIPSE ROTATION ANGLES!!!
 
-
-def ICET3D(pp1, pp2, plt, bounds, fid, draw = False, num_cycles = 5, min_num_pts = 30):
+def ICET3D(pp1, pp2, plt, bounds, fid, draw = False, num_cycles = 5, min_num_pts = 30, draw_grid = False, draw_ell = True):
 
 	"""3D implementation of ICET algorithm using TensorFlow library
 	
@@ -23,10 +25,14 @@ def ICET3D(pp1, pp2, plt, bounds, fid, draw = False, num_cycles = 5, min_num_pts
 	"""
 
 	#subdivide keyframe scan
-	E1 = subdivide_scan_tf(pp1, plt, bounds, fid, draw = False)
+	if draw == True:
+		E1 = subdivide_scan_tf(pp1, plt, bounds, fid, draw = True, show_pc = 1, draw_grid = draw_grid, draw_ell = draw_ell)
+	else:
+		E1 = subdivide_scan_tf(pp1, plt, bounds, fid, draw = False, draw_grid = draw_grid)
 	mu1 = E1[0]
 	sigma1 = E1[1]
 	npts1 = E1[2]
+	disp = E1[3]
 
 	# ignore data from unused voxels
 	nonzero_idx1 = tf.where(tf.math.reduce_sum(mu1, axis = 1) != 0)
@@ -52,14 +58,20 @@ def ICET3D(pp1, pp2, plt, bounds, fid, draw = False, num_cycles = 5, min_num_pts
 	pp2_corrected = pp2[:]
 	# print(tf.shape(pp2_corrected))
 
+	x_hist = tf.zeros([1,6])
+
 	for i in range(num_cycles):
 		print(i)
 
 		#subdivide second scan
-		E2 = subdivide_scan_tf(pp2_corrected, plt, bounds, fid, draw=False)
+		if draw == True:
+			E2 = subdivide_scan_tf(pp2_corrected, plt, bounds, fid,disp = disp, draw=True, show_pc = 2, draw_grid = draw_grid, draw_ell = draw_ell)
+		else:
+			E2 = subdivide_scan_tf(pp2_corrected, plt, bounds, fid, draw=False)
 		mu2 = E2[0]
 		sigma2 = E2[1]
 		npts2 = E2[2]
+		disp = E2[3]
 
 		#remove all unused voxels
 		nonzero_idx2 = tf.where(tf.math.reduce_sum(mu2, axis = 1) != 0)
@@ -90,7 +102,7 @@ def ICET3D(pp1, pp2, plt, bounds, fid, draw = False, num_cycles = 5, min_num_pts
 		sigma1_i = tf.gather(sigma1, corr[:,0])
 
 		#Reshape y, y0 to be [3*N, 1] <- TODO: see if I actually need to reshape
-		print("\n y0_i shape \n", tf.shape(y0_i))
+		# print("\n y0_i shape \n", tf.shape(y0_i))
 		# print("\n y shape \n", tf.shape(y))
 
 		#get matrix containing partial derivatives for each voxel mean
@@ -101,7 +113,10 @@ def ICET3D(pp1, pp2, plt, bounds, fid, draw = False, num_cycles = 5, min_num_pts
 		#get dx--------------------------------------------------------------------
 		R_noise = (tf.transpose(tf.transpose(sigma1_i) / tf.cast(npts1_i - 1, tf.float32)) + 
 				   tf.transpose(tf.transpose(sigma2_i) / tf.cast(npts2_i - 1, tf.float32)) )
-		# print(R_noise)
+		#TODO: remove extended distribution components from R_noise using L, U
+		# R_noise = L_i * U_i.T * R_noise * U_i * L_i.T
+		R_noise = L_i.to_tensor() @ tf.transpose(U_i, [0,2,1]) @ R_noise @ U_i @ tf.transpose(L_i.to_tensor(), [0,2,1])
+		# print("\n R_noise \n", R_noise)
 
 		#transpose each [i,3,3] element of U_i here
 		U_iT = tf.transpose(U_i, [0,2,1])
@@ -117,13 +132,15 @@ def ICET3D(pp1, pp2, plt, bounds, fid, draw = False, num_cycles = 5, min_num_pts
 		# print(tf.shape(H_z))
 
 		#invert sensor noise matrix R to get weighting matrix W
-		W = tf.linalg.pinv(R_noise)
+		W = tf.linalg.pinv(R_noise) #correct
+		# W = R_noise #for debug
+		# print("\n W \n",W)
 
 		HTWH = tf.math.reduce_sum(tf.matmul(tf.matmul(tf.transpose(H_z, [0,2,1]), W), H_z), axis = 0)
-		# print(HTWH)
+		# print("\n HTWH \n", HTWH)
 
 		HTW = tf.matmul(tf.transpose(H_z, [0,2,1]), W)
-		# print("\n HTW \n",tf.shape(HTW))
+		print("\n HTW \n",tf.shape(HTW))
 
 		#check condition number
 		L2, lam, U2 = check_condition(HTWH)
@@ -132,21 +149,29 @@ def ICET3D(pp1, pp2, plt, bounds, fid, draw = False, num_cycles = 5, min_num_pts
 		z = tf.squeeze(tf.matmul(LUT, y_i[:,:,None]))
 		z0 = tf.squeeze(tf.matmul(LUT, y0_i[:,:,None]))	
 		dz = z - z0
-		#need to add an extra dimension to dz to get the math to work out
-		dz = dz[:,:,None]
-		# print("\n dz \n", tf.shape(dz))
+		dz = dz[:,:,None] #need to add an extra dimension to dz to get the math to work out
+		# print("\n dz \n", dz) #looks fine, most differences are between 0.1-1 units
 
+		#TODO -> HTW is WAAAY too big (?)
 
-		#solve for dx
-		# dx     = (L2 * U2.T)^-1       * L2    * U2     * HTW         *  dz
-		# [6, 1] = ([D, 6] * [6, 6])^-1 * [D,6] * [6, 6] * [B, 6, 3] * [B,3]
-		#	   D = 1-6 depending on # axis removed 
-		#	   B = batch size (num usable voxels)
-		dx = tf.squeeze(tf.matmul(tf.matmul(tf.linalg.pinv(L2 @ tf.transpose(U2)) @ L2 @ tf.transpose(U2), HTW), dz))
-		#need to add up the tensor containing the summands from each voxel to a single row matrix
-		#    [B, 6] -> [6]
-		dx = tf.math.reduce_sum(dx, axis = 0)
+		# #solve for dx - with L2 pruning ----------------------------------------------------------
+		# # dx     = (L2 * U2.T)^-1       * L2    * U2     * HTW         *  dz
+		# # [6, 1] = ([D, 6] * [6, 6])^-1 * [D,6] * [6, 6] * [B, 6, 3] * [B,3]
+		# #	   D = 1-6 depending on # axis removed 
+		# #	   B = batch size (num usable voxels)
+		# dx = tf.squeeze(tf.matmul(tf.matmul(tf.linalg.pinv(L2 @ tf.transpose(U2)) @ L2 @ tf.transpose(U2), HTW), dz))
+		# #need to add up the tensor containing the summands from each voxel to a single row matrix
+		# #    [B, 6] -> [6]
+		# dx = tf.math.reduce_sum(dx, axis = 0)
+		# print("\n dx \n", dx)
+		# #-----------------------------------------------------------------------------------------
+
+		#test - solve for dx without L2 pruning --------------------------------------------------
+		#dx = (HTWH)^-1 * [HTW] * dy
+		dx = tf.linalg.pinv(HTWH) @ HTW @ (y_i - y0_i)[:,:,None]
+		dx = tf.squeeze(tf.math.reduce_sum(dx, axis = 0))
 		print("\n dx \n", dx)
+		#-----------------------------------------------------------------------------------------
 
 		#get output covariance matrix
 		Q = tf.linalg.pinv(HTWH)
@@ -159,17 +184,23 @@ def ICET3D(pp1, pp2, plt, bounds, fid, draw = False, num_cycles = 5, min_num_pts
 		t = x[:3]
 		rot = R_tf(x[3:])
 
-		print("\n t, rot \n", t, "\n", rot)
+		# print("\n t, rot \n", t, "\n", rot)
 
 		#update pp2
 		pp2_corrected = tf.matmul(pp2, rot) + t #TODO: fix this step
 
 		# print(tf.shape(pp2_corrected))
 
+		#update solution history
+		x_hist = tf.concat((x_hist, x[None,:]), axis = 0)
+		# print("x_hist" ,x_hist)
+
 		#--------------------------------------------------------------------------
 
+	if draw == True:
+		plt.show(disp, "ICET3D", at=0)
 
-	return(Q)
+	return(Q, x_hist)
 
 
 def get_U_and_L(sigma1, bounds, fid):
@@ -205,7 +236,8 @@ def get_U_and_L(sigma1, bounds, fid):
 	# print("\n rotated \n", tf.squeeze(rotated))
 
 	#check for overly extended axis directions
-	thresh = cellsize #temp
+	# thresh = cellsize/4 #temp
+	thresh = cellsize*2 #will not truncate anything?
 	greater_than_thresh = tf.math.greater(rotated, thresh)
 	# print("\n rotated > ___", greater_than_thresh)
 
@@ -285,7 +317,7 @@ def check_condition(HTWH):
 
 	#create identity matrix truncated to only have the remaining axis
 	L2 = tf.gather(tf.eye(6), remainingaxis)
-	print("\n L2 \n", L2)
+	# print("\n L2 \n", L2)
 
 	U2 = eigenvec
 	# print("\n U2 \n", U2)

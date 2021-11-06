@@ -210,122 +210,122 @@ def dR_simp(n_hat, theta):
 	mat = S.dot(R_mat)
 	return mat
 
-def subdivide_scan(pc, plt, bounds = np.array([-50,50,-50,50,-10,10]), fid = np.array([10,10,3]), disp = [],
-					min_num_pts = 20, nstd = 2, draw_grid = True, show_pc = True):
+# def subdivide_scan(pc, plt, bounds = np.array([-50,50,-50,50,-10,10]), fid = np.array([10,10,3]), disp = [],
+# 					min_num_pts = 20, nstd = 2, draw_grid = True, show_pc = True):
 
-	""" Subdivide point cloud into consistantly sized rectangular voxles. Outputs mean center and
-		covariance matrix for each voxel
+# 	""" Subdivide point cloud into consistantly sized rectangular voxles. Outputs mean center and
+# 		covariance matrix for each voxel
 
-	pc = input point cloud
-	plt = plotter object (from Vedo)
-	disp = display structure containing everything else we want to display
-	bounds = np.array([minx, maxx, miny, maxy, minz, maxz])
-	fid = np.array([ncellsx, ncellsy, ncellsz])
+# 	pc = input point cloud
+# 	plt = plotter object (from Vedo)
+# 	disp = display structure containing everything else we want to display
+# 	bounds = np.array([minx, maxx, miny, maxy, minz, maxz])
+# 	fid = np.array([ncellsx, ncellsy, ncellsz])
 
-	"""
+# 	"""
 
-	start = time.time()
+# 	start = time.time()
 
-	cloud = Points(pc, c = (1,1,1), alpha = 0.5)
-	if show_pc:
-		disp.append(cloud) #add point cloud object to viz
-	E = [] #strucutre to hold mus, sigmas and npts per voxel
+# 	cloud = Points(pc, c = (1,1,1), alpha = 0.5)
+# 	if show_pc:
+# 		disp.append(cloud) #add point cloud object to viz
+# 	E = [] #strucutre to hold mus, sigmas and npts per voxel
 
-	# draw divisions between voxel cells
-	# b = shapes.Box(size=(bounds), c='g4', alpha=1) #meh
+# 	# draw divisions between voxel cells
+# 	# b = shapes.Box(size=(bounds), c='g4', alpha=1) #meh
 
-	xbound = np.linspace(bounds[0], bounds[1], fid[0] + 1)
-	ybound = np.linspace(bounds[2], bounds[3], fid[1] + 1)
-	zbound = np.linspace(bounds[4], bounds[5], fid[2] + 1)
+# 	xbound = np.linspace(bounds[0], bounds[1], fid[0] + 1)
+# 	ybound = np.linspace(bounds[2], bounds[3], fid[1] + 1)
+# 	zbound = np.linspace(bounds[4], bounds[5], fid[2] + 1)
 
-	if draw_grid == True:
-		for y in range(fid[1]+1):
-			for z in range(fid[2]+1):
-				p0 = np.array([xbound[-1], ybound[y], zbound[z]])
-				p1 = np.array([xbound[0], ybound[y], zbound[z]])
-				x_lines = shapes.Line(p0, p1, closed=False, c='white', alpha=1, lw=0.25, res=0)
-				disp.append(x_lines)
-		for x in range(fid[0]+1):
-			for z in range(fid[2]+1):
-				p0 = np.array([xbound[x], ybound[-1], zbound[z]])
-				p1 = np.array([xbound[x], ybound[0], zbound[z]])
-				y_lines = shapes.Line(p0, p1, closed=False, c='white', alpha=1, lw=0.25, res=0)
-				disp.append(y_lines)
-		for x in range(fid[0]+1):
-			for y in range(fid[1]+1):
-				p0 = np.array([xbound[x], ybound[y], zbound[-1]])
-				p1 = np.array([xbound[x], ybound[y], zbound[0]])
-				z_lines = shapes.Line(p0, p1, closed=False, c='white', alpha=1, lw=0.25, res=0)
-				disp.append(z_lines)
+# 	if draw_grid == True:
+# 		for y in range(fid[1]+1):
+# 			for z in range(fid[2]+1):
+# 				p0 = np.array([xbound[-1], ybound[y], zbound[z]])
+# 				p1 = np.array([xbound[0], ybound[y], zbound[z]])
+# 				x_lines = shapes.Line(p0, p1, closed=False, c='white', alpha=1, lw=0.25, res=0)
+# 				disp.append(x_lines)
+# 		for x in range(fid[0]+1):
+# 			for z in range(fid[2]+1):
+# 				p0 = np.array([xbound[x], ybound[-1], zbound[z]])
+# 				p1 = np.array([xbound[x], ybound[0], zbound[z]])
+# 				y_lines = shapes.Line(p0, p1, closed=False, c='white', alpha=1, lw=0.25, res=0)
+# 				disp.append(y_lines)
+# 		for x in range(fid[0]+1):
+# 			for y in range(fid[1]+1):
+# 				p0 = np.array([xbound[x], ybound[y], zbound[-1]])
+# 				p1 = np.array([xbound[x], ybound[y], zbound[0]])
+# 				z_lines = shapes.Line(p0, p1, closed=False, c='white', alpha=1, lw=0.25, res=0)
+# 				disp.append(z_lines)
 
-	mus = []
-	sigmas = []
-	sizes_list = []
+# 	mus = []
+# 	sigmas = []
+# 	sizes_list = []
 
-	#loop through each voxel
-	for x in range(fid[0]):
-		for y in range(fid[1]):
-			for z in range(fid[2]):
-				within_x = pc[pc[:,0] > xbound[x]]
-				within_x = within_x[within_x[:,0] < xbound[x+1] ]
+# 	#loop through each voxel
+# 	for x in range(fid[0]):
+# 		for y in range(fid[1]):
+# 			for z in range(fid[2]):
+# 				within_x = pc[pc[:,0] > xbound[x]]
+# 				within_x = within_x[within_x[:,0] < xbound[x+1] ]
 
-				within_y = within_x[within_x[:,1] > ybound[y]]
-				within_y = within_y[within_y[:,1] < ybound[y+1]]
+# 				within_y = within_x[within_x[:,1] > ybound[y]]
+# 				within_y = within_y[within_y[:,1] < ybound[y+1]]
 
-				within_z = within_y[within_y[:,2] > zbound[z]]
-				within_box = within_z[within_z[:,2] < zbound[z+1]]
+# 				within_z = within_y[within_y[:,2] > zbound[z]]
+# 				within_box = within_z[within_z[:,2] < zbound[z+1]]
 
-				if np.shape(within_box)[0] > min_num_pts-1:
-					mu, sigma = fit_gaussian(within_box)
-					# print(mu)
-					# print(sigma)
-					eig = np.linalg.eig(sigma)
-					eigenval = eig[0] #correspond to lengths of axis
-					eigenvec = eig[1]
-					# print(eigenval,"\n", eigenvec)
+# 				if np.shape(within_box)[0] > min_num_pts-1:
+# 					mu, sigma = fit_gaussian(within_box)
+# 					# print(mu)
+# 					# print(sigma)
+# 					eig = np.linalg.eig(sigma)
+# 					eigenval = eig[0] #correspond to lengths of axis
+# 					eigenvec = eig[1]
+# 					# print(eigenval,"\n", eigenvec)
 
-					##was this
-					a1 = eigenval[0]
-					a2 = eigenval[1]
-					a3 = eigenval[2]
-					ell = Ell(pos=(mu[0], mu[1], mu[2]), axis1 = 4*np.sqrt(a1), 
-						axis2 = 4*np.sqrt(a2), axis3 = 4*np.sqrt(a3), 
-						angs = (np.array([-R2Euler(eigenvec)[0], -R2Euler(eigenvec)[1], -R2Euler(eigenvec)[2] ])), c=(1,0.5,0.5), alpha=1, res=12)
+# 					##was this
+# 					a1 = eigenval[0]
+# 					a2 = eigenval[1]
+# 					a3 = eigenval[2]
+# 					ell = Ell(pos=(mu[0], mu[1], mu[2]), axis1 = 4*np.sqrt(a1), 
+# 						axis2 = 4*np.sqrt(a2), axis3 = 4*np.sqrt(a3), 
+# 						angs = (np.array([-R2Euler(eigenvec)[0], -R2Euler(eigenvec)[1], -R2Euler(eigenvec)[2] ])), c=(1,0.5,0.5), alpha=1, res=12)
 
-					disp.append(ell)
-
-
-					# # more consistant eigenvalue orders (similar to TF implementation) but worse(?) performance
-					# big = np.argwhere(eigenval == np.max(eigenval))
-					# middle = np.argwhere(eigenval == np.median(eigenval))
-					# small = np.argwhere(eigenval == np.min(eigenval))
-					# # print(eigenval[big], eigenval[middle], eigenval[small])
-					# a1 = eigenval[big]
-					# a2 = eigenval[middle]
-					# a3 = eigenval[small]
-
-					# ell2 = Ell(pos=(mu[0], mu[1], mu[2]), axis1 = 4*np.sqrt(a1), 
-					# 	axis2 = 4*np.sqrt(a2), axis3 = 4*np.sqrt(a3), 
-					# 	angs = (np.array([-R2Euler(eigenvec)[big], -R2Euler(eigenvec)[middle], -R2Euler(eigenvec)[small] ])), c=(0.5,0.5,1), alpha=1, res=12)
-
-					# disp.append(ell2)
-
-					# E.append([mu, sigma, np.shape(within_box)[0]])
-
-					mus.append(mu)
-					sigmas.append(sigma)
-					sizes_list.append(np.shape(within_box)[0])
-
-	plt.show(disp, "subdivide_scan", at=0) 
-	print("took", time.time() - start, "seconds with numpy")
+# 					disp.append(ell)
 
 
-	# return E
-	return(mus, sigmas, sizes_list)
+# 					# # more consistant eigenvalue orders (similar to TF implementation) but worse(?) performance
+# 					# big = np.argwhere(eigenval == np.max(eigenval))
+# 					# middle = np.argwhere(eigenval == np.median(eigenval))
+# 					# small = np.argwhere(eigenval == np.min(eigenval))
+# 					# # print(eigenval[big], eigenval[middle], eigenval[small])
+# 					# a1 = eigenval[big]
+# 					# a2 = eigenval[middle]
+# 					# a3 = eigenval[small]
+
+# 					# ell2 = Ell(pos=(mu[0], mu[1], mu[2]), axis1 = 4*np.sqrt(a1), 
+# 					# 	axis2 = 4*np.sqrt(a2), axis3 = 4*np.sqrt(a3), 
+# 					# 	angs = (np.array([-R2Euler(eigenvec)[big], -R2Euler(eigenvec)[middle], -R2Euler(eigenvec)[small] ])), c=(0.5,0.5,1), alpha=1, res=12)
+
+# 					# disp.append(ell2)
+
+# 					# E.append([mu, sigma, np.shape(within_box)[0]])
+
+# 					mus.append(mu)
+# 					sigmas.append(sigma)
+# 					sizes_list.append(np.shape(within_box)[0])
+
+# 	plt.show(disp, "subdivide_scan", at=0) 
+# 	print("took", time.time() - start, "seconds with numpy")
+
+
+# 	# return E
+# 	return(mus, sigmas, sizes_list)
 
 
 def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.,-10.,10.]), fid = tf.constant([10,10,3]), disp = [],
-					min_num_pts = 20, draw = False, nstd = 2, draw_grid = True, show_pc = True):
+					min_num_pts = 20, draw = False, nstd = 2, draw_grid = True, draw_ell = True, show_pc = True):
 
 	"""Subdivide point cloud into voxels and calculate means and covaraince matrices for each voxels
 			cloud_tensor = point cloud input
@@ -337,10 +337,12 @@ def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.
 	TODO: fix bug where bins get messed up if points exist outside bounds
 
 			"""
-
-	cloud = Points(cloud_tensor, c = (1,1,1), alpha = 0.5)
-	if show_pc:
-		disp.append(cloud) #add point cloud object to viz
+	if show_pc == 1:
+		color = (0.5,0.5,1)
+	if show_pc == 2:
+		color = (1,0.5,0.5)
+	cloud = Points(cloud_tensor, c = color, alpha = 0.5)
+	disp.append(cloud) #add point cloud object to viz
 
 	# cloud_tensor = tf.convert_to_tensor(pc, np.float32)
 	# print("cloud_tensor: \n", cloud_tensor)
@@ -505,82 +507,18 @@ def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.
 	# print(sigma)
 	# sigma = tf.reshape(sigma, (tf.shape(sigma)[2] ,3,3))
 
-	E = [mu, sigma, sizes]
-
-
 	print("took", time.time() - start, "seconds with tensorflow")
 
-
+	E = [mu, sigma, sizes, disp]
 	if draw == True:
 
-		draw_ell(plt, disp, E, bounds =bounds, draw_grid = draw_grid, fid = fid)
+		disp = make_scene(plt, disp, E, color, bounds = bounds, draw_grid = draw_grid, draw_ell = draw_ell, fid = fid)
+
+	E = [mu, sigma, sizes, disp]
 
 	return E
 
-class Ell(Mesh):
-    """
-    Build a 3D ellipsoid centered at position `pos`.
-
-    |projectsphere|
-
-    |pca| |pca.py|_
-    """
-    def __init__(self, pos=(0, 0, 0), axis1= 1, axis2 = 2, axis3 = 3, angs = np.array([0,0,0]),
-                 c="cyan4", alpha=1, res=24):
-
-        self.center = pos
-        self.va_error = 0
-        self.vb_error = 0
-        self.vc_error = 0
-        self.axis1 = axis1
-        self.axis2 = axis2
-        self.axis3 = axis3
-        self.nr_of_points = 1 # used by pcaEllipsoid
-
-        if utils.isSequence(res):
-            res_t, res_phi = res
-        else:
-            res_t, res_phi = 2*res, res
-
-        elliSource = vtk.vtkSphereSource()
-        elliSource.SetThetaResolution(res_t)
-        elliSource.SetPhiResolution(res_phi)
-        elliSource.Update()
-        l1 = axis1
-        l2 = axis2
-        l3 = axis3
-        self.va = l1
-        self.vb = l2
-        self.vc = l3
-        axis1 = 1
-        axis2 = 1
-        axis3 = 1
-        angle = angs[0] #np.arcsin(np.dot(axis1, axis2))
-        theta = angs[1] #np.arccos(axis3[2])
-        phi =  angs[2] #np.arctan2(axis3[1], axis3[0])
-
-        t = vtk.vtkTransform()
-        t.PostMultiply()
-        t.Scale(l1, l2, l3)
-        t.RotateX(np.rad2deg(angle))
-        t.RotateY(np.rad2deg(theta))
-        t.RotateZ(np.rad2deg(phi))
-        tf = vtk.vtkTransformPolyDataFilter()
-        tf.SetInputData(elliSource.GetOutput())
-        tf.SetTransform(t)
-        tf.Update()
-        pd = tf.GetOutput()
-        self.transformation = t
-
-        Mesh.__init__(self, pd, c, alpha)
-        self.phong()
-        self.GetProperty().BackfaceCullingOn()
-        self.SetPosition(pos)
-        self.Length = -np.array(axis1) / 2 + pos
-        self.top = np.array(axis1) / 2 + pos
-        self.name = "Ell"
-
-def draw_ell(plt, disp, E, draw_grid = False, fid = None, bounds =None):
+def make_scene(plt, disp, E, color, draw_grid = False, draw_ell = True, fid = None, bounds =None):
 
 	"""draw distribution ellipses from E
 	 called by subdivide_scan_tf() """
@@ -628,13 +566,14 @@ def draw_ell(plt, disp, E, draw_grid = False, fid = None, bounds =None):
 
 		# print(R2Euler(eigenvec))
 
-		if mu[i,0] != 0 and mu[i,1] != 0:
-			ell = Ell(pos=(mu[i,0], mu[i,1], mu[i,2]), axis1 = 4*np.sqrt(a1), 
-				axis2 = 4*np.sqrt(a2), axis3 = 4*np.sqrt(a3), 
-				angs = (np.array([-R2Euler(eigenvec)[0], -R2Euler(eigenvec)[1], -R2Euler(eigenvec)[2] ])), c=(1,0.5,0.5), alpha=1, res=12)
+		if draw_ell == True:			
+			if mu[i,0] != 0 and mu[i,1] != 0:
+				ell = Ell(pos=(mu[i,0], mu[i,1], mu[i,2]), axis1 = 4*np.sqrt(a1), 
+					axis2 = 4*np.sqrt(a2), axis3 = 4*np.sqrt(a3), 
+					angs = (np.array([-R2Euler(eigenvec)[0], -R2Euler(eigenvec)[1], -R2Euler(eigenvec)[2] ])), c=color, alpha=1, res=12)
 
-			
-			disp.append(ell)
+				
+				disp.append(ell)
 
 	if draw_grid == True:
 
@@ -661,7 +600,8 @@ def draw_ell(plt, disp, E, draw_grid = False, fid = None, bounds =None):
 				z_lines = shapes.Line(p0, p1, closed=False, c='white', alpha=1, lw=0.25, res=0)
 				disp.append(z_lines)
 
-	plt.show(disp, "subdivide_scan", at=0) 
+	return(disp)
+	# plt.show(disp, "subdivide_scan", at=0) #was here, moving to inside main loop
 
 
 def fit_gaussian(points):
@@ -840,3 +780,67 @@ def get_correspondences_tf(a, b, bounds, fid, method = "voxel"):
 		
 #	[cell in b, cell in a]
 	return(corr)
+
+
+class Ell(Mesh):
+    """
+    Build a 3D ellipsoid centered at position `pos`.
+
+    |projectsphere|
+
+    |pca| |pca.py|_
+    """
+    def __init__(self, pos=(0, 0, 0), axis1= 1, axis2 = 2, axis3 = 3, angs = np.array([0,0,0]),
+                 c="cyan4", alpha=1, res=24):
+
+        self.center = pos
+        self.va_error = 0
+        self.vb_error = 0
+        self.vc_error = 0
+        self.axis1 = axis1
+        self.axis2 = axis2
+        self.axis3 = axis3
+        self.nr_of_points = 1 # used by pcaEllipsoid
+
+        if utils.isSequence(res):
+            res_t, res_phi = res
+        else:
+            res_t, res_phi = 2*res, res
+
+        elliSource = vtk.vtkSphereSource()
+        elliSource.SetThetaResolution(res_t)
+        elliSource.SetPhiResolution(res_phi)
+        elliSource.Update()
+        l1 = axis1
+        l2 = axis2
+        l3 = axis3
+        self.va = l1
+        self.vb = l2
+        self.vc = l3
+        axis1 = 1
+        axis2 = 1
+        axis3 = 1
+        angle = angs[0] #np.arcsin(np.dot(axis1, axis2))
+        theta = angs[1] #np.arccos(axis3[2])
+        phi =  angs[2] #np.arctan2(axis3[1], axis3[0])
+
+        t = vtk.vtkTransform()
+        t.PostMultiply()
+        t.Scale(l1, l2, l3)
+        t.RotateX(np.rad2deg(angle))
+        t.RotateY(np.rad2deg(theta))
+        t.RotateZ(np.rad2deg(phi))
+        tf = vtk.vtkTransformPolyDataFilter()
+        tf.SetInputData(elliSource.GetOutput())
+        tf.SetTransform(t)
+        tf.Update()
+        pd = tf.GetOutput()
+        self.transformation = t
+
+        Mesh.__init__(self, pd, c, alpha)
+        self.phong()
+        self.GetProperty().BackfaceCullingOn()
+        self.SetPosition(pos)
+        self.Length = -np.array(axis1) / 2 + pos
+        self.top = np.array(axis1) / 2 + pos
+        self.name = "Ell"
