@@ -12,10 +12,10 @@ from utils import *
 #TODO: 	figure out why memory usage is increasing after each loop
 			# https://stackoverflow.com/questions/44825360/tensorflows-memory-cost-gradually-increasing-in-very-simple-for-loop/44825824
 #TODO:	add option to display both point clouds 
-#TODO: 	draw correspondences between distribution centers
-#TODO:	CORRECT ELLIPSE ROTATION ANGLES!!!
 
-def ICET3D(pp1, pp2, plt, bounds, fid, draw = False, num_cycles = 5, min_num_pts = 30, draw_grid = False, draw_ell = True):
+#TODO: debug-> make sure all correspondences are getting noted
+
+def ICET3D(pp1, pp2, plt, bounds, fid, draw = False, num_cycles = 5, min_num_pts = 30, draw_grid = False, draw_ell = True, draw_corr = False):
 
 	"""3D implementation of ICET algorithm using TensorFlow library
 	
@@ -86,7 +86,10 @@ def ICET3D(pp1, pp2, plt, bounds, fid, draw = False, num_cycles = 5, min_num_pts
 
 		#determine correspondences between distribution centers of the two scans
 		# print("\n shapes of y and y0 \n", tf.shape(y), tf.shape(y0)) #TODO: debug here
-		corr = get_correspondences_tf(y, y0, bounds, fid, method = "voxel")
+		if draw_corr == True:
+			corr, disp = get_correspondences_tf(y, y0, bounds, fid, method = "voxel", disp = disp, draw_corr = True)
+		else:
+			corr = get_correspondences_tf(y, y0, bounds, fid, method = "voxel")
 		# print(corr)
 
 		#ignore all data from voxels in y where corresponance does not exist (does nothing if method = "NN")

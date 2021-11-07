@@ -534,9 +534,8 @@ def make_scene(plt, disp, E, color, draw_grid = False, draw_ell = True, fid = No
 		eig = np.linalg.eig(sigma[i,:,:].numpy())
 		eigenval = eig[0] #correspond to lengths of axis
 		eigenvec = eig[1]
-
-		# print(eigenvec)
-		# print(eigenval)
+		# print("\n eigenvec \n" , eigenvec)
+		# print("\n eivenval \n", eigenval)
 
 
 		# eigenval, eigenvec = tf.linalg.eig(tf.transpose(sigma[:,:,i]))
@@ -547,14 +546,15 @@ def make_scene(plt, disp, E, color, draw_grid = False, draw_ell = True, fid = No
 		# a2 = eigenval[1]
 		# a3 = eigenval[0]
 
-		# big = np.argwhere(eigenval.numpy() == np.max(eigenval.numpy()))[0,0]
-		# middle = np.argwhere(eigenval.numpy() == np.median(eigenval.numpy()))[0,0]
-		# smol = np.argwhere(eigenval.numpy() == np.min(eigenval.numpy()))[0,0]
+		big = np.argwhere(eigenval == np.max(eigenval))[0,0]
+		middle = np.argwhere(eigenval == np.median(eigenval))[0,0]
+		smol = np.argwhere(eigenval == np.min(eigenval))[0,0]
 
-		# a1 = eigenval[big]
+		# a1 = eigenval[smol]
 		# a2 = eigenval[middle] 
-		# a3 = eigenval[smol]
+		# a3 = eigenval[big]
 
+		# assmues decreasing size
 		a1 = eigenval[0]
 		a2 = eigenval[1]
 		a3 = eigenval[2]
@@ -571,7 +571,7 @@ def make_scene(plt, disp, E, color, draw_grid = False, draw_ell = True, fid = No
 				ell = Ell(pos=(mu[i,0], mu[i,1], mu[i,2]), axis1 = 4*np.sqrt(a1), 
 					axis2 = 4*np.sqrt(a2), axis3 = 4*np.sqrt(a3), 
 					angs = (np.array([-R2Euler(eigenvec)[0], -R2Euler(eigenvec)[1], -R2Euler(eigenvec)[2] ])), c=color, alpha=1, res=12)
-
+		#todo - fix rotation bug in angs[1]
 				
 				disp.append(ell)
 
@@ -673,8 +673,11 @@ def fit_gaussian_tf(points):
 
 	return mu, sigma
 
-def get_correspondences_tf(a, b, bounds, fid, method = "voxel"):
+def get_correspondences_tf(a, b, bounds, fid, method = "voxel", disp = None, draw_corr = False):
 	"""finds closet point on b for each point in a
+		
+		pass in disp and set draw_corr to true to draw correspondences 
+
 	"""
 	#TODO: fix bug that occurs when only one voxel is used in scan2
 	#TODO: get rid of unnecessary operations in voxel method
@@ -777,9 +780,18 @@ def get_correspondences_tf(a, b, bounds, fid, method = "voxel"):
 
 		#switch order and only return elements that are useful
 		corr = tf.concat((eq[:,1][:,None],eq[:,0][:,None]), axis = 1) #[b,a]
-		
-#	[cell in b, cell in a]
-	return(corr)
+		print("\n corr \n", corr)
+
+	if draw_corr == True:
+		for i in range(tf.shape(corr)[0]):
+			pt1 = a[corr[i][1].numpy()]
+			pt2 = b[corr[i][0].numpy()]
+			arrow = shapes.Line(pt1.numpy(), pt2.numpy(), closed = False, c = 'white', lw = 4)
+			disp.append(arrow)
+	#	[cell in b, cell in a]
+		return(corr, disp)
+	else:
+		return corr
 
 
 class Ell(Mesh):
@@ -827,9 +839,9 @@ class Ell(Mesh):
         t = vtk.vtkTransform()
         t.PostMultiply()
         t.Scale(l1, l2, l3)
-        t.RotateX(np.rad2deg(angle))
-        t.RotateY(np.rad2deg(theta))
         t.RotateZ(np.rad2deg(phi))
+        t.RotateY(np.rad2deg(theta))
+        t.RotateX(np.rad2deg(angle))
         tf = vtk.vtkTransformPolyDataFilter()
         tf.SetInputData(elliSource.GetOutput())
         tf.SetTransform(t)
