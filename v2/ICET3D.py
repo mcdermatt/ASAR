@@ -15,7 +15,7 @@ from utils import *
 
 #TODO: debug-> make sure all correspondences are getting noted
 
-def ICET3D(pp1, pp2, plt, bounds, fid, draw = False, num_cycles = 5, min_num_pts = 30, draw_grid = False, draw_ell = True, draw_corr = False):
+def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False, num_cycles = 5, min_num_pts = 30, draw_grid = False, draw_ell = True, draw_corr = False):
 
 	"""3D implementation of ICET algorithm using TensorFlow library
 	
@@ -23,6 +23,9 @@ def ICET3D(pp1, pp2, plt, bounds, fid, draw = False, num_cycles = 5, min_num_pts
 			pp2 = point positions in second scan [N,3]
 
 	"""
+
+	if test_dataset == True:
+		pp1, pp2, bounds = generate_test_dataset()
 
 	#subdivide keyframe scan
 	if draw == True:
@@ -32,7 +35,7 @@ def ICET3D(pp1, pp2, plt, bounds, fid, draw = False, num_cycles = 5, min_num_pts
 	mu1 = E1[0]
 	sigma1 = E1[1]
 	npts1 = E1[2]
-	disp = E1[3]
+	disp1 = E1[3]
 
 	# ignore data from unused voxels
 	nonzero_idx1 = tf.where(tf.math.reduce_sum(mu1, axis = 1) != 0)
@@ -44,6 +47,7 @@ def ICET3D(pp1, pp2, plt, bounds, fid, draw = False, num_cycles = 5, min_num_pts
 	npts1 = tf.squeeze(tf.gather(npts1,enough_pts1))
 	y0 = tf.squeeze(tf.gather(y0, enough_pts1))
 	sigma1 = tf.squeeze(tf.gather(sigma1, enough_pts1))
+	# print("\n enough_pts1 \n", npts1)
 
 	# calculte overly extended directions for each remaining distribution  
 	U, L = get_U_and_L(sigma1, bounds, fid)
@@ -55,8 +59,10 @@ def ICET3D(pp1, pp2, plt, bounds, fid, draw = False, num_cycles = 5, min_num_pts
 	x = tf.zeros(6) #[x, y, z, phi, theta, psi].T
 
 	#start with pp2_corrected with an initial transformation of [0,0,0]
-	pp2_corrected = pp2[:]
-	# print(tf.shape(pp2_corrected))
+	# pp2_corrected = pp2[:] #was this
+	t = x[:3]
+	rot = R_tf(x[3:])
+	pp2_corrected = tf.matmul(pp2, rot) + t
 
 	x_hist = tf.zeros([1,6])
 
@@ -65,7 +71,8 @@ def ICET3D(pp1, pp2, plt, bounds, fid, draw = False, num_cycles = 5, min_num_pts
 
 		#subdivide second scan
 		if draw == True:
-			E2 = subdivide_scan_tf(pp2_corrected, plt, bounds, fid,disp = disp, draw=True, show_pc = 2, draw_grid = draw_grid, draw_ell = draw_ell)
+			#referencing disp 1 here prevents re-drawing old transformations of scan2
+			E2 = subdivide_scan_tf(pp2_corrected, plt, bounds, fid, disp = disp1, draw=True, show_pc = 2, draw_grid = draw_grid, draw_ell = draw_ell)
 		else:
 			E2 = subdivide_scan_tf(pp2_corrected, plt, bounds, fid, draw=False)
 		mu2 = E2[0]
@@ -80,6 +87,7 @@ def ICET3D(pp1, pp2, plt, bounds, fid, draw = False, num_cycles = 5, min_num_pts
 
 		# ignore voxels with too few points
 		enough_pts2 = tf.where(npts2 > min_num_pts)
+		# print("\n enough_pts2 \n", tf.gather(npts2, enough_pts2))
 		npts2 = tf.squeeze(tf.gather(npts2,enough_pts2))
 		y = tf.squeeze(tf.gather(y, enough_pts2))
 		sigma2 = tf.squeeze(tf.gather(sigma2, enough_pts2))
@@ -116,7 +124,6 @@ def ICET3D(pp1, pp2, plt, bounds, fid, draw = False, num_cycles = 5, min_num_pts
 		#get dx--------------------------------------------------------------------
 		R_noise = (tf.transpose(tf.transpose(sigma1_i) / tf.cast(npts1_i - 1, tf.float32)) + 
 				   tf.transpose(tf.transpose(sigma2_i) / tf.cast(npts2_i - 1, tf.float32)) )
-		#TODO: remove extended distribution components from R_noise using L, U
 		# R_noise = L_i * U_i.T * R_noise * U_i * L_i.T
 		R_noise = L_i.to_tensor() @ tf.transpose(U_i, [0,2,1]) @ R_noise @ U_i @ tf.transpose(L_i.to_tensor(), [0,2,1])
 		# print("\n R_noise \n", R_noise)
@@ -135,18 +142,18 @@ def ICET3D(pp1, pp2, plt, bounds, fid, draw = False, num_cycles = 5, min_num_pts
 		# print(tf.shape(H_z))
 
 		#invert sensor noise matrix R to get weighting matrix W
-		W = tf.linalg.pinv(R_noise) #correct
-		# W = R_noise #for debug
+		W = tf.linalg.pinv(R_noise)
 		# print("\n W \n",W)
 
 		HTWH = tf.math.reduce_sum(tf.matmul(tf.matmul(tf.transpose(H_z, [0,2,1]), W), H_z), axis = 0)
 		# print("\n HTWH \n", HTWH)
 
 		HTW = tf.matmul(tf.transpose(H_z, [0,2,1]), W)
-		print("\n HTW \n",tf.shape(HTW))
+		# print("\n HTW \n",tf.shape(HTW))
 
 		#check condition number
 		L2, lam, U2 = check_condition(HTWH)
+		# print("\n L2 \n", L2)
 
 		# create alternate corrdinate system to align with axis of scan 1 distributions
 		z = tf.squeeze(tf.matmul(LUT, y_i[:,:,None]))
@@ -157,23 +164,29 @@ def ICET3D(pp1, pp2, plt, bounds, fid, draw = False, num_cycles = 5, min_num_pts
 
 		#TODO -> HTW is WAAAY too big (?)
 
-		# #solve for dx - with L2 pruning ----------------------------------------------------------
+		# # #solve for dx - with L2 pruning ----------------------------------------------------------
 		# # dx     = (L2 * U2.T)^-1       * L2    * U2     * HTW         *  dz
 		# # [6, 1] = ([D, 6] * [6, 6])^-1 * [D,6] * [6, 6] * [B, 6, 3] * [B,3]
 		# #	   D = 1-6 depending on # axis removed 
 		# #	   B = batch size (num usable voxels)
-		# dx = tf.squeeze(tf.matmul(tf.matmul(tf.linalg.pinv(L2 @ tf.transpose(U2)) @ L2 @ tf.transpose(U2), HTW), dz))
+
+		# #not sure where this came from but it's wrong...
+		# # dx = tf.squeeze(tf.matmul(tf.matmul(tf.linalg.pinv(L2 @ tf.transpose(U2)) @ L2 @ tf.transpose(U2), HTW), dz))
+
+		# #trying this
+		# dx = tf.squeeze(tf.matmul(tf.matmul( (tf.linalg.pinv(L2 @ tf.transpose(U2)) @ L2 @ tf.transpose(U2) , HTW ) )), dz) #rank deficient
+
 		# #need to add up the tensor containing the summands from each voxel to a single row matrix
 		# #    [B, 6] -> [6]
 		# dx = tf.math.reduce_sum(dx, axis = 0)
 		# print("\n dx \n", dx)
-		# #-----------------------------------------------------------------------------------------
+		# # #-----------------------------------------------------------------------------------------
 
 		#test - solve for dx without L2 pruning --------------------------------------------------
 		#dx = (HTWH)^-1 * [HTW] * dy
 		dx = tf.linalg.pinv(HTWH) @ HTW @ (y_i - y0_i)[:,:,None]
 		dx = tf.squeeze(tf.math.reduce_sum(dx, axis = 0))
-		print("\n dx \n", dx)
+		# print("\n dx \n", dx)
 		#-----------------------------------------------------------------------------------------
 
 		#get output covariance matrix
@@ -181,7 +194,9 @@ def ICET3D(pp1, pp2, plt, bounds, fid, draw = False, num_cycles = 5, min_num_pts
 		# print("\n Q \n", Q)
 
 		#augment x by dx
-		x += dx
+		# x -= dx
+		x = x + dx
+		print("\n x \n", x)
 
 		#transform 2nd scan by x
 		t = x[:3]
@@ -200,8 +215,16 @@ def ICET3D(pp1, pp2, plt, bounds, fid, draw = False, num_cycles = 5, min_num_pts
 
 		#--------------------------------------------------------------------------
 
-	if draw == True:
-		plt.show(disp, "ICET3D", at=0)
+		if draw == True:
+			# plt.clear(at = 0) #removes axis
+			# if i > 0:
+				# plt.pop(at=0)
+				# plt.clear(disp, at=0) 
+			plt.show(disp, "ICET3D", at=0, interactive = True) 
+			#set interactive to False to autoplay
+			#NOTE: vedo documentation is incorrect, plotter does NOT have <new> parameter
+			# new = True opens new scans in seperate window
+
 
 	return(Q, x_hist)
 
@@ -286,7 +309,7 @@ def check_condition(HTWH):
 
 	#TODO: keep L2 as a 6x6- Yes or no?
 
-	cutoff = 10e3 #10e5
+	cutoff = 10e5 #10e5
 
 	#do eigendecomposition
 	eigenval, eigenvec = tf.linalg.eig(HTWH)

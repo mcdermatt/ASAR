@@ -780,13 +780,14 @@ def get_correspondences_tf(a, b, bounds, fid, method = "voxel", disp = None, dra
 
 		#switch order and only return elements that are useful
 		corr = tf.concat((eq[:,1][:,None],eq[:,0][:,None]), axis = 1) #[b,a]
-		print("\n corr \n", corr)
+		# print("\n corr \n", corr)
 
 	if draw_corr == True:
 		for i in range(tf.shape(corr)[0]):
 			pt1 = a[corr[i][1].numpy()]
 			pt2 = b[corr[i][0].numpy()]
-			arrow = shapes.Line(pt1.numpy(), pt2.numpy(), closed = False, c = 'white', lw = 4)
+			# arrow = shapes.Line(pt1.numpy(), pt2.numpy(), closed = False, c = 'white', lw = 4) #line
+			arrow = shapes.Arrow(pt2.numpy(), pt1.numpy(), c = 'white')
 			disp.append(arrow)
 	#	[cell in b, cell in a]
 		return(corr, disp)
@@ -856,3 +857,82 @@ class Ell(Mesh):
         self.Length = -np.array(axis1) / 2 + pos
         self.top = np.array(axis1) / 2 + pos
         self.name = "Ell"
+
+def generate_test_dataset():
+	
+	""" Generate a simple 2.5D T shaped intersection """
+
+	#TODO: take in transformation from pp1 to pp2
+
+	bounds = tf.constant ([-120.,120.,-120.,120.,-50,50])
+	x = tf.constant([-3., 3., 0., 0., 0., 0.2])
+
+	height = 50
+
+	xpos = tf.linspace(-100., 100., 100)[:,None]
+	ypos = -60*tf.ones(100)[:,None]
+	# ypos = (-60*tf.ones(100) + 10*tf.sin(tf.linspace(-3., 3., 100)))[:,None]
+	zpos = tf.ones(100)[:,None]
+	pp1 = tf.concat((xpos, ypos, zpos), axis = 1)
+
+	for i in range(height*5):
+		if i < height:
+			xpos = tf.linspace(-100., 100., 100)[:,None]
+			ypos = -60*tf.ones(100)[:,None]
+			# ypos = (-60*tf.ones(100) + 10*tf.sin(tf.linspace(-3., 3., 100)))[:,None]
+			zpos = i*tf.ones(100)[:,None]
+			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+
+		if i > height and i < 2*height:
+			ypos = tf.linspace(-20., 100., 60)[:,None]
+			xpos = -30*tf.ones(60)[:,None]
+			zpos = (i%height)*tf.ones(60)[:,None]
+			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+
+		if i > 2*height and i < 3*height:
+			ypos = tf.linspace(-20., 100., 60)[:,None]
+			xpos = 30*tf.ones(60)[:,None]
+			zpos = (i%height)*tf.ones(60)[:,None]
+			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+
+		#left & right connector
+		if i > 3*height and i < 4*height:
+			xpos = tf.linspace(30., 100., 70)[:,None]
+			ypos = -20*tf.ones(70)[:,None]
+			zpos = (i%height)*tf.ones(70)[:,None]
+			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+		if i > 4*height and i < 5*height:
+			xpos = tf.linspace(-30., -100., 70)[:,None]
+			ypos = -20*tf.ones(70)[:,None]
+			zpos = (i%height)*tf.ones(70)[:,None]
+			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+
+		pp1 = tf.concat((pp1, pp1_i), axis = 0)
+
+	# #add floor -------------------------------------------
+	# for i in range(-100, 100, 1):
+	# 	ypos = tf.linspace(-60., -20., 100)[:,None]
+	# 	xpos = i*tf.ones(100)[:,None]
+	# 	zpos = tf.ones(100)[:,None]
+	# 	pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+	# 	pp1 = tf.concat((pp1, pp1_i), axis = 0)
+	# for i in range(-30, 30, 1):
+	# 	ypos = tf.linspace(-20., 100., 100)[:,None]
+	# 	xpos = i*tf.ones(100)[:,None]
+	# 	zpos = tf.ones(100)[:,None]
+	# 	pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+	# 	pp1 = tf.concat((pp1, pp1_i), axis = 0)
+	# #------------------------------------------------------
+
+
+	#add a little bit of noise
+	# pp1 = pp1 + tf.random.normal(tf.shape(pp1))*0.1
+
+	# pp2 = tf.random.normal((100,3))
+	rot = R(x[3:])
+	pp2 = pp1 @ rot + x[:3] 
+
+	print("\n pp1 \n", tf.shape(pp1))
+	print("\n pp2 \n", tf.shape(pp2))
+
+	return(pp1, pp2, bounds)
