@@ -11,11 +11,14 @@ from utils import *
 
 #TODO: 	figure out why memory usage is increasing after each loop
 			# https://stackoverflow.com/questions/44825360/tensorflows-memory-cost-gradually-increasing-in-very-simple-for-loop/44825824
-#TODO:	add option to display both point clouds 
 
-#TODO: debug-> make sure all correspondences are getting noted
+#TODO: 	remove past iterations of point cloud in viz
+#TODO: 	add slider to allow selection of iterations
+#			generate every <x> beforehand 
 
-def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False, num_cycles = 5, min_num_pts = 30, draw_grid = False, draw_ell = True, draw_corr = False):
+def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False, 
+	       num_cycles = 5, min_num_pts = 30, draw_grid = False, draw_ell = True, 
+	       draw_corr = False, CM = "voxel"):
 
 	"""3D implementation of ICET algorithm using TensorFlow library
 	
@@ -95,9 +98,9 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False, num_
 		#determine correspondences between distribution centers of the two scans
 		# print("\n shapes of y and y0 \n", tf.shape(y), tf.shape(y0)) #TODO: debug here
 		if draw_corr == True:
-			corr, disp = get_correspondences_tf(y, y0, bounds, fid, method = "voxel", disp = disp, draw_corr = True)
+			corr, disp = get_correspondences_tf(y, y0, bounds, fid, method = CM, disp = disp, draw_corr = True)
 		else:
-			corr = get_correspondences_tf(y, y0, bounds, fid, method = "voxel")
+			corr = get_correspondences_tf(y, y0, bounds, fid, method = CM)
 		# print(corr)
 
 		#ignore all data from voxels in y where corresponance does not exist (does nothing if method = "NN")
@@ -117,9 +120,12 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False, num_
 		# print("\n y shape \n", tf.shape(y))
 
 		#get matrix containing partial derivatives for each voxel mean
-		H = jacobian_tf(tf.transpose(y_i), x[3:])
-		H = tf.reshape(H, (tf.shape(H)[0]//3,3,6))
-		# print("\n H \n", tf.shape(H))
+		H = jacobian_tf(tf.transpose(y_i), x[3:]) # shape = [num of corr * 3, 6]
+		# print("before reshape", H)
+		H = tf.reshape(H, (tf.shape(H)[0]//3,3,6)) # -> need shape [#corr//3, 3, 6]
+		# print("after reshape", H)
+		#H is correct
+
 
 		#get dx--------------------------------------------------------------------
 		R_noise = (tf.transpose(tf.transpose(sigma1_i) / tf.cast(npts1_i - 1, tf.float32)) + 
@@ -194,18 +200,23 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False, num_
 		# print("\n Q \n", Q)
 
 		#augment x by dx
-		# x -= dx
-		x = x + dx
+		x -= dx
+		# x = x + dx
 		print("\n x \n", x)
 
 		#transform 2nd scan by x
 		t = x[:3]
 		rot = R_tf(x[3:])
 
+		# # DEBUG: only consider yaw transformations
+		# t = tf.constant([0., 0., 0.])
+		# rot = R_tf(tf.constant([0., 0., x[5].numpy()]))	
+
 		# print("\n t, rot \n", t, "\n", rot)
 
 		#update pp2
 		pp2_corrected = tf.matmul(pp2, rot) + t #TODO: fix this step
+		# pp2_corrected = tf.matmul((pp2 + t), rot)
 
 		# print(tf.shape(pp2_corrected))
 
@@ -226,6 +237,7 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False, num_
 			# new = True opens new scans in seperate window
 
 
+	# print("\n x \n", x)
 	return(Q, x_hist)
 
 
@@ -257,13 +269,12 @@ def get_U_and_L(sigma1, bounds, fid):
 	# print("\n axislen \n", axislen)
 
 	# get projections of axis length in each direction
-	# rotated = U @ axislen <- look up benefits of @ operator
 	rotated = tf.abs(tf.matmul(U,axislen))
 	# print("\n rotated \n", tf.squeeze(rotated))
 
 	#check for overly extended axis directions
-	# thresh = cellsize/4 #temp
-	thresh = cellsize*2 #will not truncate anything?
+	thresh = cellsize/2 #temp
+	# thresh = cellsize*2 #will not truncate anything?
 	greater_than_thresh = tf.math.greater(rotated, thresh)
 	# print("\n rotated > ___", greater_than_thresh)
 
@@ -309,7 +320,7 @@ def check_condition(HTWH):
 
 	#TODO: keep L2 as a 6x6- Yes or no?
 
-	cutoff = 10e5 #10e5
+	cutoff = 10e9 #10e5
 
 	#do eigendecomposition
 	eigenval, eigenvec = tf.linalg.eig(HTWH)

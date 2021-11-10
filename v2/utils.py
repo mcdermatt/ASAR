@@ -32,8 +32,8 @@ def R_tf(angs):
 	psi = angs[2]
 
 	mat = tf.Variable([[cos(theta)*cos(psi), sin(psi)*cos(phi) + sin(phi)*sin(theta)*cos(psi), sin(phi)*sin(psi) - sin(theta)*cos(phi)*cos(psi)],
-					[-sin(psi)*cos(theta), cos(phi)*cos(psi) - sin(phi)*sin(theta)*sin(psi), sin(phi)*cos(psi) + sin(theta)*sin(psi)*cos(phi)],
-					[sin(theta), -sin(phi)*cos(theta), cos(phi)*cos(theta)]
+					   [-sin(psi)*cos(theta), cos(phi)*cos(psi) - sin(phi)*sin(theta)*sin(psi), sin(phi)*cos(psi) + sin(theta)*sin(psi)*cos(phi)],
+					   [sin(theta), -sin(phi)*cos(theta), cos(phi)*cos(theta)]
 						])
 	return mat
 
@@ -98,16 +98,20 @@ def jacobian_tf(p_point, angs):
 								   [(sin(psi)*sin(theta)), (-cos(theta)*sin(phi)*sin(psi)), (cos(theta)*sin(psi)*cos(phi))],
 								   [(cos(theta)), (sin(phi)*sin(theta)), (-sin(theta)*cos(phi))] ]), p_point, axes = 1)
 
-	Jtheta = tf.tensordot(tf.Variable([[(-cos(theta)*sin(psi)), (cos(psi)*cos(phi) - sin(phi)*sin(theta)*sin(psi)), (cos(psi)*sin(phi) + sin(theta)*cos(phi)*sin(psi)) ],
+	Jz = tf.tensordot(tf.Variable([[(-cos(theta)*sin(psi)), (cos(psi)*cos(phi) - sin(phi)*sin(theta)*sin(psi)), (cos(psi)*sin(phi) + sin(theta)*cos(phi)*sin(psi)) ],
 									   [(-cos(psi)*cos(theta)), (-sin(psi)*cos(phi) - sin(phi)*sin(theta)*cos(psi)), (-sin(phi)*sin(psi) + sin(theta)*cos(psi)*cos(phi))],
 									   [tf.constant(0.),tf.constant(0.),tf.constant(0.)]]), p_point, axes = 1)
 
 
 	Jx_reshape = tf.reshape(tf.transpose(Jx), shape = (tf.shape(Jx)[0]*tf.shape(Jx)[1],1))
 	Jy_reshape = tf.reshape(tf.transpose(Jy), shape = (tf.shape(Jy)[0]*tf.shape(Jy)[1],1))
-	Jtheta_reshape = tf.reshape(tf.transpose(Jtheta), shape = (tf.shape(Jtheta)[0]*tf.shape(Jtheta)[1],1))
+	Jz_reshape = tf.reshape(tf.transpose(Jz), shape = (tf.shape(Jz)[0]*tf.shape(Jz)[1],1))
 
-	J = tf.concat([eyes, Jx_reshape, Jy_reshape, Jtheta_reshape], axis = 1)
+	#test 11/10
+	# partials = tf.concat([Jx_reshape, Jy_reshape, Jz_reshape], axis = 1)
+	# J = tf.concat([eyes,partials], axis = 1)
+
+	J = tf.concat([eyes, Jx_reshape, Jy_reshape, Jz_reshape], axis = 1) #was this
 	
 	return J
 
@@ -703,6 +707,19 @@ def get_correspondences_tf(a, b, bounds, fid, method = "voxel", disp = None, dra
 		corr = tf.gather(ans,reordered)
 		# print("\n reordered \n", corr)
 		#-----------------------------------------------------------------------
+		# print("corr \n", corr)
+		if draw_corr == True:
+			for i in range(tf.shape(corr)[0]):
+				pt1 = tf.squeeze(a[corr[i][1].numpy()])
+				pt2 = tf.squeeze(b[corr[i][0].numpy()])
+				# print("pt1", pt1)
+				# arrow = shapes.Line(pt1.numpy(), pt2.numpy(), closed = False, c = 'white', lw = 4) #line
+				arrow = shapes.Arrow(pt1.numpy(), pt2.numpy(), c = 'white')
+				disp.append(arrow)
+		#	[cell in b, cell in a]
+			return(corr, disp)
+		else:
+			return corr
 
 	if method == "voxel":
 
@@ -782,17 +799,17 @@ def get_correspondences_tf(a, b, bounds, fid, method = "voxel", disp = None, dra
 		corr = tf.concat((eq[:,1][:,None],eq[:,0][:,None]), axis = 1) #[b,a]
 		# print("\n corr \n", corr)
 
-	if draw_corr == True:
-		for i in range(tf.shape(corr)[0]):
-			pt1 = a[corr[i][1].numpy()]
-			pt2 = b[corr[i][0].numpy()]
-			# arrow = shapes.Line(pt1.numpy(), pt2.numpy(), closed = False, c = 'white', lw = 4) #line
-			arrow = shapes.Arrow(pt2.numpy(), pt1.numpy(), c = 'white')
-			disp.append(arrow)
-	#	[cell in b, cell in a]
-		return(corr, disp)
-	else:
-		return corr
+		if draw_corr == True:
+			for i in range(tf.shape(corr)[0]):
+				pt1 = a[corr[i][1].numpy()]
+				pt2 = b[corr[i][0].numpy()]
+				# arrow = shapes.Line(pt1.numpy(), pt2.numpy(), closed = False, c = 'white', lw = 4) #line
+				arrow = shapes.Arrow(pt2.numpy(), pt1.numpy(), c = 'white')
+				disp.append(arrow)
+		#	[cell in b, cell in a]
+			return(corr, disp)
+		else:
+			return corr
 
 
 class Ell(Mesh):
@@ -864,8 +881,9 @@ def generate_test_dataset():
 
 	#TODO: take in transformation from pp1 to pp2
 
-	bounds = tf.constant ([-120.,120.,-120.,120.,-50,50])
-	x = tf.constant([-3., 3., 0., 0., 0., 0.2])
+	bounds = tf.constant ([-120.,120.,-120.,120.,-100,100])
+	x = tf.constant([0., 0., 0., 0., 0., -0.1]) # yaw
+	# x = tf.constant([0., 0., 0., 0., 0., 0.])
 
 	height = 50
 
@@ -923,10 +941,12 @@ def generate_test_dataset():
 	# 	pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
 	# 	pp1 = tf.concat((pp1, pp1_i), axis = 0)
 	# #------------------------------------------------------
-
+	print(tf.shape(pp1))
+	#for debug - add particles in middle to prevent L1 rank deficiency bug
+	# pp1 = tf.concat((pp1, tf.random.normal((100,3))), axis = 0)
 
 	#add a little bit of noise
-	# pp1 = pp1 + tf.random.normal(tf.shape(pp1))*0.1
+	pp1 = pp1 + tf.random.normal(tf.shape(pp1))*0.5
 
 	# pp2 = tf.random.normal((100,3))
 	rot = R(x[3:])

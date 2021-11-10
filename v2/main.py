@@ -32,14 +32,15 @@ velo2 = dataset.get_velo(2) # Each scan is a Nx4 array of [x,y,z,reflectance]
 cloud2 = velo2[:,:3]
 cloud2_tensor = tf.convert_to_tensor(cloud2, np.float32)
 
-nc = 3
+nc = 5
 mnp = 15
 npts = 100000
 D = True #draw sim
 DG = False #draw grid
-DE = False #draw ellipsoids
+DE = True #draw ellipsoids
 DC = True #draw correspondences
 TD = True #use test dataset
+CM = "voxel" #correspondence method, "voxel" or "NN"
 
 start = time.time()
 
@@ -57,7 +58,7 @@ start = time.time()
 #just consider small section of image where there are easily identifiable features:
 #----------------------------------------------------------------------------------
 limtest = tf.constant([-20.,0.,-20.,0.,-1.5,1.5])
-f = tf.constant([10,10,4])
+f = tf.constant([10,10,10])
 # cloud1_tensor = tf.squeeze(tf.gather(cloud1_tensor, tf.where( (cloud1_tensor[:,0] > limtest[0]))))	#only works one cond at a time
 cloud1_tensor = tf.squeeze(tf.gather(cloud1_tensor, tf.where( tf.math.reduce_all(tf.concat( (
 	(cloud1_tensor[:,0] > limtest[0])[:,None], 
@@ -78,7 +79,7 @@ cloud2_tensor = tf.squeeze(tf.gather(cloud2_tensor, tf.where( tf.math.reduce_all
 
 Q, x_hist = ICET3D(cloud1_tensor, cloud2_tensor, plt, bounds = limtest, 
            fid = f, num_cycles = nc , min_num_pts = mnp, draw = D, draw_grid = DG,
-           draw_ell = DE, draw_corr = DC, test_dataset = TD)
+           draw_ell = DE, draw_corr = DC, test_dataset = TD, CM = CM)
 
 #----------------------------------------------------------------------------------
 
