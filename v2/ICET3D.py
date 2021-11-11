@@ -20,9 +20,9 @@ from utils import *
 
 #Algorithm: 
 #TODO: 	figure out why I need to make angs[0] and angs[1] negative
-#TODO:	Make sure voxels with insufficeint number of points are getting ignored
 #TODO:	Implement cutoff threshold values for L1
-
+#TODO:	Debug correspondence issues (ordering is messed up from binning process????)
+#			-> move process of removing voxels with insufficient pts to inside get_corr()
 
 def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False, 
 	       num_cycles = 5, min_num_pts = 50, draw_grid = False, draw_ell = True, 
@@ -47,21 +47,26 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 	sigma1 = E1[1]
 	npts1 = E1[2]
 	disp1 = E1[3]
+	print("\n shapes \n", tf.shape(mu1), tf.shape(sigma1), tf.shape(npts1))
 
 	#TODO: DEBUG -> I think there is a mismatch between npts1 and its corresponding elements in sigma1, etc.
 	# print("\n npts1 \n", npts1)
 
 	# ignore data from unused voxels
 	nonzero_idx1 = tf.where(tf.math.reduce_sum(mu1, axis = 1) != 0)
+	# print("\n nonzero_idx1 \n", nonzero_idx1)
 	y0 = tf.squeeze(tf.gather(mu1,nonzero_idx1))
+	# print("y0", tf.shape(y0))
 	sigma1 = tf.squeeze(tf.gather(sigma1, nonzero_idx1))
 
 	# ignore voxels with too few points (this needs to be separate step)
 	enough_pts1 = tf.where(npts1 > min_num_pts)
+	# print("\n enough_pts1 \n", enough_pts1)
 	npts1 = tf.squeeze(tf.gather(npts1,enough_pts1))
 	y0 = tf.squeeze(tf.gather(y0, enough_pts1))
 	sigma1 = tf.squeeze(tf.gather(sigma1, enough_pts1))
 	# print("\n enough_pts1 \n", npts1)
+	# print("y0", tf.shape(y0))
 
 	# calculte overly extended directions for each remaining distribution  
 	U, L = get_U_and_L(sigma1, bounds, fid)
@@ -78,7 +83,7 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 	x_hist = tf.zeros([1,6])
 
 	for i in range(num_cycles):
-		print(i)
+		print(i, "-----------------")
 
 		#subdivide second scan
 		if draw == True:
@@ -98,17 +103,18 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 
 		# ignore voxels with too few points
 		enough_pts2 = tf.where(npts2 > min_num_pts)
-		# print("\n enough_pts2 \n", tf.gather(npts2, enough_pts2))
 		npts2 = tf.squeeze(tf.gather(npts2,enough_pts2))
+		# print("\n enough_pts2 \n", npts2)
 		y = tf.squeeze(tf.gather(y, enough_pts2))
 		sigma2 = tf.squeeze(tf.gather(sigma2, enough_pts2))
+		# print("\n y \n", tf.shape(y))
 
 		#determine correspondences between distribution centers of the two scans
 		# print("\n shapes of y and y0 \n", tf.shape(y), tf.shape(y0)) #TODO: debug here
 		if draw_corr == True:
-			corr, disp = get_correspondences_tf(y, y0, bounds, fid, method = CM, disp = disp, draw_corr = True)
+			corr, disp = get_correspondences_tf(y, y0, mu1, mu2, bounds, fid, method = CM, disp = disp, draw_corr = True)
 		else:
-			corr = get_correspondences_tf(y, y0, bounds, fid, method = CM)
+			corr = get_correspondences_tf(y, y0, mu1, mu2, bounds, fid, method = CM)
 		# print(corr)
 
 		#ignore all data from voxels in y where corresponance does not exist (does nothing if method = "NN")
@@ -120,6 +126,7 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 		y0_i = tf.gather(y0, corr[:,0])
 		U_i = tf.gather(U, corr[:,0])
 		L_i = tf.gather(L, corr[:,0])
+		# print("L", type(L), "L_i", type(L_i)) #L and L_i are both ragged tensors still
 		npts1_i = tf.gather(npts1, corr[:,0])#[:,None]
 		sigma1_i = tf.gather(sigma1, corr[:,0])
 
@@ -213,12 +220,12 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 		print("\n x \n", x)
 
 		#transform 2nd scan by x
-		# t = x[:3]
-		# rot = R_tf(x[3:])
+		t = x[:3]
+		rot = R_tf(x[3:])
 
 		# # DEBUG: only consider yaw transformations
-		t = tf.constant([0., 0., 0.])
-		rot = R_tf(tf.constant([0., 0., x[5].numpy()]))	
+		# t = tf.constant([0., 0., 0.])
+		# rot = R_tf(tf.constant([0., 0., x[5].numpy()]))	
 
 		# print("\n t, rot \n", t, "\n", rot)
 
@@ -281,8 +288,10 @@ def get_U_and_L(sigma1, bounds, fid):
 	# print("\n rotated \n", tf.squeeze(rotated))
 
 	#check for overly extended axis directions
-	thresh = cellsize/2 #temp
+	thresh = (cellsize**2)/64 #temp
 	# thresh = cellsize*2 #will not truncate anything?
+	# print("\n thresh \n", thresh)
+
 	greater_than_thresh = tf.math.greater(rotated, thresh)
 	# print("\n rotated > ___", greater_than_thresh)
 
@@ -308,7 +317,7 @@ def get_U_and_L(sigma1, bounds, fid):
 	# print("\n Limits \n",limits)
 	L = tf.RaggedTensor.from_row_limits(L,limits)[1:] #double counds first voxel without [1:]
 	# print("\n L \n", L)
-	# print("\n L \n", L.to_tensor())
+	print("\n L \n", L.to_tensor())
 
 	#----------------------------------------------------------------------------------------
 

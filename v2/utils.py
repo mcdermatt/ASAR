@@ -70,7 +70,7 @@ def jacobian_tf(p_point, angs):
 	psi = angs[2]
 
 	#correct method using tf.tile
-	eyes = tf.tile(tf.eye(3), [tf.shape(p_point)[1] , 1])
+	eyes = tf.tile(-tf.eye(3), [tf.shape(p_point)[1] , 1])
 
 	# slow method with for loop
 	# eyes = tf.eye(3)
@@ -575,8 +575,8 @@ def make_scene(plt, disp, E, color, draw_grid = False, draw_ell = True, fid = No
 
 		if draw_ell == True:			
 			if mu[i,0] != 0 and mu[i,1] != 0:
-				ell = Ell(pos=(mu[i,0], mu[i,1], mu[i,2]), axis1 = 4*np.sqrt(a1), 
-					axis2 = 4*np.sqrt(a2), axis3 = 4*np.sqrt(a3), 
+				ell = Ell(pos=(mu[i,0], mu[i,1], mu[i,2]), axis1 = 4*np.sqrt(abs(a1)), 
+					axis2 = 4*np.sqrt(abs(a2)), axis3 = 4*np.sqrt(abs(a3)), 
 					angs = (np.array([-R2Euler(eigenvec)[0], -R2Euler(eigenvec)[1], -R2Euler(eigenvec)[2] ])), c=color, alpha=1, res=12)
 		#todo - fix rotation bug in angs[1]
 				
@@ -680,11 +680,13 @@ def fit_gaussian_tf(points):
 
 	return mu, sigma
 
-def get_correspondences_tf(a, b, bounds, fid, method = "voxel", disp = None, draw_corr = False):
+def get_correspondences_tf(a, b, mu1, mu2, bounds, fid, method = "voxel", disp = None, draw_corr = False):
 	"""finds closet point on b for each point in a
 		
 		pass in disp and set draw_corr to true to draw correspondences 
-
+	
+		includes m1 and m2 to for drawing correspondence arrows (keeps track of unused voxels)
+	
 	"""
 	#TODO: fix bug that occurs when only one voxel is used in scan2
 	#TODO: get rid of unnecessary operations in voxel method
@@ -742,7 +744,7 @@ def get_correspondences_tf(a, b, bounds, fid, method = "voxel", disp = None, dra
 
 		startz = bounds[4].numpy()
 		stopz = bounds[5].numpy()
-		numz = fid[2].numpy() +1
+		numz = fid[2].numpy() + 1
 		edgesz = tf.linspace(startz, stopz, numz)
 
 		xbinsa = tfp.stats.find_bins(a[:,0], edgesx)
@@ -759,7 +761,6 @@ def get_correspondences_tf(a, b, bounds, fid, method = "voxel", disp = None, dra
 
 		binsb = tf.transpose(tf.Variable([xbinsb, ybinsb, zbinsb]))
 		numb = tf.cast( ( binsb[:,0] + fid[0].numpy()*binsb[:,1] + (fid[0].numpy()*fid[1].numpy())*binsb[:,2] ), tf.int32)
-
 		# print("\n numa \n", numa[:50])
 		# print("\n numb \n", numb[:50])
 
@@ -768,7 +769,7 @@ def get_correspondences_tf(a, b, bounds, fid, method = "voxel", disp = None, dra
 
 		eq = tf.cast(tf.where(numa == numb), tf.int32)
 		#eq is correct BUT it much shorter than the origonal vec numa
-		# print("\n eq \n", eq[:5]) #[idx_a, idx_b]
+		# print("\n voxels that have valid means from both scans \n", eq) #[idx_a, idx_b]
 
 		# #create full length correspondence vec -----------------------------------
 		# #set points of a with no point in b to -1 
@@ -801,11 +802,19 @@ def get_correspondences_tf(a, b, bounds, fid, method = "voxel", disp = None, dra
 		#switch order and only return elements that are useful
 		corr = tf.concat((eq[:,1][:,None],eq[:,0][:,None]), axis = 1) #[b,a]
 		# print("\n corr \n", corr)
+		# print("\n a \n",tf.shape(a))
 
 		if draw_corr == True:
-			for i in range(tf.shape(corr)[0]):
-				pt1 = a[corr[i][1].numpy()]
-				pt2 = b[corr[i][0].numpy()]
+			for i in range(tf.shape(eq)[0]):
+				#was this
+				# pt1 = a[corr[i][1].numpy()]
+				# pt2 = b[corr[i][0].numpy()]
+				# print("\n old way \n", pt1)
+
+				#test
+				pt1 = a[eq[i][0].numpy()]
+				pt2 = b[eq[i][1].numpy()]
+
 				# arrow = shapes.Line(pt1.numpy(), pt2.numpy(), closed = False, c = 'white', lw = 4) #line
 				arrow = shapes.Arrow(pt2.numpy(), pt1.numpy(), c = 'white')
 				disp.append(arrow)
@@ -948,17 +957,17 @@ def generate_test_dataset():
 	# 	pp1 = tf.concat((pp1, pp1_i), axis = 0)
 	# #------------------------------------------------------
 	print(tf.shape(pp1))
-	#for debug - add particles in middle to prevent L1 rank deficiency bug
-	# pp1 = tf.concat((pp1, tf.random.normal((100,3))), axis = 0)
+	# for debug - add particles in middle to prevent L1 rank deficiency bug
+	pp1 = tf.concat((pp1, tf.random.normal((100,3))), axis = 0)
 
 	#add a little bit of noise
-	pp1 = pp1 + tf.random.normal(tf.shape(pp1))*0.5
+	pp1 = pp1 + tf.random.normal(tf.shape(pp1))*0.2
 
 	# pp2 = tf.random.normal((100,3))
 	rot = R(x[3:])
 	pp2 = pp1 @ rot + x[:3] 
 
-	print("\n pp1 \n", tf.shape(pp1))
-	print("\n pp2 \n", tf.shape(pp2))
+	# print("\n pp1 \n", tf.shape(pp1))
+	# print("\n pp2 \n", tf.shape(pp2))
 
 	return(pp1, pp2, bounds)
