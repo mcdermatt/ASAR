@@ -18,8 +18,16 @@ from ICET3D import ICET3D
 #NOTE: Out of Memory Error comes from too high fidelity/ pts in cloud tensor --> 100x100x2x120,000 > 2gb
 
 
-plt = Plotter(N=1, axes=1, bg = (0.1,0.1,0.1), bg2 = (0.3,0.3,0.3),  interactive=True)
+nc = 2 	 #number of cycles
+mnp = 25 #minimum number of points per voxel
+D = True #draw sim
+DG = False #draw grid
+DE = True #draw ellipsoids
+DC = True #draw correspondences
+TD = True #use test dataset
+CM = "voxel" #correspondence method, "voxel" or "NN"
 
+plt = Plotter(N=1, axes=1, bg = (0.1,0.1,0.1), bg2 = (0.3,0.3,0.3),  interactive=True)
 basedir = 'C:/kitti/'
 date = '2011_09_26'
 drive = '0005'
@@ -32,23 +40,13 @@ velo2 = dataset.get_velo(2) # Each scan is a Nx4 array of [x,y,z,reflectance]
 cloud2 = velo2[:,:3]
 cloud2_tensor = tf.convert_to_tensor(cloud2, np.float32)
 
-nc = 5
-mnp = 15
-npts = 100000
-D = True #draw sim
-DG = False #draw grid
-DE = True #draw ellipsoids
-DC = True #draw correspondences
-TD = True #use test dataset
-CM = "voxel" #correspondence method, "voxel" or "NN"
-
 start = time.time()
-
 
 # #use whole point set
 # #---------------------------------------------------------------------------------
 # f = tf.constant([50,50,2]) #fidelity in x, y, z # < 5s
 # lim = tf.constant([-100.,100.,-100.,100.,-10.,10.]) #needs to encompass every point
+# npts = 100000
 # Q, x_hist = ICET3D(cloud1_tensor[:npts], cloud2_tensor[:npts], plt, bounds = lim, 
 #            fid = f, num_cycles = nc , min_num_pts = mnp, draw = D, draw_grid = DG, 
 #            draw_ell = DE, draw_corr = DC)
@@ -58,7 +56,7 @@ start = time.time()
 #just consider small section of image where there are easily identifiable features:
 #----------------------------------------------------------------------------------
 limtest = tf.constant([-20.,0.,-20.,0.,-1.5,1.5])
-f = tf.constant([10,10,10])
+f = tf.constant([20,20,20])
 # cloud1_tensor = tf.squeeze(tf.gather(cloud1_tensor, tf.where( (cloud1_tensor[:,0] > limtest[0]))))	#only works one cond at a time
 cloud1_tensor = tf.squeeze(tf.gather(cloud1_tensor, tf.where( tf.math.reduce_all(tf.concat( (
 	(cloud1_tensor[:,0] > limtest[0])[:,None], 

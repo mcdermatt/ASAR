@@ -491,8 +491,8 @@ def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.
 
 	# E_xy = mean((xpts-mux)(ypts-muy))
 	E_xy = tf.reduce_sum( ((vox_with_zeros[:,:,0] - mu[:,0][:,None])*(vox_with_zeros[:,:,1] - mu[:,1][:,None]))*mask , axis = 1)/ tf.cast(sizes_updated, tf.float32)
-	E_xz = tf.reduce_sum( ((vox_with_zeros[:,:,0] - mu[:,0][:,None])*(vox_with_zeros[:,:,2] - mu[:,2][:,None]))*mask , axis = 1)/ tf.cast(sizes_updated, tf.float32)
-	E_yz = tf.reduce_sum( ((vox_with_zeros[:,:,1] - mu[:,1][:,None])*(vox_with_zeros[:,:,2] - mu[:,2][:,None]))*mask , axis = 1)/ tf.cast(sizes_updated, tf.float32)
+	E_xz = -tf.reduce_sum( ((vox_with_zeros[:,:,0] - mu[:,0][:,None])*(vox_with_zeros[:,:,2] - mu[:,2][:,None]))*mask , axis = 1)/ tf.cast(sizes_updated, tf.float32)
+	E_yz = -tf.reduce_sum( ((vox_with_zeros[:,:,1] - mu[:,1][:,None])*(vox_with_zeros[:,:,2] - mu[:,2][:,None]))*mask , axis = 1)/ tf.cast(sizes_updated, tf.float32)
 	
 	# [3,3,N]
 	# sigma = tf.Variable([[std_x, E_xy, E_xz],
@@ -504,6 +504,7 @@ def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.
 						 E_xy, std_y, E_yz,
 						 E_xz, E_yz, std_z]) 
 	sigma = tf.reshape(tf.transpose(sigma), (tf.shape(sigma)[1] ,3,3))
+	# print("sigma \n", sigma)
 
 	#get rid of any nan values in sigma
 
@@ -525,6 +526,8 @@ def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.
 def make_scene(plt, disp, E, color, draw_grid = False, draw_ell = True, fid = None, bounds =None):
 
 	"""draw distribution ellipses from E
+	E = [mus, sigmas, sizes, disp]
+
 	 called by subdivide_scan_tf() """
 
 	mu = E[0]
@@ -857,9 +860,12 @@ class Ell(Mesh):
         t = vtk.vtkTransform()
         t.PostMultiply()
         t.Scale(l1, l2, l3)
+
+        #needed theta and angle to be negative before messing with E_xz, E_yz...
         t.RotateZ(np.rad2deg(phi))
         t.RotateY(np.rad2deg(theta))
         t.RotateX(np.rad2deg(angle))
+        
         tf = vtk.vtkTransformPolyDataFilter()
         tf.SetInputData(elliSource.GetOutput())
         tf.SetTransform(t)
@@ -881,7 +887,7 @@ def generate_test_dataset():
 
 	#TODO: take in transformation from pp1 to pp2
 
-	bounds = tf.constant ([-120.,120.,-120.,120.,-100,100])
+	bounds = tf.constant ([-150.,150.,-150.,150.,-150,150])
 	x = tf.constant([0., 0., 0., 0., 0., -0.1]) # yaw
 	# x = tf.constant([0., 0., 0., 0., 0., 0.])
 

@@ -8,16 +8,24 @@ import tensorflow_probability as tfp
 import time
 from utils import *
 
-
+#Optimization:
 #TODO: 	figure out why memory usage is increasing after each loop
 			# https://stackoverflow.com/questions/44825360/tensorflows-memory-cost-gradually-increasing-in-very-simple-for-loop/44825824
 
+#Viz:
 #TODO: 	remove past iterations of point cloud in viz
 #TODO: 	add slider to allow selection of iterations
 #			generate every <x> beforehand 
+#TODO:	visualize L1
+
+#Algorithm: 
+#TODO: 	figure out why I need to make angs[0] and angs[1] negative
+#TODO:	Make sure voxels with insufficeint number of points are getting ignored
+#TODO:	Implement cutoff threshold values for L1
+
 
 def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False, 
-	       num_cycles = 5, min_num_pts = 30, draw_grid = False, draw_ell = True, 
+	       num_cycles = 5, min_num_pts = 50, draw_grid = False, draw_ell = True, 
 	       draw_corr = False, CM = "voxel"):
 
 	"""3D implementation of ICET algorithm using TensorFlow library
@@ -40,6 +48,9 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 	npts1 = E1[2]
 	disp1 = E1[3]
 
+	#TODO: DEBUG -> I think there is a mismatch between npts1 and its corresponding elements in sigma1, etc.
+	# print("\n npts1 \n", npts1)
+
 	# ignore data from unused voxels
 	nonzero_idx1 = tf.where(tf.math.reduce_sum(mu1, axis = 1) != 0)
 	y0 = tf.squeeze(tf.gather(mu1,nonzero_idx1))
@@ -54,9 +65,6 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 
 	# calculte overly extended directions for each remaining distribution  
 	U, L = get_U_and_L(sigma1, bounds, fid)
-
-	#TODO: visualize U and L
-	#		replace ellipsoids with arrows in compact axis directions??
 
 	#init solution vector x
 	x = tf.zeros(6) #[x, y, z, phi, theta, psi].T
@@ -205,12 +213,12 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 		print("\n x \n", x)
 
 		#transform 2nd scan by x
-		t = x[:3]
-		rot = R_tf(x[3:])
+		# t = x[:3]
+		# rot = R_tf(x[3:])
 
 		# # DEBUG: only consider yaw transformations
-		# t = tf.constant([0., 0., 0.])
-		# rot = R_tf(tf.constant([0., 0., x[5].numpy()]))	
+		t = tf.constant([0., 0., 0.])
+		rot = R_tf(tf.constant([0., 0., x[5].numpy()]))	
 
 		# print("\n t, rot \n", t, "\n", rot)
 
