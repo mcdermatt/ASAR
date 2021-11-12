@@ -18,7 +18,7 @@ from ICET3D import ICET3D
 #NOTE: Out of Memory Error comes from too high fidelity/ pts in cloud tensor --> 100x100x2x120,000 > 2gb
 
 
-nc = 5	 #number of cycles
+nc = 3	 #number of cycles
 mnp = 5 #minimum number of points per voxel
 D = True #draw sim
 DG = False #draw grid
@@ -56,7 +56,7 @@ start = time.time()
 #just consider small section of image where there are easily identifiable features:
 #----------------------------------------------------------------------------------
 limtest = tf.constant([-20.,0.,-20.,0.,-1.5,1.5])
-f = tf.constant([15,15,15])
+f = tf.constant([25,25,25])
 # cloud1_tensor = tf.squeeze(tf.gather(cloud1_tensor, tf.where( (cloud1_tensor[:,0] > limtest[0]))))	#only works one cond at a time
 cloud1_tensor = tf.squeeze(tf.gather(cloud1_tensor, tf.where( tf.math.reduce_all(tf.concat( (
 	(cloud1_tensor[:,0] > limtest[0])[:,None], 

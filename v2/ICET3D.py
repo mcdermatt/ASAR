@@ -26,7 +26,7 @@ from utils import *
 
 def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False, 
 	       num_cycles = 5, min_num_pts = 50, draw_grid = False, draw_ell = True, 
-	       draw_corr = False, CM = "voxel"):
+	       draw_corr = False, CM = "voxel", vizL = True):
 
 	"""3D implementation of ICET algorithm using TensorFlow library
 	
@@ -66,10 +66,13 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 	y0 = tf.squeeze(tf.gather(y0, enough_pts1))
 	sigma1 = tf.squeeze(tf.gather(sigma1, enough_pts1))
 	# print("\n enough_pts1 \n", npts1)
-	# print("y0", tf.shape(y0))
+	print("y0", tf.shape(y0))
 
 	# calculte overly extended directions for each remaining distribution  
 	U, L = get_U_and_L(sigma1, bounds, fid)
+
+	if vizL == True:
+		disp1 = visualize_L(U, L, y0, disp1)
 
 	#init solution vector x
 	x = tf.zeros(6) #[x, y, z, phi, theta, psi].T
@@ -146,16 +149,19 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 		R_noise = (tf.transpose(tf.transpose(sigma1_i) / tf.cast(npts1_i - 1, tf.float32)) + 
 				   tf.transpose(tf.transpose(sigma2_i) / tf.cast(npts2_i - 1, tf.float32)) )
 		# R_noise = L_i * U_i.T * R_noise * U_i * L_i.T
-		R_noise = L_i.to_tensor() @ tf.transpose(U_i, [0,2,1]) @ R_noise @ U_i @ tf.transpose(L_i.to_tensor(), [0,2,1])
+		R_noise = L_i @ tf.transpose(U_i, [0,2,1]) @ R_noise @ U_i @ tf.transpose(L_i, [0,2,1])
 		# print("\n R_noise \n", R_noise)
 
 		#transpose each [i,3,3] element of U_i here
 		U_iT = tf.transpose(U_i, [0,2,1])
 		# print("\n U_iT \n", tf.shape(U_iT)) 		  #[19, 3, 3]
 		# print("\n L_i \n", tf.shape(L_i.to_tensor())) #[19, 2, 3] with only [5,5,2] fidelity
-		LUT = tf.math.multiply(L_i.to_tensor(), U_iT) #TODO -> FIX BUG HERE
+		LUT = tf.math.multiply(L_i, U_iT) #TODO -> FIX BUG HERE
 		#NOTE: this bug happens when the every voxel has at least one ambigious direction
-		# print("\n LUT \n", tf.shape(LUT))
+		print("\n LUT \n", tf.shape(LUT))
+
+		#DEBUG: -> TODO: confirm if this is actually working...
+		LUT = tf.transpose(LUT, [0,2,1])
 
 		# print("\n LUT \n", tf.shape(LUT))
 		H_z = tf.matmul(LUT,H)
@@ -288,7 +294,8 @@ def get_U_and_L(sigma1, bounds, fid):
 	# print("\n rotated \n", tf.squeeze(rotated))
 
 	#check for overly extended axis directions
-	thresh = (cellsize**2)/64 #temp
+	# thresh = (cellsize**2)/64 #temp
+	thresh = (cellsize**2)/32 #temp
 	# thresh = cellsize*2 #will not truncate anything?
 	# print("\n thresh \n", thresh)
 
@@ -317,13 +324,13 @@ def get_U_and_L(sigma1, bounds, fid):
 	# print("\n Limits \n",limits)
 	L = tf.RaggedTensor.from_row_limits(L,limits)[1:] #double counds first voxel without [1:]
 	# print("\n L \n", L)
-	print("\n L \n", L.to_tensor())
+	# print("\n L \n", L.to_tensor())
 
 	#----------------------------------------------------------------------------------------
 
 	#	TODO: debug- make sure L should be getting rid of rows, not columns
 
-	return(U, L)
+	return(U, L.to_tensor())
 
 
 def check_condition(HTWH):
@@ -381,3 +388,24 @@ def check_condition(HTWH):
 	# print("\n lam \n", lam)
 
 	return(L2, lam, U2)
+
+def visualize_L(U, L, y0, disp1):
+	""" for each voxel center, mu, this func draws untruncated axis via L 
+	      transformed into the frame of the distribution ellipsoids via U """
+
+	arrow_len = 5
+
+	for i in range(tf.shape(y0)[0]):
+		# print(tf.shape(L),"\n", tf.shape(U))
+		ends =  L[i] @ tf.transpose(U[i])
+		# print("\n ends \n", ends[:,0])
+		# print("y0[i] \n", y0[i])
+		arr1 = shapes.Arrow(y0[i].numpy(), (y0[i] + arrow_len * ends[0,:]).numpy(), c = 'red')
+		disp1.append(arr1)
+		arr2 = shapes.Arrow(y0[i].numpy(), (y0[i] + arrow_len * ends[1,:]).numpy(), c = 'green')
+		disp1.append(arr2)
+		arr3 = shapes.Arrow(y0[i].numpy(), (y0[i] + arrow_len * ends[2,:]).numpy(), c = 'blue')
+		disp1.append(arr3)
+	
+	return(disp1)
+

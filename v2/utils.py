@@ -815,8 +815,8 @@ def get_correspondences_tf(a, b, mu1, mu2, bounds, fid, method = "voxel", disp =
 				pt1 = a[eq[i][0].numpy()]
 				pt2 = b[eq[i][1].numpy()]
 
-				# arrow = shapes.Line(pt1.numpy(), pt2.numpy(), closed = False, c = 'white', lw = 4) #line
-				arrow = shapes.Arrow(pt2.numpy(), pt1.numpy(), c = 'white')
+				arrow = shapes.Line(pt1.numpy(), pt2.numpy(), closed = False, c = 'white', lw = 2) #line
+				# arrow = shapes.Arrow(pt2.numpy(), pt1.numpy(), c = 'white')
 				disp.append(arrow)
 		#	[cell in b, cell in a]
 			return(corr, disp)
@@ -942,20 +942,21 @@ def generate_test_dataset():
 
 		pp1 = tf.concat((pp1, pp1_i), axis = 0)
 
-	# #add floor -------------------------------------------
-	# for i in range(-100, 100, 1):
-	# 	ypos = tf.linspace(-60., -20., 100)[:,None]
-	# 	xpos = i*tf.ones(100)[:,None]
-	# 	zpos = tf.ones(100)[:,None]
-	# 	pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
-	# 	pp1 = tf.concat((pp1, pp1_i), axis = 0)
-	# for i in range(-30, 30, 1):
-	# 	ypos = tf.linspace(-20., 100., 100)[:,None]
-	# 	xpos = i*tf.ones(100)[:,None]
-	# 	zpos = tf.ones(100)[:,None]
-	# 	pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
-	# 	pp1 = tf.concat((pp1, pp1_i), axis = 0)
-	# #------------------------------------------------------
+	#add floor -------------------------------------------
+	for i in range(-100, 100, 1):
+		ypos = tf.linspace(-60., -20., 100)[:,None]
+		xpos = i*tf.ones(100)[:,None]
+		zpos = tf.ones(100)[:,None]
+		pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+		pp1 = tf.concat((pp1, pp1_i), axis = 0)
+	for i in range(-30, 30, 1):
+		ypos = tf.linspace(-20., 100., 100)[:,None]
+		xpos = i*tf.ones(100)[:,None]
+		zpos = tf.ones(100)[:,None]
+		pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+		pp1 = tf.concat((pp1, pp1_i), axis = 0)
+	#------------------------------------------------------
+	
 	print(tf.shape(pp1))
 	# for debug - add particles in middle to prevent L1 rank deficiency bug
 	pp1 = tf.concat((pp1, tf.random.normal((100,3))), axis = 0)
@@ -963,8 +964,11 @@ def generate_test_dataset():
 	#add a little bit of noise
 	pp1 = pp1 + tf.random.normal(tf.shape(pp1))*0.2
 
+	#rotate scan 1
+	pp1 = pp1 @ (R_tf(tf.constant([0.,0.,-0.2])))
+
 	# pp2 = tf.random.normal((100,3))
-	rot = R(x[3:])
+	rot = R_tf(x[3:])
 	pp2 = pp1 @ rot + x[:3] 
 
 	# print("\n pp1 \n", tf.shape(pp1))
