@@ -897,7 +897,7 @@ def generate_test_dataset():
 	#TODO: take in transformation from pp1 to pp2
 
 	bounds = tf.constant ([-150.,150.,-150.,150.,-150,150])
-	x = tf.constant([0., 0., 0., 0., 0., -0.1]) # yaw
+	x = tf.constant([0.8, 3., -1.5, 0.01, -0.02, -0.1]) # yaw
 	# x = tf.constant([0., 0., 0., 0., 0., 0.])
 
 	height = 50
@@ -942,20 +942,20 @@ def generate_test_dataset():
 
 		pp1 = tf.concat((pp1, pp1_i), axis = 0)
 
-	#add floor -------------------------------------------
-	for i in range(-100, 100, 1):
-		ypos = tf.linspace(-60., -20., 100)[:,None]
-		xpos = i*tf.ones(100)[:,None]
-		zpos = tf.ones(100)[:,None]
-		pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
-		pp1 = tf.concat((pp1, pp1_i), axis = 0)
-	for i in range(-30, 30, 1):
-		ypos = tf.linspace(-20., 100., 100)[:,None]
-		xpos = i*tf.ones(100)[:,None]
-		zpos = tf.ones(100)[:,None]
-		pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
-		pp1 = tf.concat((pp1, pp1_i), axis = 0)
-	#------------------------------------------------------
+	# #add floor -------------------------------------------
+	# for i in range(-100, 100, 1):
+	# 	ypos = tf.linspace(-60., -20., 100)[:,None]
+	# 	xpos = i*tf.ones(100)[:,None]
+	# 	zpos = tf.ones(100)[:,None]
+	# 	pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+	# 	pp1 = tf.concat((pp1, pp1_i), axis = 0)
+	# for i in range(-30, 30, 1):
+	# 	ypos = tf.linspace(-20., 100., 100)[:,None]
+	# 	xpos = i*tf.ones(100)[:,None]
+	# 	zpos = tf.ones(100)[:,None]
+	# 	pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+	# 	pp1 = tf.concat((pp1, pp1_i), axis = 0)
+	# #------------------------------------------------------
 	
 	print(tf.shape(pp1))
 	# for debug - add particles in middle to prevent L1 rank deficiency bug

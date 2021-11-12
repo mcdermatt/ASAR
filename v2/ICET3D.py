@@ -191,30 +191,27 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 
 		#TODO -> HTW is WAAAY too big (?)
 
-		# # #solve for dx - with L2 pruning ----------------------------------------------------------
-		# # dx     = (L2 * U2.T)^-1       * L2    * U2     * HTW         *  dz
-		# # [6, 1] = ([D, 6] * [6, 6])^-1 * [D,6] * [6, 6] * [B, 6, 3] * [B,3]
-		# #	   D = 1-6 depending on # axis removed 
-		# #	   B = batch size (num usable voxels)
+		# #solve for dx - with L2 pruning ----------------------------------------------------------
+		# dx     = (L2     * lam   *   U2.T)^-1       * L2    * U2     * HTW         *  dz
+		# [6, 1] = ([D, 6] *[6,6]  * [6, 6])^-1 * [D,6] * [6, 6] * [B, 6, 3] * [B,3]
+		#	   D = 1-6 depending on # axis removed 
+		#	   B = batch size (num usable voxels)
 
-		# #not sure where this came from but it's wrong...
-		# # dx = tf.squeeze(tf.matmul(tf.matmul(tf.linalg.pinv(L2 @ tf.transpose(U2)) @ L2 @ tf.transpose(U2), HTW), dz))
+		#trying this
+		dx = tf.squeeze(tf.matmul( tf.matmul(tf.linalg.pinv(L2 @ lam @ tf.transpose(U2)) @ L2 @ tf.transpose(U2) , HTW ), dz)) #rank deficient
 
-		# #trying this
-		# dx = tf.squeeze(tf.matmul(tf.matmul( (tf.linalg.pinv(L2 @ tf.transpose(U2)) @ L2 @ tf.transpose(U2) , HTW ) )), dz) #rank deficient
+		#need to add up the tensor containing the summands from each voxel to a single row matrix
+		#    [B, 6] -> [6]
+		dx = -tf.math.reduce_sum(dx, axis = 0)
+		print("\n dx \n", dx)
+		# #-----------------------------------------------------------------------------------------
 
-		# #need to add up the tensor containing the summands from each voxel to a single row matrix
-		# #    [B, 6] -> [6]
-		# dx = tf.math.reduce_sum(dx, axis = 0)
-		# print("\n dx \n", dx)
-		# # #-----------------------------------------------------------------------------------------
-
-		#test - solve for dx without L2 pruning --------------------------------------------------
-		#dx = (HTWH)^-1 * [HTW] * dy
-		dx = tf.linalg.pinv(HTWH) @ HTW @ (y_i - y0_i)[:,:,None]
-		dx = tf.squeeze(tf.math.reduce_sum(dx, axis = 0))
-		# print("\n dx \n", dx)
-		#-----------------------------------------------------------------------------------------
+		# #test - solve for dx without L2 pruning --------------------------------------------------
+		# #dx = (HTWH)^-1 * [HTW] * dy
+		# dx = tf.linalg.pinv(HTWH) @ HTW @ (y_i - y0_i)[:,:,None]
+		# dx = tf.squeeze(tf.math.reduce_sum(dx, axis = 0))
+		# # print("\n dx \n", dx)
+		# #-----------------------------------------------------------------------------------------
 
 		#get output covariance matrix
 		Q = tf.linalg.pinv(HTWH)
@@ -236,8 +233,7 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 		# print("\n t, rot \n", t, "\n", rot)
 
 		#update pp2
-		pp2_corrected = tf.matmul(pp2, rot) + t #TODO: fix this step
-		# pp2_corrected = tf.matmul((pp2 + t), rot)
+		pp2_corrected = tf.matmul(pp2, rot) + t
 
 		# print(tf.shape(pp2_corrected))
 
@@ -344,7 +340,7 @@ def check_condition(HTWH):
 
 	#TODO: keep L2 as a 6x6- Yes or no?
 
-	cutoff = 10e9 #10e5
+	cutoff = 10e5 #10e5
 
 	#do eigendecomposition
 	eigenval, eigenvec = tf.linalg.eig(HTWH)
