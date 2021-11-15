@@ -19,10 +19,9 @@ from utils import *
 #TODO:	visualize L1
 
 #Algorithm: 
-#TODO: 	figure out why I need to make angs[0] and angs[1] negative
-#TODO:	Implement cutoff threshold values for L1
 #TODO:	Debug correspondence issues (ordering is messed up from binning process????)
 #			-> move process of removing voxels with insufficient pts to inside get_corr()
+#TODO:	fix U & L so that axis point in the same direction for neighboring voxels on the same surface
 
 def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False, 
 	       num_cycles = 5, min_num_pts = 50, draw_grid = False, draw_ell = True, 
@@ -69,7 +68,9 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 	print("y0", tf.shape(y0))
 
 	# calculte overly extended directions for each remaining distribution  
-	U, L = get_U_and_L(sigma1, bounds, fid)
+	U, L = get_U_and_L(sigma1, bounds, fid)	
+	# print("\n shape of L \n", tf.shape(L))
+	# print("\n shape of U \n", tf.shape(U))
 
 	if vizL == True:
 		disp1 = visualize_L(U, L, y0, disp1)
@@ -78,7 +79,6 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 	x = tf.zeros(6) #[x, y, z, phi, theta, psi].T
 
 	#start with pp2_corrected with an initial transformation of [0,0,0]
-	# pp2_corrected = pp2[:] #was this
 	t = x[:3]
 	rot = R_tf(x[3:])
 	pp2_corrected = tf.matmul(pp2, rot) + t
@@ -149,16 +149,21 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 		R_noise = (tf.transpose(tf.transpose(sigma1_i) / tf.cast(npts1_i - 1, tf.float32)) + 
 				   tf.transpose(tf.transpose(sigma2_i) / tf.cast(npts2_i - 1, tf.float32)) )
 		# R_noise = L_i * U_i.T * R_noise * U_i * L_i.T
-		R_noise = L_i @ tf.transpose(U_i, [0,2,1]) @ R_noise @ U_i @ tf.transpose(L_i, [0,2,1])
+		# R_noise = L_i @ tf.transpose(U_i, [0,2,1]) @ R_noise @ U_i @ tf.transpose(L_i, [0,2,1]) # as in paper
+		R_noise = L_i @ U_i @ R_noise @ tf.transpose(U_i, [0,2,1]) @ tf.transpose(L_i, [0,2,1]) # used in 2D code
+		# R_noise = tf.transpose(L_i, [0,2,1]) @ U_i @ R_noise @ tf.transpose(U_i, [0,2,1]) @ L_i #test
+
 		# print("\n R_noise \n", R_noise)
 
 		#transpose each [i,3,3] element of U_i here
 		U_iT = tf.transpose(U_i, [0,2,1])
 		# print("\n U_iT \n", tf.shape(U_iT)) 		  #[19, 3, 3]
 		# print("\n L_i \n", tf.shape(L_i.to_tensor())) #[19, 2, 3] with only [5,5,2] fidelity
-		LUT = tf.math.multiply(L_i, U_iT) #TODO -> FIX BUG HERE
+
+		LUT = tf.math.multiply(L_i, U_iT) #was this #TODO -> FIX BUG HERE
 		#NOTE: this bug happens when the every voxel has at least one ambigious direction
-		print("\n LUT \n", tf.shape(LUT))
+		# LUT = tf.math.multiply(L_i, U_i) #test
+		# print("\n LUT \n", tf.shape(LUT))
 
 		#DEBUG: -> TODO: confirm if this is actually working...
 		LUT = tf.transpose(LUT, [0,2,1])
@@ -203,7 +208,7 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 		#need to add up the tensor containing the summands from each voxel to a single row matrix
 		#    [B, 6] -> [6]
 		dx = -tf.math.reduce_sum(dx, axis = 0)
-		print("\n dx \n", dx)
+		# print("\n dx \n", dx)
 		# #-----------------------------------------------------------------------------------------
 
 		# #test - solve for dx without L2 pruning --------------------------------------------------
@@ -233,7 +238,8 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 		# print("\n t, rot \n", t, "\n", rot)
 
 		#update pp2
-		pp2_corrected = tf.matmul(pp2, rot) + t
+		pp2_corrected = tf.matmul(pp2, rot) + t #was this
+		# pp2_corrected = tf.matmul((pp2 + t), rot)
 
 		# print(tf.shape(pp2_corrected))
 
@@ -271,9 +277,18 @@ def get_U_and_L(sigma1, bounds, fid):
 
 	eigenval, eigenvec = tf.linalg.eig(sigma1)
 	U = tf.math.real(eigenvec)
-	# print("\n U \n",U)
+	# print("\n U \n", U)
 	# print("\n eigenval \n", tf.math.real(eigenval))
+ 
+	# currently, half of U matrices will be facing backwards, this becomes a problem later when we are attempting
+	#		to solve for translation error. Need to flip direction without messing up cov matrix
+	# U = tf.math.abs(U) # - makes all major axis face in the same direction BUT messes up alignment
 
+	#find wher U has negative first component
+	neg_mask = -1.*tf.cast(tf.math.less(U[:,0,0], 0), tf.float32)[:,None][:,None]
+	# print("\n neg_mask \n", neg_mask)
+	print("neg_mask, U \n", tf.shape(neg_mask), tf.shape(U))
+	U = neg_mask * U
 
 	#need to create [N,3,3] diagonal matrices for axislens
 	zeros = tf.zeros([tf.shape(tf.math.real(eigenval))[0]])
@@ -290,8 +305,8 @@ def get_U_and_L(sigma1, bounds, fid):
 	# print("\n rotated \n", tf.squeeze(rotated))
 
 	#check for overly extended axis directions
-	# thresh = (cellsize**2)/64 #temp
-	thresh = (cellsize**2)/32 #temp
+	thresh = (cellsize**2)/64 #temp
+	# thresh = (cellsize**2)/32 #temp
 	# thresh = cellsize*2 #will not truncate anything?
 	# print("\n thresh \n", thresh)
 
@@ -310,7 +325,6 @@ def get_U_and_L(sigma1, bounds, fid):
 
 	#only keep non-extended indices
 	L = tf.squeeze(tf.gather(L, ext_idx))
-	# print("\n L \n", L)
 
 	#turn to ragged tensor with from_row_splits(?)
 	# first (smallest) eigenvalue is (almost) never going to be overly extended 
@@ -319,14 +333,17 @@ def get_U_and_L(sigma1, bounds, fid):
 	limits = tf.squeeze(tf.concat((tf.cast((tf.where(L[:,0] == 1)[:,0]), tf.int32), [tf.shape(L)[0]]), axis = 0))
 	# print("\n Limits \n",limits)
 	L = tf.RaggedTensor.from_row_limits(L,limits)[1:] #double counds first voxel without [1:]
+	# print("\n L before changing to U shape \n", L)
+
+	L = L.to_tensor(shape = (tf.shape(U)))
+
 	# print("\n L \n", L)
-	# print("\n L \n", L.to_tensor())
 
 	#----------------------------------------------------------------------------------------
 
 	#	TODO: debug- make sure L should be getting rid of rows, not columns
 
-	return(U, L.to_tensor())
+	return(U, L)
 
 
 def check_condition(HTWH):

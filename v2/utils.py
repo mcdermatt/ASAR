@@ -897,7 +897,7 @@ def generate_test_dataset():
 	#TODO: take in transformation from pp1 to pp2
 
 	bounds = tf.constant ([-150.,150.,-150.,150.,-150,150])
-	x = tf.constant([0.8, 3., -1.5, 0.01, -0.02, -0.1]) # yaw
+	x = tf.constant([0., 5., 0., 0., 0., -0.2]) 
 	# x = tf.constant([0., 0., 0., 0., 0., 0.])
 
 	height = 50
@@ -909,6 +909,7 @@ def generate_test_dataset():
 	pp1 = tf.concat((xpos, ypos, zpos), axis = 1)
 
 	for i in range(height*5):
+		#back wall
 		if i < height:
 			xpos = tf.linspace(-100., 100., 100)[:,None]
 			ypos = -60*tf.ones(100)[:,None]
@@ -942,34 +943,35 @@ def generate_test_dataset():
 
 		pp1 = tf.concat((pp1, pp1_i), axis = 0)
 
-	# #add floor -------------------------------------------
-	# for i in range(-100, 100, 1):
-	# 	ypos = tf.linspace(-60., -20., 100)[:,None]
-	# 	xpos = i*tf.ones(100)[:,None]
-	# 	zpos = tf.ones(100)[:,None]
-	# 	pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
-	# 	pp1 = tf.concat((pp1, pp1_i), axis = 0)
-	# for i in range(-30, 30, 1):
-	# 	ypos = tf.linspace(-20., 100., 100)[:,None]
-	# 	xpos = i*tf.ones(100)[:,None]
-	# 	zpos = tf.ones(100)[:,None]
-	# 	pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
-	# 	pp1 = tf.concat((pp1, pp1_i), axis = 0)
-	# #------------------------------------------------------
+	#add floor -------------------------------------------
+	for i in range(-100, 100, 1):
+		ypos = tf.linspace(-60., -20., 100)[:,None]
+		xpos = i*tf.ones(100)[:,None]
+		zpos = tf.ones(100)[:,None]
+		pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+		pp1 = tf.concat((pp1, pp1_i), axis = 0)
+	for i in range(-30, 30, 1):
+		ypos = tf.linspace(-20., 100., 100)[:,None]
+		xpos = i*tf.ones(100)[:,None]
+		zpos = tf.ones(100)[:,None]
+		pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+		pp1 = tf.concat((pp1, pp1_i), axis = 0)
+	#------------------------------------------------------
 	
 	print(tf.shape(pp1))
 	# for debug - add particles in middle to prevent L1 rank deficiency bug
-	pp1 = tf.concat((pp1, tf.random.normal((100,3))), axis = 0)
+	# pp1 = tf.concat((pp1, tf.random.normal((100,3))), axis = 0)
 
 	#add a little bit of noise
 	pp1 = pp1 + tf.random.normal(tf.shape(pp1))*0.2
 
 	#rotate scan 1
-	pp1 = pp1 @ (R_tf(tf.constant([0.,0.,-0.2])))
+	pp1 = pp1 @ (R_tf(tf.constant([0.,0.,-0.4])))
 
 	# pp2 = tf.random.normal((100,3))
 	rot = R_tf(x[3:])
-	pp2 = pp1 @ rot + x[:3] 
+	pp2 = pp1 @ rot + x[:3]
+	# pp2 = (pp1 + x[:3]) @ rot #test 
 
 	# print("\n pp1 \n", tf.shape(pp1))
 	# print("\n pp2 \n", tf.shape(pp2))

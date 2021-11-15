@@ -18,14 +18,15 @@ from ICET3D import ICET3D
 #NOTE: Out of Memory Error comes from too high fidelity/ pts in cloud tensor --> 100x100x2x120,000 > 2gb
 
 
-nc = 6	 #number of cycles
+nc = 10	 #number of cycles
 mnp = 5 #minimum number of points per voxel
-D = True #draw sim
+D = False #draw sim
 DG = False #draw grid
 DE = True #draw ellipsoids
 DC = True #draw correspondences
 TD = True #use test dataset
 CM = "voxel" #correspondence method, "voxel" or "NN"
+vizL = True #draw arrows in direction of non-truncated directions for each distribution
 
 plt = Plotter(N=1, axes=1, bg = (0.1,0.1,0.1), bg2 = (0.3,0.3,0.3),  interactive=True)
 basedir = 'C:/kitti/'
@@ -56,7 +57,7 @@ start = time.time()
 #just consider small section of image where there are easily identifiable features:
 #----------------------------------------------------------------------------------
 limtest = tf.constant([-20.,0.,-20.,0.,-1.5,1.5])
-f = tf.constant([25,25,25])
+f = tf.constant([20,20,20])
 # cloud1_tensor = tf.squeeze(tf.gather(cloud1_tensor, tf.where( (cloud1_tensor[:,0] > limtest[0]))))	#only works one cond at a time
 cloud1_tensor = tf.squeeze(tf.gather(cloud1_tensor, tf.where( tf.math.reduce_all(tf.concat( (
 	(cloud1_tensor[:,0] > limtest[0])[:,None], 
@@ -77,7 +78,7 @@ cloud2_tensor = tf.squeeze(tf.gather(cloud2_tensor, tf.where( tf.math.reduce_all
 
 Q, x_hist = ICET3D(cloud1_tensor, cloud2_tensor, plt, bounds = limtest, 
            fid = f, num_cycles = nc , min_num_pts = mnp, draw = D, draw_grid = DG,
-           draw_ell = DE, draw_corr = DC, test_dataset = TD, CM = CM)
+           draw_ell = DE, draw_corr = DC, test_dataset = TD, CM = CM, vizL = vizL)
 
 #----------------------------------------------------------------------------------
 
