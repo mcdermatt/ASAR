@@ -897,7 +897,7 @@ def generate_test_dataset():
 	#TODO: take in transformation from pp1 to pp2
 
 	bounds = tf.constant ([-150.,150.,-150.,150.,-150,150])
-	x = tf.constant([0., 5., 0., 0., 0., -0.2]) 
+	x = tf.constant([0., 0., 0., 0., 0., -0.12]) 
 	# x = tf.constant([0., 0., 0., 0., 0., 0.])
 
 	height = 50

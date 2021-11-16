@@ -22,6 +22,8 @@ from utils import *
 #TODO:	Debug correspondence issues (ordering is messed up from binning process????)
 #			-> move process of removing voxels with insufficient pts to inside get_corr()
 #TODO:	fix U & L so that axis point in the same direction for neighboring voxels on the same surface
+#TODO:			try only looking at a certain component (say z for example and looking at that)
+
 
 def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False, 
 	       num_cycles = 5, min_num_pts = 50, draw_grid = False, draw_ell = True, 
@@ -151,7 +153,6 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 		# R_noise = L_i * U_i.T * R_noise * U_i * L_i.T
 		# R_noise = L_i @ tf.transpose(U_i, [0,2,1]) @ R_noise @ U_i @ tf.transpose(L_i, [0,2,1]) # as in paper
 		R_noise = L_i @ U_i @ R_noise @ tf.transpose(U_i, [0,2,1]) @ tf.transpose(L_i, [0,2,1]) # used in 2D code
-		# R_noise = tf.transpose(L_i, [0,2,1]) @ U_i @ R_noise @ tf.transpose(U_i, [0,2,1]) @ L_i #test
 
 		# print("\n R_noise \n", R_noise)
 
@@ -278,17 +279,37 @@ def get_U_and_L(sigma1, bounds, fid):
 	eigenval, eigenvec = tf.linalg.eig(sigma1)
 	U = tf.math.real(eigenvec)
 	# print("\n U \n", U)
+	# print("\n U[1,:,1] \n", U[1,:,1] )
 	# print("\n eigenval \n", tf.math.real(eigenval))
  
 	# currently, half of U matrices will be facing backwards, this becomes a problem later when we are attempting
 	#		to solve for translation error. Need to flip direction without messing up cov matrix
-	# U = tf.math.abs(U) # - makes all major axis face in the same direction BUT messes up alignment
+	U = tf.math.abs(U) # - makes all major axis face in the same direction BUT messes up alignment
 
-	#find wher U has negative first component
-	neg_mask = -1.*tf.cast(tf.math.less(U[:,0,0], 0), tf.float32)[:,None][:,None]
+	# # using only U to find direction (incorrect I think) ----------------------------------------
+	# # find wher U has negative first component
+	# neg_mask = -1.*tf.cast(tf.math.less(U[:,0,0], 0), tf.float32)[:,None][:,None] #if U[:,0,0] < 0 (was this)
+	# neg_mask = -1.*tf.cast(tf.math.less( tf.math.reduce_max(tf.math.abs([U[:,0,0], U[:,1,1], U[:,2,2]]), axis = 0) , 0), tf.float32)[:,None][:,None] #if largest element in diagonal of U < 0
+
 	# print("\n neg_mask \n", neg_mask)
-	print("neg_mask, U \n", tf.shape(neg_mask), tf.shape(U))
-	U = neg_mask * U
+	# print("neg_mask, U \n", tf.shape(neg_mask), tf.shape(U))
+	# U = (2*neg_mask + tf.ones(tf.shape(neg_mask))) * U
+	# #--------------------------------------------------------------------------------------------
+
+	# # dimensions work out, but also not what I'm looking for -------------------------------------
+	# # if largest absolute value element in 3rd column of U is less than 0, multiply U[i] by -1 
+	# a = tf.math.reduce_max(tf.abs(U[:,:,2]), axis = 1)[:,None]
+	# b = tf.where( tf.math.equal(tf.abs(U[:,:,2]), a) )
+
+	# #was this
+	# absmax = tf.gather_nd(U[:,:,2], b)
+
+	# #test -> only look at one component of direction for longest distribution axis
+	# # absmax = U[:,2,2]
+
+	# mask = (-2.*tf.cast(tf.math.less(absmax, 0), tf.float32) + tf.ones(tf.shape(absmax)))[:,None][:,None]
+	# U = mask*U
+	# #---------------------------------------------------------------------------------------------
 
 	#need to create [N,3,3] diagonal matrices for axislens
 	zeros = tf.zeros([tf.shape(tf.math.real(eigenval))[0]])
