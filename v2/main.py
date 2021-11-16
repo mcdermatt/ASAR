@@ -18,7 +18,7 @@ from ICET3D import ICET3D
 #NOTE: Out of Memory Error comes from too high fidelity/ pts in cloud tensor --> 100x100x2x120,000 > 2gb
 
 
-nc = 2	 #number of cycles
+nc = 3	 #number of cycles
 mnp = 5 #minimum number of points per voxel
 D = True #draw sim
 DG = False #draw grid

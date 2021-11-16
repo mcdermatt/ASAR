@@ -102,6 +102,7 @@ def jacobian_tf(p_point, angs):
 									   [(-cos(psi)*cos(theta)), (-sin(psi)*cos(phi) - sin(phi)*sin(theta)*cos(psi)), (-sin(phi)*sin(psi) + sin(theta)*cos(psi)*cos(phi))],
 									   [tf.constant(0.),tf.constant(0.),tf.constant(0.)]]), p_point, axes = 1)
 
+	# print(tf.shape(Jx))
 
 	Jx_reshape = tf.reshape(tf.transpose(Jx), shape = (tf.shape(Jx)[0]*tf.shape(Jx)[1],1))
 	Jy_reshape = tf.reshape(tf.transpose(Jy), shape = (tf.shape(Jy)[0]*tf.shape(Jy)[1],1))
@@ -113,6 +114,8 @@ def jacobian_tf(p_point, angs):
 
 	J = tf.concat([eyes, Jx_reshape, Jy_reshape, Jz_reshape], axis = 1) #was this
 	
+	# print("\n J \n ", tf.shape(J))
+
 	return J
 
 def R2Euler(mat):
@@ -897,8 +900,8 @@ def generate_test_dataset():
 	#TODO: take in transformation from pp1 to pp2
 
 	bounds = tf.constant ([-150.,150.,-150.,150.,-150,150])
-	x = tf.constant([0., 0., 0., 0., 0., -0.12]) 
-	# x = tf.constant([0., 0., 0., 0., 0., 0.])
+	# x = tf.constant([0., 0., 0., 0., 0., -0.12]) 
+	x = tf.constant([0., 0., 0., 0.12, 0., 0.])
 
 	height = 50
 
@@ -963,10 +966,10 @@ def generate_test_dataset():
 	# pp1 = tf.concat((pp1, tf.random.normal((100,3))), axis = 0)
 
 	#add a little bit of noise
-	pp1 = pp1 + tf.random.normal(tf.shape(pp1))*0.2
+	pp1 = pp1 + tf.random.normal(tf.shape(pp1))*0.02
 
 	#rotate scan 1
-	pp1 = pp1 @ (R_tf(tf.constant([0.,0.,-0.4])))
+	# pp1 = pp1 @ (R_tf(tf.constant([0.,0.,-0.2])))
 
 	# pp2 = tf.random.normal((100,3))
 	rot = R_tf(x[3:])

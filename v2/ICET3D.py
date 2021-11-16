@@ -151,8 +151,9 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 		R_noise = (tf.transpose(tf.transpose(sigma1_i) / tf.cast(npts1_i - 1, tf.float32)) + 
 				   tf.transpose(tf.transpose(sigma2_i) / tf.cast(npts2_i - 1, tf.float32)) )
 		# R_noise = L_i * U_i.T * R_noise * U_i * L_i.T
-		# R_noise = L_i @ tf.transpose(U_i, [0,2,1]) @ R_noise @ U_i @ tf.transpose(L_i, [0,2,1]) # as in paper
-		R_noise = L_i @ U_i @ R_noise @ tf.transpose(U_i, [0,2,1]) @ tf.transpose(L_i, [0,2,1]) # used in 2D code
+		R_noise = L_i @ tf.transpose(U_i, [0,2,1]) @ R_noise @ U_i @ tf.transpose(L_i, [0,2,1]) # as in paper
+		# R_noise = L_i @ U_i @ R_noise @ tf.transpose(U_i, [0,2,1]) @ tf.transpose(L_i, [0,2,1]) # did this in 2D code
+		#TODO: try and figure out which of these is correct
 
 		# print("\n R_noise \n", R_noise)
 
@@ -161,13 +162,12 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 		# print("\n U_iT \n", tf.shape(U_iT)) 		  #[19, 3, 3]
 		# print("\n L_i \n", tf.shape(L_i.to_tensor())) #[19, 2, 3] with only [5,5,2] fidelity
 
-		LUT = tf.math.multiply(L_i, U_iT) #was this #TODO -> FIX BUG HERE
+		LUT = tf.math.multiply(L_i, U_iT) #TODO -> FIX BUG HERE
 		#NOTE: this bug happens when the every voxel has at least one ambigious direction
-		# LUT = tf.math.multiply(L_i, U_i) #test
 		# print("\n LUT \n", tf.shape(LUT))
 
-		#DEBUG: -> TODO: confirm if this is actually working...
-		LUT = tf.transpose(LUT, [0,2,1])
+		#DEBUG: -> works better with this commented out...
+		# LUT = tf.transpose(LUT, [0,2,1])
 
 		# print("\n LUT \n", tf.shape(LUT))
 		H_z = tf.matmul(LUT,H)
@@ -175,7 +175,9 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 		# print(tf.shape(H_z))
 
 		#invert sensor noise matrix R to get weighting matrix W
+		# print("shape of R_noise \n", tf.shape(R_noise)) #shape = [N, 3, 3]
 		W = tf.linalg.pinv(R_noise)
+		# W = tf.linalg.pinv(tf.transpose(R_noise, [0,2,1])) #test
 		# print("\n W \n",W)
 
 		HTWH = tf.math.reduce_sum(tf.matmul(tf.matmul(tf.transpose(H_z, [0,2,1]), W), H_z), axis = 0)
@@ -195,15 +197,12 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 		dz = dz[:,:,None] #need to add an extra dimension to dz to get the math to work out
 		# print("\n dz \n", dz) #looks fine, most differences are between 0.1-1 units
 
-		#TODO -> HTW is WAAAY too big (?)
-
 		# #solve for dx - with L2 pruning ----------------------------------------------------------
 		# dx     = (L2     * lam   *   U2.T)^-1       * L2    * U2     * HTW         *  dz
 		# [6, 1] = ([D, 6] *[6,6]  * [6, 6])^-1 * [D,6] * [6, 6] * [B, 6, 3] * [B,3]
 		#	   D = 1-6 depending on # axis removed 
 		#	   B = batch size (num usable voxels)
 
-		#trying this
 		dx = tf.squeeze(tf.matmul( tf.matmul(tf.linalg.pinv(L2 @ lam @ tf.transpose(U2)) @ L2 @ tf.transpose(U2) , HTW ), dz)) #rank deficient
 
 		#need to add up the tensor containing the summands from each voxel to a single row matrix
@@ -284,9 +283,12 @@ def get_U_and_L(sigma1, bounds, fid):
  
 	# currently, half of U matrices will be facing backwards, this becomes a problem later when we are attempting
 	#		to solve for translation error. Need to flip direction without messing up cov matrix
-	U = tf.math.abs(U) # - makes all major axis face in the same direction BUT messes up alignment
 
-	# # using only U to find direction (incorrect I think) ----------------------------------------
+	#incorrect but works better than nothing?? ---------------------------------------------------
+	# U = tf.math.abs(U) # - makes all major axis face in the same direction BUT messes up alignment
+	#---------------------------------------------------------------------------------------------
+
+	# # using only U[0,0] to find direction (incorrect) ------------------------------------------
 	# # find wher U has negative first component
 	# neg_mask = -1.*tf.cast(tf.math.less(U[:,0,0], 0), tf.float32)[:,None][:,None] #if U[:,0,0] < 0 (was this)
 	# neg_mask = -1.*tf.cast(tf.math.less( tf.math.reduce_max(tf.math.abs([U[:,0,0], U[:,1,1], U[:,2,2]]), axis = 0) , 0), tf.float32)[:,None][:,None] #if largest element in diagonal of U < 0
