@@ -16,14 +16,11 @@ from utils import *
 #TODO: 	remove past iterations of point cloud in viz
 #TODO: 	add slider to allow selection of iterations
 #			generate every <x> beforehand 
-#TODO:	visualize L1
+#TODO:	Replace arrows in L1 with axis lines
 
 #Algorithm: 
 #TODO:	Debug correspondence issues (ordering is messed up from binning process????)
 #			-> move process of removing voxels with insufficient pts to inside get_corr()
-#TODO:	fix U & L so that axis point in the same direction for neighboring voxels on the same surface
-#TODO:			try only looking at a certain component (say z for example and looking at that)
-
 
 def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False, 
 	       num_cycles = 5, min_num_pts = 50, draw_grid = False, draw_ell = True, 
@@ -228,7 +225,7 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 		print("\n x \n", x)
 
 		#transform 2nd scan by x
-		t = x[:3]
+		t = -x[:3]
 		rot = R_tf(x[3:])
 
 		# # DEBUG: only consider yaw transformations
@@ -324,7 +321,8 @@ def get_U_and_L(sigma1, bounds, fid):
 	# print("\n axislen \n", axislen)
 
 	# get projections of axis length in each direction
-	rotated = tf.abs(tf.matmul(U,axislen))
+	rotated = tf.abs(tf.matmul(U,axislen)) #was this
+	# rotated = tf.abs(tf.matmul(tf.transpose(U, [0, 2, 1]), axislen )) #test
 	# print("\n rotated \n", tf.squeeze(rotated))
 
 	#check for overly extended axis directions

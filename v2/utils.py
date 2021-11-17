@@ -900,8 +900,9 @@ def generate_test_dataset():
 	#TODO: take in transformation from pp1 to pp2
 
 	bounds = tf.constant ([-150.,150.,-150.,150.,-150,150])
-	# x = tf.constant([0., 0., 0., 0., 0., -0.12]) 
-	x = tf.constant([0., 0., 0., 0.12, 0., 0.])
+	x = tf.constant([0., 0., 0., -0.01, -0.02, -0.03]) 
+	# x = tf.constant([0., 0., 0., -0.02, -0.05, -0.12]) 
+	# x = tf.constant([4., 0.2, 0.3, 0., 0., 0.])
 
 	height = 50
 
@@ -966,7 +967,7 @@ def generate_test_dataset():
 	# pp1 = tf.concat((pp1, tf.random.normal((100,3))), axis = 0)
 
 	#add a little bit of noise
-	pp1 = pp1 + tf.random.normal(tf.shape(pp1))*0.02
+	pp1 = pp1 + tf.random.normal(tf.shape(pp1))*0.2
 
 	#rotate scan 1
 	# pp1 = pp1 @ (R_tf(tf.constant([0.,0.,-0.2])))
