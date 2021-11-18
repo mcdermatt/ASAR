@@ -21,6 +21,7 @@ from utils import *
 #Algorithm: 
 #TODO:	Debug correspondence issues (ordering is messed up from binning process????)
 #			-> move process of removing voxels with insufficient pts to inside get_corr()
+#TODO:	Figure out why  U and L are different lengths
 
 def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False, 
 	       num_cycles = 5, min_num_pts = 50, draw_grid = False, draw_ell = True, 
@@ -63,7 +64,7 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 	npts1 = tf.squeeze(tf.gather(npts1,enough_pts1))
 	y0 = tf.squeeze(tf.gather(y0, enough_pts1))
 	sigma1 = tf.squeeze(tf.gather(sigma1, enough_pts1))
-	# print("\n enough_pts1 \n", npts1)
+	print("\n enough_pts1 \n", npts1)
 	print("y0", tf.shape(y0))
 
 	# calculte overly extended directions for each remaining distribution  
@@ -159,7 +160,9 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 		# print("\n U_iT \n", tf.shape(U_iT)) 		  #[19, 3, 3]
 		# print("\n L_i \n", tf.shape(L_i.to_tensor())) #[19, 2, 3] with only [5,5,2] fidelity
 
-		LUT = tf.math.multiply(L_i, U_iT) #TODO -> FIX BUG HERE
+		# LUT = tf.math.multiply(L_i, U_iT) #TODO -> FIX BUG HERE
+		LUT = L_i @ U_iT #this is correct? want dot product NOT element-wise
+		# LUT = tf.tensordot(L_i, U_iT, axes = 0)
 		#NOTE: this bug happens when the every voxel has at least one ambigious direction
 		# print("\n LUT \n", tf.shape(LUT))
 
@@ -204,7 +207,7 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 
 		#need to add up the tensor containing the summands from each voxel to a single row matrix
 		#    [B, 6] -> [6]
-		dx = -tf.math.reduce_sum(dx, axis = 0)
+		dx = tf.math.reduce_sum(dx, axis = 0)
 		# print("\n dx \n", dx)
 		# #-----------------------------------------------------------------------------------------
 
@@ -220,12 +223,12 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 		# print("\n Q \n", Q)
 
 		#augment x by dx
-		x -= dx
-		# x = x + dx
+		# x -= dx
+		x = x + dx
 		print("\n x \n", x)
 
 		#transform 2nd scan by x
-		t = -x[:3]
+		t = x[:3]
 		rot = R_tf(x[3:])
 
 		# # DEBUG: only consider yaw transformations
@@ -274,7 +277,7 @@ def get_U_and_L(sigma1, bounds, fid):
 
 	eigenval, eigenvec = tf.linalg.eig(sigma1)
 	U = tf.math.real(eigenvec)
-	# print("\n U \n", U)
+	print("\n U \n", tf.shape(U))
 	# print("\n U[1,:,1] \n", U[1,:,1] )
 	# print("\n eigenval \n", tf.math.real(eigenval))
  
@@ -326,6 +329,7 @@ def get_U_and_L(sigma1, bounds, fid):
 	# print("\n rotated \n", tf.squeeze(rotated))
 
 	#check for overly extended axis directions
+	# thresh = (cellsize**2)/128
 	thresh = (cellsize**2)/64 #temp
 	# thresh = (cellsize**2)/32 #temp
 	# thresh = cellsize*2 #will not truncate anything?
@@ -336,16 +340,17 @@ def get_U_and_L(sigma1, bounds, fid):
 
 	# geneate L as a ragged tensor --------------------------------------------------------------
 	#get indices where greather_than_thresh == True
-	ext_idx = tf.math.reduce_any(greater_than_thresh, axis = 1) #TODO -> make sure I am reducing about correct axis
+	ext_idx = tf.math.reduce_any(greater_than_thresh, axis = 1)
 	# print("\n ext_idx \n", ext_idx) 
 	ext_idx = tf.where(tf.math.reduce_any(tf.reshape(ext_idx, (-1,1)), axis = 1) == False)
-	# print("\n ext_idx \n", ext_idx)
+	print("\n ext_idx \n", ext_idx[:,0])
 
 	#create [3*N,3] identiy matrix
 	L = tf.tile(tf.eye(3), (tf.shape(U)[0], 1))
 
 	#only keep non-extended indices
 	L = tf.squeeze(tf.gather(L, ext_idx))
+	print("\n L before \n",L)
 
 	#turn to ragged tensor with from_row_splits(?)
 	# first (smallest) eigenvalue is (almost) never going to be overly extended 
@@ -353,12 +358,16 @@ def get_U_and_L(sigma1, bounds, fid):
 	# print(tf.cast((tf.where(L[:,0] == 1)[:,0]), tf.int32))
 	limits = tf.squeeze(tf.concat((tf.cast((tf.where(L[:,0] == 1)[:,0]), tf.int32), [tf.shape(L)[0]]), axis = 0))
 	# print("\n Limits \n",limits)
+
+	#TODO: add limits where there are non-extended components of distribution
+
 	L = tf.RaggedTensor.from_row_limits(L,limits)[1:] #double counds first voxel without [1:]
 	# print("\n L before changing to U shape \n", L)
+	print("L row lengths \n", L.row_lengths())
 
 	L = L.to_tensor(shape = (tf.shape(U)))
 
-	# print("\n L \n", L)
+	print("\n L \n", L)
 
 	#----------------------------------------------------------------------------------------
 
