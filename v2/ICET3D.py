@@ -329,8 +329,8 @@ def get_U_and_L(sigma1, bounds, fid):
 	# print("\n rotated \n", tf.squeeze(rotated))
 
 	#check for overly extended axis directions
-	# thresh = (cellsize**2)/128
-	thresh = (cellsize**2)/64 #temp
+	thresh = (cellsize**2)/16
+	# thresh = (cellsize**2)/64 #temp
 	# thresh = (cellsize**2)/32 #temp
 	# thresh = cellsize*2 #will not truncate anything?
 	# print("\n thresh \n", thresh)
@@ -338,40 +338,75 @@ def get_U_and_L(sigma1, bounds, fid):
 	greater_than_thresh = tf.math.greater(rotated, thresh)
 	# print("\n rotated > ___", greater_than_thresh)
 
-	# geneate L as a ragged tensor --------------------------------------------------------------
-	#get indices where greather_than_thresh == True
+
+	#NEW
+	# Generate L as a standard tensor -------------------------------------------------------------
+
+	I = tf.tile(tf.eye(3), (tf.shape(U)[0], 1))
+
+	# #get indices where greather_than_thresh == True
 	ext_idx = tf.math.reduce_any(greater_than_thresh, axis = 1)
-	# print("\n ext_idx \n", ext_idx) 
-	ext_idx = tf.where(tf.math.reduce_any(tf.reshape(ext_idx, (-1,1)), axis = 1) == False)
-	print("\n ext_idx \n", ext_idx[:,0])
+	# # print("\n ext_idx \n", ext_idx) 
+	compact = tf.where(tf.math.reduce_any(tf.reshape(ext_idx, (-1,1)), axis = 1) == False)
+	compact =  tf.cast(compact, tf.int32)
+	print("\n compact \n", compact[:,0])
 
-	#create [3*N,3] identiy matrix
-	L = tf.tile(tf.eye(3), (tf.shape(U)[0], 1))
+	# compact = tf.constant([0,1,2,6,7,9]) #useful directions for ICET
+	data = tf.ones((tf.shape(compact)[0],3))
 
-	#only keep non-extended indices
-	L = tf.squeeze(tf.gather(L, ext_idx))
-	print("\n L before \n",L)
+	mask = tf.scatter_nd(indices = compact, updates = data, shape = tf.shape(I))
 
-	#turn to ragged tensor with from_row_splits(?)
-	# first (smallest) eigenvalue is (almost) never going to be overly extended 
-	#		therefore, a row of [1,0,0] always signifies the start of a new voxel
-	# print(tf.cast((tf.where(L[:,0] == 1)[:,0]), tf.int32))
-	limits = tf.squeeze(tf.concat((tf.cast((tf.where(L[:,0] == 1)[:,0]), tf.int32), [tf.shape(L)[0]]), axis = 0))
-	# print("\n Limits \n",limits)
+	L = mask * I
+	L = tf.reshape(L, (tf.shape(L)[0]//3,3,3))
 
-	#TODO: add limits where there are non-extended components of distribution
+	# ---------------------------------------------------------------------------------------------
 
-	L = tf.RaggedTensor.from_row_limits(L,limits)[1:] #double counds first voxel without [1:]
-	# print("\n L before changing to U shape \n", L)
-	print("L row lengths \n", L.row_lengths())
+	# # geneate L as a ragged tensor --------------------------------------------------------------
+	# #get indices where greather_than_thresh == True
+	# ext_idx = tf.math.reduce_any(greater_than_thresh, axis = 1)
+	# # print("\n ext_idx \n", ext_idx) 
+	# ext_idx = tf.where(tf.math.reduce_any(tf.reshape(ext_idx, (-1,1)), axis = 1) == False)
+	# print("\n ext_idx \n", ext_idx[:,0])
 
-	L = L.to_tensor(shape = (tf.shape(U)))
+	# #create [3*N,3] identiy matrix
+	# L = tf.tile(tf.eye(3), (tf.shape(U)[0], 1))
 
-	print("\n L \n", L)
+	# #only keep non-extended indices
+	# L = tf.squeeze(tf.gather(L, ext_idx))
+	# # print("\n L before \n",L)
+
+	# #turn to ragged tensor with from_row_splits(?)
+	# # first (smallest) eigenvalue is (almost) never going to be overly extended 
+	# #		therefore, a row of [1,0,0] always signifies the start of a new voxel
+	# # print(tf.cast((tf.where(L[:,0] == 1)[:,0]), tf.int32))
+	# limits = tf.squeeze(tf.concat((tf.cast((tf.where(L[:,0] == 1)[:,0]), tf.int32), [tf.shape(L)[0]]), axis = 0))
+	# # print("\n Limits \n",limits)
+
+	# #TODO: add limits where there are non-extended components of distribution
+
+	# L = tf.RaggedTensor.from_row_limits(L,limits)[1:] #double counds first voxel without [1:]
+	# # print("\n L before changing to U shape \n", L)
+	# print("L row lengths \n", L.row_lengths())
+
+	# L = L.to_tensor(shape = (tf.shape(U))) #this causes shapes to match but individual elements are still incorrect matches
+
+	# # #----------------------------------------------------------------------------------------
+
+	#DEBUG - make L the same for everything
+	#----------------------------------------------------------------------------------------
+	# keep all axis:
+	# L = tf.tile(tf.eye(3)[None,:,:], (tf.shape(U)[0], 1, 1))
+
+	# only keep most compact direction for each
+	# unit = tf.constant([[1., 0., 0.], [0.,0.,0.], [0.,0.,0.]])
+	# L = tf.tile(unit[None,:,:], (tf.shape(U)[0], 1, 1))
 
 	#----------------------------------------------------------------------------------------
 
+
 	#	TODO: debug- make sure L should be getting rid of rows, not columns
+	print("\n L \n", L)
+
 
 	return(U, L)
 

@@ -19,7 +19,7 @@ from ICET3D import ICET3D
 
 
 nc = 2	 #number of cycles
-mnp = 100#5 #minimum number of points per voxel
+mnp = 100 #minimum number of points per voxel
 D = True #draw sim
 DG = False #draw grid
 DE = True #draw ellipsoids
@@ -57,7 +57,8 @@ start = time.time()
 #just consider small section of image where there are easily identifiable features:
 #----------------------------------------------------------------------------------
 limtest = tf.constant([-20.,0.,-20.,0.,-1.5,1.5])
-f = tf.constant([35,35,35])
+# f = tf.constant([35,35,35])
+f = tf.constant([15,15,15])
 # cloud1_tensor = tf.squeeze(tf.gather(cloud1_tensor, tf.where( (cloud1_tensor[:,0] > limtest[0]))))	#only works one cond at a time
 cloud1_tensor = tf.squeeze(tf.gather(cloud1_tensor, tf.where( tf.math.reduce_all(tf.concat( (
 	(cloud1_tensor[:,0] > limtest[0])[:,None], 
