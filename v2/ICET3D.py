@@ -1,6 +1,6 @@
 import numpy as np
-from vedo import *
-import vtk
+from vedo import * #comment out on laptop
+import vtk #need to comment out because laptop is from the stone age
 import os
 import tensorflow as tf
 from tensorflow.math import sin, cos, tan
@@ -22,6 +22,7 @@ from utils import *
 #TODO:	Debug correspondence issues (ordering is messed up from binning process????)
 #			-> move process of removing voxels with insufficient pts to inside get_corr()
 #TODO:	Figure out why  U and L are different lengths
+#TODO:	Fix issue with exceeding index in subdivide scan func line 457
 
 def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False, 
 	       num_cycles = 5, min_num_pts = 50, draw_grid = False, draw_ell = True, 
@@ -36,6 +37,7 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 
 	if test_dataset == True:
 		pp1, pp2, bounds = generate_test_dataset()
+	# print("pp1 \n", pp1)
 
 	#subdivide keyframe scan
 	if draw == True:
@@ -46,7 +48,7 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 	sigma1 = E1[1]
 	npts1 = E1[2]
 	disp1 = E1[3]
-	print("\n shapes \n", tf.shape(mu1), tf.shape(sigma1), tf.shape(npts1))
+	# print("\n shapes \n", tf.shape(mu1), tf.shape(sigma1), tf.shape(npts1))
 
 	#TODO: DEBUG -> I think there is a mismatch between npts1 and its corresponding elements in sigma1, etc.
 	# print("\n npts1 \n", npts1)
@@ -95,6 +97,7 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 		else:
 			E2 = subdivide_scan_tf(pp2_corrected, plt, bounds, fid, draw=False)
 		mu2 = E2[0]
+		# print("\n mu2 \n", mu2)
 		sigma2 = E2[1]
 		npts2 = E2[2]
 		disp = E2[3]
@@ -110,7 +113,7 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 		# print("\n enough_pts2 \n", npts2)
 		y = tf.squeeze(tf.gather(y, enough_pts2))
 		sigma2 = tf.squeeze(tf.gather(sigma2, enough_pts2))
-		# print("\n y \n", tf.shape(y))
+		# print("\n y \n", y)
 
 		#determine correspondences between distribution centers of the two scans
 		# print("\n shapes of y and y0 \n", tf.shape(y), tf.shape(y0)) #TODO: debug here

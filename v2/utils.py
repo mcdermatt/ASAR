@@ -1,6 +1,6 @@
 import numpy as np
-from vedo import *
-import vtk
+from vedo import * #comment out on laptop
+import vtk #comment out on laptop
 import os
 # from numpy import sin, cos, tan
 import tensorflow as tf
@@ -334,7 +334,7 @@ def dR_simp(n_hat, theta):
 def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.,-10.,10.]), fid = tf.constant([10,10,3]), disp = [],
 					min_num_pts = 20, draw = False, nstd = 2, draw_grid = True, draw_ell = True, show_pc = True):
 
-	"""Subdivide point cloud into voxels and calculate means and covaraince matrices for each voxels
+	"""Subdivide point cloud into voxels and calculate means and covaraince matrices for each voxel
 			cloud_tensor = point cloud input
 			bounds = x, y, z lims 
 			fid = number of voxel cells in x y and z
@@ -391,7 +391,7 @@ def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.
 
 	#estabilsh tensor containing all points rounded to the nearest bin
 	bins = tf.transpose(tf.Variable([xbins, ybins, zbins]))
-	# print("bins \n", bins) #correct format	
+	# print("\n bins \n", bins) #correct format	
 
 	#takes ~0.65s with (25,25,4) grid-----------------------------------------------
 	# This is where the largest biggest bottleneck is
@@ -408,9 +408,9 @@ def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.
 
 	# Use binned point xyz location as hash for bin number -------------------------
 	num = tf.cast( ( bins[:,0] + fida*bins[:,1] + (fida*fidb)*bins[:,2] ), tf.int32)
-	loc = tf.concat((num[:,None], tf.cast(tf.linspace(0, tf.shape(bins)[0], tf.shape(bins)[0]  )[:,None],
+	loc = tf.concat((num[:,None], tf.cast(tf.linspace(0, tf.shape(bins)[0] - 1, tf.shape(bins)[0]  )[:,None],
                                       dtype = tf.int32) ), axis = 1 )
-
+	# print("\n loc \n", loc[-10:])
 	#VERY slow (takes minutes) ----------------------------------------------------
 	# loc = None
 	# for i in range(tf.shape(bins)[0]):
@@ -454,7 +454,11 @@ def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.
 
 	#replace <bins> here with <cloud_tensor> when done debugging
 	# rag = tf.RaggedTensor.from_row_lengths(tf.gather(cloud_tensor, loc[:,0]), sizes) #was this
-	rag = tf.RaggedTensor.from_row_lengths(tf.gather(cloud_tensor, temp[:,1]), sizes_updated) #test
+
+	#INDEXING ISSUE -> works on GPU, NOT CPU
+	# test1 = tf.gather(cloud_tensor, temp[:,1])
+	# print("\n test1 \n", test1)
+	rag = tf.RaggedTensor.from_row_lengths(tf.gather(cloud_tensor, temp[:,1]), sizes_updated) 
 	# print("ragged: \n", rag.bounding_shape())
 
 	# #correct (ignores zeros) but way slower ---------------------------------------------
@@ -909,8 +913,8 @@ def generate_test_dataset():
 	height = 50
 
 	xpos = tf.linspace(-100., 100., 100)[:,None]
-	ypos = -60*tf.ones(100)[:,None]
-	# ypos = (-60*tf.ones(100) + 10*tf.sin(tf.linspace(-3., 3., 100)))[:,None]
+	# ypos = -60*tf.ones(100)[:,None]
+	ypos = (-60*tf.ones(100) + 10*tf.sin(tf.linspace(-3., 3., 100)))[:,None]
 	zpos = tf.ones(100)[:,None]
 	pp1 = tf.concat((xpos, ypos, zpos), axis = 1)
 
@@ -918,8 +922,8 @@ def generate_test_dataset():
 		#back wall
 		if i < height:
 			xpos = tf.linspace(-100., 100., 100)[:,None]
-			ypos = -60*tf.ones(100)[:,None]
-			# ypos = (-60*tf.ones(100) + 10*tf.sin(tf.linspace(-3., 3., 100)))[:,None]
+			# ypos = -60*tf.ones(100)[:,None]
+			ypos = (-60*tf.ones(100) + 10*tf.sin(tf.linspace(-3., 3., 100)))[:,None]
 			zpos = i*tf.ones(100)[:,None]
 			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
 
@@ -969,10 +973,10 @@ def generate_test_dataset():
 	# pp1 = tf.concat((pp1, tf.random.normal((100,3))), axis = 0)
 
 	#add a little bit of noise
-	pp1 = pp1 + tf.random.normal(tf.shape(pp1))*0.02
+	pp1 = pp1 + tf.random.normal(tf.shape(pp1))*0.2
 
 	#rotate scan 1
-	pp1 = pp1 @ (R_tf(tf.constant([0.1,0.1,-0.1])))
+	# pp1 = pp1 @ (R_tf(tf.constant([0.1,0.1,-0.1])))
 
 	# pp2 = tf.random.normal((100,3))
 	rot = R_tf(x[3:])

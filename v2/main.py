@@ -18,28 +18,31 @@ from ICET3D import ICET3D
 #NOTE: Out of Memory Error comes from too high fidelity/ pts in cloud tensor --> 100x100x2x120,000 > 2gb
 
 
-nc = 2	 #number of cycles
+nc = 1	 #number of cycles
 mnp = 100 #minimum number of points per voxel
 D = True #draw sim
 DG = False #draw grid
 DE = True #draw ellipsoids
-DC = False #draw correspondences
+DC = True #draw correspondences
 TD = True #use test dataset
 CM = "voxel" #correspondence method, "voxel" or "NN"
 vizL = False #draw arrows in direction of non-truncated directions for each distribution
 
 plt = Plotter(N=1, axes=1, bg = (0.1,0.1,0.1), bg2 = (0.3,0.3,0.3),  interactive=True)
-basedir = 'C:/kitti/'
-date = '2011_09_26'
-drive = '0005'
-frame_range = range(150, 151, 1)
-dataset = pykitti.raw(basedir, date, drive)
-velo1 = dataset.get_velo(0) # Each scan is a Nx4 array of [x,y,z,reflectance]
-cloud1 = velo1[:,:3]
-cloud1_tensor = tf.convert_to_tensor(cloud1, np.float32)
-velo2 = dataset.get_velo(2) # Each scan is a Nx4 array of [x,y,z,reflectance]
-cloud2 = velo2[:,:3]
-cloud2_tensor = tf.convert_to_tensor(cloud2, np.float32)
+
+## Use real data ----------------------------------------------------------------
+# basedir = 'C:/kitti/'
+# date = '2011_09_26'
+# drive = '0005'
+# frame_range = range(150, 151, 1)
+# dataset = pykitti.raw(basedir, date, drive)
+# velo1 = dataset.get_velo(0) # Each scan is a Nx4 array of [x,y,z,reflectance]
+# cloud1 = velo1[:,:3]
+# cloud1_tensor = tf.convert_to_tensor(cloud1, np.float32)
+# velo2 = dataset.get_velo(2) # Each scan is a Nx4 array of [x,y,z,reflectance]
+# cloud2 = velo2[:,:3]
+# cloud2_tensor = tf.convert_to_tensor(cloud2, np.float32)
+# ---------------------------------------------------------------------------------
 
 start = time.time()
 
@@ -58,24 +61,27 @@ start = time.time()
 #----------------------------------------------------------------------------------
 limtest = tf.constant([-20.,0.,-20.,0.,-1.5,1.5])
 # f = tf.constant([35,35,35])
-f = tf.constant([15,15,15])
+f = tf.constant([20,20,20])
 # cloud1_tensor = tf.squeeze(tf.gather(cloud1_tensor, tf.where( (cloud1_tensor[:,0] > limtest[0]))))	#only works one cond at a time
-cloud1_tensor = tf.squeeze(tf.gather(cloud1_tensor, tf.where( tf.math.reduce_all(tf.concat( (
-	(cloud1_tensor[:,0] > limtest[0])[:,None], 
-	(cloud1_tensor[:,0] < limtest[1])[:,None], 
-	(cloud1_tensor[:,1] > limtest[2])[:,None], 
-	(cloud1_tensor[:,1] < limtest[3])[:,None],
-	(cloud1_tensor[:,2] > limtest[4])[:,None], 
-	(cloud1_tensor[:,2] < limtest[5])[:,None],
-	), axis = 1 ), axis = 1))))
+# cloud1_tensor = tf.squeeze(tf.gather(cloud1_tensor, tf.where( tf.math.reduce_all(tf.concat( (
+# 	(cloud1_tensor[:,0] > limtest[0])[:,None], 
+# 	(cloud1_tensor[:,0] < limtest[1])[:,None], 
+# 	(cloud1_tensor[:,1] > limtest[2])[:,None], 
+# 	(cloud1_tensor[:,1] < limtest[3])[:,None],
+# 	(cloud1_tensor[:,2] > limtest[4])[:,None], 
+# 	(cloud1_tensor[:,2] < limtest[5])[:,None],
+# 	), axis = 1 ), axis = 1))))
 
-cloud2_tensor = tf.squeeze(tf.gather(cloud2_tensor, tf.where( tf.math.reduce_all(tf.concat( (
-	(cloud2_tensor[:,0] > limtest[0])[:,None], 
-	(cloud2_tensor[:,0] < limtest[1])[:,None], 
-	(cloud2_tensor[:,1] > limtest[2])[:,None], 
-	(cloud2_tensor[:,1] < limtest[3])[:,None],
-	(cloud2_tensor[:,2] > limtest[4])[:,None], 
-	(cloud2_tensor[:,2] < limtest[5])[:,None],), axis = 1 ), axis = 1))))
+# cloud2_tensor = tf.squeeze(tf.gather(cloud2_tensor, tf.where( tf.math.reduce_all(tf.concat( (
+# 	(cloud2_tensor[:,0] > limtest[0])[:,None], 
+# 	(cloud2_tensor[:,0] < limtest[1])[:,None], 
+# 	(cloud2_tensor[:,1] > limtest[2])[:,None], 
+# 	(cloud2_tensor[:,1] < limtest[3])[:,None],
+# 	(cloud2_tensor[:,2] > limtest[4])[:,None], 
+# 	(cloud2_tensor[:,2] < limtest[5])[:,None],), axis = 1 ), axis = 1))))
+
+cloud1_tensor = None
+cloud2_tensor = None
 
 Q, x_hist = ICET3D(cloud1_tensor, cloud2_tensor, plt, bounds = limtest, 
            fid = f, num_cycles = nc , min_num_pts = mnp, draw = D, draw_grid = DG,
