@@ -17,12 +17,15 @@ from utils import *
 #TODO: 	add slider to allow selection of iterations
 #			generate every <x> beforehand 
 #TODO:	Replace arrows in L1 with axis lines
+#TODO:	Draw visual marker inside each qualifying voxel
 
 #Algorithm: 
 #TODO:	Debug correspondence issues (ordering is messed up from binning process????)
 #			-> move process of removing voxels with insufficient pts to inside get_corr()
 #TODO:	Figure out why  U and L are different lengths
 #TODO:	Fix issue with exceeding index in subdivide scan func line 457
+#TODO:	Prove axis truncation and zeroing out do the same thing
+#TODO:	Fix minimum numeber of points bug
 
 def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False, 
 	       num_cycles = 5, min_num_pts = 50, draw_grid = False, draw_ell = True, 
@@ -57,17 +60,18 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 	nonzero_idx1 = tf.where(tf.math.reduce_sum(mu1, axis = 1) != 0)
 	# print("\n nonzero_idx1 \n", nonzero_idx1)
 	y0 = tf.squeeze(tf.gather(mu1,nonzero_idx1))
-	# print("y0", tf.shape(y0))
+	# print("y0", y0[:10])
 	sigma1 = tf.squeeze(tf.gather(sigma1, nonzero_idx1))
 
 	# ignore voxels with too few points (this needs to be separate step)
 	enough_pts1 = tf.where(npts1 > min_num_pts)
 	# print("\n enough_pts1 \n", enough_pts1)
 	npts1 = tf.squeeze(tf.gather(npts1,enough_pts1))
+	# print("\n npts1 \n", npts1)
 	y0 = tf.squeeze(tf.gather(y0, enough_pts1))
 	sigma1 = tf.squeeze(tf.gather(sigma1, enough_pts1))
-	print("\n enough_pts1 \n", npts1)
-	print("y0", tf.shape(y0))
+	# print("\n enough_pts1 \n", tf.shape(enough_pts1))
+	# print("y0", y0[:10])
 
 	# calculte overly extended directions for each remaining distribution  
 	U, L = get_U_and_L(sigma1, bounds, fid)	
@@ -113,6 +117,7 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 		# print("\n enough_pts2 \n", npts2)
 		y = tf.squeeze(tf.gather(y, enough_pts2))
 		sigma2 = tf.squeeze(tf.gather(sigma2, enough_pts2))
+		# print("\n sigma2 \n", sigma2)
 		# print("\n y \n", y)
 
 		#determine correspondences between distribution centers of the two scans
@@ -163,8 +168,7 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 		# print("\n U_iT \n", tf.shape(U_iT)) 		  #[19, 3, 3]
 		# print("\n L_i \n", tf.shape(L_i.to_tensor())) #[19, 2, 3] with only [5,5,2] fidelity
 
-		# LUT = tf.math.multiply(L_i, U_iT) #TODO -> FIX BUG HERE
-		LUT = L_i @ U_iT #this is correct? want dot product NOT element-wise
+		LUT = L_i @ U_iT 
 		# LUT = tf.tensordot(L_i, U_iT, axes = 0)
 		#NOTE: this bug happens when the every voxel has at least one ambigious direction
 		# print("\n LUT \n", tf.shape(LUT))
@@ -173,7 +177,8 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 		# LUT = tf.transpose(LUT, [0,2,1])
 
 		# print("\n LUT \n", tf.shape(LUT))
-		H_z = tf.matmul(LUT,H)
+		# H_z = tf.matmul(LUT,H)
+		H_z = LUT @ H
 		# H_z = tf.tensordot(LUT,H, axes = (1,2))
 		# print(tf.shape(H_z))
 
@@ -280,7 +285,7 @@ def get_U_and_L(sigma1, bounds, fid):
 
 	eigenval, eigenvec = tf.linalg.eig(sigma1)
 	U = tf.math.real(eigenvec)
-	print("\n U \n", tf.shape(U))
+	# print("\n U \n", tf.shape(U))
 	# print("\n U[1,:,1] \n", U[1,:,1] )
 	# print("\n eigenval \n", tf.math.real(eigenval))
  
@@ -352,7 +357,7 @@ def get_U_and_L(sigma1, bounds, fid):
 	# # print("\n ext_idx \n", ext_idx) 
 	compact = tf.where(tf.math.reduce_any(tf.reshape(ext_idx, (-1,1)), axis = 1) == False)
 	compact =  tf.cast(compact, tf.int32)
-	print("\n compact \n", compact[:,0])
+	# print("\n compact \n", compact[:,0])
 
 	# compact = tf.constant([0,1,2,6,7,9]) #useful directions for ICET
 	data = tf.ones((tf.shape(compact)[0],3))
@@ -408,7 +413,7 @@ def get_U_and_L(sigma1, bounds, fid):
 
 
 	#	TODO: debug- make sure L should be getting rid of rows, not columns
-	print("\n L \n", L)
+	# print("\n L \n", tf.shape(L))
 
 
 	return(U, L)

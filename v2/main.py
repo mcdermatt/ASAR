@@ -61,7 +61,7 @@ start = time.time()
 #----------------------------------------------------------------------------------
 limtest = tf.constant([-20.,0.,-20.,0.,-1.5,1.5])
 # f = tf.constant([35,35,35])
-f = tf.constant([20,20,20])
+f = tf.constant([21,21,21])
 # cloud1_tensor = tf.squeeze(tf.gather(cloud1_tensor, tf.where( (cloud1_tensor[:,0] > limtest[0]))))	#only works one cond at a time
 # cloud1_tensor = tf.squeeze(tf.gather(cloud1_tensor, tf.where( tf.math.reduce_all(tf.concat( (
 # 	(cloud1_tensor[:,0] > limtest[0])[:,None], 

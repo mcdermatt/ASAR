@@ -436,7 +436,7 @@ def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.
 	# print("\n loc[:,0]: \n", loc)
 
 
-	#BUG HERE? -> why am I getting idx 10 in tensor of length 10???
+	#BUG HERE? -> why am I getting idx 10 in tensor of length 10??? (bug was with linspace&cast2int)
 	#sort loc by first element (group 0, group1, group2, etc )
 	# print("\n loc: \n", loc)
 	reordered = tf.argsort(loc, axis = 0, direction='ASCENDING')
@@ -473,8 +473,10 @@ def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.
 
 	mu = tf.math.reduce_mean(rag, axis=1) #works correctly
 	#get rid of nan values in mu
-	mu = tf.where(tf.math.is_nan(mu), tf.zeros_like(mu), mu)
-	# print("\n mu \n", mu)
+	# print("\n mu before \n", mu)
+	mu = tf.where(tf.math.is_nan(mu), tf.zeros_like(mu), mu) #was this
+	# mu = tf.where(tf.math.is_nan(mu), -tf.ones_like(mu), mu) #test
+	# print("\n mu after \n", mu)
 
 	vox_with_zeros = rag.to_tensor() #[voxel #, point in voxel #, x y or z]
 	# print(vox_with_zeros)
@@ -526,7 +528,11 @@ def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.
 
 		disp = make_scene(plt, disp, E, color, bounds = bounds, draw_grid = draw_grid, draw_ell = draw_ell, fid = fid)
 
-	E = [mu, sigma, sizes, disp]
+
+	# npts = sizes#was this
+	npts = tf.gather(sizes_updated, tf.where(sizes_updated != 0))[:,0] #test
+
+	E = [mu, sigma, npts, disp]
 
 	return E
 
@@ -699,6 +705,7 @@ def get_correspondences_tf(a, b, mu1, mu2, bounds, fid, method = "voxel", disp =
 	#TODO: get rid of unnecessary operations in voxel method
 
 	# print("\n corr shape a b \n", tf.shape(a), tf.shape(b))
+	# print("a, b \n", a[:10], "\n", b[:10])
 
 	if method == "NN":
 		if tf.shape(tf.shape(a)) == 1:
@@ -712,7 +719,7 @@ def get_correspondences_tf(a, b, mu1, mu2, bounds, fid, method = "voxel", disp =
 		dist = tf.math.reduce_sum( (tf.square( tf.math.subtract(a, b) ))  , axis = 2)
 		# print("\n dist \n", dist)
 
-		ans = tf.where( tf.transpose(dist) ==tf.math.reduce_min(dist, axis = 1))
+		ans = tf.where( tf.transpose(dist) == tf.math.reduce_min(dist, axis = 1))
 		# print("\n shortest dist \n", ans)
 
 		reordered = tf.argsort(ans[:,1], axis = 0)
@@ -774,6 +781,8 @@ def get_correspondences_tf(a, b, mu1, mu2, bounds, fid, method = "voxel", disp =
 		# find indices of voxels in b (if any) that match each element of a --
 		numa = numa[:,None] #need to add axis to a so all this to be run in parallel
 
+		# print("\n numa, numb \n ", numa, numb)
+
 		eq = tf.cast(tf.where(numa == numb), tf.int32)
 		#eq is correct BUT it much shorter than the origonal vec numa
 		# print("\n voxels that have valid means from both scans \n", eq) #[idx_a, idx_b]
@@ -808,23 +817,24 @@ def get_correspondences_tf(a, b, mu1, mu2, bounds, fid, method = "voxel", disp =
 
 		#switch order and only return elements that are useful
 		corr = tf.concat((eq[:,1][:,None],eq[:,0][:,None]), axis = 1) #[b,a]
-		# print("\n corr \n", corr)
+		# print("\n corr \n", corr[:10])
 		# print("\n a \n",tf.shape(a))
 
 		if draw_corr == True:
-			for i in range(tf.shape(eq)[0]):
+			for i in range(tf.shape(corr)[0]):
 				#was this
-				# pt1 = a[corr[i][1].numpy()]
-				# pt2 = b[corr[i][0].numpy()]
-				# print("\n old way \n", pt1)
+				# pt1 = a[eq[i][0].numpy()]
+				# pt2 = b[eq[i][1].numpy()]
 
-				#test
-				pt1 = a[eq[i][0].numpy()]
-				pt2 = b[eq[i][1].numpy()]
+				pt1 = a[corr[i,1].numpy()]
+				pt2 = b[corr[i,0].numpy()]
 
 				arrow = shapes.Line(pt1.numpy(), pt2.numpy(), closed = False, c = 'white', lw = 2) #line
 				# arrow = shapes.Arrow(pt2.numpy(), pt1.numpy(), c = 'white')
 				disp.append(arrow)
+
+				ell_test = Ell(pos = pt1.numpy(), axis1 = 5, axis2 = 5, axis3 = 5, c = (i/(300), i/(300), i/(300) ))
+				disp.append(ell_test)
 		#	[cell in b, cell in a]
 			return(corr, disp)
 		else:
@@ -905,10 +915,10 @@ def generate_test_dataset():
 
 	bounds = tf.constant ([-150.,150.,-150.,150.,-150,150])
 	# x = tf.constant([3., 2., 1., 0.0, 0.0, 0.0])  #be careful about choice of grid here
-	x = tf.constant([0., 0., 0., -0.02, -0.05, -0.12])
-	# x = tf.constant([1., 3., 0.5, -0.02, -0.05, -0.12])
+	# x = tf.constant([0., 0., 0., -0.02, -0.05, -0.12])
+	x = tf.constant([1., 3., 0.5, -0.02, -0.05, -0.12])
 	# x = tf.constant([0., 0., 0., -0.01, -0.02, -0.05]) 
-	# x = tf.constant([0., 0., 0., 0.1, 0.1, 0.1])
+	# x = tf.constant([0., 0., 0., 0., 0., 0.])
 
 	height = 50
 
