@@ -833,8 +833,9 @@ def get_correspondences_tf(a, b, mu1, mu2, bounds, fid, method = "voxel", disp =
 				# arrow = shapes.Arrow(pt2.numpy(), pt1.numpy(), c = 'white')
 				disp.append(arrow)
 
-				ell_test = Ell(pos = pt1.numpy(), axis1 = 5, axis2 = 5, axis3 = 5, c = (i/(300), i/(300), i/(300) ))
-				disp.append(ell_test)
+				#FOR DEBUG-> draw ell in center of each used voxel
+				# ell_test = Ell(pos = pt1.numpy(), axis1 = 5, axis2 = 5, axis3 = 5, c = (i/(300), i/(300), i/(300) ))
+				# disp.append(ell_test)
 		#	[cell in b, cell in a]
 			return(corr, disp)
 		else:
@@ -915,10 +916,11 @@ def generate_test_dataset():
 
 	bounds = tf.constant ([-150.,150.,-150.,150.,-150,150])
 	# x = tf.constant([3., 2., 1., 0.0, 0.0, 0.0])  #be careful about choice of grid here
-	# x = tf.constant([0., 0., 0., -0.02, -0.05, -0.12])
-	x = tf.constant([1., 3., 0.5, -0.02, -0.05, -0.12])
-	# x = tf.constant([0., 0., 0., -0.01, -0.02, -0.05]) 
+	x = tf.constant([0., 0., 0., -0.02, -0.05, -0.12])
+	# x = tf.constant([0., 0., 0., 0.02, 0.05, 0.12])
+	# x = tf.constant([1., 3., 0.5, -0.02, -0.05, -0.12])
 	# x = tf.constant([0., 0., 0., 0., 0., 0.])
+	# x = tf.constant([0., 0., 0., -0.02, -0.03, -0.01])
 
 	height = 50
 
@@ -986,7 +988,7 @@ def generate_test_dataset():
 	pp1 = pp1 + tf.random.normal(tf.shape(pp1))*0.2
 
 	#rotate scan 1
-	# pp1 = pp1 @ (R_tf(tf.constant([0.1,0.1,-0.1])))
+	pp1 = pp1 @ (R_tf(tf.constant([0.1,0.1,-0.1]))) + tf.constant([1.,2.,3.])
 
 	# pp2 = tf.random.normal((100,3))
 	rot = R_tf(x[3:])

@@ -19,14 +19,14 @@ from ICET3D import ICET3D
 
 
 nc = 1	 #number of cycles
-mnp = 100 #minimum number of points per voxel
+mnp = 50#100 #minimum number of points per voxel
 D = True #draw sim
 DG = False #draw grid
 DE = True #draw ellipsoids
 DC = True #draw correspondences
 TD = True #use test dataset
 CM = "voxel" #correspondence method, "voxel" or "NN"
-vizL = False #draw arrows in direction of non-truncated directions for each distribution
+vizL = True #draw arrows in direction of non-truncated directions for each distribution
 
 plt = Plotter(N=1, axes=1, bg = (0.1,0.1,0.1), bg2 = (0.3,0.3,0.3),  interactive=True)
 

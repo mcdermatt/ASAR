@@ -238,23 +238,10 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 		#transform 2nd scan by x
 		t = x[:3]
 		rot = R_tf(x[3:])
-
-		# # DEBUG: only consider yaw transformations
-		# t = tf.constant([0., 0., 0.])
-		# rot = R_tf(tf.constant([0., 0., x[5].numpy()]))	
-
-		# print("\n t, rot \n", t, "\n", rot)
-
-		#update pp2
-		pp2_corrected = tf.matmul(pp2, rot) + t #was this
-		# pp2_corrected = tf.matmul((pp2 + t), rot)
-
-		# print(tf.shape(pp2_corrected))
+		pp2_corrected = tf.matmul(pp2, rot) + t
 
 		#update solution history
 		x_hist = tf.concat((x_hist, x[None,:]), axis = 0)
-		# print("x_hist" ,x_hist)
-
 		#--------------------------------------------------------------------------
 
 		if draw == True:
@@ -288,7 +275,8 @@ def get_U_and_L(sigma1, bounds, fid):
 	# print("\n U \n", tf.shape(U))
 	# print("\n U[1,:,1] \n", U[1,:,1] )
 	# print("\n eigenval \n", tf.math.real(eigenval))
- 
+	# U = tf.transpose(U, [0,2,1]) #ADDED THIS -> SEEMS TO BE HELPING?
+
 	# currently, half of U matrices will be facing backwards, this becomes a problem later when we are attempting
 	#		to solve for translation error. Need to flip direction without messing up cov matrix
 
@@ -337,11 +325,9 @@ def get_U_and_L(sigma1, bounds, fid):
 	# print("\n rotated \n", tf.squeeze(rotated))
 
 	#check for overly extended axis directions
-	thresh = (cellsize**2)/16
+	# thresh = (cellsize**2)/16
 	# thresh = (cellsize**2)/64 #temp
-	# thresh = (cellsize**2)/32 #temp
-	# thresh = cellsize*2 #will not truncate anything?
-	# print("\n thresh \n", thresh)
+	thresh = (cellsize**2)/32 #temp
 
 	greater_than_thresh = tf.math.greater(rotated, thresh)
 	# print("\n rotated > ___", greater_than_thresh)
