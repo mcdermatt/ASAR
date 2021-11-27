@@ -916,11 +916,11 @@ def generate_test_dataset():
 
 	bounds = tf.constant ([-150.,150.,-150.,150.,-150,150])
 	# x = tf.constant([3., 2., 1., 0.0, 0.0, 0.0])  #be careful about choice of grid here
-	x = tf.constant([0., 0., 0., -0.02, -0.05, -0.12])
+	# x = tf.constant([0., 0., 0., -0.02, -0.05, -0.12])
 	# x = tf.constant([0., 0., 0., 0.02, 0.05, 0.12])
-	# x = tf.constant([1., 3., 0.5, -0.02, -0.05, -0.12])
+	# x = tf.constant([0.1, 3., 0.2, -0.02, -0.05, -0.12])
 	# x = tf.constant([0., 0., 0., 0., 0., 0.])
-	# x = tf.constant([0., 0., 0., -0.02, -0.03, -0.01])
+	x = tf.constant([2., 1., 0., -0.01, -0.00, -0.1])
 
 	height = 50
 

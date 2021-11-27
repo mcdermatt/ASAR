@@ -211,19 +211,19 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 		#	   D = 1-6 depending on # axis removed 
 		#	   B = batch size (num usable voxels)
 
-		dx = tf.squeeze(tf.matmul( tf.matmul(tf.linalg.pinv(L2 @ lam @ tf.transpose(U2)) @ L2 @ tf.transpose(U2) , HTW ), dz)) #rank deficient
+		dx = tf.squeeze(tf.matmul( tf.matmul(tf.linalg.pinv(L2 @ lam @ tf.transpose(U2)) @ L2 @ tf.transpose(U2) , HTW ), dz))
 
 		#need to add up the tensor containing the summands from each voxel to a single row matrix
 		#    [B, 6] -> [6]
 		dx = tf.math.reduce_sum(dx, axis = 0)
-		# print("\n dx \n", dx)
+		print("\n dx \n", dx)
 		# #-----------------------------------------------------------------------------------------
 
 		# #test - solve for dx without L2 pruning --------------------------------------------------
 		# #dx = (HTWH)^-1 * [HTW] * dy
 		# dx = tf.linalg.pinv(HTWH) @ HTW @ (y_i - y0_i)[:,:,None]
-		# dx = tf.squeeze(tf.math.reduce_sum(dx, axis = 0))
-		# # print("\n dx \n", dx)
+		# dx = -tf.squeeze(tf.math.reduce_sum(dx, axis = 0))
+		# print("\n dx \n", dx)
 		# #-----------------------------------------------------------------------------------------
 
 		#get output covariance matrix
@@ -231,7 +231,6 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 		# print("\n Q \n", Q)
 
 		#augment x by dx
-		# x -= dx
 		x = x + dx
 		print("\n x \n", x)
 
@@ -325,9 +324,9 @@ def get_U_and_L(sigma1, bounds, fid):
 	# print("\n rotated \n", tf.squeeze(rotated))
 
 	#check for overly extended axis directions
-	# thresh = (cellsize**2)/16
+	thresh = (cellsize**2)/16
 	# thresh = (cellsize**2)/64 #temp
-	thresh = (cellsize**2)/32 #temp
+	# thresh = (cellsize**2)/32 #temp
 
 	greater_than_thresh = tf.math.greater(rotated, thresh)
 	# print("\n rotated > ___", greater_than_thresh)
@@ -414,8 +413,6 @@ def check_condition(HTWH):
 		U2 = rotation matrix to transform for L2 pruning 
 		"""
 
-	#TODO: keep L2 as a 6x6- Yes or no?
-
 	cutoff = 10e5 #10e5
 
 	#do eigendecomposition
@@ -433,6 +430,7 @@ def check_condition(HTWH):
 
 	#test if condition number is bigger than cutoff
 	condition = eigenval[-1] / eigenval[0]
+	# print("\n condition \n", condition)
 
 	everyaxis = tf.cast(tf.linspace(0,5,6), dtype=tf.int32)
 	remainingaxis = everyaxis
