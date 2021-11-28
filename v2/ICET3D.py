@@ -236,9 +236,11 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 
 		#transform 2nd scan by x
 		t = x[:3]
-		rot = R_tf(x[3:])
-		# pp2_corrected = tf.matmul(pp2, rot) + t
-		pp2_corrected = tf.matmul((pp2 + t), rot) # AAAAAHHHHHHH THIS FIXED IT!!!
+		rot = R_tf(-x[3:])
+		# pp2_corrected = tf.matmul(pp2, rot) + t # was this (wrong)
+		# pp2_corrected = tf.matmul((pp2 + t), rot) # slightly better
+		pp2_corrected = tf.matmul((pp2 + t), tf.transpose(rot)) # AAAAAHHHHHHH THIS FIXED IT!!!
+
 
 		#update solution history
 		x_hist = tf.concat((x_hist, x[None,:]), axis = 0)
@@ -325,9 +327,9 @@ def get_U_and_L(sigma1, bounds, fid):
 	# print("\n rotated \n", tf.squeeze(rotated))
 
 	#check for overly extended axis directions
-	thresh = (cellsize**2)/16
-	# thresh = (cellsize**2)/64 #temp
-	# thresh = (cellsize**2)/32 #temp
+	# thresh = (cellsize**2)/16 #doesn't work as well
+	thresh = (cellsize**2)/64 #need to /64 because axis length is 2x
+	# thresh = cellsize**2 #use this to negate dimesnion reduction
 
 	greater_than_thresh = tf.math.greater(rotated, thresh)
 	# print("\n rotated > ___", greater_than_thresh)

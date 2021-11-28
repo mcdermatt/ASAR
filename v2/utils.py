@@ -918,16 +918,16 @@ def generate_test_dataset():
 	# x = tf.constant([3., 5., 1., 0.0, 0.0, 0.0])  #be careful about choice of grid here
 	# x = tf.constant([0., 0., 0., -0.02, -0.05, -0.12])
 	# x = tf.constant([0., 0., 0., 0.02, 0.05, 0.12])
-	# x = tf.constant([0.1, 3., 0.2, -0.02, -0.05, -0.12])
+	x = tf.constant([0.1, 3., 0.2, -0.02, -0.05, -0.12])
 	# x = tf.constant([0., 0., 0., 0., 0., 0.])
-	x = tf.constant([2., 5., 0., -0.01, -0.00, -0.1])
+	# x = tf.constant([2., 5., 0., -0.01, -0.0, -0.1])
 
 	height = 50
 	ns = 500 #number of points scale
 
 	xpos = tf.linspace(-100., 100., ns)[:,None]
-	ypos = -60*tf.ones(ns)[:,None]
-	# ypos = (-60*tf.ones(100) + 10*tf.sin(tf.linspace(-3., 3., 100)))[:,None]
+	# ypos = -60*tf.ones(ns)[:,None]
+	ypos = (-60*tf.ones(ns) + 10*tf.sin(tf.linspace(-3., 3., ns)))[:,None]
 	zpos = tf.ones(ns)[:,None]
 	pp1 = tf.concat((xpos, ypos, zpos), axis = 1)
 
@@ -935,8 +935,8 @@ def generate_test_dataset():
 		#back wall
 		if i < height:
 			xpos = tf.linspace(-100., 100., ns)[:,None]
-			ypos = -60*tf.ones(ns)[:,None]
-			# ypos = (-60*tf.ones(ns) + 10*tf.sin(tf.linspace(-3., 3., ns)))[:,None]
+			# ypos = -60*tf.ones(ns)[:,None]
+			ypos = (-60*tf.ones(ns) + 10*tf.sin(tf.linspace(-3., 3., ns)))[:,None]
 			zpos = i*tf.ones(ns)[:,None]
 			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
 
