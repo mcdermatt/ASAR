@@ -237,7 +237,8 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 		#transform 2nd scan by x
 		t = x[:3]
 		rot = R_tf(x[3:])
-		pp2_corrected = tf.matmul(pp2, rot) + t
+		# pp2_corrected = tf.matmul(pp2, rot) + t
+		pp2_corrected = tf.matmul((pp2 + t), rot) # AAAAAHHHHHHH THIS FIXED IT!!!
 
 		#update solution history
 		x_hist = tf.concat((x_hist, x[None,:]), axis = 0)

@@ -18,11 +18,11 @@ from ICET3D import ICET3D
 #NOTE: Out of Memory Error comes from too high fidelity/ pts in cloud tensor --> 100x100x2x120,000 > 2gb
 
 
-nc = 1	 #number of cycles
+nc = 2	 #number of cycles
 mnp = 50#100 #minimum number of points per voxel
 D = True #draw sim
 DG = False #draw grid
-DE = True #draw ellipsoids
+DE = False #draw ellipsoids
 DC = True #draw correspondences
 TD = True #use test dataset
 CM = "voxel" #correspondence method, "voxel" or "NN"

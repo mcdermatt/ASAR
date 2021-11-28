@@ -915,52 +915,53 @@ def generate_test_dataset():
 	#TODO: take in transformation from pp1 to pp2
 
 	bounds = tf.constant ([-150.,150.,-150.,150.,-150,150])
-	# x = tf.constant([3., 2., 1., 0.0, 0.0, 0.0])  #be careful about choice of grid here
+	# x = tf.constant([3., 5., 1., 0.0, 0.0, 0.0])  #be careful about choice of grid here
 	# x = tf.constant([0., 0., 0., -0.02, -0.05, -0.12])
 	# x = tf.constant([0., 0., 0., 0.02, 0.05, 0.12])
 	# x = tf.constant([0.1, 3., 0.2, -0.02, -0.05, -0.12])
 	# x = tf.constant([0., 0., 0., 0., 0., 0.])
-	x = tf.constant([2., 1., 0., -0.01, -0.00, -0.1])
+	x = tf.constant([2., 5., 0., -0.01, -0.00, -0.1])
 
 	height = 50
+	ns = 500 #number of points scale
 
-	xpos = tf.linspace(-100., 100., 100)[:,None]
-	# ypos = -60*tf.ones(100)[:,None]
-	ypos = (-60*tf.ones(100) + 10*tf.sin(tf.linspace(-3., 3., 100)))[:,None]
-	zpos = tf.ones(100)[:,None]
+	xpos = tf.linspace(-100., 100., ns)[:,None]
+	ypos = -60*tf.ones(ns)[:,None]
+	# ypos = (-60*tf.ones(100) + 10*tf.sin(tf.linspace(-3., 3., 100)))[:,None]
+	zpos = tf.ones(ns)[:,None]
 	pp1 = tf.concat((xpos, ypos, zpos), axis = 1)
 
 	for i in range(height*5):
 		#back wall
 		if i < height:
-			xpos = tf.linspace(-100., 100., 100)[:,None]
-			# ypos = -60*tf.ones(100)[:,None]
-			ypos = (-60*tf.ones(100) + 10*tf.sin(tf.linspace(-3., 3., 100)))[:,None]
-			zpos = i*tf.ones(100)[:,None]
+			xpos = tf.linspace(-100., 100., ns)[:,None]
+			ypos = -60*tf.ones(ns)[:,None]
+			# ypos = (-60*tf.ones(ns) + 10*tf.sin(tf.linspace(-3., 3., ns)))[:,None]
+			zpos = i*tf.ones(ns)[:,None]
 			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
 
 		if i > height and i < 2*height:
-			ypos = tf.linspace(-20., 100., 60)[:,None]
-			xpos = -30*tf.ones(60)[:,None]
-			zpos = (i%height)*tf.ones(60)[:,None]
+			ypos = tf.linspace(-20., 100., int(.6*ns))[:,None]
+			xpos = -30*tf.ones(int(.6*ns))[:,None]
+			zpos = (i%height)*tf.ones(int(.6*ns))[:,None]
 			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
 
 		if i > 2*height and i < 3*height:
-			ypos = tf.linspace(-20., 100., 60)[:,None]
-			xpos = 30*tf.ones(60)[:,None]
-			zpos = (i%height)*tf.ones(60)[:,None]
+			ypos = tf.linspace(-20., 100., int(.6*ns))[:,None]
+			xpos = 30*tf.ones(int(.6*ns))[:,None]
+			zpos = (i%height)*tf.ones(int(.6*ns))[:,None]
 			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
 
 		#left & right connector
 		if i > 3*height and i < 4*height:
-			xpos = tf.linspace(30., 100., 70)[:,None]
-			ypos = -20*tf.ones(70)[:,None]
-			zpos = (i%height)*tf.ones(70)[:,None]
+			xpos = tf.linspace(30., 100., int(.7*ns))[:,None]
+			ypos = -20*tf.ones(int(.7*ns))[:,None]
+			zpos = (i%height)*tf.ones(int(.7*ns))[:,None]
 			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
 		if i > 4*height and i < 5*height:
-			xpos = tf.linspace(-30., -100., 70)[:,None]
-			ypos = -20*tf.ones(70)[:,None]
-			zpos = (i%height)*tf.ones(70)[:,None]
+			xpos = tf.linspace(-30., -100., int(.7*ns))[:,None]
+			ypos = -20*tf.ones(int(.7*ns))[:,None]
+			zpos = (i%height)*tf.ones(int(.7*ns))[:,None]
 			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
 
 		pp1 = tf.concat((pp1, pp1_i), axis = 0)
@@ -988,7 +989,7 @@ def generate_test_dataset():
 	pp1 = pp1 + tf.random.normal(tf.shape(pp1))*0.2
 
 	#rotate scan 1
-	pp1 = pp1 @ (R_tf(tf.constant([0.1,0.1,-0.1]))) + tf.constant([1.,2.,3.])
+	# pp1 = pp1 @ (R_tf(tf.constant([0.1,0.1,-0.1]))) + tf.constant([1.,2.,3.])
 
 	# pp2 = tf.random.normal((100,3))
 	rot = R_tf(x[3:])
