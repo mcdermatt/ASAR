@@ -152,10 +152,9 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 		# print("after reshape", H)
 		#H is correct
 
-
 		#get dx--------------------------------------------------------------------
-		R_noise = (tf.transpose(tf.transpose(sigma1_i) / tf.cast(npts1_i - 1, tf.float32)) + 
-				   tf.transpose(tf.transpose(sigma2_i) / tf.cast(npts2_i - 1, tf.float32)) )
+		R_noise = (tf.transpose(tf.transpose(sigma1_i, [1,2,0]) / tf.cast(npts1_i - 1, tf.float32)) + 
+				   tf.transpose(tf.transpose(sigma2_i, [1,2,0]) / tf.cast(npts2_i - 1, tf.float32)) )
 		# R_noise = L_i * U_i.T * R_noise * U_i * L_i.T
 		R_noise = L_i @ tf.transpose(U_i, [0,2,1]) @ R_noise @ U_i @ tf.transpose(L_i, [0,2,1]) # as in paper
 		# R_noise = L_i @ U_i @ R_noise @ tf.transpose(U_i, [0,2,1]) @ tf.transpose(L_i, [0,2,1]) # did this in 2D code
@@ -173,9 +172,6 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 		#NOTE: this bug happens when the every voxel has at least one ambigious direction
 		# print("\n LUT \n", tf.shape(LUT))
 
-		#DEBUG: -> works better with this commented out...
-		# LUT = tf.transpose(LUT, [0,2,1])
-
 		# print("\n LUT \n", tf.shape(LUT))
 		# H_z = tf.matmul(LUT,H)
 		H_z = LUT @ H
@@ -188,7 +184,11 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 		# W = tf.linalg.pinv(tf.transpose(R_noise, [0,2,1])) #test
 		# print("\n W \n",W)
 
-		HTWH = tf.math.reduce_sum(tf.matmul(tf.matmul(tf.transpose(H_z, [0,2,1]), W), H_z), axis = 0)
+		# print("\n before sum \n", tf.matmul(tf.matmul(tf.transpose(H_z, [0,2,1]), W), H_z))
+		HTWH = tf.math.reduce_sum(tf.matmul(tf.matmul(tf.transpose(H_z, [0,2,1]), W), H_z), axis = 0) #was this (which works btw)
+		# HTWH_temp = tf.matmul(tf.matmul(tf.transpose(H_z, [0,2,1]), W), H_z) #test
+		# HTWH = tf.math.reduce_sum(HTWH_temp)
+
 		# print("\n HTWH \n", HTWH)
 
 		HTW = tf.matmul(tf.transpose(H_z, [0,2,1]), W)
@@ -216,7 +216,7 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 		#need to add up the tensor containing the summands from each voxel to a single row matrix
 		#    [B, 6] -> [6]
 		dx = tf.math.reduce_sum(dx, axis = 0)
-		print("\n dx \n", dx)
+		# print("\n dx \n", dx)
 		# #-----------------------------------------------------------------------------------------
 
 		# #test - solve for dx without L2 pruning --------------------------------------------------
@@ -240,7 +240,6 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 		# pp2_corrected = tf.matmul(pp2, rot) + t # was this (wrong)
 		# pp2_corrected = tf.matmul((pp2 + t), rot) # slightly better
 		pp2_corrected = tf.matmul((pp2 + t), tf.transpose(rot)) # AAAAAHHHHHHH THIS FIXED IT!!!
-
 
 		#update solution history
 		x_hist = tf.concat((x_hist, x[None,:]), axis = 0)
@@ -416,16 +415,15 @@ def check_condition(HTWH):
 		U2 = rotation matrix to transform for L2 pruning 
 		"""
 
-	cutoff = 10e5 #10e5
+	cutoff = 10e5 #TODO-> experiment with this to get a good value
 
 	#do eigendecomposition
 	eigenval, eigenvec = tf.linalg.eig(HTWH)
 	eigenval = tf.math.real(eigenval)
 	eigenvec = tf.math.real(eigenvec)
 
-	# print("\n eigenvals \n", eigenval)
-	# print("\n eigenvec \n", eigenvec)
-
+	print("\n eigenvals \n", eigenval)
+	print("\n eigenvec \n", eigenvec)
 
 	#sort eigenvals by size -default sorts small to big
 	# small2big = tf.sort(eigenval)
@@ -433,25 +431,38 @@ def check_condition(HTWH):
 
 	#test if condition number is bigger than cutoff
 	condition = eigenval[-1] / eigenval[0]
-	# print("\n condition \n", condition)
+	# print("\n condition \n", tf.experimental.numpy.log10(abs(condition)))
+	# print("\n condition \n", condition.numpy())
+
 
 	everyaxis = tf.cast(tf.linspace(0,5,6), dtype=tf.int32)
 	remainingaxis = everyaxis
 	i = tf.Variable([0],dtype = tf.int32) #count var
 	#loop until condition number is small enough to make matrix invertable
-	while condition > cutoff:
+	while abs(condition) > cutoff:
 
 		condition = eigenval[-1] / tf.gather(eigenval, i)
+		# print("condition", tf.experimental.numpy.log10(abs(condition)).numpy())
 
-		i.assign_add(tf.Variable([1],dtype = tf.int32))
+		if abs(condition) > cutoff:
+			i.assign_add(tf.Variable([1],dtype = tf.int32))
+			print(i.numpy())
+			remainingaxis = everyaxis[i.numpy()[0]:]
 
-		remainingaxis = everyaxis[i.numpy()[0]:]
 
-		# print(remainingaxis)
+	#TODO: fix bug around here...
+	# print("\n remaining axis \n", remainingaxis)
+
 
 	#create identity matrix truncated to only have the remaining axis
 	L2 = tf.gather(tf.eye(6), remainingaxis)
-	# print("\n L2 \n", L2)
+
+	# #alternate strategy- zero out instead of keeping axis truncated
+	# while tf.shape(L2)[0] < 6:
+	# 	L2 = tf.concat((tf.zeros([1,6]), L2), axis = 0)
+
+	print("\n L2 \n", L2)
+
 
 	U2 = eigenvec
 	# print("\n U2 \n", U2)

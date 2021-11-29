@@ -908,82 +908,136 @@ class Ell(Mesh):
         self.top = np.array(axis1) / 2 + pos
         self.name = "Ell"
 
+# def generate_test_dataset():
+	
+# 	""" Generate a simple 3D T shaped intersection """
+
+# 	#TODO: take in transformation from pp1 to pp2
+
+# 	bounds = tf.constant ([-150.,150.,-150.,150.,-150,150])
+# 	# x = tf.constant([0.1, 3., 0.2, -0.02, -0.05, -0.12])
+# 	# x = tf.constant([0., 0., 0., 0., 0., 0.])
+# 	# x = tf.constant([0.1, 3., 0.2, -0.02, -0.05, -0.12])
+# 	x = tf.constant([1., 3., 2., -0.12, -0.1, -0.2])
+# 	# x = tf.constant([1., 3., 2., -0., 0.0, -0.2])
+
+
+# 	height = 40
+# 	hs = 1 #height spacing
+# 	ns = 200 #number of points scale
+
+# 	xpos = tf.linspace(-100., 100., ns)[:,None]
+# 	# ypos = -60*tf.ones(ns)[:,None]
+# 	ypos = (-60*tf.ones(ns) + 10*tf.sin(tf.linspace(-3., 3., ns)))[:,None]
+# 	zpos = tf.ones(ns)[:,None]
+# 	pp1 = tf.concat((xpos, ypos, zpos), axis = 1)
+
+# 	for i in range(height*5):
+# 		#back wall
+# 		if i < height:
+# 			xpos = tf.linspace(-100., 100., ns)[:,None]
+# 			# ypos = -60*tf.ones(ns)[:,None]
+# 			ypos = (-60*tf.ones(ns) + 10*tf.sin(tf.linspace(-3., 3., ns)))[:,None]
+# 			zpos = hs*i*tf.ones(ns)[:,None]
+# 			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+
+# 		if i > height and i < 2*height:
+# 			ypos = tf.linspace(-20., 100., int(.6*ns))[:,None]
+# 			xpos = -30*tf.ones(int(.6*ns))[:,None]
+# 			zpos = hs*(i%height)*tf.ones(int(.6*ns))[:,None]
+# 			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+
+# 		if i > 2*height and i < 3*height:
+# 			ypos = tf.linspace(-20., 100., int(.6*ns))[:,None]
+# 			xpos = 30*tf.ones(int(.6*ns))[:,None]
+# 			zpos = hs*(i%height)*tf.ones(int(.6*ns))[:,None]
+# 			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+
+# 		#left & right connector
+# 		if i > 3*height and i < 4*height:
+# 			xpos = tf.linspace(30., 100., int(.7*ns))[:,None]
+# 			ypos = -20*tf.ones(int(.7*ns))[:,None]
+# 			zpos = hs*(i%height)*tf.ones(int(.7*ns))[:,None]
+# 			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+# 		if i > 4*height and i < 5*height:
+# 			xpos = tf.linspace(-30., -100., int(.7*ns))[:,None]
+# 			ypos = -20*tf.ones(int(.7*ns))[:,None]
+# 			zpos = hs*(i%height)*tf.ones(int(.7*ns))[:,None]
+# 			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+
+# 		pp1 = tf.concat((pp1, pp1_i), axis = 0)
+
+# 	#add floor -------------------------------------------
+# 	for i in range(-100, 100, 1):
+# 		ypos = tf.linspace(-60., -20., 100)[:,None]
+# 		xpos = i*tf.ones(100)[:,None]
+# 		zpos = tf.ones(100)[:,None]
+# 		pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+# 		pp1 = tf.concat((pp1, pp1_i), axis = 0)
+# 	for i in range(-30, 30, 1):
+# 		ypos = tf.linspace(-20., 100., 100)[:,None]
+# 		xpos = i*tf.ones(100)[:,None]
+# 		zpos = tf.ones(100)[:,None]
+# 		pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+# 		pp1 = tf.concat((pp1, pp1_i), axis = 0)
+# 	#------------------------------------------------------
+	
+# 	print(tf.shape(pp1))
+# 	# for debug - add particles in middle to prevent L1 rank deficiency bug
+# 	# pp1 = tf.concat((pp1, tf.random.normal((100,3))), axis = 0)
+
+# 	#add a little bit of noise
+# 	pp1 = pp1 + tf.random.normal(tf.shape(pp1))*0.2
+
+# 	#rotate scan 1
+# 	# pp1 = pp1 @ (R_tf(tf.constant([0.1,0.1,-0.1]))) + tf.constant([1.,2.,3.])
+
+# 	# pp2 = tf.random.normal((100,3))
+# 	rot = R_tf(x[3:])
+# 	pp2 = pp1 @ rot + x[:3]
+
+# 	# pp2 = pp2 * 1.01#test
+
+# 	# print("\n pp1 \n", tf.shape(pp1))
+# 	# print("\n pp2 \n", tf.shape(pp2))
+
+# 	return(pp1, pp2, bounds)
+
 def generate_test_dataset():
 	
-	""" Generate a simple 2.5D T shaped intersection """
+	""" Generate a single wall"""
 
 	#TODO: take in transformation from pp1 to pp2
 
 	bounds = tf.constant ([-150.,150.,-150.,150.,-150,150])
-	# x = tf.constant([3., 5., 1., 0.0, 0.0, 0.0])  #be careful about choice of grid here
-	# x = tf.constant([0., 0., 0., -0.02, -0.05, -0.12])
-	# x = tf.constant([0., 0., 0., 0.02, 0.05, 0.12])
-	x = tf.constant([0.1, 3., 0.2, -0.02, -0.05, -0.12])
 	# x = tf.constant([0., 0., 0., 0., 0., 0.])
-	# x = tf.constant([2., 5., 0., -0.01, -0.0, -0.1])
+	# x = tf.constant([1., 3., 2., -0.12, -0.1, -0.2])
+	x = tf.constant([0., 1., 0., 0., 0.0, -0.1])
 
-	height = 50
-	ns = 500 #number of points scale
+
+	height = 40
+	hs = 1 #height spacing
+	ns = 200 #number of points scale
 
 	xpos = tf.linspace(-100., 100., ns)[:,None]
-	# ypos = -60*tf.ones(ns)[:,None]
-	ypos = (-60*tf.ones(ns) + 10*tf.sin(tf.linspace(-3., 3., ns)))[:,None]
+	ypos = -60*tf.ones(ns)[:,None]
+	# ypos = (-60*tf.ones(ns) + 10*tf.sin(tf.linspace(-3., 3., ns)))[:,None]
 	zpos = tf.ones(ns)[:,None]
 	pp1 = tf.concat((xpos, ypos, zpos), axis = 1)
 
-	for i in range(height*5):
+	for i in range(height):
 		#back wall
 		if i < height:
 			xpos = tf.linspace(-100., 100., ns)[:,None]
-			# ypos = -60*tf.ones(ns)[:,None]
-			ypos = (-60*tf.ones(ns) + 10*tf.sin(tf.linspace(-3., 3., ns)))[:,None]
-			zpos = i*tf.ones(ns)[:,None]
-			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
-
-		if i > height and i < 2*height:
-			ypos = tf.linspace(-20., 100., int(.6*ns))[:,None]
-			xpos = -30*tf.ones(int(.6*ns))[:,None]
-			zpos = (i%height)*tf.ones(int(.6*ns))[:,None]
-			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
-
-		if i > 2*height and i < 3*height:
-			ypos = tf.linspace(-20., 100., int(.6*ns))[:,None]
-			xpos = 30*tf.ones(int(.6*ns))[:,None]
-			zpos = (i%height)*tf.ones(int(.6*ns))[:,None]
-			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
-
-		#left & right connector
-		if i > 3*height and i < 4*height:
-			xpos = tf.linspace(30., 100., int(.7*ns))[:,None]
-			ypos = -20*tf.ones(int(.7*ns))[:,None]
-			zpos = (i%height)*tf.ones(int(.7*ns))[:,None]
-			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
-		if i > 4*height and i < 5*height:
-			xpos = tf.linspace(-30., -100., int(.7*ns))[:,None]
-			ypos = -20*tf.ones(int(.7*ns))[:,None]
-			zpos = (i%height)*tf.ones(int(.7*ns))[:,None]
+			ypos = -60*tf.ones(ns)[:,None]
+			# ypos = (-60*tf.ones(ns) + 10*tf.sin(tf.linspace(-3., 3., ns)))[:,None]
+			zpos = hs*i*tf.ones(ns)[:,None]
 			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
 
 		pp1 = tf.concat((pp1, pp1_i), axis = 0)
 
-	#add floor -------------------------------------------
-	for i in range(-100, 100, 1):
-		ypos = tf.linspace(-60., -20., 100)[:,None]
-		xpos = i*tf.ones(100)[:,None]
-		zpos = tf.ones(100)[:,None]
-		pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
-		pp1 = tf.concat((pp1, pp1_i), axis = 0)
-	for i in range(-30, 30, 1):
-		ypos = tf.linspace(-20., 100., 100)[:,None]
-		xpos = i*tf.ones(100)[:,None]
-		zpos = tf.ones(100)[:,None]
-		pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
-		pp1 = tf.concat((pp1, pp1_i), axis = 0)
-	#------------------------------------------------------
 	
 	print(tf.shape(pp1))
-	# for debug - add particles in middle to prevent L1 rank deficiency bug
-	# pp1 = tf.concat((pp1, tf.random.normal((100,3))), axis = 0)
 
 	#add a little bit of noise
 	pp1 = pp1 + tf.random.normal(tf.shape(pp1))*0.2
@@ -994,9 +1048,5 @@ def generate_test_dataset():
 	# pp2 = tf.random.normal((100,3))
 	rot = R_tf(x[3:])
 	pp2 = pp1 @ rot + x[:3]
-	# pp2 = (pp1 + x[:3]) @ rot #test 
-
-	# print("\n pp1 \n", tf.shape(pp1))
-	# print("\n pp2 \n", tf.shape(pp2))
 
 	return(pp1, pp2, bounds)
