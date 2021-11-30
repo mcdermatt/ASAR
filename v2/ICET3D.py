@@ -121,7 +121,7 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 		# print("\n y \n", y)
 
 		#determine correspondences between distribution centers of the two scans
-		# print("\n shapes of y and y0 \n", tf.shape(y), tf.shape(y0)) #TODO: debug here
+		# print("\n shapes of y and y0 \n", tf.shape(y), tf.shape(y0))
 		if draw_corr == True:
 			corr, disp = get_correspondences_tf(y, y0, mu1, mu2, bounds, fid, method = CM, disp = disp, draw_corr = True)
 		else:
@@ -138,6 +138,7 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 		U_i = tf.gather(U, corr[:,0])
 		L_i = tf.gather(L, corr[:,0])
 		# print("L", type(L), "L_i", type(L_i)) #L and L_i are both ragged tensors still
+		# print("\n L_i \n", L_i)
 		npts1_i = tf.gather(npts1, corr[:,0])#[:,None]
 		sigma1_i = tf.gather(sigma1, corr[:,0])
 
@@ -158,7 +159,7 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 		# R_noise = L_i * U_i.T * R_noise * U_i * L_i.T
 		R_noise = L_i @ tf.transpose(U_i, [0,2,1]) @ R_noise @ U_i @ tf.transpose(L_i, [0,2,1]) # as in paper
 		# R_noise = L_i @ U_i @ R_noise @ tf.transpose(U_i, [0,2,1]) @ tf.transpose(L_i, [0,2,1]) # did this in 2D code
-		#TODO: try and figure out which of these is correct
+		#TODO: figure out which of these is correct
 
 		# print("\n R_noise \n", R_noise)
 
@@ -168,9 +169,7 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 		# print("\n L_i \n", tf.shape(L_i.to_tensor())) #[19, 2, 3] with only [5,5,2] fidelity
 
 		LUT = L_i @ U_iT 
-		# LUT = tf.tensordot(L_i, U_iT, axes = 0)
-		#NOTE: this bug happens when the every voxel has at least one ambigious direction
-		# print("\n LUT \n", tf.shape(LUT))
+		# LUT = L_i @ U_i
 
 		# print("\n LUT \n", tf.shape(LUT))
 		# H_z = tf.matmul(LUT,H)
@@ -184,10 +183,8 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 		# W = tf.linalg.pinv(tf.transpose(R_noise, [0,2,1])) #test
 		# print("\n W \n",W)
 
-		# print("\n before sum \n", tf.matmul(tf.matmul(tf.transpose(H_z, [0,2,1]), W), H_z))
-		HTWH = tf.math.reduce_sum(tf.matmul(tf.matmul(tf.transpose(H_z, [0,2,1]), W), H_z), axis = 0) #was this (which works btw)
-		# HTWH_temp = tf.matmul(tf.matmul(tf.transpose(H_z, [0,2,1]), W), H_z) #test
-		# HTWH = tf.math.reduce_sum(HTWH_temp)
+		# print("\n before sum \n", tf.matmul(tf.matmul(tf.transpose(H_z, [0,2,1]), W), H_z)) #why does this have so many zero elements???
+		HTWH = tf.math.reduce_sum(tf.matmul(tf.matmul(tf.transpose(H_z, [0,2,1]), W), H_z), axis = 0) #was this (which works)
 
 		# print("\n HTWH \n", HTWH)
 
@@ -227,7 +224,7 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 		# #-----------------------------------------------------------------------------------------
 
 		#get output covariance matrix
-		Q = tf.linalg.pinv(HTWH)
+		Q = tf.linalg.pinv(HTWH) #was this 
 		# print("\n Q \n", Q)
 
 		#augment x by dx
@@ -402,6 +399,7 @@ def get_U_and_L(sigma1, bounds, fid):
 	#	TODO: debug- make sure L should be getting rid of rows, not columns
 	# print("\n L \n", tf.shape(L))
 
+	# U = tf.transpose(U, [0,2,1])
 
 	return(U, L)
 
@@ -422,8 +420,8 @@ def check_condition(HTWH):
 	eigenval = tf.math.real(eigenval)
 	eigenvec = tf.math.real(eigenvec)
 
-	print("\n eigenvals \n", eigenval)
-	print("\n eigenvec \n", eigenvec)
+	# print("\n eigenvals \n", eigenval)
+	# print("\n eigenvec \n", eigenvec)
 
 	#sort eigenvals by size -default sorts small to big
 	# small2big = tf.sort(eigenval)
@@ -446,7 +444,7 @@ def check_condition(HTWH):
 
 		if abs(condition) > cutoff:
 			i.assign_add(tf.Variable([1],dtype = tf.int32))
-			print(i.numpy())
+			# print(i.numpy())
 			remainingaxis = everyaxis[i.numpy()[0]:]
 
 
@@ -461,7 +459,7 @@ def check_condition(HTWH):
 	# while tf.shape(L2)[0] < 6:
 	# 	L2 = tf.concat((tf.zeros([1,6]), L2), axis = 0)
 
-	print("\n L2 \n", L2)
+	# print("\n L2 \n", L2)
 
 
 	U2 = eigenvec
@@ -482,6 +480,8 @@ def visualize_L(U, L, y0, disp1):
 	for i in range(tf.shape(y0)[0]):
 		# print(tf.shape(L),"\n", tf.shape(U))
 		ends =  L[i] @ tf.transpose(U[i])
+		# ends =  L[i] @ U[i] #test
+
 		# print("\n ends \n", ends[:,0])
 		# print("y0[i] \n", y0[i])
 		arr1 = shapes.Arrow(y0[i].numpy(), (y0[i] + arrow_len * ends[0,:]).numpy(), c = 'red')
