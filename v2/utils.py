@@ -908,6 +908,8 @@ class Ell(Mesh):
         self.top = np.array(axis1) / 2 + pos
         self.name = "Ell"
 
+#_______________________________________________________________________________________________
+
 def generate_test_dataset():
 	
 	""" Generate a simple 3D T shaped intersection """
@@ -927,8 +929,8 @@ def generate_test_dataset():
 	ns = 200 #number of points scale
 
 	xpos = tf.linspace(-100., 100., ns)[:,None]
-	# ypos = -60*tf.ones(ns)[:,None]
-	ypos = (-60*tf.ones(ns) + 10*tf.sin(tf.linspace(-3., 3., ns)))[:,None]
+	ypos = -60*tf.ones(ns)[:,None]
+	# ypos = (-60*tf.ones(ns) + 10*tf.sin(tf.linspace(-3., 3., ns)))[:,None]
 	zpos = tf.ones(ns)[:,None]
 	pp1 = tf.concat((xpos, ypos, zpos), axis = 1)
 
@@ -936,8 +938,8 @@ def generate_test_dataset():
 		#back wall
 		if i < height:
 			xpos = tf.linspace(-100., 100., ns)[:,None]
-			# ypos = -60*tf.ones(ns)[:,None]
-			ypos = (-60*tf.ones(ns) + 10*tf.sin(tf.linspace(-3., 3., ns)))[:,None]
+			ypos = -60*tf.ones(ns)[:,None]
+			# ypos = (-60*tf.ones(ns) + 10*tf.sin(tf.linspace(-3., 3., ns)))[:,None]
 			zpos = hs*i*tf.ones(ns)[:,None]
 			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
 
@@ -997,13 +999,74 @@ def generate_test_dataset():
 	pp1 = pp1 + tf.random.normal(tf.shape(pp1))*0.2
 	pp2 = pp2 + tf.random.normal(tf.shape(pp2))*0.2
 
+	return(pp1, pp2, bounds, x)
+#______________________________________________________________________________________________
 
-	# pp2 = pp2 * 1.01#test
+# def generate_test_dataset():
+	
+# 	""" Generate a simple 2D tunnel scene """
 
-	# print("\n pp1 \n", tf.shape(pp1))
-	# print("\n pp2 \n", tf.shape(pp2))
+# 	#TODO: take in transformation from pp1 to pp2
 
-	return(pp1, pp2, bounds)
+# 	bounds = tf.constant ([-150.,150.,-150.,150.,-150,150])
+# 	x = tf.constant([1., 4., 2., -0., 0.0, -0.1])
+# 	# x = tf.constant([tf.random.normal([1]).numpy(), tf.random.normal([1]).numpy(), 
+#  #                  tf.random.normal([1]).numpy(), 0.03*tf.random.normal([1]).numpy(), 
+#  #                  0.03*tf.random.normal([1]).numpy(), 0.1*tf.random.normal([1]).numpy()])
+# 	# x = tf.squeeze(x)
+# 	print("starting transformation \n", x)
+
+# 	height = 40
+# 	hs = 1 #height spacing
+# 	ns = 500 #number of points scale
+# 	sp = -100. #start point
+
+# 	ypos = tf.linspace(sp, 100., int(.6*ns))[:,None]
+# 	xpos = -30*tf.ones(int(.6*ns))[:,None]
+# 	zpos = hs*(height)*tf.ones(int(.6*ns))[:,None]
+# 	pp1 = tf.concat((xpos, ypos, zpos), axis = 1)
+
+# 	for i in range(height*2):
+
+# 		if i < height:
+# 			ypos = tf.linspace(sp, 100., int(.6*ns))[:,None]
+# 			xpos = -30*tf.ones(int(.6*ns))[:,None]
+# 			zpos = hs*(i%height)*tf.ones(int(.6*ns))[:,None]
+# 			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+
+# 		if i > height:
+# 			ypos = tf.linspace(sp, 100., int(.6*ns))[:,None]
+# 			xpos = 30*tf.ones(int(.6*ns))[:,None]
+# 			zpos = hs*(i%height)*tf.ones(int(.6*ns))[:,None]
+# 			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+
+# 		pp1 = tf.concat((pp1, pp1_i), axis = 0)
+
+# 	#add floor -------------------------------------------
+# 	for i in range(-30, 30, 1):
+# 		ypos = tf.linspace(sp, 100., int(.6*ns))[:,None]
+# 		xpos = i*tf.ones(int(.6*ns))[:,None]
+# 		zpos = tf.ones(int(.6*ns))[:,None]
+# 		pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+# 		pp1 = tf.concat((pp1, pp1_i), axis = 0)
+# 	#------------------------------------------------------
+	
+# 	print(tf.shape(pp1))
+
+# 	#rotate scan 1
+# 	# pp1 = pp1 @ (R_tf(tf.constant([0.1,0.1,-0.1]))) + tf.constant([1.,2.,3.])
+
+# 	rot = R_tf(x[3:])
+# 	# pp2 = pp1 @ rot + x[:3] #was this 11/30
+# 	pp2 = (pp1 + x[:3]) @ rot #actually think this is better
+
+# 	#add noise
+# 	pp1 = pp1 + tf.random.normal(tf.shape(pp1))*0.2
+# 	pp2 = pp2 + tf.random.normal(tf.shape(pp2))*0.2
+
+# 	return(pp1, pp2, bounds, x)
+
+#_____________________________________________________________________________________
 
 # def generate_test_dataset():
 	
@@ -1043,15 +1106,16 @@ def generate_test_dataset():
 
 # 	#rotate scan 1
 # 	# pp1 = pp1 @ (R_tf(tf.constant([0.1,0.1,-0.1]))) + tf.constant([1.,2.,3.])
+# 	# pp1 += tf.constant([1.,2.,3.])
 
 # 	# pp2 = tf.random.normal((100,3))
 # 	rot = R_tf(x[3:])
 # 	pp2 = pp1 @ rot + x[:3]
-
+# 	# pp2 = (pp1 + x[:3]) @ rot
 
 # 	#add a little bit of noise
 # 	pp1 = pp1 + tf.random.normal(tf.shape(pp1))*0.2
 # 	pp2 = pp2 + tf.random.normal(tf.shape(pp2))*0.2
 
 
-# 	return(pp1, pp2, bounds)
+# 	return(pp1, pp2, bounds, x)

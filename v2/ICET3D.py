@@ -39,7 +39,7 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 	"""
 
 	if test_dataset == True:
-		pp1, pp2, bounds = generate_test_dataset()
+		pp1, pp2, bounds, initial_transform = generate_test_dataset()
 	# print("pp1 \n", pp1)
 
 	#subdivide keyframe scan
@@ -208,7 +208,9 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 		#	   D = 1-6 depending on # axis removed 
 		#	   B = batch size (num usable voxels)
 
+		# dx = tf.squeeze(tf.matmul( tf.matmul(tf.linalg.pinv(L2 @ lam @ tf.transpose(U2)) @ L2 @ tf.transpose(U2) , HTW ), dz)) #was this
 		dx = tf.squeeze(tf.matmul( tf.matmul(tf.linalg.pinv(L2 @ lam @ tf.transpose(U2)) @ L2 @ tf.transpose(U2) , HTW ), dz))
+
 
 		#need to add up the tensor containing the summands from each voxel to a single row matrix
 		#    [B, 6] -> [6]
@@ -224,7 +226,7 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 		# #-----------------------------------------------------------------------------------------
 
 		#get output covariance matrix
-		Q = tf.linalg.pinv(HTWH) #was this 
+		Q = tf.linalg.pinv(HTWH)
 		# print("\n Q \n", Q)
 
 		#augment x by dx
@@ -254,7 +256,10 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 
 
 	# print("\n x \n", x)
-	return(Q, x_hist)
+	if test_dataset == True:
+		return(Q, x_hist, initial_transform)
+	else:
+		return(Q, x_hist)
 
 
 def get_U_and_L(sigma1, bounds, fid):
@@ -400,6 +405,7 @@ def get_U_and_L(sigma1, bounds, fid):
 	# print("\n L \n", tf.shape(L))
 
 	# U = tf.transpose(U, [0,2,1])
+	# print("\n U \n", U)
 
 	return(U, L)
 
@@ -461,10 +467,8 @@ def check_condition(HTWH):
 
 	# print("\n L2 \n", L2)
 
-
 	U2 = eigenvec
 	# print("\n U2 \n", U2)
-
 
 	lam = tf.eye(6)*eigenval
 	# print("\n lam \n", lam)

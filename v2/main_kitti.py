@@ -18,13 +18,13 @@ from ICET3D import ICET3D
 #NOTE: Out of Memory Error comes from too high fidelity/ pts in cloud tensor --> 100x100x2x120,000 > 2gb
 
 
-nc = 1	 #number of cycles
+nc = 2	 #number of cycles
 mnp = 50#100 #minimum number of points per voxel
 D = True #draw sim
 DG = False #draw grid
 DE = False #draw ellipsoids
 DC = False #draw correspondences
-TD = True #use test dataset
+TD = False #use test dataset
 CM = "voxel" #correspondence method, "voxel" or "NN"
 vizL = False #draw arrows in direction of non-truncated directions for each distribution
 
@@ -32,38 +32,39 @@ vizL = False #draw arrows in direction of non-truncated directions for each dist
 plt = Plotter(N=1, axes=4, interactive=True)
 
 ## Use real data ----------------------------------------------------------------
-# basedir = 'C:/kitti/'
-# date = '2011_09_26'
-# drive = '0005'
-# frame_range = range(150, 151, 1)
-# dataset = pykitti.raw(basedir, date, drive)
-# velo1 = dataset.get_velo(0) # Each scan is a Nx4 array of [x,y,z,reflectance]
-# cloud1 = velo1[:,:3]
-# cloud1_tensor = tf.convert_to_tensor(cloud1, np.float32)
-# velo2 = dataset.get_velo(2) # Each scan is a Nx4 array of [x,y,z,reflectance]
-# cloud2 = velo2[:,:3]
-# cloud2_tensor = tf.convert_to_tensor(cloud2, np.float32)
+basedir = 'C:/kitti/'
+date = '2011_09_26'
+drive = '0005'
+# frame_range = range(150, 151, 1) #was this
+frame_range = range(0, 1, 1)
+dataset = pykitti.raw(basedir, date, drive)
+velo1 = dataset.get_velo(0) # Each scan is a Nx4 array of [x,y,z,reflectance]
+cloud1 = velo1[:,:3]
+cloud1_tensor = tf.convert_to_tensor(cloud1, np.float32)
+velo2 = dataset.get_velo(2) # Each scan is a Nx4 array of [x,y,z,reflectance]
+cloud2 = velo2[:,:3]
+cloud2_tensor = tf.convert_to_tensor(cloud2, np.float32)
 # ---------------------------------------------------------------------------------
 
 start = time.time()
 
 # #use whole point set
 # #---------------------------------------------------------------------------------
-# f = tf.constant([50,50,2]) #fidelity in x, y, z # < 5s
-# lim = tf.constant([-100.,100.,-100.,100.,-10.,10.]) #needs to encompass every point
-# npts = 100000
-# Q, x_hist = ICET3D(cloud1_tensor[:npts], cloud2_tensor[:npts], plt, bounds = lim, 
-#            fid = f, num_cycles = nc , min_num_pts = mnp, draw = D, draw_grid = DG, 
-#            draw_ell = DE, draw_corr = DC)
+f = tf.constant([50,50,2]) #fidelity in x, y, z # < 5s
+lim = tf.constant([-100.,100.,-100.,100.,-10.,10.]) #needs to encompass every point
+npts = 100000
+Q, x_hist = ICET3D(cloud1_tensor[:npts], cloud2_tensor[:npts], plt, bounds = lim, 
+           fid = f, num_cycles = nc , min_num_pts = mnp, draw = D, draw_grid = DG, 
+           draw_ell = DE, draw_corr = DC, test_dataset = TD, CM = CM, vizL = vizL)
 
 # #---------------------------------------------------------------------------------
 
 #just consider small section of image where there are easily identifiable features:
 #----------------------------------------------------------------------------------
-limtest = tf.constant([-20.,0.,-20.,0.,-1.5,1.5])
-# f = tf.constant([35,35,35])
-f = tf.constant([21,21,21])
-# f = tf.constant([17,17,17])
+# limtest = tf.constant([-20.,0.,-20.,0.,-1.5,1.5])
+# # f = tf.constant([35,35,35])
+# f = tf.constant([21,21,4])
+# # f = tf.constant([17,17,17])
 
 # cloud1_tensor = tf.squeeze(tf.gather(cloud1_tensor, tf.where( (cloud1_tensor[:,0] > limtest[0]))))	#only works one cond at a time
 # cloud1_tensor = tf.squeeze(tf.gather(cloud1_tensor, tf.where( tf.math.reduce_all(tf.concat( (
@@ -83,12 +84,9 @@ f = tf.constant([21,21,21])
 # 	(cloud2_tensor[:,2] > limtest[4])[:,None], 
 # 	(cloud2_tensor[:,2] < limtest[5])[:,None],), axis = 1 ), axis = 1))))
 
-cloud1_tensor = None
-cloud2_tensor = None
-
-Q, x_hist = ICET3D(cloud1_tensor, cloud2_tensor, plt, bounds = limtest, 
-           fid = f, num_cycles = nc , min_num_pts = mnp, draw = D, draw_grid = DG,
-           draw_ell = DE, draw_corr = DC, test_dataset = TD, CM = CM, vizL = vizL)
+# Q, x_hist = ICET3D(cloud1_tensor, cloud2_tensor, plt, bounds = limtest, 
+#            fid = f, num_cycles = nc , min_num_pts = mnp, draw = D, draw_grid = DG,
+#            draw_ell = DE, draw_corr = DC, test_dataset = TD, CM = CM, vizL = vizL)
 
 #----------------------------------------------------------------------------------
 
