@@ -18,7 +18,7 @@ from ICET3D import ICET3D
 #NOTE: Out of Memory Error comes from too high fidelity/ pts in cloud tensor --> 100x100x2x120,000 > 2gb
 
 
-nc = 2	 #number of cycles
+nc = 5	 #number of cycles
 mnp = 50#100 #minimum number of points per voxel
 D = True #draw sim
 DG = False #draw grid
@@ -35,8 +35,6 @@ plt = Plotter(N=1, axes=4, interactive=True)
 basedir = 'C:/kitti/'
 date = '2011_09_26'
 drive = '0005'
-# frame_range = range(150, 151, 1) #was this
-frame_range = range(0, 1, 1)
 dataset = pykitti.raw(basedir, date, drive)
 velo1 = dataset.get_velo(0) # Each scan is a Nx4 array of [x,y,z,reflectance]
 cloud1 = velo1[:,:3]
