@@ -13,20 +13,19 @@ from ipyvtklink.viewer import ViewInteractiveWidget
 import pykitti
 from ICET3D import ICET3D
 
-"""Runs the same script as the ICET3D notebook but with better performance due to not using inline display"""
-
-#NOTE: Out of Memory Error comes from too high fidelity/ pts in cloud tensor --> 100x100x2x120,000 > 2gb
-
+"""Runs ICET on a SINGLE PAIR of scans from the KITTI dataset"""
 
 nc = 5	 #number of cycles
 mnp = 50#100 #minimum number of points per voxel
-D = True #draw sim
+D = False #draw sim
 DG = False #draw grid
 DE = False #draw ellipsoids
 DC = False #draw correspondences
 TD = False #use test dataset
 CM = "voxel" #correspondence method, "voxel" or "NN"
 vizL = False #draw arrows in direction of non-truncated directions for each distribution
+id1 = 10 #idx of 1st scan
+id2 = 11 #idx of 2nd scan
 
 # plt = Plotter(N=1, axes=1, bg = (0.1,0.1,0.1), bg2 = (0.3,0.3,0.3),  interactive=True)
 plt = Plotter(N=1, axes=4, interactive=True)
@@ -36,19 +35,18 @@ basedir = 'C:/kitti/'
 date = '2011_09_26'
 drive = '0005'
 dataset = pykitti.raw(basedir, date, drive)
-velo1 = dataset.get_velo(0) # Each scan is a Nx4 array of [x,y,z,reflectance]
+velo1 = dataset.get_velo(id1) # Each scan is a Nx4 array of [x,y,z,reflectance]
 cloud1 = velo1[:,:3]
 cloud1_tensor = tf.convert_to_tensor(cloud1, np.float32)
-velo2 = dataset.get_velo(2) # Each scan is a Nx4 array of [x,y,z,reflectance]
+velo2 = dataset.get_velo(id2) # Each scan is a Nx4 array of [x,y,z,reflectance]
 cloud2 = velo2[:,:3]
 cloud2_tensor = tf.convert_to_tensor(cloud2, np.float32)
 # ---------------------------------------------------------------------------------
 
-start = time.time()
-
 # #use whole point set
 # #---------------------------------------------------------------------------------
 f = tf.constant([50,50,2]) #fidelity in x, y, z # < 5s
+# f = tf.constant([25,25,4]) #test
 lim = tf.constant([-100.,100.,-100.,100.,-10.,10.]) #needs to encompass every point
 npts = 100000
 Q, x_hist = ICET3D(cloud1_tensor[:npts], cloud2_tensor[:npts], plt, bounds = lim, 
@@ -88,5 +86,6 @@ Q, x_hist = ICET3D(cloud1_tensor[:npts], cloud2_tensor[:npts], plt, bounds = lim
 
 #----------------------------------------------------------------------------------
 
+ans = np.sqrt(abs(Q.numpy())) 
+print("\n predicted solution standard deviation of error: \n", ans[0,0], ans[1,1], ans[2,2], ans[3,3], ans[4,4], ans[5,5])
 
-print("took", time.time() - start, "seconds total")
