@@ -29,14 +29,21 @@ plt = Plotter(N=1, axes=4, interactive=True)
 basedir = 'C:/kitti/'
 date = '2011_09_26'
 drive = '0005'
+# drive = '0018'
 dataset = pykitti.raw(basedir, date, drive)
-f = tf.constant([50,50,2]) #fidelity in x, y, z # < 5s
+# f = tf.constant([50,50,2]) #fidelity in x, y, z # < 5s  --- works for 0005
+f = tf.constant([20,20,2]) #0018
+# f = tf.constant([30,30,3]) #test
+
 lim = tf.constant([-100.,100.,-100.,100.,-10.,10.]) #needs to encompass every point
 npts = 100000
 
-num_frames = 150
+# num_frames = 10 #debug
+num_frames = 150 #0005
+# num_frames = 268 # 0018
 ICET_estimates = np.zeros([num_frames, 6])
 OXTS_baseline = np.zeros([num_frames, 6])
+ICET_pred_stds = np.zeros([num_frames, 6])
 
 for i in range(num_frames):
 
@@ -51,6 +58,8 @@ for i in range(num_frames):
 	Q, x_hist = ICET3D(cloud1_tensor[:npts], cloud2_tensor[:npts], plt, bounds = lim, 
 		fid = f, num_cycles = nc , min_num_pts = mnp, draw = D)
 	ICET_estimates[i] = x_hist[-1].numpy()
+
+	ICET_pred_stds[i,:] = np.sqrt(abs(np.array([Q[0,0], Q[1,1], Q[2,2], Q[3,3], Q[4,4], Q[5,5]]))) 
 
 	#get transformations in frame of OXTS GPS/INS sensor
 	poses0 = dataset.oxts[i] #<- ID of 1st scan
@@ -88,5 +97,6 @@ for i in range(num_frames):
 print("ICET_estimates \n", ICET_estimates)
 print("\n OXTS baseline \n", OXTS_baseline)
 
-np.savetxt("ICET_estimates.txt", ICET_estimates)
-np.savetxt("OXTS_baseline.txt", OXTS_baseline)
+np.savetxt("ICET_pred_stds_926_test2.txt", ICET_pred_stds)
+np.savetxt("ICET_estimates_926_test2.txt", ICET_estimates)
+np.savetxt("OXTS_baseline_926_test2.txt", OXTS_baseline)

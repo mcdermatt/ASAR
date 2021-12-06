@@ -20,12 +20,7 @@ from utils import *
 #TODO:	Draw visual marker inside each qualifying voxel
 
 #Algorithm: 
-#TODO:	Debug correspondence issues (ordering is messed up from binning process????)
-#			-> move process of removing voxels with insufficient pts to inside get_corr()
-#TODO:	Figure out why  U and L are different lengths
-#TODO:	Fix issue with exceeding index in subdivide scan func line 457
-#TODO:	Prove axis truncation and zeroing out do the same thing
-#TODO:	Fix minimum numeber of points bug
+#TODO:	Fix bug where unequal cellsizes in xyz messes up axis removal (or just always use cubic voxels...)
 
 def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False, 
 	       num_cycles = 5, min_num_pts = 50, draw_grid = False, draw_ell = True, 
@@ -328,6 +323,7 @@ def get_U_and_L(sigma1, bounds, fid):
 	# print("\n rotated \n", tf.squeeze(rotated))
 
 	#check for overly extended axis directions
+	print("\n cellsize \n", cellsize)
 	# thresh = (cellsize**2)/16 #doesn't work as well
 	thresh = (cellsize**2)/64 #need to /64 because axis length is 2x
 	# thresh = cellsize**2 #use this to negate dimesnion reduction
