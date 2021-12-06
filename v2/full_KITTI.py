@@ -18,7 +18,7 @@ from metpy.calc import lat_lon_grid_deltas
 """ Runs ICET on each sequential set of scans in the KITTI dataset """
 
 
-nc = 10	 #number of iterations of ICET per each pair of clouds
+nc = 5	 #number of iterations of ICET per each pair of clouds
 mnp = 50 #minimum number of points per voxel
 D = False #draw sim
 
@@ -34,7 +34,7 @@ f = tf.constant([50,50,2]) #fidelity in x, y, z # < 5s
 lim = tf.constant([-100.,100.,-100.,100.,-10.,10.]) #needs to encompass every point
 npts = 100000
 
-num_frames = 25
+num_frames = 150
 ICET_estimates = np.zeros([num_frames, 6])
 OXTS_baseline = np.zeros([num_frames, 6])
 

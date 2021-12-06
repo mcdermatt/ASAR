@@ -7,22 +7,25 @@ from time import sleep
 numEll = 0
 basedir = 'C:/kitti/'
 date = '2011_09_26'
-drive = '0005'
+# drive = '0005' #urban
+drive = '0018' #highway traffic
+
 
 c = []
 
-plt1 = Plotter(N=1, axes=1, bg = (0.1,0.1,0.1), bg2 = (0.3,0.3,0.3),  interactive=True)
+# plt1 = Plotter(N=1, axes=1, bg = (0.1,0.1,0.1), bg2 = (0.3,0.3,0.3),  interactive=True)
+plt1 = Plotter(N=1, axes=4, interactive=True)
 
 frame_range = range(150, 151, 1)
 
 dataset = pykitti.raw(basedir, date, drive)
 
-velo1 = dataset.get_velo(0) # Each scan is a Nx4 array of [x,y,z,reflectance]
+velo1 = dataset.get_velo(250) # Each scan is a Nx4 array of [x,y,z,reflectance]
 cloud1 = velo1[:,:3]
 c1 = Points(cloud1, c = (0.5,0.5,1), alpha = 0.2)
 c.append(c1)
 
-velo2 = dataset.get_velo(2) # Each scan is a Nx4 array of [x,y,z,reflectance]
+velo2 = dataset.get_velo(252) # Each scan is a Nx4 array of [x,y,z,reflectance]
 cloud2 = velo2[:,:3]
 c2 = Points(cloud2, c = (1,0.5,0.5), alpha = 0.2)
 c.append(c2)

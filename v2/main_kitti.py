@@ -15,7 +15,7 @@ from ICET3D import ICET3D
 
 """Runs ICET on a SINGLE PAIR of scans from the KITTI dataset"""
 
-nc = 5	 #number of cycles
+nc = 10	 #number of cycles
 mnp = 50#100 #minimum number of points per voxel
 D = False #draw sim
 DG = False #draw grid
@@ -24,8 +24,8 @@ DC = False #draw correspondences
 TD = False #use test dataset
 CM = "voxel" #correspondence method, "voxel" or "NN"
 vizL = False #draw arrows in direction of non-truncated directions for each distribution
-id1 = 10 #idx of 1st scan
-id2 = 11 #idx of 2nd scan
+id1 = 250 #idx of 1st scan
+id2 = 251 #idx of 2nd scan
 
 # plt = Plotter(N=1, axes=1, bg = (0.1,0.1,0.1), bg2 = (0.3,0.3,0.3),  interactive=True)
 plt = Plotter(N=1, axes=4, interactive=True)
@@ -33,7 +33,10 @@ plt = Plotter(N=1, axes=4, interactive=True)
 ## Use real data ----------------------------------------------------------------
 basedir = 'C:/kitti/'
 date = '2011_09_26'
-drive = '0005'
+
+# drive = '0005' #urban
+drive = '0018' #highway traffic
+
 dataset = pykitti.raw(basedir, date, drive)
 velo1 = dataset.get_velo(id1) # Each scan is a Nx4 array of [x,y,z,reflectance]
 cloud1 = velo1[:,:3]
