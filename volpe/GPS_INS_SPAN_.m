@@ -1,13 +1,15 @@
-% GPS_INS_SPAN Loosely Coupled - version 11/21/2021
+%GPS_INS_SPAN Loosely Coupled - version 11/22/2021
 clear all
 
 % User defined paramaters
-pureINS = 0;                    % Set False for GPS/INS fusion
+pureINS = 1;                    % Set False for GPS/INS fusion
 addpath('./Data/SPAN');         % Path for data 
 dat = load('signageData.mat');  % Data file
-endIndex = 1e6;                 % Example 1e4 is 50 sec of data @ 200 Hz
+endIndx = 1e6;                  % Example 1e4 is 50 sec of data @ 200 Hz
                                 % If endIndex exceeds max, then reset to max
-% endIndex = 1e4;
+                                
+% while i < 50000  % analyze first 250 sec
+% while i < len  % analyze whole file
 
 % Clean workspace
 close all
@@ -23,40 +25,38 @@ ppplatstd = dat.ppppos.ppplatstd;
 ppplonstd = dat.ppppos.ppplonstd;
 ppphgtstd = dat.ppppos.ppphgtstd;
 gpspos = [ppptime ppplat ppplon ppphgt ppplatstd ppplonstd ppphgtstd];
+rpyRef = deg2rad([dat.inspvax.insroll, dat.inspvax.inspitch, dat.inspvax.insazim]);
+qbnRef = eul2quat(flip(rpyRef')');   
+qbnTime = dat.inspvax.sow1465;
 
 % Apply transducer constants for IMU
-ax = double(rawimusx.rawimuxaccel)*(0.400/65536)*(9.80665/1000)/200;
-ay = double(rawimusx.rawimuyaccel)*(0.400/65536)*(9.80665/1000)/200;
-az = double(rawimusx.rawimuzaccel)*(0.400/65536)*(9.80665/1000)/200;
-gx = double(rawimusx.rawimuxgyro)*0.0151515/65536/200;
-gy = double(rawimusx.rawimuygyro)*0.0151515/65536/200;
-gz = double(rawimusx.rawimuzgyro)*0.0151515/65536/200;
+ax = double(rawimusx.rawimuxaccel)*(0.400/65536)*(9.80665/1000)/200;    % m/s
+ay = double(rawimusx.rawimuyaccel)*(0.400/65536)*(9.80665/1000)/200;    % m/s
+az = double(rawimusx.rawimuzaccel)*(0.400/65536)*(9.80665/1000)/200;    % m/s
+gx = double(rawimusx.rawimuxgyro)*0.0151515/65536/200;                  % deg
+gy = double(rawimusx.rawimuygyro)*0.0151515/65536/200;                  % deg
+gz = double(rawimusx.rawimuzgyro)*0.0151515/65536/200;                  % deg
 
 % Pacakge IMU data
 imutime = rawimusx.rawimugnsssow;
 imuraw = [imutime deg2rad(gy) deg2rad(gx) -deg2rad(gz) ay ax -az];  % imuraw = [imutime gx gy gz ax ay az];
-% imuraw = [imutime deg2rad(gx) deg2rad(gy) deg2rad(gz) ax ay az];  % imuraw = [imutime gx gy gz ax ay az];
-
-[minVal, ind] = min(abs(dat.inspvax.sow1465(1) - imuraw(:,1)));
-imuraw = imuraw(ind:end,:);
-imutime = imutime(ind:end,:);
-[minVal, ind] = min(abs(dat.inspvax.sow1465(1) - gpspos(:,1)));
-gpspos = gpspos(ind:end,:);                                         % trim data > start at first GPS sample
-ppptime = gpspos(:,1);                    
+imuIndx = imutime >= gpspos(1,1)-0.05;
+imuraw = imuraw(imuIndx,:);                     % trim data > start at first GPS sample
+imutime = imutime(imuIndx);
 
 % Prevent analysis from running past end of data record
 maxGPStime = ppptime(end-1);
 maxIMUtime = imutime(end);
 maxTime = min(maxGPStime,maxIMUtime);
 maxIMUindx = max(find(imutime<=maxTime));
-if endIndex > maxIMUindx     % Truncate IMU record if necessary
-    endIndex = maxIMUindx;  
+if endIndx > maxIMUindx     % Truncate IMU record if necessary
+    endIndx = maxIMUindx;  
 end
 % Compute length of GPS record, whether or not IMU record is truncated
-imuEndTime = imutime(endIndex);
+imuEndTime = imutime(endIndx);
 gpsEndIndx = max(find(ppptime<=imuEndTime));
 
-% Initialization of Arrays
+%Initialization of Arrays
 xHatP = zeros(21,1);            % state estimate
 ba = zeros(3,1);                % bias accels
 bg = zeros(3,1);                % bias gyros
@@ -65,28 +65,21 @@ sg = zeros(3,1);                % scale factor gyros
 PP = PPinitialize;              % state-error matrix
 PP = PP*1e6;                    % Set initial covariance matrix to be large (indicating initial uncertainty)
 if pureINS; Ncol = 10; else Ncol = 22; end
-msrArr = zeros(7,endIndex-2);        % INS measurement array
-resArr = zeros(endIndex-2,Ncol-1);   % Storage array of state-perturbation error results
-qbnArr = zeros(endIndex-2,4);        % Storage of quaternion results (relating Body to Inertial)
-nedArr = zeros(endIndex-2,3);        % Storage of position results (NED)
+msrArr = zeros(7,endIndx-2);        % INS measurement array
+resArr = zeros(endIndx-2,Ncol-1);   % Storage array of state-perturbation error results
+qbnArr = zeros(endIndx-2,4);        % Storage of quaternion results (relating Body to Inertial)
+nedArr = zeros(endIndx-2,3);        % Storage of position results (NED)
 gpsMsrArr = zeros(4,gpsEndIndx);    % GPS measurement
 gps_res = zeros(gpsEndIndx,4);
 
-% INITIALIZATION of EKF
-lla0 = [deg2rad(gpspos(1,2)), deg2rad(gpspos(1,3)), gpspos(1,4)];   % from gps.txt
-% lla0 = [deg2rad(dat.inspvax.inslat(1)), deg2rad(dat.inspvax.inslon(1)), dat.inspvax.inshgt(1)];   % from gps.txt
-vel0 = [dat.inspvax.insnorthvel(1), dat.inspvax.inseastvel(1), -dat.inspvax.insupvel(1)];
-rpy0 = deg2rad([dat.inspvax.insroll(1), dat.inspvax.inspitch(1), dat.inspvax.insazim(1)]); 
-% qbn0_enu = eul2quat(rpy0);
-rpy0(3) = 2*pi-rpy0(3);
+%INITIALIZATION of EKF
+lla0 = [deg2rad(ppplat(1)), deg2rad(ppplon(1)), ppphgt(1)];   % from gps.txt
+[minVal, ind] = min(abs(dat.inspvax.sow1465 - imuraw(1,1)));
+vel0 = [dat.inspvax.insnorthvel(ind), dat.inspvax.inseastvel(ind), -dat.inspvax.insupvel(ind)]; 
+rpy0 = deg2rad([dat.inspvax.insroll(ind), dat.inspvax.inspitch(ind), dat.inspvax.insazim(ind)]);
+% rpy0 = deg2rad([1.367381982628118, 2.131468301661621, 184.2637214777763]);
 dv0 = 0;
-
-qbn0_enu = eul2quat(rpy0);     %Initialize with RPY 
-rpy0_inverse = quat2eul(qbn0_enu);
-
-rpy0 - rpy0_inverse
-qbn0_ned = [qbn0_enu(1) qbn0_enu(3) qbn0_enu(4) -qbn0_enu(2)];
-qbn0 = qbn0_ned;
+qbn0 = eul2quat(flip(rpy0));     %Initialize with RPY solutoin
 bias = 0;
 
 % Seed initial measurements
@@ -99,7 +92,7 @@ end
 % Start Loop
 gpsCnt = 0;
 i = 2;
-while i < endIndex  
+while i < endIndx  
     if(mod(i,1e3)==2); i-2, end;  % echo time step to screen current step
     
     msrk1 = imuraw(i,:);
@@ -111,10 +104,6 @@ while i < endIndex
     if pureINS == 0 && isempty(gpsmsr)
         break;
     end  
-    
-    if i == 1132
-        disp("reach here");
-    end
        
     dt = msrk1(1) - msrk(1);
     msrk1(7) =  msrk1(7) - bias*dt; 
@@ -150,7 +139,9 @@ while i < endIndex
     i = i+1;  
 end 
 
+
 % plots
+
 time = msrArr(1,:);
 startTime = time(1);
 
@@ -185,11 +176,11 @@ startTime = time(1);
 % hold on; grid on
 % ylabel('{{\Delta}v_z} (m/s)');
 
+
 len = length(time);
 
 % Velocity Plots
 figure(5)
-title('Velocity Plots of state-perturbation error results');
 subplot(3,1,1);
 plot(time-startTime, resArr(:,4));
 hold on; grid on
@@ -204,9 +195,9 @@ hold on; grid on
 ylabel('velocity z (m/s)');
 xlabel('Time (s)');
 
+
 % Postion Plots
 figure(6)
-title('Position Plots of state-perturbation error results');
 subplot(3,1,1);
 plot(time-startTime, rad2deg(resArr(:,1)));
 hold on; grid on
@@ -258,126 +249,29 @@ filename = fullfile(kmlFolder,'urbanloco_gps.kml');
 
 len = length(qbnArr(:,1));
 
-rpyRef = deg2rad([dat.inspvax.insroll, dat.inspvax.inspitch, dat.inspvax.insazim]);
-% qbnRef_enu = eul2quat(flip(rpyRef')');     % Initialize with RPY solutoin
-% rpyRef_enu = flip(quat2eul(qbnRef_enu)')';
-qbnRef_enu = eul2quat(rpyRef);     % Initialize with RPY solutoin
-rpyRef_enu = quat2eul(qbnRef_enu);
-rpyRefDiff = rpyRef_enu - rpyRef;
-zeroInd1 = find(abs(rpyRefDiff(:,3)) < 2);
-
-rpyRef_var = deg2rad([dat.inspvax.insroll, dat.inspvax.inspitch, dat.inspvax.insazim]);
-rpyRef_var(:,3) = 2*pi-rpyRef_var(:,3);
-% qbnRef_enu_var = eul2quat(flip(rpyRef_var')');     % Initialize with RPY solutoin
-% rpyRef_enu_var = flip(quat2eul(qbnRef_enu_var)')';
-qbnRef_enu_var = eul2quat(rpyRef_var);     % Initialize with RPY solutoin
-rpyRef_enu_var = quat2eul(qbnRef_enu_var);
-
-rpyRefDiff_var = rpyRef_enu_var - rpyRef_var;
-zeroInd2 = find(abs(rpyRefDiff_var(:,3)) < 2);
-
-% qbnRef_enu(zeroInd2) = qbnRef_enu_var(zeroInd2);
-rpyRef(zeroInd2,:) = rpyRef_var(zeroInd2,:);
-% qbnRef_enu = eul2quat(flip(rpyRef')');
-% rpyRef_enu = flip(quat2eul(qbnRef_enu)')';
-qbnRef_enu = eul2quat(rpyRef);
-rpyRef_enu = quat2eul(qbnRef_enu);
-rpyRef_enu - rpyRef
-
-% qbnRef_ned = [qbnRef_enu(:,1) qbnRef_enu(:,3) qbnRef_enu(:,2) -qbnRef_enu(:,4)];
-qbnRef_ned = [qbnRef_enu(:,1) qbnRef_enu(:,3) qbnRef_enu(:,4) -qbnRef_enu(:,2)];
-
-% for i = 1:length(qbnRef_ned)-1
-%     qbnk = qbnRef_ned(i);
-%     qbnk1 = qbnRef_ned(i+1);
-%     % flip the sign if two quaternions are opposite in sign
-%     if (norm((qbnk+qbnk1)/2) < 0.05 && norm((qbnk-qbnk1)/2) > 0.95)
-%         qbnRef_ned(i+1) = -qbnk1;
-%     end
-% end
-
-qbnArr = [qbn0_ned; qbnArr];
-qbnRef = qbnRef_ned;
-qbnTime = imutime(1:endIndex-1);
-qbnRefTime = dat.inspvax.sow1465;
-t0 = min(qbnRefTime(1), qbnTime(1));
-qbnTime = qbnTime - t0;
-qbnRefTime = qbnRefTime - t0;
-% Quaternion plot
-figure(8)
-fg1 = subplot(4,1,1);
-plot(qbnTime, qbnArr(:,1));
-hold on; grid on
-plot(qbnRefTime, qbnRef(:,1));
-ylabel('{q_1}');
-fg2 = subplot(4,1,2);
-plot(qbnTime, qbnArr(:,2));
-hold on; grid on
-plot(qbnRefTime, qbnRef(:,2));
-ylabel('{q_2}');
-fg3 = subplot(4,1,3);
-plot(qbnTime, qbnArr(:,3));
-hold on; grid on
-plot(qbnRefTime, qbnRef(:,3));
-ylabel('{q_3}');
-fg4 = subplot(4,1,4);
-plot(qbnTime, qbnArr(:,4));
-hold on; grid on
-plot(qbnRefTime, qbnRef(:,4));
-ylabel('{q_4}');
-linkaxes([fg1,fg2,fg3,fg4]);
-xlim([0 qbnTime(end)]);
-
-% qbnArr_enu = [qbnArr(:,1) qbnArr(:,3) qbnArr(:,2) -qbnArr(:,4)];
-qbnArr_enu = [qbnArr(:,1) qbnArr(:,3) qbnArr(:,4) -qbnArr(:,2)];
-% rpyArr = flip(quat2eul(qbnArr_enu)')';
-rpyArr = quat2eul(qbnArr_enu);
-% Quaternion plot
-% figure(9)
-% fg1 = subplot(3,1,1);
-% plot(qbnTime, rad2deg(rpyArr(:,1)));
-% hold on; grid on
-% plot(rad2deg(rpyRef(:,1)));
-% plot(dat.inspvax.insroll);
-% ylabel('{Roll (deg)}');
-% fg2 = subplot(3,1,2);
-% plot(qbnTime, rad2deg(rpyArr(:,2)));
-% hold on; grid on
-% plot(rad2deg(rpyRef(:,2)));
-% plot(dat.inspvax.inspitch);
-% ylabel('{Pitch (deg)}');
-% fg3 = subplot(3,1,3);
-% plot(qbnTime, rad2deg(rpyArr(:,3)));
-% hold on; grid on
-% plot(rad2deg(rpyRef(:,3)));
-% plot(dat.inspvax.insazim);
-% ylabel('{Azimuth (deg)}');
-% linkaxes([fg1,fg2,fg3]);
-% xlim([0 qbnTime(end)]);
-
-% Quaternion plot
+%Quaternion plot
 figure(7)
 subplot(4,1,1);
-plot(qbnArr(:,1));
+plot(imutime(3:endIndx)-startTime,qbnArr(:,1));
 hold on; grid on
-% plot(qbnRef(1:len,4));
+plot(qbnTime(1:gpsEndIndx)-startTime,qbnRef(1:gpsEndIndx,4));
 ylabel('{q_1}');
 subplot(4,1,2);
-plot(qbnArr(:,2));
+plot(imutime(3:endIndx)-startTime,qbnArr(:,2));
 hold on; grid on
-% plot(qbnRef(1:len,2));
+plot(qbnTime(1:gpsEndIndx)-startTime,qbnRef(1:gpsEndIndx,2));
 ylabel('{q_2}');
 subplot(4,1,3);
-plot(qbnArr(:,3));
+plot(imutime(3:endIndx)-startTime,qbnArr(:,3));
 hold on; grid on
-% plot(qbnRef(1:len,1));
+plot(qbnTime(1:gpsEndIndx)-startTime,qbnRef(1:gpsEndIndx,1));
 ylabel('{q_3}');
 subplot(4,1,4);
-plot(qbnArr(:,4));
+plot(imutime(3:endIndx)-startTime,qbnArr(:,4));
 hold on; grid on
-% plot(-qbnRef(1:len,3));
+plot(qbnTime(1:gpsEndIndx)-startTime,-qbnRef(1:gpsEndIndx,3));
 ylabel('{q_4}');
-
+legend('EKF','Ref')
 
 % compute rn, rm
 WGS84_A = 6378137.0;           % earth semi-major axis (WGS84) (m) 
@@ -385,6 +279,8 @@ WGS84_B = 6356752.3142;        % earth semi-minor axis (WGS84) (m)
 e = sqrt(WGS84_A * WGS84_A - WGS84_B * WGS84_B) / WGS84_A;
 rn_list = WGS84_A ./ sqrt(1 - e * e * sin(resArr(:,1)).^2);
 rm_list = WGS84_A * (1 - e * e) ./ sqrt(power(1 - e * e * sin(resArr(:,1)).^2, 3));
+
+
 
 
 
@@ -697,8 +593,8 @@ qbn = quatmultiply(qnn, tmp_q);
 % qbn = e_q.*qbn;
 qbn = quatnormalize(qbn);
 
-% rpy = flip(quat2eul(qbn));
-rpy = quat2eul(qbn);
+rpy = flip(quat2eul(qbn));
+
 end
 
 
@@ -1011,13 +907,7 @@ qbn = quatmultiply(qnn, tmp_q);
 % qbn = e_q.*qbn;
 qbn = quatnormalize(qbn);
 
-% % flip the sign if two quaternions are opposite in sign
-% if (qbn(1)*qbn0(1)<0 && qbn(2)*qbn0(2)<0 && qbn(3)*qbn0(3)<0 && qbn(4)*qbn0(4)<0 && norm(qbn-qbn0) > 0.05)
-%     qbn = -qbn;
-% end
-
-% rpy = flip(quat2eul(qbn));
-rpy = quat2eul(qbn);
+rpy = flip(quat2eul(qbn));
 
 % ------------------ Phi-angle model GPS/INS LC algorithm -------------- %
 gpstime = gpsmsr(1);
@@ -1153,12 +1043,10 @@ coeff = diag([(rm+lla_in(3)); ((rn+lla_in(3))*cos(lla_in(1))); -1]);
 % update with GPS measurements
 if gpstime <= msrk1(1) && gpstime > msrk(1)  % If GPS time between two inertial measurement times, do an update %
     
-    % R = 0.01*diag(gpsmsr(5:7).^2);  % R matrix -- note coefficient of 0.01!!!
-    R = diag(gpsmsr(5:7).^2);  % R matrix
+    R = 0.01*diag(gpsmsr(5:7).^2);  % R matrix -- note coefficient of 0.01!!!
     
-    % dr = [2.52;0.794;-0.468];  % LEVER ARM in m (XYZ body frame, YX(-Z) aligns with NED)
-    % dr = [0.794;2.52;0.468];
-    dr = [1e-9;1e-9;1e-9];  % LEVER ARM in m (XYZ body frame, YX(-Z) aligns with NED)
+%    dr = [2.52;0.794;-0.468];  % LEVER ARM in m (XYZ body frame, YX(-Z) aligns with NED)
+    dr = [0;0;0];  % LEVER ARM in m (XYZ body frame, YX(-Z) aligns with NED)
     lla_gps_corr = coeff*(gpsmsr(2:4))' - cbn*dr;
 
     y = coeff*lla_in' - lla_gps_corr;
@@ -1181,7 +1069,7 @@ if gpstime <= msrk1(1) && gpstime > msrk(1)  % If GPS time between two inertial 
     
     vel = vel - (xHatP(4:6))';
     
-%   qbn = dcm2quat(cbn');
+    qbn = dcm2quat(cbn');
     
     % normalization
 %     e_q = sumsqr(qbn);
@@ -1190,12 +1078,11 @@ if gpstime <= msrk1(1) && gpstime > msrk(1)  % If GPS time between two inertial 
     qbn = quatnormalize(qbn);
     
     % flip the sign if two quaternions are opposite in sign
-    if (norm((qbn+qbn0)/2) < 0.15 && norm((qbn-qbn0)/2) > 0.85)
+    if (qbn(1)*qbn0(1)<0)
         qbn = -qbn;
     end
     
-    % rpy = flip(quat2eul(qbn));
-    rpy = quat2eul(qbn);
+    rpy = flip(quat2eul(qbn));
     
     dv = vel - vel0;
     
@@ -1214,6 +1101,7 @@ end
 end
 
 function PP = PPinitialize
+%function PP = PPinitialize
 % Initialize state-error array
     PP = zeros(21,21);              
     PP(1,1) = (deg2rad(1))^2;
