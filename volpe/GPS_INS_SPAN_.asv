@@ -51,6 +51,7 @@ dlon_lidar = lon_lidar - [lon_lidar(2:end).' 0].';
 dlon_lidar = -dlon_lidar(1:end-1);
 dhgt_lidar = hgt_lidar - [hgt_lidar(2:end).' 0].';
 dhgt_lidar = -dhgt_lidar(1:end-1);
+
 %remove first time_step to keep consistant with dlat, dlon, dhgh_lidar
 t_lidar = t_lidar(2:end);
 %--------------------------------------------------------------------------
@@ -62,9 +63,10 @@ startGPS = 1109; %cut off every GPS point before here to sync datasets
 gps_time = ppptime - ppptime(1);
 gps_time = gps_time(startGPS:end)-startGPS;
 
-lon_gps_lidartime = interp1(gps_time, ppplon(startGPS:end), t_lidar);
-lat_gps_lidartime = interp1(gps_time, ppplat(startGPS:end), t_lidar);
-hgt_gps_lidartime = interp1(gps_time, ppphgt(startGPS:end), t_lidar);
+lon_gps_lidartime = interp1( );
+
+% lla_gps_lidartime = gps2lidartime(gpspos(:,2:4), t_lidar, gpspos(:,1));
+
 %--------------------------------------------------------------------------
 
 
