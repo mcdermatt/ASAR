@@ -35,7 +35,7 @@ qbnRef = eul2quat(flip(rpyRef')');
 qbnTime = dat.inspvax.sow1465;
 
 
-%import lidar data and transform to relative estimates in lla  frame
+%import lidar data and transform to relative estimates in lla frame
 %--------------------------------------------------------------------------
 pos_lidar_enu = -load('pos_lidar_enu.mat').pos_lidar_enu;
 % position: [2851×7 double]:
@@ -57,10 +57,17 @@ dhgt_lidar = hgt_lidar - [hgt_lidar(2:end).' 0].';
 dhgt_lidar = -dhgt_lidar(1:end-1);
 %remove first time_step to keep consistant with dlat, dlon, dhgh_lidar
 t_lidar = t_lidar(2:end);
+
+%starting with just position estimates- will move on to rotations
+%eventaully...
+dpos_lidar = [t_lidar dlat_lidar dlon_lidar dhgt_lidar];
 %--------------------------------------------------------------------------
 
 % sync and interpolate GPS readings so they occur at the same time as Lidar
 % measurements 
+%NOTE: we need to do this because the lidar did not begin recording at the 
+%same time as the GPS/INS system. Also the lidar unit records at
+%inconsistant frequencies: look at a plot of t_lidar vs time
 %--------------------------------------------------------------------------
 startGPS = 1109; %cut off every GPS point before here to sync datasets
 gps_time = ppptime - ppptime(1);
@@ -87,25 +94,15 @@ lon_gps_lidartime_std(nan_idx) = lon_gps_lidartime_std(nan_idx(end) + 1);
 lat_gps_lidartime_std(nan_idx) = lat_gps_lidartime_std(nan_idx(end) + 1);
 hgt_gps_lidartime_std(nan_idx) = hgt_gps_lidartime_std(nan_idx(end) + 1);
 
+%add time offset back in to t_lidar so that IMU data can be truncated
+%properly
+t_lidar = t_lidar + ppptime(1);
+
 % %was this
 % gpspos = [ppptime ppplat ppplon ppphgt ppplatstd ppplonstd ppphgtstd];
 %now this
 gpspos = [t_lidar lat_gps_lidartime lon_gps_lidartime hgt_gps_lidartime ...
     lat_gps_lidartime_std lon_gps_lidartime_std hgt_gps_lidartime_std];
-%--------------------------------------------------------------------------
-
-%truncate IMU dataset so it starts at the same time as lidar and new
-%interpolated GPS
-%--------------------------------------------------------------------------
-%timestamp of where the firt interpolated GPS measurement begins
-start_time_gps = ppptime(startGPS-3); 
-
-%get index of first element of imutime after <start_time_gps>
-useful_imu_idx  = find(imutime > start_time_gps);
-
-
-imutime = imutime(useful_imu_idx);
-
 %--------------------------------------------------------------------------
 
 % Apply transducer constants for IMU
@@ -124,7 +121,8 @@ imuraw = imuraw(imuIndx,:);                     % trim data > start at first GPS
 imutime = imutime(imuIndx);
 
 % Prevent analysis from running past end of data record
-maxGPStime = ppptime(end-1);
+% maxGPStime = ppptime(end-1); %was this
+maxGPStime = t_lidar(end - 1);
 maxIMUtime = imutime(end);
 maxTime = min(maxGPStime,maxIMUtime);
 maxIMUindx = max(find(imutime<=maxTime));
@@ -166,6 +164,7 @@ msrk = imuraw(1,:);
 msrk = msrk';
 if pureINS == 0
     gpsmsr = gpspos(1,:);
+    lidarmsr = dpos_lidar(1,:);
 end
 
 % Start Loop
@@ -195,12 +194,13 @@ while i < endIndx
     
     else
         % GPS/INS solution--------
-        % old gps data
-        [lla, vel, rpy, ned, dv, qbn, xHatP, PP, gpsUpdated, gpsCnt, gpsResUpd] = ins_gps(lla0, vel0, rpy0, dv0, qbn0, msrk, msrk1, gpsmsr, xHatP, PP, gpsCnt);
+        [lla, vel, rpy, ned, dv, qbn, xHatP, PP, gpsUpdated, gpsCnt, gpsResUpd] = ins_gps(lla0, vel0, rpy0, dv0, qbn0, msrk, msrk1, gpsmsr, xHatP, PP, gpsCnt, lidarmsr);
         if gpsUpdated == 1
             gpsmsr = gpspos(gpsCnt+1, :);   
             gps_res(gpsCnt,:) = gpsResUpd;
             xHatP(1:9) = zeros(9,1);        % Reset error states
+            %
+            lidarmsr = dpos_lidar
         end
         % Store Data
         resArr(i-1,:) = [lla vel rpy rad2deg(bg')*3600 (ba')*10^6/9.7803267715 (sg')*10^-6 (sa')*10^-6];
@@ -677,7 +677,7 @@ rpy = flip(quat2eul(qbn));
 
 end
 
-function [lla, vel, rpy, ned, dv, qbn, xHatP, PP, gpsUpdated, gpsCnt, gpsResUpd] = ins_gps(lla0, vel0, rpy0, dv0, qbn0, msrk, msrk1, gpsmsr, xHatP, PP, gpsCnt)
+function [lla, vel, rpy, ned, dv, qbn, xHatP, PP, gpsUpdated, gpsCnt, gpsResUpd] = ins_gps(lla0, vel0, rpy0, dv0, qbn0, msrk, msrk1, gpsmsr, xHatP, PP, gpsCnt, lidarmsr)
 
 WGS84_A = 6378137.0;           % earth semi-major axis (WGS84) (m) 
 WGS84_B = 6356752.3142;        % earth semi-minor axis (WGS84) (m) 
@@ -1134,10 +1134,14 @@ if gpstime <= msrk1(1) && gpstime > msrk(1)  % If GPS time between two inertial 
     H = zeros(3,21);
     H(1:3, 1:3) = coeff;
     
+    %FROM GPS DATA
     L = PM*H'*inv(H*PM*H'+R);
     yHat = H*xHatM;
     xHatP = xHatM + L*(y-yHat);         % a posteriori estimate
     PP = (eye(size(F))-L*H)*PM*(eye(size(F))-L*H)'+L*R*L';
+    
+    %FROM LIDAR DATA
+    xHatP_lidar = lidarmsr
     
     lla = lla - (xHatP(1:3))';
  
