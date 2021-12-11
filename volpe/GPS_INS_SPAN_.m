@@ -1,11 +1,15 @@
 %GPS_INS_SPAN Loosely Coupled - version 11/22/2021
+
+%TODO - Trim down INS to sync up with start of Lidar and GPS
+
+
 clear all
 
 % User defined paramaters
 pureINS = 0;                    % Set False for GPS/INS fusion
 addpath('./Data/SPAN');         % Path for data 
 dat = load('signageData.mat');  % Data file
-endIndx = 1e4;                  % Example 1e4 is 50 sec of data @ 200 Hz
+endIndx = 1e4; %was 1e6                  % Example 1e4 is 50 sec of data @ 200 Hz
                                 % If endIndex exceeds max, then reset to max
                                 
 % while i < 50000  % analyze first 250 sec
@@ -31,7 +35,7 @@ qbnRef = eul2quat(flip(rpyRef')');
 qbnTime = dat.inspvax.sow1465;
 
 
-%import lidar data and transform to relative estimates in lla  frame
+%import lidar data and transform to relative estimates in lla frame
 %--------------------------------------------------------------------------
 pos_lidar_enu = -load('pos_lidar_enu.mat').pos_lidar_enu;
 % position: [2851×7 double]:
@@ -55,8 +59,11 @@ dhgt_lidar = -dhgt_lidar(1:end-1);
 t_lidar = t_lidar(2:end);
 %--------------------------------------------------------------------------
 
-% interpolate GPS readings so they occur at the same time as Lidar
+% sync and interpolate GPS readings so they occur at the same time as Lidar
 % measurements 
+%NOTE: we need to do this because the lidar did not begin recording at the 
+%same time as the GPS/INS system. Also the lidar unit records at
+%inconsistant frequencies: look at a plot of t_lidar vs time
 %--------------------------------------------------------------------------
 startGPS = 1109; %cut off every GPS point before here to sync datasets
 gps_time = ppptime - ppptime(1);
@@ -65,9 +72,34 @@ gps_time = gps_time(startGPS:end)-startGPS;
 lon_gps_lidartime = interp1(gps_time, ppplon(startGPS:end), t_lidar);
 lat_gps_lidartime = interp1(gps_time, ppplat(startGPS:end), t_lidar);
 hgt_gps_lidartime = interp1(gps_time, ppphgt(startGPS:end), t_lidar);
+
+%interpolate GPS stds
+lon_gps_lidartime_std = interp1(gps_time, ppplonstd(startGPS:end), t_lidar);
+lat_gps_lidartime_std = interp1(gps_time, ppplatstd(startGPS:end), t_lidar);
+hgt_gps_lidartime_std = interp1(gps_time, ppphgtstd(startGPS:end), t_lidar);
+
+%set all NaN lat/lon/hgt values at beginning of vectors to first non-nan
+%value
+nan_idx = find(isnan(lon_gps_lidartime)); %pts with nan vals
+
+lon_gps_lidartime(nan_idx) = lon_gps_lidartime(nan_idx(end) + 1);
+lat_gps_lidartime(nan_idx) = lat_gps_lidartime(nan_idx(end) + 1);
+hgt_gps_lidartime(nan_idx) = hgt_gps_lidartime(nan_idx(end) + 1);
+
+lon_gps_lidartime_std(nan_idx) = lon_gps_lidartime_std(nan_idx(end) + 1);
+lat_gps_lidartime_std(nan_idx) = lat_gps_lidartime_std(nan_idx(end) + 1);
+hgt_gps_lidartime_std(nan_idx) = hgt_gps_lidartime_std(nan_idx(end) + 1);
+
+%add time offset back in to t_lidar so that IMU data can be truncated
+%properly
+t_lidar = t_lidar + ppptime(1);
+
+% %was this
+% gpspos = [ppptime ppplat ppplon ppphgt ppplatstd ppplonstd ppphgtstd];
+%now this
+gpspos = [t_lidar lat_gps_lidartime lon_gps_lidartime hgt_gps_lidartime ...
+    lat_gps_lidartime_std lon_gps_lidartime_std hgt_gps_lidartime_std];
 %--------------------------------------------------------------------------
-
-
 
 % Apply transducer constants for IMU
 ax = double(rawimusx.rawimuxaccel)*(0.400/65536)*(9.80665/1000)/200;    % m/s
@@ -83,6 +115,23 @@ imuraw = [imutime deg2rad(gy) deg2rad(gx) -deg2rad(gz) ay ax -az];  % imuraw = [
 imuIndx = imutime >= gpspos(1,1)-0.05;
 imuraw = imuraw(imuIndx,:);                     % trim data > start at first GPS sample
 imutime = imutime(imuIndx);
+
+% %truncate IMU dataset so it starts at the same time as lidar and new
+% %interpolated GPS
+% %--------------------------------------------------------------------------
+% %timestamp of where the firt interpolated GPS measurement begins
+% start_time_gps = ppptime(startGPS-3); 
+% 
+% %get index of first element of imutime after <start_time_gps>
+% useful_imu_idx  = find(imutime > start_time_gps);
+% 
+% %get rid of everything in imu before this index
+% imutime = imutime(useful_imu_idx);
+% 
+% % make imutime start at zero
+% 
+% 
+% %--------------------------------------------------------------------------
 
 % Prevent analysis from running past end of data record
 maxGPStime = ppptime(end-1);
@@ -155,7 +204,8 @@ while i < endIndx
         qbnArr(i-1,:) = qbn;
     
     else
-        % GPS/INS solution
+        % GPS/INS solution--------
+        % old gps data
         [lla, vel, rpy, ned, dv, qbn, xHatP, PP, gpsUpdated, gpsCnt, gpsResUpd] = ins_gps(lla0, vel0, rpy0, dv0, qbn0, msrk, msrk1, gpsmsr, xHatP, PP, gpsCnt);
         if gpsUpdated == 1
             gpsmsr = gpspos(gpsCnt+1, :);   
@@ -1107,6 +1157,8 @@ if gpstime <= msrk1(1) && gpstime > msrk(1)  % If GPS time between two inertial 
     
     vel = vel - (xHatP(4:6))';
     
+    %comment out below to ignore correction step- not ideal but helps
+    %convergence??
     qbn = dcm2quat(cbn');
     
     % normalization
