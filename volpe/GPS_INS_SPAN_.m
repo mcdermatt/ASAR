@@ -9,7 +9,7 @@ clear all
 pureINS = 0;                    % Set False for GPS/INS fusion
 addpath('./Data/SPAN');         % Path for data 
 dat = load('signageData.mat');  % Data file
-endIndx = 1e4; %was 1e6                  % Example 1e4 is 50 sec of data @ 200 Hz
+endIndx = 1e5; %was 1e6                  % Example 1e4 is 50 sec of data @ 200 Hz
                                 % If endIndex exceeds max, then reset to max
                                 
 % while i < 50000  % analyze first 250 sec
@@ -73,14 +73,27 @@ startGPS = 1109; %cut off every GPS point before here to sync datasets
 gps_time = ppptime - ppptime(1);
 gps_time = gps_time(startGPS:end)-startGPS;
 
-lon_gps_lidartime = interp1(gps_time, ppplon(startGPS:end), t_lidar);
-lat_gps_lidartime = interp1(gps_time, ppplat(startGPS:end), t_lidar);
-hgt_gps_lidartime = interp1(gps_time, ppphgt(startGPS:end), t_lidar);
+%create new time vector for GPS that:
+%   1) Samples at coinciding with every 10th lidar point
+%   2) Interpolates in regions with Lidar data outages
+
+t_gps_new = t_lidar(1:10:end);
+t_gps_new = [t_gps_new(1:112); linspace(139.5, 185.5, 47).'; t_gps_new(113:122); ...
+    linspace(196.3,244.3,48).'; t_gps_new(124:138); linspace(259.4, 303.4, 44).'; ...
+    t_gps_new(140:151); linspace(316.9, 363.9,47).';  t_gps_new(152:161);...
+    linspace(375.2, 429.2, 54).'; t_gps_new(163:end) ];
+
+%for debug
+% t_gps_new = t_lidar;
+
+lon_gps_lidartime = interp1(gps_time, ppplon(startGPS:end), t_gps_new);
+lat_gps_lidartime = interp1(gps_time, ppplat(startGPS:end), t_gps_new);
+hgt_gps_lidartime = interp1(gps_time, ppphgt(startGPS:end), t_gps_new);
 
 %interpolate GPS stds
-lon_gps_lidartime_std = interp1(gps_time, ppplonstd(startGPS:end), t_lidar);
-lat_gps_lidartime_std = interp1(gps_time, ppplatstd(startGPS:end), t_lidar);
-hgt_gps_lidartime_std = interp1(gps_time, ppphgtstd(startGPS:end), t_lidar);
+lon_gps_lidartime_std = interp1(gps_time, ppplonstd(startGPS:end), t_gps_new);
+lat_gps_lidartime_std = interp1(gps_time, ppplatstd(startGPS:end), t_gps_new);
+hgt_gps_lidartime_std = interp1(gps_time, ppphgtstd(startGPS:end), t_gps_new);
 
 %set all NaN lat/lon/hgt values at beginning of vectors to first non-nan
 %value
@@ -96,12 +109,13 @@ hgt_gps_lidartime_std(nan_idx) = hgt_gps_lidartime_std(nan_idx(end) + 1);
 
 %add time offset back in to t_lidar so that IMU data can be truncated
 %properly
-t_lidar = t_lidar + ppptime(1);
+% t_lidar = t_lidar + ppptime(1);
+t_gps_new = t_gps_new + ppptime(1);
 
 % %was this
 % gpspos = [ppptime ppplat ppplon ppphgt ppplatstd ppplonstd ppphgtstd];
 %now this
-gpspos = [t_lidar lat_gps_lidartime lon_gps_lidartime hgt_gps_lidartime ...
+gpspos = [t_gps_new lat_gps_lidartime lon_gps_lidartime hgt_gps_lidartime ...
     lat_gps_lidartime_std lon_gps_lidartime_std hgt_gps_lidartime_std];
 %--------------------------------------------------------------------------
 
@@ -122,7 +136,7 @@ imutime = imutime(imuIndx);
 
 % Prevent analysis from running past end of data record
 % maxGPStime = ppptime(end-1); %was this
-maxGPStime = t_lidar(end - 1);
+maxGPStime = t_gps_new(end - 1);
 maxIMUtime = imutime(end);
 maxTime = min(maxGPStime,maxIMUtime);
 maxIMUindx = max(find(imutime<=maxTime));
@@ -169,6 +183,7 @@ end
 
 % Start Loop
 gpsCnt = 0;
+lidarCnt = 0;
 i = 2;
 while i < endIndx  
     if(mod(i,1e3)==2); i-2, end;  % echo time step to screen current step
@@ -295,15 +310,21 @@ xlabel('Time (s)');
 
 if pureINS == 0
     subplot(3,1,1);
-    plot(gpsMsrArr(1, :)-startTime, gpsMsrArr(2, :));
+    
+    %find timesteps where gpsMsrArr != 0
+    nonzero = find( gpsMsrArr(1,:) ~= 0);
+%     plot(gpsMsrArr(1, :)-startTime, gpsMsrArr(2, :));
+    plot(gpsMsrArr(1, nonzero)-startTime, gpsMsrArr(2, nonzero));
     hold on; grid on
     ylabel('latitude (deg)');
     subplot(3,1,2);
-    plot(gpsMsrArr(1, :)-startTime, gpsMsrArr(3, :));
+%     plot(gpsMsrArr(1, :)-startTime, gpsMsrArr(3, :));
+    plot(gpsMsrArr(1, nonzero)-startTime, gpsMsrArr(3, nonzero));    
     hold on; grid on
     ylabel('longitude (deg)');
     subplot(3,1,3);
-    plot(gpsMsrArr(1, :)-startTime, gpsMsrArr(4, :));
+%     plot(gpsMsrArr(1, :)-startTime, gpsMsrArr(4, :));
+    plot(gpsMsrArr(1, nonzero)-startTime, gpsMsrArr(4, nonzero));    
     hold on; grid on
     ylabel('altitude (m)');
     xlabel('Time (s)');
