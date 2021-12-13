@@ -9,7 +9,7 @@ clear all
 pureINS = 0;                    % Set False for GPS/INS fusion
 addpath('./Data/SPAN');         % Path for data 
 dat = load('signageData.mat');  % Data file
-endIndx = 1e5; %was 1e6                  % Example 1e4 is 50 sec of data @ 200 Hz
+endIndx = 1e4; %was 1e6                  % Example 1e4 is 50 sec of data @ 200 Hz
                                 % If endIndex exceeds max, then reset to max
                                 
 % while i < 50000  % analyze first 250 sec
@@ -60,7 +60,7 @@ t_lidar = t_lidar(2:end);
 
 %starting with just position estimates- will move on to rotations
 %eventaully...
-dpos_lidar = [t_lidar dlat_lidar dlon_lidar dhgt_lidar];
+dpos_lidar = [(t_lidar + ppptime(1)) dlat_lidar dlon_lidar dhgt_lidar];
 %--------------------------------------------------------------------------
 
 % sync and interpolate GPS readings so they occur at the same time as Lidar
@@ -178,7 +178,7 @@ msrk = imuraw(1,:);
 msrk = msrk';
 if pureINS == 0
     gpsmsr = gpspos(1,:);
-    lidarmsr = dpos_lidar(1,2:end);
+    lidarmsr = dpos_lidar(1, :);
 end
 
 % Start Loop
@@ -209,12 +209,19 @@ while i < endIndx
     
     else
         % GPS/INS solution--------
-        [lla, vel, rpy, ned, dv, qbn, xHatP, PP, gpsUpdated, gpsCnt, gpsResUpd] = ins_gps(lla0, vel0, rpy0, dv0, qbn0, msrk, msrk1, gpsmsr, xHatP, PP, gpsCnt, lidarmsr);
+        [lla, vel, rpy, ned, dv, qbn, xHatP, PP, gpsUpdated, lidarUpdated, gpsCnt, lidarCnt, gpsResUpd] = ins_gps(lla0, vel0, rpy0, dv0, qbn0, msrk, msrk1, gpsmsr, lidarmsr, xHatP, PP, gpsCnt, lidarCnt);
+        
+%         lidarCnt
+%         gpsCnt
+        
+        if lidarUpdated == 1
+            lidarmsr = dpos_lidar(lidarCnt+1, :);%update lidar measurement            
+        end
+        
         if gpsUpdated == 1
             gpsmsr = gpspos(gpsCnt+1, :);   
             gps_res(gpsCnt,:) = gpsResUpd;
             xHatP(1:9) = zeros(9,1);        % Reset error states
-            lidarmsr = dpos_lidar(gpsCnt+1, 2:end);%update lidar measurement
         end
         % Store Data
         resArr(i-1,:) = [lla vel rpy rad2deg(bg')*3600 (ba')*10^6/9.7803267715 (sg')*10^-6 (sa')*10^-6];
@@ -697,7 +704,7 @@ rpy = flip(quat2eul(qbn));
 
 end
 
-function [lla, vel, rpy, ned, dv, qbn, xHatP, PP, gpsUpdated, gpsCnt, gpsResUpd] = ins_gps(lla0, vel0, rpy0, dv0, qbn0, msrk, msrk1, gpsmsr, xHatP, PP, gpsCnt, lidarmsr)
+function [lla, vel, rpy, ned, dv, qbn, xHatP, PP, gpsUpdated, lidarUpdated, gpsCnt, lidarCnt, gpsResUpd] = ins_gps(lla0, vel0, rpy0, dv0, qbn0, msrk, msrk1, gpsmsr, lidarmsr, xHatP, PP, gpsCnt, lidarCnt)
 
 WGS84_A = 6378137.0;           % earth semi-major axis (WGS84) (m) 
 WGS84_B = 6356752.3142;        % earth semi-minor axis (WGS84) (m) 
@@ -1119,8 +1126,29 @@ Qk = 0.5*(F*B*Q*B'+B*Q*B'*F')*dt;
 % Qk = (F*B*Q*B'*F')*dt;
 
 % Extended Kalman Filter 
+% was this (only uses INS stuff)
 xHatM = F*xHatP;                    % Forward Euler integration (A priori)
 PM = F*PP*F'+Qk;                    % cov. Estimate
+
+%TODO -- copy if statement structure from GPS stuff
+% if new measurement ready, combine with Lidar...
+lidartime = lidarmsr(1);
+if lidartime <= msrk1(1) && lidartime > msrk(1)
+    %only using lidar translation estimates:
+       %[dxyz dvxyz quats ...] -> 21x1 vec
+       
+    xHat_ins = xHatM;
+    PM_ins = PM;
+
+    xHatM_lidar = [lidarmsr zeros(1,18)]; %simple way (no system dynamics)
+%     PM_lidar = ;
+    
+    lidarUpdated = 1;
+    lidarCnt = lidarCnt + 1;
+
+else
+    lidarUpdated = 0;
+end
 
 rn = WGS84_A / sqrt(1 - e * e * sin(lla_in(1)) * sin(lla_in(1)));
 rm = WGS84_A * (1 - e * e) / sqrt(power(1 - e * e * sin(lla_in(1)) * sin(lla_in(1)), 3));
@@ -1159,14 +1187,6 @@ if gpstime <= msrk1(1) && gpstime > msrk(1)  % If GPS time between two inertial 
     yHat = H*xHatM;
     xHatP = xHatM + L*(y-yHat);         % a posteriori estimate
     PP = (eye(size(F))-L*H)*PM*(eye(size(F))-L*H)'+L*R*L';
-    
-    %FROM LIDAR DATA
-    %only using lidar translation estimates:
-    %       [dxyz dvxyz quats ...] -> 21x1 vec
-%     L_lidar = 
-%     PP_lidar = (eye(21) - L_lidar*H)*(
-    xHatP_lidar = [lidarmsr zeros(1,18)]; %simple way (no system dynamics)
-    
     
     lla = lla - (xHatP(1:3))';
  
