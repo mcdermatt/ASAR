@@ -9,7 +9,7 @@ clear all
 pureINS = 0;                    % Set False for GPS/INS fusion
 addpath('./Data/SPAN');         % Path for data 
 dat = load('signageData.mat');  % Data file
-endIndx = 1e4; %was 1e6                  % Example 1e4 is 50 sec of data @ 200 Hz
+endIndx = 1e5; %was 1e6                  % Example 1e4 is 50 sec of data @ 200 Hz
                                 % If endIndex exceeds max, then reset to max
                                 
 % while i < 50000  % analyze first 250 sec
@@ -1130,22 +1130,51 @@ Qk = 0.5*(F*B*Q*B'+B*Q*B'*F')*dt;
 xHatM = F*xHatP;                    % Forward Euler integration (A priori)
 PM = F*PP*F'+Qk;                    % cov. Estimate
 
-%TODO -- copy if statement structure from GPS stuff
-% if new measurement ready, combine with Lidar...
+
+% copy of if statement structure from GPS stuff
+% if new measurement ready, combine with Lidar
 lidartime = lidarmsr(1);
 if lidartime <= msrk1(1) && lidartime > msrk(1)
     %only using lidar translation estimates:
        %[dxyz dvxyz quats ...] -> 21x1 vec
        
-    xHat_ins = xHatM;
+    xHatM_ins = xHatM;
     PM_ins = PM;
-
-    xHatM_lidar = [lidarmsr zeros(1,18)]; %simple way (no system dynamics)
-%     PM_lidar = ;
     
+    xHatM_lidar = [lidarmsr(2:end) zeros(1,18)].'; %just looking at changes in pos (no delta_rotation)
+    
+    %set noise covariance matrix for lidar
+    Qk_lidar = 1e4*eye(21); %init arbitrarily high values
+    %set useful parts of Qk_lidar based on values determined experimentally
+    %over the summer
+    Qk_lidar(1,1) = 25; %sigmax**2
+    Qk_lidar(2,2) = 25; %sigmay**2
+    Qk_lidar(3,3) = 100;%sigmaz**2
+    
+    dt_lidar = 1; %TODO- get this value from msrlidar...?
+    Qk_lidar = dt_lidar*Qk_lidar;
+    PM_lidar = F*PP*F' + Qk_lidar;
+    
+    %make sure PM_ins and PM_lidar are not NaN
+%     PM_ins
+%     PM_lidar
+    PM_ins(isnan(PM_ins)) = 1;
+    PM_lidar(isnan(PM_lidar)) = 1;
+
+    % combine xHat_ins and xHat_lidar using WLS
+    W = [pinv(PM_ins) zeros(21,21); zeros(21,21) pinv(PM_lidar)];
+    A = [eye(21); eye(21)];
+    xHatM = pinv(A.'*W*A)*(A.')*W*[xHatM_lidar; xHatM_ins];
+%     PM = pinv(A.'*W*A)*(A.')*W*[PM_lidar; PM_ins];    
+        
     lidarUpdated = 1;
     lidarCnt = lidarCnt + 1;
 
+    % for debug -- ignore lidar
+%     xHatM = xHatM_ins;
+    PM = PM_ins;
+    
+    
 else
     lidarUpdated = 0;
 end
