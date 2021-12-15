@@ -9,8 +9,8 @@ clear all
 pureINS = 0;                    % Set False for GPS/INS fusion
 addpath('./Data/SPAN');         % Path for data 
 dat = load('signageData.mat');  % Data file
-% endIndx = 2e4; %was 1e6                  % Example 1e4 is 50 sec of data @ 200 Hz % If endIndex exceeds max, then reset to max
-endIndx = 1e6;                                 
+endIndx = 1e6; %was 1e6                  % Example 1e4 is 50 sec of data @ 200 Hz
+                                % If endIndex exceeds max, then reset to max
                                 
 % while i < 50000  % analyze first 250 sec
 % while i < len  % analyze whole file
@@ -1162,8 +1162,7 @@ if lidartime <= msrk1(1) && lidartime > msrk(1)
     %need to scale by amount of time elapsed since last measurement since
     %it is different than INS measurements
     dt_lidar = lidartime - t_last_lidar;
-    dlla_lidar_scaled = lidarmsr(2:end)/dt_lidar*dt;
-    dlla_lidar_scaled = dlla_lidar_scaled*0.375; %DEBUG- not sure why I need to add this arbitrary constant...
+    dlla_lidar_scaled = lidarmsr(2:end);%*dt_lidar ;
     xHatM_lidar = [dlla_lidar_scaled zeros(1,18)].'; %just looking at changes in pos (no delta_rotation)
     
     %set noise covariance matrix for lidar
@@ -1177,12 +1176,27 @@ if lidartime <= msrk1(1) && lidartime > msrk(1)
     Qk_lidar = dt_lidar*Qk_lidar;
     PM_lidar = F*PP*F' + Qk_lidar;
     
-    %make sure not NaN
+    %make sure PM_ins and PM_lidar are not NaN
+%     PM_ins
+%     PM_lidar
     PM_ins(isnan(PM_ins)) = 1;
     PM_lidar(isnan(PM_lidar)) = 1;
        
     lidarUpdated = 1;
     lidarCnt = lidarCnt + 1;
+
+    % for debug
+%     xHatM = xHatM_lidar;
+    xHatM = xHatM_ins;
+    PM = PM_ins;
+%     PM = PM_lidar;
+%     xHatM_ins(1:3)
+    
+    % NOTE- right now, lla is only being modified (at least directly) by the INS 
+    %       component of this function -
+    
+    %DEBUG- should I assume lidar measurement occurs at the same time as most recent
+    %INS Measurement?
     
     lla_lidar = lla0_lidar + (xHatM_lidar(1:3).');
     
