@@ -9,8 +9,8 @@ clear all
 pureINS = 0;                    % Set False for GPS/INS fusion
 addpath('./Data/SPAN');         % Path for data 
 dat = load('signageData.mat');  % Data file
-% endIndx = 2e4; %was 1e6                  % Example 1e4 is 50 sec of data @ 200 Hz % If endIndex exceeds max, then reset to max
-endIndx = 1e6;                                 
+endIndx = 2e4; %was 1e6                  % Example 1e4 is 50 sec of data @ 200 Hz % If endIndex exceeds max, then reset to max
+% endIndx = 1e5;                                 
                                 
 % while i < 50000  % analyze first 250 sec
 % while i < len  % analyze whole file
@@ -53,8 +53,11 @@ dlat_lidar = lat_lidar - [lat_lidar(2:end).' 0].';
 dlat_lidar = -dlat_lidar(1:end-1);
 dlon_lidar = lon_lidar - [lon_lidar(2:end).' 0].';
 dlon_lidar = -dlon_lidar(1:end-1);
-dhgt_lidar = hgt_lidar - [hgt_lidar(2:end).' 0].';
-dhgt_lidar = -dhgt_lidar(1:end-1);
+%bug here?? going to replace with OG hgt from pos_lidar_enu
+% dhgt_lidar = hgt_lidar - [hgt_lidar(2:end).' 0].';
+dhgt_lidar = pos_lidar_enu(:,3) - [pos_lidar_enu(2:end, 3).' 0].'  ;
+dhgt_lidar = dhgt_lidar(1:end-1); %TODO- still needs arbitrary scaling?
+
 %remove first time_step to keep consistant with dlat, dlon, dhgh_lidar
 t_lidar = t_lidar(2:end);
 
@@ -183,6 +186,11 @@ if pureINS == 0
     t_last_lidar = msrk(1);
 end
 
+%init matrices for storing PM info
+PM_hist_ins = zeros(endIndx,3);
+PM_hist_lidar = zeros(endIndx, 3);
+PM_lidar_last = 0*eye(21); %init uncertainty for lidar
+
 % Start Loop
 gpsCnt = 0;
 lidarCnt = 0;
@@ -211,12 +219,18 @@ while i < endIndx
     
     else
         % GPS/INS solution--------
-        [lla_ins, lla_lidar, vel, rpy, ned, dv, qbn, xHatP, PP, gpsUpdated, lidarUpdated, gpsCnt, lidarCnt, gpsResUpd] = ...
-            ins_gps(lla0_ins, lla0_lidar, vel0, rpy0, dv0, qbn0, msrk, msrk1, gpsmsr, lidarmsr, xHatP, PP, gpsCnt, lidarCnt, t_last_lidar);
+        [lla_ins, lla_lidar, vel, rpy, ned, dv, qbn, xHatP, PP, gpsUpdated, lidarUpdated, gpsCnt, lidarCnt, gpsResUpd, PM_ins, PM_lidar] = ...
+            ins_gps(lla0_ins, lla0_lidar, vel0, rpy0, dv0, qbn0, msrk, msrk1, gpsmsr, lidarmsr, xHatP, PP, gpsCnt, lidarCnt, t_last_lidar, PM_lidar_last);
         
 %         lidarCnt
 %         gpsCnt
-        
+
+        %save info on uncertainty from prediction steps
+%         PM_hist_ins(i-1,:) = sqrt([PM_ins(1,1) PM_ins(2,2), PM_ins(3,3)]);
+%         PM_hist_lidar(i-1,:) = sqrt([PM_lidar(1,1) PM_lidar(2,2), PM_lidar(3,3)]);
+        PM_hist_ins(i-1,:) = [PM_ins(1,1) PM_ins(2,2), PM_ins(3,3)];
+        PM_hist_lidar(i-1,:) = [PM_lidar(1,1) PM_lidar(2,2), PM_lidar(3,3)];
+
         if lidarUpdated == 1
             t_last_lidar = lidarmsr(1);
             lidarmsr = dpos_lidar(lidarCnt+1, :);%update lidar measurement
@@ -237,6 +251,9 @@ while i < endIndx
         if gpsUpdated == 1 && ~isempty(gpsmsr)
             gpsMsrArr(:,gpsCnt) = gpsmsr(1:4)';
         end
+        
+        PM_lidar_last = PM_lidar;
+        
     end
     
     msrArr(:,i-1) = msrk1;
@@ -287,7 +304,7 @@ startTime = time(1);
 % ylabel('{{\Delta}v_z} (m/s)');
 
 
-len = length(time);
+% len = length(time); %horrible choice of var name...
 
 % % Velocity Plots
 % figure(5)
@@ -305,6 +322,18 @@ len = length(time);
 % ylabel('velocity z (m/s)');
 % xlabel('Time (s)');
 
+%covariance plots
+figure(5)
+subplot(3,1,1)
+hold on
+skip_start = 2500;
+plot(time(skip_start:end) - startTime, PM_hist_ins(skip_start:end-2,1)) %starting at skip_start ignores effects of high initial uncertainty
+title('INS')
+ylabel('latitude error ');
+subplot(3,1,2)
+plot(time(skip_start:end) - startTime, PM_hist_lidar(skip_start:end-2,1))
+ylabel('latitude error ');
+title('Lidar')
 
 % Postion Plots
 figure(6)
@@ -722,8 +751,8 @@ rpy = flip(quat2eul(qbn));
 
 end
 
-function [lla_ins, lla_lidar, vel, rpy, ned, dv, qbn, xHatP, PP, gpsUpdated, lidarUpdated, gpsCnt, lidarCnt, gpsResUpd] = ...
-    ins_gps(lla0_ins, lla0_lidar, vel0, rpy0, dv0, qbn0, msrk, msrk1, gpsmsr, lidarmsr, xHatP, PP, gpsCnt, lidarCnt, t_last_lidar)
+function [lla_ins, lla_lidar, vel, rpy, ned, dv, qbn, xHatP, PP, gpsUpdated, lidarUpdated, gpsCnt, lidarCnt, gpsResUpd, PM_ins, PM_lidar] = ...
+    ins_gps(lla0_ins, lla0_lidar, vel0, rpy0, dv0, qbn0, msrk, msrk1, gpsmsr, lidarmsr, xHatP, PP, gpsCnt, lidarCnt, t_last_lidar, PM_lidar_last)
 
 WGS84_A = 6378137.0;           % earth semi-major axis (WGS84) (m) 
 WGS84_B = 6356752.3142;        % earth semi-minor axis (WGS84) (m) 
@@ -1144,7 +1173,7 @@ Q(16,16) = qsg; Q(17,17) = qsg; Q(18,18) = qsg;
 Qk = 0.5*(F*B*Q*B'+B*Q*B'*F')*dt;
 % Qk = (F*B*Q*B'*F')*dt;
 
-% Extended Kalman Filter 
+% Extended Kalman Filter --------
 % was this (only uses INS stuff)
 xHatM = F*xHatP;                    % Forward Euler integration (A priori)
 PM = F*PP*F'+Qk;                    % cov. Estimate
@@ -1154,11 +1183,8 @@ PM = F*PP*F'+Qk;                    % cov. Estimate
 lidartime = lidarmsr(1);
 if lidartime <= msrk1(1) && lidartime > msrk(1)
     %only using lidar translation estimates:
-       %[dxyz dvxyz quats ...] -> 21x1 vec
-       
-    xHatM_ins = xHatM;
-    PM_ins = PM;
-    
+       %[dxyz dvxyz quats ...] -> 21x1 vec    
+   
     %need to scale by amount of time elapsed since last measurement since
     %it is different than INS measurements
     dt_lidar = lidartime - t_last_lidar;
@@ -1170,17 +1196,20 @@ if lidartime <= msrk1(1) && lidartime > msrk(1)
     Qk_lidar = 1e4*ones(21,21); %init arbitrarily high values
     %set useful parts of Qk_lidar based on values determined experimentally
     %over the summer
-    Qk_lidar(1,1) = 0.0025; %sigmax**2
-    Qk_lidar(2,2) = 0.0025; %sigmay**2
+    %meters
+%     Qk_lidar(1,1) = 0.0025; %sigmax**2
+%     Qk_lidar(2,2) = 0.0025; %sigmay**2
     Qk_lidar(3,3) = 0.01;%sigmaz**2
+    %lla (deg)
+    Qk_lidar(1,1) = 2.5e-15; %sigmalon**2
+    Qk_lidar(2,2) = 2.5e-15; %sigmalat**2
     
     Qk_lidar = dt_lidar*Qk_lidar;
-    PM_lidar = F*PP*F' + Qk_lidar;
     
-    %make sure not NaN
-    PM_ins(isnan(PM_ins)) = 1;
-    PM_lidar(isnan(PM_lidar)) = 1;
-       
+    %PM = F*PP*F' + Q
+    PM_lidar = PM_lidar_last + Qk_lidar;
+%     PM_lidar(isnan(PM_lidar)) = 1;
+
     lidarUpdated = 1;
     lidarCnt = lidarCnt + 1;
     
@@ -1189,7 +1218,14 @@ if lidartime <= msrk1(1) && lidartime > msrk(1)
 else
     lidarUpdated = 0;
     lla_lidar = lla0_lidar;
+    PM_lidar = PM_lidar_last; %TODO - figure out a cleaner way to do this
 end
+
+xHatM_ins = xHatM;
+PM_ins = PM;
+
+%make sure not NaN
+PM_ins(isnan(PM_ins)) = 1;
 
 rn = WGS84_A / sqrt(1 - e * e * sin(lla_in(1)) * sin(lla_in(1)));
 rm = WGS84_A * (1 - e * e) / sqrt(power(1 - e * e * sin(lla_in(1)) * sin(lla_in(1)), 3));
