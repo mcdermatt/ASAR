@@ -5,7 +5,7 @@ clear all
 pureINS = 0;                    % Set False for GPS/INS fusion
 addpath('./Data/SPAN');         % Path for data 
 dat = load('signageData.mat');  % Data file
-endIndex = 1e6;                 % Example 1e4 is 50 sec of data @ 200 Hz
+endIndex = 3e4;                 % Example 1e4 is 50 sec of data @ 200 Hz
                                 % If endIndex exceeds max, then reset to max
 % endIndex = 1e4;
 

@@ -151,7 +151,8 @@ imuEndTime = imutime(endIndx);
 gpsEndIndx = max(find(ppptime<=imuEndTime));
 
 %Initialization of Arrays
-xHatP = zeros(21,1);            % state estimate
+xHatM_ins = zeros(21,1);            % state estimate
+xHatM_lidar = zeros(21,1);
 ba = zeros(3,1);                % bias accels
 bg = zeros(3,1);                % bias gyros
 sa = zeros(3,1);                % scale factor accels
@@ -219,9 +220,9 @@ while i < endIndx
     
     else
         % GPS/INS solution--------
-        [lla_ins, lla_lidar, vel, rpy, ned, dv, qbn, xHatP, PP, gpsUpdated, lidarUpdated, gpsCnt, lidarCnt, gpsResUpd, PM_ins, PM_lidar] = ...
-            ins_gps(lla0_ins, lla0_lidar, vel0, rpy0, dv0, qbn0, msrk, msrk1, gpsmsr, lidarmsr, xHatP, PP, gpsCnt, lidarCnt, t_last_lidar, PM_lidar_last);
-        
+        [lla_ins, lla_lidar, vel, rpy, ned, dv, qbn, xHatM_ins, xHatM_lidar, PP, gpsUpdated, lidarUpdated, gpsCnt, lidarCnt, gpsResUpd, PM_ins, PM_lidar] = ...
+            ins_gps(lla0_ins, lla0_lidar, vel0, rpy0, dv0, qbn0, msrk, msrk1, gpsmsr, lidarmsr, xHatM_ins, xHatM_lidar, PP, gpsCnt, lidarCnt, t_last_lidar, PM_lidar_last);
+
 %         lidarCnt
 %         gpsCnt
 
@@ -241,7 +242,7 @@ while i < endIndx
         if gpsUpdated == 1
             gpsmsr = gpspos(gpsCnt+1, :);   
             gps_res(gpsCnt,:) = gpsResUpd;
-            xHatP(1:9) = zeros(9,1);        % Reset error states
+            xHatP_ins(1:9) = zeros(9,1);        % Reset error states
         end
         % Store Data
         resArr_ins(i-1,:) = [lla_ins vel rpy rad2deg(bg')*3600 (ba')*10^6/9.7803267715 (sg')*10^-6 (sa')*10^-6];
@@ -339,20 +340,20 @@ title('Lidar')
 figure(6)
 subplot(3,1,1);
 hold on; grid on
-plot(time-startTime, rad2deg(resArr_ins(:,1)));
-plot(time-startTime, rad2deg(resArr_lidar(:,1)));
+plot(time-startTime, rad2deg(resArr_ins(:,1)), '-o');
+plot(time-startTime, rad2deg(resArr_lidar(:,1)), '-o');
 ylabel('latitude (deg)');
 
 subplot(3,1,2);
 hold on; grid on
-plot(time-startTime, rad2deg(resArr_ins(:,2)));
-plot(time-startTime, rad2deg(resArr_lidar(:,2)));
+plot(time-startTime, rad2deg(resArr_ins(:,2)), '-o');
+plot(time-startTime, rad2deg(resArr_lidar(:,2)), '-o');
 ylabel('longitude (deg)');
 
 subplot(3,1,3);
 hold on; grid on
-plot(time-startTime, resArr_ins(:,3));
-plot(time-startTime, resArr_lidar(:,3));
+plot(time-startTime, resArr_ins(:,3), '-o');
+plot(time-startTime, resArr_lidar(:,3), '-o');
 
 
 len = length(time);
@@ -751,8 +752,8 @@ rpy = flip(quat2eul(qbn));
 
 end
 
-function [lla_ins, lla_lidar, vel, rpy, ned, dv, qbn, xHatP, PP, gpsUpdated, lidarUpdated, gpsCnt, lidarCnt, gpsResUpd, PM_ins, PM_lidar] = ...
-    ins_gps(lla0_ins, lla0_lidar, vel0, rpy0, dv0, qbn0, msrk, msrk1, gpsmsr, lidarmsr, xHatP, PP, gpsCnt, lidarCnt, t_last_lidar, PM_lidar_last)
+function [lla_ins, lla_lidar, vel, rpy, ned, dv, qbn, xHatM_ins, xHatM_lidar, PP, gpsUpdated, lidarUpdated, gpsCnt, lidarCnt, gpsResUpd, PM_ins, PM_lidar] = ...
+    ins_gps(lla0_ins, lla0_lidar, vel0, rpy0, dv0, qbn0, msrk, msrk1, gpsmsr, lidarmsr, xHatM_ins, xHatM_lidar, PP, gpsCnt, lidarCnt, t_last_lidar, PM_lidar_last)
 
 WGS84_A = 6378137.0;           % earth semi-major axis (WGS84) (m) 
 WGS84_B = 6356752.3142;        % earth semi-minor axis (WGS84) (m) 
@@ -1175,7 +1176,7 @@ Qk = 0.5*(F*B*Q*B'+B*Q*B'*F')*dt;
 
 % Extended Kalman Filter --------
 % was this (only uses INS stuff)
-xHatM = F*xHatP;                    % Forward Euler integration (A priori)
+xHatM_ins = F*xHatM_ins;                    % Forward Euler integration (A priori)
 PM = F*PP*F'+Qk;                    % cov. Estimate
 
 
@@ -1221,11 +1222,10 @@ else
     PM_lidar = PM_lidar_last; %TODO - figure out a cleaner way to do this
 end
 
-xHatM_ins = xHatM;
 PM_ins = PM;
 
 %make sure not NaN
-PM_ins(isnan(PM_ins)) = 1;
+% PM_ins(isnan(PM_ins)) = 1;
 
 rn = WGS84_A / sqrt(1 - e * e * sin(lla_in(1)) * sin(lla_in(1)));
 rm = WGS84_A * (1 - e * e) / sqrt(power(1 - e * e * sin(lla_in(1)) * sin(lla_in(1)), 3));
@@ -1246,13 +1246,15 @@ coeff = diag([(rm+lla_in(3)); ((rn+lla_in(3))*cos(lla_in(1))); -1]);
 % update with GPS measurements
 if gpstime <= msrk1(1) && gpstime > msrk(1)  % If GPS time between two inertial measurement times, do an update %
     
-
-      % TODO: combine xHat_ins and xHat_lidar using WLS
+      % TODO: fuse xHat_ins and xHat_lidar using WLS
 %     W = [pinv(PM_ins) zeros(21,21); zeros(21,21) pinv(PM_lidar)];
 %     A = [eye(21); eye(21)];
 %     xHatM = pinv(A.'*W*A)*(A.')*W*[xHatM_lidar; xHatM_ins];
 %     PM = pinv(A.'*W*A)*(A.')*W*[PM_lidar; PM_ins];   
-    
+
+    %TEMP
+    xHatM = xHatM_ins;
+
     R = 0.01*diag(gpsmsr(5:7).^2);  % R matrix -- note coefficient of 0.01!!!
     
 %    dr = [2.52;0.794;-0.468];  % LEVER ARM in m (XYZ body frame, YX(-Z) aligns with NED)
@@ -1272,7 +1274,6 @@ if gpstime <= msrk1(1) && gpstime > msrk(1)  % If GPS time between two inertial 
     xHatP = xHatM + L*(y-yHat);         % a posteriori estimate
     PP = (eye(size(F))-L*H)*PM*(eye(size(F))-L*H)'+L*R*L';
     
-    %TODO: combine lla_ins and lla_lidar before here...
     lla_ins = lla_ins - (xHatP(1:3))';
  
     xi = xHatP(7:9);
@@ -1302,8 +1303,11 @@ if gpstime <= msrk1(1) && gpstime > msrk(1)  % If GPS time between two inertial 
     
     gpsUpdated = 1;
     gpsCnt = gpsCnt + 1;
+    
+    %TODO: set this to some nonzero initial uncertainty
+    PM_lidar = zeros(21,21);
 else
-    xHatP = xHatM;
+%     xHatP = xHatM; %TODO-- figure out if I should still output this...
     PP = PM;
     
     gpsResUpd = [];
