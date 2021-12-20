@@ -11,6 +11,7 @@ dat = load('signageData.mat');  % Data file
 endIndx = 2e4; %was 1e6                  % Example 1e4 is 50 sec of data @ 200 Hz % If endIndex exceeds max, then reset to max
 % endIndx = 1e5;                                 
 fuse_lidar = 1;                 % combine xHat_ins with xHat_lidar at each GPS measurement                         
+fuse_gps = 0;                   % if 0, just INS and Lidar are fused keyed as GPS measurement timestamps
 
 % while i < 50000  % analyze first 250 sec
 % while i < len  % analyze whole file
@@ -153,9 +154,9 @@ gpsEndIndx = max(find(ppptime<=imuEndTime));
 
 %Initialization of Arrays
 xHatM_ins = double(zeros(21,1));            % state estimate
-xHatM_lidar = double(zeros(21,1));
+xHatM_lidar = double(zeros(3,1));
 xHatM_ins_hist = double(zeros(gpsEndIndx, 21)); %cumulative vars for summing between GPS keyframes
-xHatM_lidar_hist = double(zeros(gpsEndIndx, 21));
+xHatM_lidar_hist = double(zeros(gpsEndIndx, 3));
 xHatM_combined_hist = double(zeros(gpsEndIndx, 21));
 ba = zeros(3,1);                % bias accels
 bg = zeros(3,1);                % bias gyros
@@ -189,12 +190,12 @@ lidarmsr = dpos_lidar(1, :);
 lla0_lidar = lla0_ins;
 t_last_lidar = msrk(1);
 xHatM_ins_cum = zeros(21,1);
-xHatM_lidar_cum = zeros(21,1);
+xHatM_lidar_cum = zeros(3,1);
 
 %init matrices for storing PM info
 PM_hist_ins = zeros(endIndx,3);
 PM_hist_lidar = zeros(endIndx, 3);
-PM_lidar_last = 0*eye(21); %init uncertainty for lidar
+PM_lidar_last = 0*eye(3); %init uncertainty for lidar
 
 % figure()
 % hold on
@@ -224,10 +225,12 @@ while i < endIndx
 
     % GPS/INS solution--------
     [lla_ins, lla_lidar, vel, rpy, ned, dv, qbn, xHatM_ins, xHatM_lidar, xHatM_combined, PP, gpsUpdated, lidarUpdated, gpsCnt, lidarCnt, gpsResUpd, PM_ins, PM_lidar] = ...
-        ins_gps(lla0_ins, lla0_lidar, vel0, rpy0, dv0, qbn0, msrk, msrk1, gpsmsr, lidarmsr, xHatM_ins, xHatM_lidar, xHatM_ins_cum, xHatM_lidar_cum, PP, gpsCnt, lidarCnt, t_last_lidar, PM_lidar_last, fuse_lidar);
+        ins_gps(lla0_ins, lla0_lidar, vel0, rpy0, dv0, qbn0, msrk, msrk1, gpsmsr, lidarmsr, xHatM_ins, xHatM_lidar, xHatM_ins_cum, xHatM_lidar_cum, PP, gpsCnt, lidarCnt, t_last_lidar, PM_lidar_last, fuse_lidar, fuse_gps);
     
 %         lidarCnt
 %         gpsCnt
+%     size(xHatM_combined)
+
 
     %save info on uncertainty from prediction steps
 %         PM_hist_ins(i-1,:) = sqrt([PM_ins(1,1) PM_ins(2,2), PM_ins(3,3)]);
@@ -249,8 +252,9 @@ while i < endIndx
         gpsmsr = gpspos(gpsCnt+1, :);   
         gps_res(gpsCnt,:) = gpsResUpd;
         xHatP_ins(1:9) = zeros(9,1);        % Reset error states
-        xHatM_combined_hist(gpsCnt,:) = xHatM_combined;
+        xHatM_combined_hist(gpsCnt+1,:) = xHatM_combined;
     end
+%     lla_ins(1)-lla0_ins(1)
     % Store Data
     resArr_ins(i-1,:) = [lla_ins vel rpy rad2deg(bg')*3600 (ba')*10^6/9.7803267715 (sg')*10^-6 (sa')*10^-6];
     resArr_lidar(i-1,:) = [lla_lidar vel rpy rad2deg(bg')*3600 (ba')*10^6/9.7803267715 (sg')*10^-6 (sa')*10^-6];
@@ -259,9 +263,11 @@ while i < endIndx
     if gpsUpdated == 1 && ~isempty(gpsmsr)
         gpsMsrArr(:,gpsCnt) = gpsmsr(1:4)';
     end
-
+    
+%     size(PM_lidar)
     PM_lidar_last = PM_lidar;
-        
+    
+%     lla_ins(1) - lla0_ins(1)
     
     msrArr(:,i-1) = msrk1;
     lla0_ins = lla_ins; 
@@ -457,7 +463,7 @@ rn_list = WGS84_A ./ sqrt(1 - e * e * sin(resArr(:,1)).^2);
 rm_list = WGS84_A * (1 - e * e) ./ sqrt(power(1 - e * e * sin(resArr(:,1)).^2, 3));
 
 function [lla_ins, lla_lidar, vel, rpy, ned, dv, qbn, xHatM_ins, xHatM_lidar, xHatM_combined, PP, gpsUpdated, lidarUpdated, gpsCnt, lidarCnt, gpsResUpd, PM_ins, PM_lidar] = ...
-    ins_gps(lla0_ins, lla0_lidar, vel0, rpy0, dv0, qbn0, msrk, msrk1, gpsmsr, lidarmsr, xHatM_ins, xHatM_lidar, xHatM_ins_cum, xHatM_lidar_cum, PP, gpsCnt, lidarCnt, t_last_lidar, PM_lidar_last, fuse_lidar)
+    ins_gps(lla0_ins, lla0_lidar, vel0, rpy0, dv0, qbn0, msrk, msrk1, gpsmsr, lidarmsr, xHatM_ins, xHatM_lidar, xHatM_ins_cum, xHatM_lidar_cum, PP, gpsCnt, lidarCnt, t_last_lidar, PM_lidar_last, fuse_lidar, fuse_gps)
 
 WGS84_A = 6378137.0;           % earth semi-major axis (WGS84) (m) 
 WGS84_B = 6356752.3142;        % earth semi-minor axis (WGS84) (m) 
@@ -897,21 +903,26 @@ if lidartime <= msrk1(1) && lidartime > msrk(1)
     dt_lidar = lidartime - t_last_lidar;
     dlla_lidar_scaled = lidarmsr(2:end)/dt_lidar*dt;
     dlla_lidar_scaled = dlla_lidar_scaled/2.54; %DEBUG- not sure why I need to scale in -> cm ...
-    xHatM_lidar = [dlla_lidar_scaled zeros(1,18)].'; %just looking at changes in pos (no delta_rotation)
-    
-    %set noise covariance matrix for lidar
-    Qk_lidar = 1e4*ones(21,21); %init arbitrarily high values
-%     Qk_lidar = zeros(21,21);
+    xHatM_lidar = [dlla_lidar_scaled].'; %was this -just looking at changes in pos (no delta_rotation)
+%     xHatM_lidar = lidarmsr(2:end).'*dt_lidar;
 
-    %set useful parts of Qk_lidar based on values determined experimentally
-    %over the summer
-    
+    %set noise covariance matrix for lidar
+    Qk_lidar = 1e4*ones(3,3); %init arbitrarily high values
+    %set useful parts of Qk_lidar based on values determined experimentally over the summer
     Qk_lidar(3,3) = 0.01;%sigmaz**2 (meters)
     Qk_lidar(1,1) = 2.5e-15; %sigmalon**2 (deg)
     Qk_lidar(2,2) = 2.5e-15; %sigmalat**2 (deg)
-
-    Qk_lidar = dt_lidar*Qk_lidar;
     
+    %test
+%     Qk_lidar = zeros(21,21);
+%     Qk_lidar(1,2) = 2.5e-15; Qk_lidar(1,3) = 2.5e-15; 
+%     Qk_lidar(2,1) = 2.5e-15; Qk_lidar(2,3) = 2.5e-15;
+%     Qk_lidar(3,1) = 2.5e-15; Qk_lidar(3,2) = 2.5e-15;
+    
+    %TODO-- figure out if I should scale Qk_lidar by time
+%     Qk_lidar = dt_lidar*Qk_lidar;
+    Qk_lidar = Qk_lidar*(lidartime - t_last_lidar); 
+
     %PM = F*PP*F' + Q
     PM_lidar = PM_lidar_last + Qk_lidar;
 %     PM_lidar(isnan(PM_lidar)) = 1;
@@ -955,107 +966,97 @@ if gpstime <= msrk1(1) && gpstime > msrk(1)  % If GPS time between two inertial 
 %     PM = pinv(A.'*W*A)*(A.')*W*[PM_lidar; PM_ins];   
 
     if fuse_lidar == 1
-%         xHatM = xHatM_ins; %temp
-        
-        W = [PM_lidar zeros(21,21); zeros(21,21) PM_ins];
-%         W = pinv([pinv(PM_ins) zeros(21,21); zeros(21,21) pinv(PM_lidar)]); %does not work
-        
 
-        %H transforms states from world units back to sensor units
-        H_ins = eye(21);
-        H_lidar = [eye(6), zeros(6,15); zeros(15,21)];
-        H = [H_lidar; H_ins];
-
-%         A = [eye(21); eye(21)];
-        A = H;
+%         size(xHatM_lidar)
         
-        %these need to be CUMULATIVE!!
-        xHatM_combined = pinv(A.'*W*A)*(A.')*W*[xHatM_lidar_cum.'; xHatM_ins_cum.'];
-%         'combined'
-%         xHatM_combined(1)
-%         'ins cum'
-%         xHatM_ins_cum(1)
-               
-        %R contains the covariance of sensor noise for each sensor modality
-        R = [PM_lidar, eye(21); eye(21), PM_ins];        
-        'PM_lidar'
-        PM_lidar(1:3,1:3)
-        'PM_ins'
-        PM_ins(1:3,1:3)
+        %NOTE: currently using lidar for POSITION ONLY
         
-        PM_combined = pinv( (H.')*pinv(R)*H );
-    
-        %need to rescale since xHatM_combined is cumulative over ~1s
-        xHatM = xHatM_combined*dt; 
-        PM = PM_combined;
+        PM_combined = [PM_ins, zeros(21,3); zeros(3,21), PM_lidar];
+        
+        W = pinv(PM_combined); %supposed to be this
+%         W = pinv([pinv(PM_ins), zeros(21,3); zeros(3,21), pinv(PM_lidar)]);
 
-        %debug
-%         xHatM = xHatM_ins;
+        H = [eye(21); eye(3), zeros(3,18)];
+%         xHatM_combined = pinv((H.')*W*H)*((H.')*W)*[xHatM_ins; xHatM_lidar];
+        xHatM_combined = pinv((H.')*W*H)*((H.')*W)*[xHatM_ins; xHatM_lidar*10]; %need to multiply by 10 to work??
+        
+        %temp
+        xHatM = xHatM_ins;
         PM = PM_ins;
-
+        
     else
         xHatM = xHatM_ins;
         
     end
 
     R = 0.01*diag(gpsmsr(5:7).^2);  % R matrix -- note coefficient of 0.01!!!
-    
+
 %    dr = [2.52;0.794;-0.468];  % LEVER ARM in m (XYZ body frame, YX(-Z) aligns with NED)
     dr = [0;0;0];  % LEVER ARM in m (XYZ body frame, YX(-Z) aligns with NED)
     lla_gps_corr = coeff*(gpsmsr(2:4))' - cbn*dr;
 
     y = coeff*lla_in' - lla_gps_corr;
-    
+
     gpsResUpd = [gpstime, lla_gps_corr'];
     
-    H = zeros(3,21);
-    H(1:3, 1:3) = coeff;
+    if fuse_gps == 1
     
-    %FROM GPS DATA
-    L = PM*H'*inv(H*PM*H'+R);
-    yHat = H*xHatM;
-    xHatP = xHatM + L*(y-yHat);         % a posteriori estimate
-    PP = (eye(size(F))-L*H)*PM*(eye(size(F))-L*H)'+L*R*L';
-    
-    lla_ins = lla_ins - (xHatP(1:3))';
- 
-    xi = xHatP(7:9);
-    E = [0 -xi(3) xi(2); xi(3) 0 -xi(1); -xi(2) xi(1) 0];
-    cbn = (eye(3)+E)*cbn;
-    
-    vel = vel - (xHatP(4:6))';
-    
-    %comment out below to ignore correction step- not ideal but helps
-    %convergence??
-    qbn = dcm2quat(cbn');
-    
-    % normalization
-%     e_q = sumsqr(qbn);
-%     e_q = 1 - 0.5 * (e_q - 1);
-%     qbn = e_q.*qbn;
-    qbn = quatnormalize(qbn);
-    
-    % flip the sign if two quaternions are opposite in sign
-    if (qbn(1)*qbn0(1)<0)
-        qbn = -qbn;
-    end
-    
-    rpy = flip(quat2eul(qbn));
-    
-    dv = vel - vel0;
-    
-    gpsUpdated = 1;
-    gpsCnt = gpsCnt + 1;
-    
-    %TODO: set this to some nonzero initial uncertainty
-    PM_lidar = zeros(21,21);
+        
 
-%     xHatM_ins = xHatP; %test
-    
+        H = zeros(3,21);
+        H(1:3, 1:3) = coeff;
+
+        %FROM GPS DATA
+        L = PM*H'*inv(H*PM*H'+R);
+        yHat = H*xHatM;
+        xHatP = xHatM + L*(y-yHat);         % a posteriori estimate
+        PP = (eye(size(F))-L*H)*PM*(eye(size(F))-L*H)'+L*R*L';
+
+        lla_ins = lla_ins - (xHatP(1:3))';
+
+        xi = xHatP(7:9);
+        E = [0 -xi(3) xi(2); xi(3) 0 -xi(1); -xi(2) xi(1) 0];
+        cbn = (eye(3)+E)*cbn;
+
+        vel = vel - (xHatP(4:6))';
+
+        %comment out below to ignore correction step- not ideal but helps
+        %convergence??
+        qbn = dcm2quat(cbn');
+
+        % normalization
+    %     e_q = sumsqr(qbn);
+    %     e_q = 1 - 0.5 * (e_q - 1);
+    %     qbn = e_q.*qbn;
+        qbn = quatnormalize(qbn);
+
+        % flip the sign if two quaternions are opposite in sign
+        if (qbn(1)*qbn0(1)<0)
+            qbn = -qbn;
+        end
+
+        rpy = flip(quat2eul(qbn));
+
+        dv = vel - vel0;
+
+        gpsUpdated = 1;
+        gpsCnt = gpsCnt + 1;
+
+        %TODO: set this to some nonzero initial uncertainty
+        PM_lidar = zeros(3,3);
+
+%         xHatM_ins = xHatP; %test
+    else
+        PP = PM;
+        xHatM_combined = zeros(21,1); %placeholder
+
+        gpsUpdated = 1;
+        gpsCnt = gpsCnt + 1;
+    end
 else
 %     xHatP = xHatM; %TODO-- figure out if I should still output this...
     PP = PM;
-    xHatM_combined = zeros(21);
+    xHatM_combined = zeros(21,1); %placeholder
     
     gpsResUpd = [];
     gpsUpdated = 0;

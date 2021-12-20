@@ -5,7 +5,7 @@ clear all
 pureINS = 0;                    % Set False for GPS/INS fusion
 addpath('./Data/SPAN');         % Path for data 
 dat = load('signageData.mat');  % Data file
-endIndex = 3e4;                 % Example 1e4 is 50 sec of data @ 200 Hz
+endIndex = 1e4;                 % Example 1e4 is 50 sec of data @ 200 Hz
                                 % If endIndex exceeds max, then reset to max
 % endIndex = 1e4;
 
@@ -304,29 +304,29 @@ t0 = min(qbnRefTime(1), qbnTime(1));
 qbnTime = qbnTime - t0;
 qbnRefTime = qbnRefTime - t0;
 % Quaternion plot
-figure(8)
-fg1 = subplot(4,1,1);
-plot(qbnTime, qbnArr(:,1));
-hold on; grid on
-plot(qbnRefTime, qbnRef(:,1));
-ylabel('{q_1}');
-fg2 = subplot(4,1,2);
-plot(qbnTime, qbnArr(:,2));
-hold on; grid on
-plot(qbnRefTime, qbnRef(:,2));
-ylabel('{q_2}');
-fg3 = subplot(4,1,3);
-plot(qbnTime, qbnArr(:,3));
-hold on; grid on
-plot(qbnRefTime, qbnRef(:,3));
-ylabel('{q_3}');
-fg4 = subplot(4,1,4);
-plot(qbnTime, qbnArr(:,4));
-hold on; grid on
-plot(qbnRefTime, qbnRef(:,4));
-ylabel('{q_4}');
-linkaxes([fg1,fg2,fg3,fg4]);
-xlim([0 qbnTime(end)]);
+% figure(8)
+% fg1 = subplot(4,1,1);
+% plot(qbnTime, qbnArr(:,1));
+% hold on; grid on
+% plot(qbnRefTime, qbnRef(:,1));
+% ylabel('{q_1}');
+% fg2 = subplot(4,1,2);
+% plot(qbnTime, qbnArr(:,2));
+% hold on; grid on
+% plot(qbnRefTime, qbnRef(:,2));
+% ylabel('{q_2}');
+% fg3 = subplot(4,1,3);
+% plot(qbnTime, qbnArr(:,3));
+% hold on; grid on
+% plot(qbnRefTime, qbnRef(:,3));
+% ylabel('{q_3}');
+% fg4 = subplot(4,1,4);
+% plot(qbnTime, qbnArr(:,4));
+% hold on; grid on
+% plot(qbnRefTime, qbnRef(:,4));
+% ylabel('{q_4}');
+% linkaxes([fg1,fg2,fg3,fg4]);
+% xlim([0 qbnTime(end)]);
 
 % qbnArr_enu = [qbnArr(:,1) qbnArr(:,3) qbnArr(:,2) -qbnArr(:,4)];
 qbnArr_enu = [qbnArr(:,1) qbnArr(:,3) qbnArr(:,4) -qbnArr(:,2)];
@@ -356,27 +356,27 @@ rpyArr = quat2eul(qbnArr_enu);
 % xlim([0 qbnTime(end)]);
 
 % Quaternion plot
-figure(7)
-subplot(4,1,1);
-plot(qbnArr(:,1));
-hold on; grid on
-% plot(qbnRef(1:len,4));
-ylabel('{q_1}');
-subplot(4,1,2);
-plot(qbnArr(:,2));
-hold on; grid on
-% plot(qbnRef(1:len,2));
-ylabel('{q_2}');
-subplot(4,1,3);
-plot(qbnArr(:,3));
-hold on; grid on
-% plot(qbnRef(1:len,1));
-ylabel('{q_3}');
-subplot(4,1,4);
-plot(qbnArr(:,4));
-hold on; grid on
-% plot(-qbnRef(1:len,3));
-ylabel('{q_4}');
+% figure(7)
+% subplot(4,1,1);
+% plot(qbnArr(:,1));
+% hold on; grid on
+% % plot(qbnRef(1:len,4));
+% ylabel('{q_1}');
+% subplot(4,1,2);
+% plot(qbnArr(:,2));
+% hold on; grid on
+% % plot(qbnRef(1:len,2));
+% ylabel('{q_2}');
+% subplot(4,1,3);
+% plot(qbnArr(:,3));
+% hold on; grid on
+% % plot(qbnRef(1:len,1));
+% ylabel('{q_3}');
+% subplot(4,1,4);
+% plot(qbnArr(:,4));
+% hold on; grid on
+% % plot(-qbnRef(1:len,3));
+% ylabel('{q_4}');
 
 
 % compute rn, rm
@@ -865,7 +865,7 @@ if gpstime <= msrk1(1) && gpstime > msrk(1)  % If GPS time between two inertial 
     
     vel = vel - (xHatP(4:6))';
     
-%   qbn = dcm2quat(cbn');
+  qbn = dcm2quat(cbn');
     
     % normalization
 %     e_q = sumsqr(qbn);
