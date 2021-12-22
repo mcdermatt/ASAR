@@ -9,9 +9,8 @@ clear all
 addpath('./Data/SPAN');         % Path for data 
 dat = load('signageData.mat');  % Data file
 endIndx = 2e4; %was 1e6                  % Example 1e4 is 50 sec of data @ 200 Hz % If endIndex exceeds max, then reset to max
-% endIndx = 1e5;                                 
 fuse_lidar = 1;                 % combine xHat_ins with xHat_lidar at each GPS measurement                         
-fuse_gps = 0;                   % if 0, just INS and Lidar are fused keyed as GPS measurement timestamps
+fuse_gps = 1;                   % if 0, just INS and Lidar are fused keyed as GPS measurement timestamps
 
 % while i < 50000  % analyze first 250 sec
 % while i < len  % analyze whole file
@@ -188,6 +187,8 @@ msrk = msrk';
 gpsmsr = gpspos(1,:);
 lidarmsr = dpos_lidar(1, :);
 lla0_lidar = lla0_ins;
+lla0_combined = lla0_ins;
+lla_combined_hist = zeros(3, gpsEndIndx); %array to hold lla_combined data
 t_last_lidar = msrk(1);
 xHatM_ins_cum = zeros(21,1);
 xHatM_lidar_cum = zeros(3,1);
@@ -224,35 +225,30 @@ while i < endIndx
     msrk1(7) =  msrk1(7) - bias*dt; 
 
     % GPS/INS solution--------
-    [lla_ins, lla_lidar, vel, rpy, ned, dv, qbn, xHatM_ins, xHatM_lidar, xHatM_combined, PP, gpsUpdated, lidarUpdated, gpsCnt, lidarCnt, gpsResUpd, PM_ins, PM_lidar] = ...
-        ins_gps(lla0_ins, lla0_lidar, vel0, rpy0, dv0, qbn0, msrk, msrk1, gpsmsr, lidarmsr, xHatM_ins, xHatM_lidar, xHatM_ins_cum, xHatM_lidar_cum, PP, gpsCnt, lidarCnt, t_last_lidar, PM_lidar_last, fuse_lidar, fuse_gps);
+    [lla_ins, lla_lidar, lla_combined, vel, rpy, ned, dv, qbn, xHatM_ins, xHatM_lidar, xHatM_combined, PP, gpsUpdated, lidarUpdated, gpsCnt, lidarCnt, gpsResUpd, PM_ins, PM_lidar] = ...
+        ins_gps(lla0_ins, lla0_lidar, lla0_combined, vel0, rpy0, dv0, qbn0, msrk, msrk1, gpsmsr, lidarmsr, xHatM_ins, xHatM_lidar, xHatM_ins_cum, xHatM_lidar_cum, PP, gpsCnt, lidarCnt, t_last_lidar, PM_lidar_last, fuse_lidar, fuse_gps);
     
-%         lidarCnt
-%         gpsCnt
-%     size(xHatM_combined)
-
-
     %save info on uncertainty from prediction steps
-%         PM_hist_ins(i-1,:) = sqrt([PM_ins(1,1) PM_ins(2,2), PM_ins(3,3)]);
-%         PM_hist_lidar(i-1,:) = sqrt([PM_lidar(1,1) PM_lidar(2,2), PM_lidar(3,3)]);
     PM_hist_ins(i-1,:) = [PM_ins(1,1) PM_ins(2,2), PM_ins(3,3)];
     PM_hist_lidar(i-1,:) = [PM_lidar(1,1) PM_lidar(2,2), PM_lidar(3,3)];
 
     if lidarUpdated == 1
         t_last_lidar = lidarmsr(1);
         lidarmsr = dpos_lidar(lidarCnt+1, :);%update lidar measurement
-%             (lla - lla_last_lidar) %TODO- debug here lla_last_lidar is misbehaving
         lla0_lidar = lla_lidar;           
         xHatM_lidar_hist(gpsCnt+1,:) = xHatM_lidar_hist(gpsCnt+1,:) + xHatM_lidar.';
     end
 
     xHatM_ins_hist(gpsCnt+1,:) = xHatM_ins_hist(gpsCnt+1,:) + xHatM_ins.';
     
+    
     if gpsUpdated == 1
         gpsmsr = gpspos(gpsCnt+1, :);   
         gps_res(gpsCnt,:) = gpsResUpd;
         xHatP_ins(1:9) = zeros(9,1);        % Reset error states
         xHatM_combined_hist(gpsCnt+1,:) = xHatM_combined;
+        lla_combined_hist(:,gpsCnt) = lla_combined;
+        lla0_combined = lla_combined;
     end
 %     lla_ins(1)-lla0_ins(1)
     % Store Data
@@ -279,65 +275,22 @@ while i < endIndx
     
     xHatM_ins_cum = xHatM_ins_hist(gpsCnt+1,:);
     xHatM_lidar_cum = xHatM_lidar_hist(gpsCnt+1,:);
-   
+    
+%     xHatM_ins_cum(1:3)
+%     xHatM_ins(1:3)
+%     gpsCnt
+    
+    %test
+    PP = PM_ins;
+    
     i = i+1;  
 end 
 
 
-% plots
+% (((more plots in Liangchun's file)))
 
 time = msrArr(1,:);
 startTime = time(1);
-
-% % Raw Gyro data
-% figure(3)
-% subplot(3,1,1);
-% plot(time-startTime, rad2deg(msrArr(2,:)), '.-');
-% hold on; grid on
-% ylabel('{{\Delta}{\theta}_x} (deg)');
-% subplot(3,1,2);
-% plot(time-startTime, rad2deg(msrArr(3,:)), '.-');
-% hold on; grid on
-% ylabel('{{\Delta}{\theta}_y} (deg)');
-% subplot(3,1,3);
-% plot(time-startTime, rad2deg(msrArr(4,:)), '.-');
-% hold on; grid on
-% ylabel('{{\Delta}{\theta}_z} (deg)');
-% xlabel('Time (s)');
-% 
-% % Raw Accel data
-% figure(4)
-% subplot(3,1,1);
-% plot(time-startTime, msrArr(5,:), '.-');
-% hold on; grid on
-% ylabel('{{\Delta}v_x} (m/s)');
-% subplot(3,1,2);
-% plot(time-startTime, msrArr(6,:), '.-');
-% hold on; grid on
-% ylabel('{{\Delta}v_y} (m/s)');
-% subplot(3,1,3);
-% plot(time-startTime, msrArr(7,:), '.-');
-% hold on; grid on
-% ylabel('{{\Delta}v_z} (m/s)');
-
-
-% len = length(time); %horrible choice of var name...
-
-% % Velocity Plots
-% figure(5)
-% subplot(3,1,1);
-% plot(time-startTime, resArr_ins(:,4));
-% hold on; grid on
-% ylabel('velocity x (m/s)');
-% subplot(3,1,2);
-% plot(time-startTime, resArr_ins(:,5));
-% hold on; grid on
-% ylabel('velocity y (m/s)');
-% subplot(3,1,3);
-% plot(time-startTime, resArr_ins(:,6));
-% hold on; grid on
-% ylabel('velocity z (m/s)');
-% xlabel('Time (s)');
 
 %plot summed xHats between GPS frames for INS and Lidar
 figure()
@@ -357,11 +310,16 @@ hold on
 skip_start = 2500;
 plot(time(skip_start:end) - startTime, PM_hist_ins(skip_start:end-2,1)) %starting at skip_start ignores effects of high initial uncertainty
 title('INS')
-ylabel('latitude error ');
+ylabel('PMins(1,1) ');
 subplot(3,1,2)
 plot(time(skip_start:end) - startTime, PM_hist_lidar(skip_start:end-2,1))
-ylabel('latitude error ');
+ylabel('PMlidar(1,1)');
 title('Lidar')
+subplot(3,1,3)
+plot(time(skip_start:end) - startTime, PM_hist_lidar(skip_start:end-2,1)+PM_hist_ins(skip_start:end-2,1))
+ylabel('PMcombined(1,1)');
+title('Lidar + INS combined')
+
 
 % Postion Plots
 figure(6)
@@ -369,6 +327,7 @@ subplot(3,1,1);
 hold on; grid on
 plot(time-startTime, rad2deg(resArr_ins(:,1)));
 plot(time-startTime, rad2deg(resArr_lidar(:,1)));
+% plot(time-startTime, rad2deg(lla_combined_hist(1,1:end-1))); %not working
 ylabel('latitude (deg)');
 
 subplot(3,1,2);
@@ -391,10 +350,13 @@ xlabel('Time (s)');
 subplot(3,1,1);
 
 %find timesteps where gpsMsrArr != 0
-nonzero = find( gpsMsrArr(1,:) ~= 0);
+nonzero = find( gpsMsrArr(1,:) ~= 0); %nonzero elements of GPS
 %     plot(gpsMsrArr(1, :)-startTime, gpsMsrArr(2, :));
 plot(gpsMsrArr(1, nonzero)-startTime, gpsMsrArr(2, nonzero));
-legend('LLA INS', 'LLA Lidar Dead Reckoning', 'pure GPS')
+nonzero_combined = find(lla_combined_hist(1,:) ~= 0); %nonzero elements of INS+Lidar fused estiamtes (occur on GPS timesteps)
+plot(gpsMsrArr(1,nonzero_combined)-startTime, rad2deg(lla_combined_hist(1,nonzero_combined)))
+legend('LLA INS', 'LLA Lidar Dead Reckoning', 'pure GPS', 'Lidar and INS only')
+% legend('LLA INS', 'LLA Lidar Dead Reckoning', 'pure GPS') %temp
 hold on; grid on
 ylabel('latitude (deg)');
 subplot(3,1,2);
@@ -462,8 +424,8 @@ e = sqrt(WGS84_A * WGS84_A - WGS84_B * WGS84_B) / WGS84_A;
 rn_list = WGS84_A ./ sqrt(1 - e * e * sin(resArr(:,1)).^2);
 rm_list = WGS84_A * (1 - e * e) ./ sqrt(power(1 - e * e * sin(resArr(:,1)).^2, 3));
 
-function [lla_ins, lla_lidar, vel, rpy, ned, dv, qbn, xHatM_ins, xHatM_lidar, xHatM_combined, PP, gpsUpdated, lidarUpdated, gpsCnt, lidarCnt, gpsResUpd, PM_ins, PM_lidar] = ...
-    ins_gps(lla0_ins, lla0_lidar, vel0, rpy0, dv0, qbn0, msrk, msrk1, gpsmsr, lidarmsr, xHatM_ins, xHatM_lidar, xHatM_ins_cum, xHatM_lidar_cum, PP, gpsCnt, lidarCnt, t_last_lidar, PM_lidar_last, fuse_lidar, fuse_gps)
+function [lla_ins, lla_lidar, lla_combined, vel, rpy, ned, dv, qbn, xHatM_ins, xHatM_lidar, xHatM_combined, PP, gpsUpdated, lidarUpdated, gpsCnt, lidarCnt, gpsResUpd, PM_ins, PM_lidar] = ...
+    ins_gps(lla0_ins, lla0_lidar, lla0_combined, vel0, rpy0, dv0, qbn0, msrk, msrk1, gpsmsr, lidarmsr, xHatM_ins, xHatM_lidar, xHatM_ins_cum, xHatM_lidar_cum, PP, gpsCnt, lidarCnt, t_last_lidar, PM_lidar_last, fuse_lidar, fuse_gps)
 
 WGS84_A = 6378137.0;           % earth semi-major axis (WGS84) (m) 
 WGS84_B = 6356752.3142;        % earth semi-minor axis (WGS84) (m) 
@@ -887,8 +849,8 @@ Qk = 0.5*(F*B*Q*B'+B*Q*B'*F')*dt;
 % Extended Kalman Filter --------
 % was this (only uses INS stuff)
 xHatM_ins(1:3) = lla_ins - lla0_ins;
-% xHatM_ins(4:6) = vel - vel0;
-xHatM_ins = F*xHatM_ins;                    % Forward Euler integration (A priori)
+xHatM_ins(4:6) = vel - vel0;
+% xHatM_ins = F*xHatM_ins;          % Forward Euler integration (A priori)
 PM = F*PP*F'+Qk;                    % cov. Estimate
 
 
@@ -907,21 +869,21 @@ if lidartime <= msrk1(1) && lidartime > msrk(1)
 %     xHatM_lidar = lidarmsr(2:end).'*dt_lidar;
 
     %set noise covariance matrix for lidar
-    Qk_lidar = 1e4*ones(3,3); %init arbitrarily high values
+%     Qk_lidar = 1e4*ones(3,3); %init arbitrarily high values
+    Qk_lidar = zeros(3,3); %test w/ zeros
     %set useful parts of Qk_lidar based on values determined experimentally over the summer
-    Qk_lidar(3,3) = 0.01;%sigmaz**2 (meters)
-    Qk_lidar(1,1) = 2.5e-15; %sigmalon**2 (deg)
-    Qk_lidar(2,2) = 2.5e-15; %sigmalat**2 (deg)
+    Qk_lidar(3,3) = 0.0001;%sigmaz**2 (meters)
+    Qk_lidar(1,1) = 2.5e-18; %sigmalon**2 (deg)
+    Qk_lidar(2,2) = 2.5e-18; %sigmalat**2 (deg)
     
-    %test
+    %test- set values for non-diag elements of Qk
 %     Qk_lidar = zeros(21,21);
-%     Qk_lidar(1,2) = 2.5e-15; Qk_lidar(1,3) = 2.5e-15; 
-%     Qk_lidar(2,1) = 2.5e-15; Qk_lidar(2,3) = 2.5e-15;
-%     Qk_lidar(3,1) = 2.5e-15; Qk_lidar(3,2) = 2.5e-15;
-    
+%     Qk_lidar(1,2) = 2.5e-18; Qk_lidar(1,3) = 2.5e-18; 
+%     Qk_lidar(2,1) = 2.5e-18; Qk_lidar(2,3) = 2.5e-18;
+%     Qk_lidar(3,1) = 2.5e-18; Qk_lidar(3,2) = 2.5e-18;
+%     
     %TODO-- figure out if I should scale Qk_lidar by time
-%     Qk_lidar = dt_lidar*Qk_lidar;
-    Qk_lidar = Qk_lidar*(lidartime - t_last_lidar); 
+    Qk_lidar = dt_lidar*Qk_lidar;
 
     %PM = F*PP*F' + Q
     PM_lidar = PM_lidar_last + Qk_lidar;
@@ -966,8 +928,6 @@ if gpstime <= msrk1(1) && gpstime > msrk(1)  % If GPS time between two inertial 
 %     PM = pinv(A.'*W*A)*(A.')*W*[PM_lidar; PM_ins];   
 
     if fuse_lidar == 1
-
-%         size(xHatM_lidar)
         
         %NOTE: currently using lidar for POSITION ONLY
         
@@ -977,12 +937,36 @@ if gpstime <= msrk1(1) && gpstime > msrk(1)  % If GPS time between two inertial 
 %         W = pinv([pinv(PM_ins), zeros(21,3); zeros(3,21), pinv(PM_lidar)]);
 
         H = [eye(21); eye(3), zeros(3,18)];
-%         xHatM_combined = pinv((H.')*W*H)*((H.')*W)*[xHatM_ins; xHatM_lidar];
-        xHatM_combined = pinv((H.')*W*H)*((H.')*W)*[xHatM_ins; xHatM_lidar*10]; %need to multiply by 10 to work??
+%         xHatM_combined = pinv((H.')*W*H)*((H.')*W)*[xHatM_ins; xHatM_lidar*10];%need to multiply by 10 to work??
+%         xHatM_combined = pinv((H.')*W*H)*((H.')*W)*[xHatM_ins; xHatM_lidar_cum.'];
+
+%         should be this???
+        %update cumulative counts for this segment to include current xHatM estimates 
+        xHatM_ins_cum = xHatM_ins + xHatM_ins_cum.';
+        xHatM_lidar_cum = xHatM_lidar + xHatM_lidar_cum.';
+        xHatM_combined = pinv((H.')*W*H)*(H.')*W*[xHatM_ins_cum; xHatM_lidar_cum]; 
         
-        %temp
+%         xHatM_ins_cum(1)
+%         xHatM_lidar_cum(1)
+%         xHatM_combined(1)
+        
+        %TODO: I think some values are getting a negative weighting here??
+%         test = pinv((H.')*W*H)*H.'*W;
+%         size(test)
+        
+        %         W(1)
+%         xHatM_ins(1)
+%         xHatM_lidar(1)
+%         xHatM_combined(1)
+%         
+        %test --------------
         xHatM = xHatM_ins;
-        PM = PM_ins;
+%         PM = PM_ins;
+%         xHatM_ins = xHatM_combined; %this makes sense?
+        PM_ins = zeros(21);
+        
+        lla_combined = lla0_combined + xHatM_combined(1:3).';
+        %--------------------
         
     else
         xHatM = xHatM_ins;
@@ -1001,8 +985,6 @@ if gpstime <= msrk1(1) && gpstime > msrk(1)  % If GPS time between two inertial 
     
     if fuse_gps == 1
     
-        
-
         H = zeros(3,21);
         H(1:3, 1:3) = coeff;
 
@@ -1017,8 +999,8 @@ if gpstime <= msrk1(1) && gpstime > msrk(1)  % If GPS time between two inertial 
         xi = xHatP(7:9);
         E = [0 -xi(3) xi(2); xi(3) 0 -xi(1); -xi(2) xi(1) 0];
         cbn = (eye(3)+E)*cbn;
-
-        vel = vel - (xHatP(4:6))';
+        % TODO- DEBUG; this is the source of the stepping behavior
+%         vel = vel - (xHatP(4:6))'; 
 
         %comment out below to ignore correction step- not ideal but helps
         %convergence??
@@ -1037,23 +1019,23 @@ if gpstime <= msrk1(1) && gpstime > msrk(1)  % If GPS time between two inertial 
 
         rpy = flip(quat2eul(qbn));
 
-        dv = vel - vel0;
+%         dv = vel - vel0;
 
         gpsUpdated = 1;
         gpsCnt = gpsCnt + 1;
 
-        %TODO: set this to some nonzero initial uncertainty
         PM_lidar = zeros(3,3);
 
 %         xHatM_ins = xHatP; %test
     else
-        PP = PM;
-        xHatM_combined = zeros(21,1); %placeholder
+%         PP = PM;
+%         xHatM_combined = zeros(21,1); %placeholder
 
         gpsUpdated = 1;
         gpsCnt = gpsCnt + 1;
     end
 else
+    lla_combined = lla0_combined;
 %     xHatP = xHatM; %TODO-- figure out if I should still output this...
     PP = PM;
     xHatM_combined = zeros(21,1); %placeholder
