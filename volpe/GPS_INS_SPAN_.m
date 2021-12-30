@@ -936,7 +936,7 @@ if gpstime <= msrk1(1) && gpstime > msrk(1)  % If GPS time between two inertial 
         PM_combined = [PM_ins, zeros(21,3); zeros(3,21), PM_lidar];
         
         %get rid of non-daig elements (for debug)
-        PM_combined = diag(diag(PM_combined));
+%         PM_combined = diag(diag(PM_combined));
         
 %         W = pinv(PM_combined); %AAAAAAHHHhhhHHHHHH bug was in using pinv
         W = pinv(PM_combined, 1e-20); %specify tolerance
