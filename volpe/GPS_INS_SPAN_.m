@@ -65,6 +65,12 @@ t_lidar = t_lidar(2:end);
 %starting with just position estimates- will move on to rotations
 %eventaully...
 dpos_lidar = [(t_lidar + ppptime(1)) dlat_lidar dlon_lidar dhgt_lidar];
+
+%DEBUG 1/3/22 : keep dpos_lidar in ENU
+dE = pos_lidar_enu(:,2) - [pos_lidar_enu(2:end,2).' 0].';
+dN = pos_lidar_enu(:,1) - [pos_lidar_enu(2:end,1).' 0].';
+dU = pos_lidar_enu(:,3) - [pos_lidar_enu(2:end,3).' 0].';
+dpos_lidar = [(t_lidar + ppptime(1)), -dE(1:end-1), -dN(1:end-1), dU(1:end-1)];
 %--------------------------------------------------------------------------
 
 % sync and interpolate GPS readings so they occur at the same time as Lidar
@@ -301,17 +307,6 @@ end
 time = msrArr(1,:);
 startTime = time(1);
 
-%plot summed xHats between GPS frames for INS and Lidar
-figure()
-hold on
-title('cumulative xHat')
-xlabel('timestep')
-ylabel('estimated change in lon per GPS frame (deg)')
-plot(xHatM_ins_hist(:,1))
-plot(xHatM_lidar_hist(:,1))
-plot(xHatM_combined_hist(:,1))
-legend('xHat- INS', 'xHat- Lidar', 'xHat- combined')
-
 % %covariance plots (old)
 % figure(5)
 % sgtitle('GPS Corrected Lidar/ INS')
@@ -338,6 +333,30 @@ legend('xHat- INS', 'xHat- Lidar', 'xHat- combined')
 % xlim([50, 60])
 % xlabel('time (s)')
 
+%convert GPS measurements array to ENU
+[Ngps, Egps, Ugps] = geodetic2enu(gpsMsrArr(2,:), gpsMsrArr(3,:), gpsMsrArr(4,:), ...
+    gpsMsrArr(2,1), gpsMsrArr(3,1), gpsMsrArr(4,1), wgs84Ellipsoid);
+%find timesteps where gpsMsrArr != 0
+nonzero = find( gpsMsrArr(1,:) ~= 0); %nonzero elements of GPS
+nonzero_combined = find(lla_combined_hist(1,:) ~= 0); %nonzero elements of INS+Lidar fused estiamtes (occur on GPS timesteps)
+
+[Nins, Eins, Uins] = geodetic2enu(resArr_ins(:,1), resArr_ins(:,2), resArr_ins(:,3), ...
+    resArr_ins(1,1), resArr_ins(1,2), resArr_ins(1,3), wgs84Ellipsoid, 'radians');
+
+%plot summed xHats between GPS frames for INS and Lidar
+figure()
+hold on
+title('cumulative xHat')
+xlabel('timestep')
+ylabel('estimated change in lon per GPS frame (m)')
+plot(xHatM_ins_hist(:,1))
+plot(xHatM_lidar_hist(:,1))
+plot(xHatM_combined_hist(:,1))
+dEgps = -Egps(nonzero);
+dEgps = dEgps - [dEgps(2:end) 0];
+plot([0 dEgps(1:end-1)])
+legend('xHat- INS', 'xHat- Lidar', 'xHat- combined', 'gps baseline')
+
 %covaraince plots (new)
 figure(5)
 title('GPS Corrected Lidar/ INS')
@@ -352,55 +371,49 @@ xlim([50, 60])
 grid on
 legend('\sigma_{lon,ins}', '\sigma_{lon,lidar}', '\sigma_{lon,combined}')
 xlabel('time (s)')
-ylabel('standard deviation of error (m)')
+ylabel('standard deviation of error (m TODO still incorrect)')
 
-% Postion Plots
 figure(6)
+% Postion Plots -> debug here
 subplot(3,1,1);
 hold on; grid on
-plot(time-startTime, rad2deg(resArr_ins(:,1)));
-plot(time-startTime, rad2deg(resArr_lidar(:,1)));
+% plot(time-startTime, rad2deg(resArr_ins(:,1))); %was this with ins in lla
+plot(time-startTime, Eins)
+% plot(time-startTime, rad2deg(resArr_lidar(:,1))); %was this with lidar in lla
+plot(time-startTime, resArr_lidar(:,1));
 % plot(time-startTime, rad2deg(lla_combined_hist(1,1:end-1))); %not working
 ylabel('latitude (deg)');
 
+% plot(gpsMsrArr(1, nonzero)-startTime, gpsMsrArr(2, nonzero)); %used for lat/lon
+plot(gpsMsrArr(1, nonzero)-startTime, Egps(nonzero));
+% plot(gpsMsrArr(1,nonzero_combined)-startTime, rad2deg(lla_combined_hist(1,nonzero_combined)))
+plot(gpsMsrArr(1,nonzero_combined)-startTime, lla_combined_hist(1,nonzero_combined))
+legend('LLA INS', 'LLA Lidar Dead Reckoning', 'pure GPS', 'Lidar and INS only')
+% legend('LLA INS', 'LLA Lidar Dead Reckoning', 'pure GPS') %temp
+hold on; grid on
+ylabel('East (m)');
+
+
 subplot(3,1,2);
 hold on; grid on
-plot(time-startTime, rad2deg(resArr_ins(:,2)));
-plot(time-startTime, rad2deg(resArr_lidar(:,2)));
+% plot(time-startTime, rad2deg(resArr_ins(:,2)));
+plot(time-startTime, Nins)
+% plot(time-startTime, rad2deg(resArr_lidar(:,2)));
+plot(time-startTime, resArr_lidar(:,2));
+ylabel('longitude (deg)');
+% plot(gpsMsrArr(1, nonzero)-startTime, gpsMsrArr(3, nonzero));
+plot(gpsMsrArr(1, nonzero)-startTime, Ngps(nonzero));
+% plot(gpsMsrArr(1,nonzero_combined)-startTime, rad2deg(lla_combined_hist(2,nonzero_combined)))
+plot(gpsMsrArr(1,nonzero_combined)-startTime, lla_combined_hist(2,nonzero_combined))
+legend('LLA INS', 'LLA Lidar Dead Reckoning', 'pure GPS', 'Lidar and INS only')
+% legend('LLA INS', 'LLA Lidar Dead Reckoning', 'pure GPS')
+hold on; grid on
 ylabel('longitude (deg)');
 
 subplot(3,1,3);
 hold on; grid on
 plot(time-startTime, resArr_ins(:,3));
 plot(time-startTime, resArr_lidar(:,3));
-
-
-len = length(time);
-ylabel('altitude (m)');
-xlabel('Time (s)');
-
-
-subplot(3,1,1);
-
-%find timesteps where gpsMsrArr != 0
-nonzero = find( gpsMsrArr(1,:) ~= 0); %nonzero elements of GPS
-%     plot(gpsMsrArr(1, :)-startTime, gpsMsrArr(2, :));
-plot(gpsMsrArr(1, nonzero)-startTime, gpsMsrArr(2, nonzero));
-nonzero_combined = find(lla_combined_hist(1,:) ~= 0); %nonzero elements of INS+Lidar fused estiamtes (occur on GPS timesteps)
-plot(gpsMsrArr(1,nonzero_combined)-startTime, rad2deg(lla_combined_hist(1,nonzero_combined)))
-legend('LLA INS', 'LLA Lidar Dead Reckoning', 'pure GPS', 'Lidar and INS only')
-% legend('LLA INS', 'LLA Lidar Dead Reckoning', 'pure GPS') %temp
-hold on; grid on
-ylabel('latitude (deg)');
-subplot(3,1,2);
-%     plot(gpsMsrArr(1, :)-startTime, gpsMsrArr(3, :));
-plot(gpsMsrArr(1, nonzero)-startTime, gpsMsrArr(3, nonzero)); 
-plot(gpsMsrArr(1,nonzero_combined)-startTime, rad2deg(lla_combined_hist(2,nonzero_combined)))
-legend('LLA INS', 'LLA Lidar Dead Reckoning', 'pure GPS', 'Lidar and INS only')
-% legend('LLA INS', 'LLA Lidar Dead Reckoning', 'pure GPS')
-hold on; grid on
-ylabel('longitude (deg)');
-subplot(3,1,3);
 %     plot(gpsMsrArr(1, :)-startTime, gpsMsrArr(4, :));
 plot(gpsMsrArr(1, nonzero)-startTime, gpsMsrArr(4, nonzero));  
 legend('LLA INS', 'LLA Lidar Dead Reckoning', 'pure GPS')
@@ -408,6 +421,10 @@ hold on; grid on
 ylabel('altitude (m)');
 xlabel('Time (s)');
 
+
+len = length(time);
+ylabel('altitude (m)');
+xlabel('Time (s)');
 
 lat_lc = rad2deg(resArr(:,1));
 lon_lc = rad2deg(resArr(:,2));
@@ -888,6 +905,7 @@ xHatM_ins(4:6) = vel - vel0;
 % xHatM_ins = F*xHatM_ins;          % Forward Euler integration (A priori)
 PM = F*PP*F'+Qk;                    % cov. Estimate
 
+%TODO: transform xHatM_ins into ENU here before combining with lidar...
 
 % copy of if statement structure from GPS stuff
 lidartime = lidarmsr(1);
@@ -898,11 +916,12 @@ if lidartime <= msrk1(1) && lidartime > msrk(1)
     %need to scale by amount of time elapsed since last measurement since
     %it is different than INS measurements
     dt_lidar = lidartime - t_last_lidar;
-    dlla_lidar_scaled = lidarmsr(2:end)/dt_lidar*dt;
-    dlla_lidar_scaled = dlla_lidar_scaled/2.54; %DEBUG- not sure why I need to scale in -> cm ...
-    xHatM_lidar = [dlla_lidar_scaled].'; %was this -just looking at changes in pos (no delta_rotation)
-%     xHatM_lidar = lidarmsr(2:end).'*dt_lidar;
+%     dlla_lidar_scaled = lidarmsr(2:end)/dt_lidar*dt;
+%     dlla_lidar_scaled = dlla_lidar_scaled/2.54; %DEBUG- not sure why I need to scale in -> cm ...
+%     xHatM_lidar = [dlla_lidar_scaled].'; %was this -just looking at changes in pos (no delta_rotation)
 
+    xHatM_lidar = lidarmsr(2:4).'; %TODO -> better now, but still need to fix scaling
+    
     %set noise covariance matrix for lidar
 %     Qk_lidar = 1e4*ones(3,3); %init arbitrarily high values
     Qk_lidar = zeros(3,3); %test w/ zeros
