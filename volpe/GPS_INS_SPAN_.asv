@@ -278,8 +278,10 @@ while i < endIndx
 %     size(PM_lidar)
     PM_lidar_last = PM_lidar;
     
+    %for debug
 %     lla_ins(1) - lla0_ins(1)
-    
+%     xHatM_ins(1) %<- currently exploding...
+
     msrArr(:,i-1) = msrk1;
     lla0_ins = lla_ins; 
     vel0 = vel; 
@@ -348,12 +350,13 @@ figure()
 hold on
 title('cumulative xHat')
 xlabel('timestep')
-ylabel('estimated change in lon per GPS frame (deg)')
+ylabel('estimated change in lon per GPS frame (m)')
 plot(xHatM_ins_hist(:,1))
 plot(xHatM_lidar_hist(:,1))
 plot(xHatM_combined_hist(:,1))
-dEgps = Egps(nonzero)
-dEgps dEgps - [dEgps(2:end) 0]);
+dEgps = -Egps(nonzero);
+dEgps = dEgps - [dEgps(2:end) 0];
+plot([0 dEgps(1:end-1)])
 legend('xHat- INS', 'xHat- Lidar', 'xHat- combined', 'gps baseline')
 
 %covaraince plots (new)
@@ -481,6 +484,9 @@ function [lla_ins, lla_lidar, lla_combined, vel, rpy, ned, dv, qbn, xHatM_ins, x
 WGS84_A = 6378137.0;           % earth semi-major axis (WGS84) (m) 
 WGS84_B = 6356752.3142;        % earth semi-minor axis (WGS84) (m) 
 e = sqrt(WGS84_A * WGS84_A - WGS84_B * WGS84_B) / WGS84_A;
+
+%set baseline at which PM values are reset after GNSS updates
+gps_std = 1e-20;  %TODO-> adjust this after changing sigams to (m)
 
 % rotational angular velocity of earth
 omega_e = 7.2921151467e-5;   
@@ -899,12 +905,17 @@ Qk = 0.5*(F*B*Q*B'+B*Q*B'*F')*dt;
 
 % Extended Kalman Filter --------
 % was this (only uses INS stuff)
-xHatM_ins(1:3) = lla_ins - lla0_ins;
-xHatM_ins(4:6) = vel - vel0;
+% xHatM_ins(1:3) = lla_ins - lla0_ins; %old
+xHatM_ins(4:6) = vel - vel0;        % TODO: move from lla to enu 
 % xHatM_ins = F*xHatM_ins;          % Forward Euler integration (A priori)
 PM = F*PP*F'+Qk;                    % cov. Estimate
 
-% xHatM_ins(1,1)
+%TODO: transform xHatM_ins into ENU here before combining with lidar...
+%DEBUG -> why is xHatM_ins(1:3) exploding???
+[xHatM_ins_E, xHatM_ins_N, xHatM_ins_U] = geodetic2enu(lla_ins(1), lla_ins(2), lla_ins(3), lla0_ins(1), lla0_ins(2), lla0_ins(3), wgs84Ellipsoid, 'radians');
+xHatM_ins(1:3) = [xHatM_ins_E, xHatM_ins_N, xHatM_ins_U];
+% 'xHatM_ins'
+% xHatM_ins(1:3) 
 
 % copy of if statement structure from GPS stuff
 lidartime = lidarmsr(1);
@@ -919,7 +930,7 @@ if lidartime <= msrk1(1) && lidartime > msrk(1)
 %     dlla_lidar_scaled = dlla_lidar_scaled/2.54; %DEBUG- not sure why I need to scale in -> cm ...
 %     xHatM_lidar = [dlla_lidar_scaled].'; %was this -just looking at changes in pos (no delta_rotation)
 
-    xHatM_lidar = lidarmsr(2:4).'; %TODO -> better now, but still need to fix scaling
+    xHatM_lidar = lidarmsr(2:4).'; %better
     
     %set noise covariance matrix for lidar
 %     Qk_lidar = 1e4*ones(3,3); %init arbitrarily high values
@@ -944,6 +955,7 @@ if lidartime <= msrk1(1) && lidartime > msrk(1)
     lidarUpdated = 1;
     lidarCnt = lidarCnt + 1;
     
+    %NOTE: this is actually in ENU rn...
     lla_lidar = lla0_lidar + (xHatM_lidar(1:3).');
     
 else
@@ -995,9 +1007,10 @@ if gpstime <= msrk1(1) && gpstime > msrk(1)  % If GPS time between two inertial 
         %test --------------
 %         PM = PM_ins;
 %         xHatM_ins = xHatM_combined; %this makes sense?
-        PM_ins = zeros(21);
-%         PM_ins = eye(21)*1e-20;
+%         PM_ins = zeros(21);
+        PM_ins = eye(21)*gps_std;
         
+        %TODO - need to convert xHatM_combined back to lla
         lla_combined = lla0_combined + xHatM_combined(1:3).';
         %--------------------
         
@@ -1006,6 +1019,8 @@ if gpstime <= msrk1(1) && gpstime > msrk(1)  % If GPS time between two inertial 
         xHatM_combined = xHatM_ins;
     end
     xHatM = xHatM_ins; % not sure if correct...
+%     'xHatM'
+%     xHatM(1)
     
     R = 0.01*diag(gpsmsr(5:7).^2);  % R matrix -- note coefficient of 0.01!!!
 
@@ -1013,35 +1028,51 @@ if gpstime <= msrk1(1) && gpstime > msrk(1)  % If GPS time between two inertial 
     dr = [0;0;0];  % LEVER ARM in m (XYZ body frame, YX(-Z) aligns with NED)
     lla_gps_corr = coeff*(gpsmsr(2:4))' - cbn*dr;
 
-    y = coeff*lla_in' - lla_gps_corr;
-
-    gpsResUpd = [gpstime, lla_gps_corr'];
+    y = coeff*lla_in' - lla_gps_corr; %this is in enu   
     
-    %---------------    
-    H = zeros(3,21);
-    H(1:3, 1:3) = coeff;
+    gpsResUpd = [gpstime, lla_gps_corr'];
 
+    %Kalman Correction Step --------------------------
     %FROM GPS DATA
-%     L = PM*H'*inv(H*PM*H'+R); %was this
-    L = PM*H'*pinv(H*PM*H'+R, 1e-20); %changed to this to help with singular inversion
-    yHat = H*xHatM;
-    xHatP = xHatM + L*(y-yHat);         % a posteriori estimate
-%         yHat = H*xHatM_combined;
-%         xHatP = xHatM_combined + L*(y-yHat);         % a posteriori estimate
+    H = zeros(3,21);
+    %H transforms (lla) -> (m)
+    H(1:3, 1:3) = coeff;
+    
+    L = PM*H'*pinv(H*PM*H'+R, 1e-20); %added tol to help with singular inversion
+%     yHat = H*xHatM; %was this
+    yHat = xHatM(1:3); % using this since xHatM is already in (m)??
+    xHatP = xHatM + L*(y-yHat);         % a posteriori estimate (m)
     PP = (eye(size(F))-L*H)*PM*(eye(size(F))-L*H)'+L*R*L';
+    %-------------------------------------------------
+    
+%     L(1,1)
+%     'xHatP'
+%     xHatP(1)
+%     xHatP(2)/coeff(2,2)
+    'y'
+    y(1)
+    'yHat'
+    yHat(1)
 
     if fuse_gps == 1
-        lla_ins = lla_ins - (xHatP(1:3))';
-        PM_lidar = zeros(3,3);  %was this (solns exlploding)
-%         PM_lidar = eye(3)*1e-20;
+        %debug here - be careful with coeff, it only works with degrees!!
+%         lla_ins = lla_ins - (xHatP(1:3))'; %was this, incorrect since xHatP is in enu
+
+        %trying this
+% %         xHatP_enu = [xHatP(1)/coeff(1,1), xHatP(2)/coeff(2,2), xHatP(3)];
+        xHatP_enu = [xHatP(1)*L(1,1), xHatP(2)*L(2,2), xHatP(3)*L(3,3)];
+        lla_ins = lla_ins + xHatP_enu;
+        
+        %         PM_lidar = zeros(3,3);
+        PM_lidar = eye(3)*gps_std;
     else
-        lla_ins = lla_lidar;
+        lla_ins = lla_lidar; %TODO: incorrect -> need to make lla_lidar actually lla here
     end
         
     xi = xHatP(7:9);
     E = [0 -xi(3) xi(2); xi(3) 0 -xi(1); -xi(2) xi(1) 0];
     cbn = (eye(3)+E)*cbn;
-%     vel = vel - (xHatP(4:6))'; % weas this (causes stepping behavior)
+%     vel = vel - (xHatP(4:6))'; % wes this (causes stepping behavior)
 %     vel = vel + xHatM_ins(4:6)'/dt; %interesting results with this...
 %     vel = vel0 - 200*dv0; %debug
 
