@@ -1,8 +1,5 @@
 %GPS_INS_SPAN Loosely Coupled - version 11/22/2021
 
-%TODO - Trim down INS to sync up with start of Lidar and GPS
-
-
 clear all
 
 % User defined paramaters
@@ -11,9 +8,6 @@ dat = load('signageData.mat');  % Data file
 endIndx = 2e4; %was 1e6                  % Example 1e4 is 50 sec of data @ 200 Hz % If endIndex exceeds max, then reset to max
 fuse_lidar = 1;                 % combine xHat_ins with xHat_lidar at each GPS measurement                         
 fuse_gps = 1;                   % if 0, just INS and Lidar are fused at GPS measurement timestamps
-
-% while i < 50000  % analyze first 250 sec
-% while i < len  % analyze whole file
 
 % Clean workspace
 close all
@@ -280,7 +274,7 @@ while i < endIndx
     
     %for debug
 %     lla_ins(1) - lla0_ins(1)
-%     xHatM_ins(1) %<- currently exploding...
+%     (1) %<- currently exploding...
 
     msrArr(:,i-1) = msrk1;
     lla0_ins = lla_ins; 
@@ -364,7 +358,7 @@ figure(5)
 title('GPS Corrected Lidar/ INS')
 % sgtitle('Lidar corrected INS')
 % sgtitle('Lidar and INS, no correction')
-hold on %putting this here prevents logy axis
+% hold on %putting this here prevents logy axis
 skip_start = 2500;
 semilogy(time(skip_start:end) - startTime, PM_hist_ins(skip_start:end-2,1), ...
     time(skip_start:end) - startTime, PM_hist_lidar(skip_start:end-2,1), ...
@@ -483,7 +477,7 @@ function [lla_ins, lla_lidar, lla_combined, vel, rpy, ned, dv, qbn, xHatM_ins, x
 
 WGS84_A = 6378137.0;           % earth semi-major axis (WGS84) (m) 
 WGS84_B = 6356752.3142;        % earth semi-minor axis (WGS84) (m) 
-e = sqrt(WGS84_A * WGS84_A - WGS84_B * WGS84_B) / WGS84_A;
+e = sqrt(WGS84_A * WGS84_A - WGS84_B * WGS84_B) / WGS84_A; %0.0818
 
 %set baseline at which PM values are reset after GNSS updates
 gps_std = 1e-20;  %TODO-> adjust this after changing sigams to (m)
@@ -913,9 +907,9 @@ PM = F*PP*F'+Qk;                    % cov. Estimate
 %TODO: transform xHatM_ins into ENU here before combining with lidar...
 %DEBUG -> why is xHatM_ins(1:3) exploding???
 [xHatM_ins_E, xHatM_ins_N, xHatM_ins_U] = geodetic2enu(lla_ins(1), lla_ins(2), lla_ins(3), lla0_ins(1), lla0_ins(2), lla0_ins(3), wgs84Ellipsoid, 'radians');
-xHatM_ins(1:3) = [xHatM_ins_E, xHatM_ins_N, xHatM_ins_U];
+xHatM_ins(1:3) = [xHatM_ins_N, xHatM_ins_E, xHatM_ins_U];
 % 'xHatM_ins'
-% xHatM_ins(1:3) 
+% xHatM_ins(1) 
 
 % copy of if statement structure from GPS stuff
 lidartime = lidarmsr(1);
@@ -965,7 +959,7 @@ else
 end
 
 PM_ins = PM;
-
+%e == 0.0818
 rn = WGS84_A / sqrt(1 - e * e * sin(lla_in(1)) * sin(lla_in(1)));
 rm = WGS84_A * (1 - e * e) / sqrt(power(1 - e * e * sin(lla_in(1)) * sin(lla_in(1)), 3));
 coeff = diag([(rm+lla_in(3)); ((rn+lla_in(3))*cos(lla_in(1))); -1]);
@@ -1026,44 +1020,54 @@ if gpstime <= msrk1(1) && gpstime > msrk(1)  % If GPS time between two inertial 
 
 %    dr = [2.52;0.794;-0.468];  % LEVER ARM in m (XYZ body frame, YX(-Z) aligns with NED)
     dr = [0;0;0];  % LEVER ARM in m (XYZ body frame, YX(-Z) aligns with NED)
-    lla_gps_corr = coeff*(gpsmsr(2:4))' - cbn*dr;
-
-    y = coeff*lla_in' - lla_gps_corr; %this is in enu   
+    lla_gps_corr = coeff*(gpsmsr(2:4))' - cbn*dr; %from Liangchun
     
+%     'lla_in'
+%     lla_in(1) % ~=0.6782 rad
+%     lla_gps_corr
+%     lla_in(1) - gpsmsr(2)
+
+    %TODO DEBUG: lla_in (rad), gpsmsr (deg)
+    y = coeff*lla_in' - lla_gps_corr; %this is in enu   
+
     gpsResUpd = [gpstime, lla_gps_corr'];
 
     %Kalman Correction Step --------------------------
     %FROM GPS DATA
     H = zeros(3,21);
-    %H transforms (lla) -> (m)
+    %H transforms (lla IN RADIANS!!) -> (m)
     H(1:3, 1:3) = coeff;
     
     L = PM*H'*pinv(H*PM*H'+R, 1e-20); %added tol to help with singular inversion
 %     yHat = H*xHatM; %was this
-    yHat = xHatM(1:3); % using this since xHatM is already in (m)??
-    xHatP = xHatM + L*(y-yHat);         % a posteriori estimate (m)
+    yHat = xHatM(1:3); % using this since xHatM is already in (m)
+    xHatP = xHatM + L*(y-yHat);         % a posteriori estimate (m)    
     PP = (eye(size(F))-L*H)*PM*(eye(size(F))-L*H)'+L*R*L';
     %-------------------------------------------------
     
-%     L(1,1) % 1.5e-7
+%     L(1,1) % 1.5e-7 == 1/coeff(1,1)
+%     coeff(1,1) = 6.36e6, coeff(2,2) = 4.97e6
 %     'xHatP'
 %     xHatP(1)
 %     xHatP(2)/coeff(2,2)
-%     'y'
-%     y(1)
+%     'y' %debug -> currently oscillating and too big
+%     y
 %     'yHat'
-%     yHat(1)
+%     yHat
 %     lla_ins(1)
 
     if fuse_gps == 1
-        %debug here - be careful with coeff, it only works with degrees!!
+        %debug here - be careful with coeff, it only works with rad!!
 %         lla_ins = lla_ins - (xHatP(1:3))'; %was this, incorrect since xHatP is in enu
-
+        
         %trying this
-% %         xHatP_enu = [xHatP(1)/coeff(1,1), xHatP(2)/coeff(2,2), xHatP(3)];
-        xHatP_enu = [xHatP(1)*L(1,1), xHatP(2)*L(2,2), xHatP(3)*L(3,3)];
+        xHatP_enu = [xHatP(1)*L(1,1), xHatP(2)*L(2,2), xHatP(3)];
         xHatP_enu(1)
-        lla_ins = lla_ins + xHatP_enu;
+        lla_ins = lla_ins - xHatP_enu;
+        
+        %DEBUG ONLY!! (drags lla ins to be on gpsmsr) ---------
+        lla_ins = gpsmsr(2:4);
+        %------------------------------------------------------
         
         %         PM_lidar = zeros(3,3);
         PM_lidar = eye(3)*gps_std;

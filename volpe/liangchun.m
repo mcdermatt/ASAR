@@ -5,7 +5,7 @@ clear all
 pureINS = 0;                    % Set False for GPS/INS fusion
 addpath('./Data/SPAN');         % Path for data 
 dat = load('signageData.mat');  % Data file
-endIndex = 1e4;                 % Example 1e4 is 50 sec of data @ 200 Hz
+endIndex = 3e4;                 % Example 1e4 is 50 sec of data @ 200 Hz
                                 % If endIndex exceeds max, then reset to max
 % endIndex = 1e4;
 
@@ -282,7 +282,7 @@ rpyRef(zeroInd2,:) = rpyRef_var(zeroInd2,:);
 % rpyRef_enu = flip(quat2eul(qbnRef_enu)')';
 qbnRef_enu = eul2quat(rpyRef);
 rpyRef_enu = quat2eul(qbnRef_enu);
-rpyRef_enu - rpyRef
+rpyRef_enu - rpyRef;
 
 % qbnRef_ned = [qbnRef_enu(:,1) qbnRef_enu(:,3) qbnRef_enu(:,2) -qbnRef_enu(:,4)];
 qbnRef_ned = [qbnRef_enu(:,1) qbnRef_enu(:,3) qbnRef_enu(:,4) -qbnRef_enu(:,2)];
@@ -845,7 +845,11 @@ if gpstime <= msrk1(1) && gpstime > msrk(1)  % If GPS time between two inertial 
     dr = [1e-9;1e-9;1e-9];  % LEVER ARM in m (XYZ body frame, YX(-Z) aligns with NED)
     lla_gps_corr = coeff*(gpsmsr(2:4))' - cbn*dr;
 
+    
+%     coeff % ~= 6e6
     y = coeff*lla_in' - lla_gps_corr;
+
+    y %y(1) ~0.25
     
     gpsResUpd = [gpstime, lla_gps_corr'];
     
@@ -854,6 +858,9 @@ if gpstime <= msrk1(1) && gpstime > msrk(1)  % If GPS time between two inertial 
     
     L = PM*H'*inv(H*PM*H'+R);
     yHat = H*xHatM;
+    
+    yHat %yHat(1)~0.002
+    
     xHatP = xHatM + L*(y-yHat);         % a posteriori estimate
     PP = (eye(size(F))-L*H)*PM*(eye(size(F))-L*H)'+L*R*L';
     
