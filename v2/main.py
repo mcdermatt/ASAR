@@ -19,10 +19,10 @@ from ICET3D import ICET3D
 
 
 nc = 2	 #number of cycles
-mnp = 50#100 #minimum number of points per voxel
+mnp = 10 #50#100 #minimum number of points per voxel
 D = True #draw sim
-DG = False #draw grid
-DE = False #draw ellipsoids
+DG = True #draw grid
+DE = True #draw ellipsoids
 DC = False #draw correspondences
 TD = True #use test dataset
 CM = "voxel" #correspondence method, "voxel" or "NN"
@@ -30,6 +30,7 @@ vizL = False #draw arrows in direction of non-truncated directions for each dist
 
 # plt = Plotter(N=1, axes=1, bg = (0.1,0.1,0.1), bg2 = (0.3,0.3,0.3),  interactive=True)
 plt = Plotter(N=1, axes=4, interactive=True)
+# plt.parallelProjection(True, at=0) 
 
 ## Use real data ----------------------------------------------------------------
 # basedir = 'C:/kitti/'
@@ -60,31 +61,14 @@ start = time.time()
 
 #just consider small section of image where there are easily identifiable features:
 #----------------------------------------------------------------------------------
-limtest = tf.constant([-20.,0.,-20.,0.,-1.5,1.5])
+limtest = tf.constant([-20.,20.,-20.,20.,-1.5,1.5])
 # f = tf.constant([35,35,35])
-f = tf.constant([21,21,21])
+f = tf.constant([9,30,1])
 # f = tf.constant([17,17,17])
-
-# cloud1_tensor = tf.squeeze(tf.gather(cloud1_tensor, tf.where( (cloud1_tensor[:,0] > limtest[0]))))	#only works one cond at a time
-# cloud1_tensor = tf.squeeze(tf.gather(cloud1_tensor, tf.where( tf.math.reduce_all(tf.concat( (
-# 	(cloud1_tensor[:,0] > limtest[0])[:,None], 
-# 	(cloud1_tensor[:,0] < limtest[1])[:,None], 
-# 	(cloud1_tensor[:,1] > limtest[2])[:,None], 
-# 	(cloud1_tensor[:,1] < limtest[3])[:,None],
-# 	(cloud1_tensor[:,2] > limtest[4])[:,None], 
-# 	(cloud1_tensor[:,2] < limtest[5])[:,None],
-# 	), axis = 1 ), axis = 1))))
-
-# cloud2_tensor = tf.squeeze(tf.gather(cloud2_tensor, tf.where( tf.math.reduce_all(tf.concat( (
-# 	(cloud2_tensor[:,0] > limtest[0])[:,None], 
-# 	(cloud2_tensor[:,0] < limtest[1])[:,None], 
-# 	(cloud2_tensor[:,1] > limtest[2])[:,None], 
-# 	(cloud2_tensor[:,1] < limtest[3])[:,None],
-# 	(cloud2_tensor[:,2] > limtest[4])[:,None], 
-# 	(cloud2_tensor[:,2] < limtest[5])[:,None],), axis = 1 ), axis = 1))))
 
 cloud1_tensor = None
 cloud2_tensor = None
+
 
 Q, x_hist = ICET3D(cloud1_tensor, cloud2_tensor, plt, bounds = limtest, 
            fid = f, num_cycles = nc , min_num_pts = mnp, draw = D, draw_grid = DG,

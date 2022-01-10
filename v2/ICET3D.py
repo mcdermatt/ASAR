@@ -244,7 +244,19 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 			# if i > 0:
 				# plt.pop(at=0)
 				# plt.clear(disp, at=0) 
-			plt.show(disp, "ICET3D", at=0, interactive = True) 
+
+			#plot car in center------------------------------------------
+			# (used for making presentation graphics)
+			fname = "C:/Users/Derm/honda.vtk"
+			car = Mesh(fname).c("gray").addShadow(z=0)
+			car.pos(1.,0,0.1) #move slightly up to avoid clipping ground plane
+			plt.show([car, disp], "ICET3D", at=0, interactive = True)
+			#------------------------------------------------------------
+
+			#don't plot car ---------------------------------------------
+			# plt.show(disp, "ICET3D", at=0, interactive = True) 
+			#------------------------------------------------------------
+
 			#set interactive to False to autoplay
 			#NOTE: vedo documentation is incorrect, plotter does NOT have <new> parameter
 			# new = True opens new scans in seperate window
@@ -475,21 +487,32 @@ def visualize_L(U, L, y0, disp1):
 	""" for each voxel center, mu, this func draws untruncated axis via L 
 	      transformed into the frame of the distribution ellipsoids via U """
 
-	arrow_len = 5
+	
 
 	for i in range(tf.shape(y0)[0]):
 		# print(tf.shape(L),"\n", tf.shape(U))
 		ends =  L[i] @ tf.transpose(U[i])
 		# ends =  L[i] @ U[i] #test
 
-		# print("\n ends \n", ends[:,0])
-		# print("y0[i] \n", y0[i])
-		arr1 = shapes.Arrow(y0[i].numpy(), (y0[i] + arrow_len * ends[0,:]).numpy(), c = 'red')
-		disp1.append(arr1)
-		arr2 = shapes.Arrow(y0[i].numpy(), (y0[i] + arrow_len * ends[1,:]).numpy(), c = 'green')
-		disp1.append(arr2)
-		arr3 = shapes.Arrow(y0[i].numpy(), (y0[i] + arrow_len * ends[2,:]).numpy(), c = 'blue')
-		disp1.append(arr3)
+		#for 3d -------------------------
+		# arrow_len = 5
+		# arr1 = shapes.Arrow(y0[i].numpy(), (y0[i] + arrow_len * ends[0,:]).numpy(), c = 'red')
+		# disp1.append(arr1)
+		# arr2 = shapes.Arrow(y0[i].numpy(), (y0[i] + arrow_len * ends[1,:]).numpy(), c = 'green')
+		# disp1.append(arr2)
+		# arr3 = shapes.Arrow(y0[i].numpy(), (y0[i] + arrow_len * ends[2,:]).numpy(), c = 'blue')
+		# disp1.append(arr3)
+		#---------------------------------
 	
+		#for 2D (making visuals for presentation)----
+		arrow_len = 1
+		arr2a = shapes.Arrow(y0[i].numpy(), (y0[i] + arrow_len * ends[1,:]).numpy(), c = 'green')
+		disp1.append(arr2a)
+		arr2b = shapes.Arrow(y0[i].numpy(), (y0[i] - arrow_len * ends[1,:]).numpy(), c = 'green')
+		disp1.append(arr2b)
+		#--------------------------------------------
+
+
+
 	return(disp1)
 

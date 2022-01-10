@@ -601,24 +601,41 @@ def make_scene(plt, disp, E, color, draw_grid = False, draw_ell = True, fid = No
 		ybound = np.linspace(bounds[2], bounds[3], fid[1] + 1)
 		zbound = np.linspace(bounds[4], bounds[5], fid[2] + 1)
 
+		# #normal (for 3D)---------------------------------
+		# for y in range(fid[1]+1):
+		# 	for z in range(fid[2]+1):
+		# 		p0 = np.array([xbound[-1], ybound[y], zbound[z]])
+		# 		p1 = np.array([xbound[0], ybound[y], zbound[z]])
+		# 		x_lines = shapes.Line(p0, p1, closed=False, c='black', alpha=1, lw=0.25, res=0)
+		# 		disp.append(x_lines)
+		# for x in range(fid[0]+1):
+		# 	for z in range(fid[2]+1):
+		# 		p0 = np.array([xbound[x], ybound[-1], zbound[z]])
+		# 		p1 = np.array([xbound[x], ybound[0], zbound[z]])
+		# 		y_lines = shapes.Line(p0, p1, closed=False, c='black', alpha=1, lw=0.25, res=0)
+		# 		disp.append(y_lines)
+		# for x in range(fid[0]+1):
+		# 	for y in range(fid[1]+1):
+		# 		p0 = np.array([xbound[x], ybound[y], zbound[-1]])
+		# 		p1 = np.array([xbound[x], ybound[y], zbound[0]])
+		# 		z_lines = shapes.Line(p0, p1, closed=False, c='black', alpha=1, lw=0.25, res=0)
+		# 		disp.append(z_lines)
+		# #-------------------------------------------------
+
+		# for 2d viz -------------------------------------
 		for y in range(fid[1]+1):
-			for z in range(fid[2]+1):
-				p0 = np.array([xbound[-1], ybound[y], zbound[z]])
-				p1 = np.array([xbound[0], ybound[y], zbound[z]])
-				x_lines = shapes.Line(p0, p1, closed=False, c='white', alpha=1, lw=0.25, res=0)
+			for z in range(fid[2]):
+				p0 = np.array([xbound[-1], ybound[y], 0])
+				p1 = np.array([xbound[0], ybound[y], 0])
+				x_lines = shapes.Line(p0, p1, closed=False, c='black', alpha=1, lw=0.25, res=0)
 				disp.append(x_lines)
 		for x in range(fid[0]+1):
-			for z in range(fid[2]+1):
-				p0 = np.array([xbound[x], ybound[-1], zbound[z]])
-				p1 = np.array([xbound[x], ybound[0], zbound[z]])
-				y_lines = shapes.Line(p0, p1, closed=False, c='white', alpha=1, lw=0.25, res=0)
+			for z in range(fid[2]):
+				p0 = np.array([xbound[x], ybound[-1], 0])
+				p1 = np.array([xbound[x], ybound[0], 0])
+				y_lines = shapes.Line(p0, p1, closed=False, c='black', alpha=1, lw=0.25, res=0)
 				disp.append(y_lines)
-		for x in range(fid[0]+1):
-			for y in range(fid[1]+1):
-				p0 = np.array([xbound[x], ybound[y], zbound[-1]])
-				p1 = np.array([xbound[x], ybound[y], zbound[0]])
-				z_lines = shapes.Line(p0, p1, closed=False, c='white', alpha=1, lw=0.25, res=0)
-				disp.append(z_lines)
+		#-------------------------------------------------
 
 	return(disp)
 	# plt.show(disp, "subdivide_scan", at=0) #was here, moving to inside main loop
@@ -733,7 +750,7 @@ def get_correspondences_tf(a, b, mu1, mu2, bounds, fid, method = "voxel", disp =
 				pt2 = tf.squeeze(b[corr[i][0].numpy()])
 				# print("pt1", pt1)
 				# arrow = shapes.Line(pt1.numpy(), pt2.numpy(), closed = False, c = 'white', lw = 4) #line
-				arrow = shapes.Arrow(pt1.numpy(), pt2.numpy(), c = 'white')
+				arrow = shapes.Arrow(pt1.numpy(), pt2.numpy(), c = 'black')
 				disp.append(arrow)
 		#	[cell in b, cell in a]
 			return(corr, disp)
@@ -829,7 +846,7 @@ def get_correspondences_tf(a, b, mu1, mu2, bounds, fid, method = "voxel", disp =
 				pt1 = a[corr[i,1].numpy()]
 				pt2 = b[corr[i,0].numpy()]
 
-				arrow = shapes.Line(pt1.numpy(), pt2.numpy(), closed = False, c = 'white', lw = 2) #line
+				arrow = shapes.Line(pt1.numpy(), pt2.numpy(), closed = False, c = 'black', lw = 2) #line
 				# arrow = shapes.Arrow(pt2.numpy(), pt1.numpy(), c = 'white')
 				disp.append(arrow)
 
@@ -910,96 +927,96 @@ class Ell(Mesh):
 
 #_______________________________________________________________________________________________
 
-def generate_test_dataset():
+# def generate_test_dataset():
 	
-	""" Generate a simple 3D T shaped intersection """
+# 	""" Generate a simple 3D T shaped intersection """
 
-	#TODO: take in transformation from pp1 to pp2
+# 	#TODO: take in transformation from pp1 to pp2
 
-	bounds = tf.constant ([-150.,150.,-150.,150.,-150,150])
-	# x = tf.constant([0.1, 3., 0.2, -0.02, -0.05, -0.12])
-	# x = tf.constant([0., 0., 0., 0., 0., 0.])
-	# x = tf.constant([0.1, 3., 0.2, -0.02, -0.05, -0.12])
-	x = tf.constant([1., 3., 2., -0.12, -0.1, -0.2])
-	# x = tf.constant([1., 3., 2., -0., 0.0, -0.2])
+# 	bounds = tf.constant ([-150.,150.,-150.,150.,-150,150])
+# 	# x = tf.constant([0.1, 3., 0.2, -0.02, -0.05, -0.12])
+# 	# x = tf.constant([0., 0., 0., 0., 0., 0.])
+# 	# x = tf.constant([0.1, 3., 0.2, -0.02, -0.05, -0.12])
+# 	x = tf.constant([1., 3., 2., -0.12, -0.1, -0.2])
+# 	# x = tf.constant([1., 3., 2., -0., 0.0, -0.2])
 
 
-	height = 40
-	hs = 1 #height spacing
-	ns = 200 #number of points scale
+# 	height = 40
+# 	hs = 1 #height spacing
+# 	ns = 200 #number of points scale
 
-	xpos = tf.linspace(-100., 100., ns)[:,None]
-	ypos = -60*tf.ones(ns)[:,None]
-	# ypos = (-60*tf.ones(ns) + 10*tf.sin(tf.linspace(-3., 3., ns)))[:,None]
-	zpos = tf.ones(ns)[:,None]
-	pp1 = tf.concat((xpos, ypos, zpos), axis = 1)
+# 	xpos = tf.linspace(-100., 100., ns)[:,None]
+# 	ypos = -60*tf.ones(ns)[:,None]
+# 	# ypos = (-60*tf.ones(ns) + 10*tf.sin(tf.linspace(-3., 3., ns)))[:,None]
+# 	zpos = tf.ones(ns)[:,None]
+# 	pp1 = tf.concat((xpos, ypos, zpos), axis = 1)
 
-	for i in range(height*5):
-		#back wall
-		if i < height:
-			xpos = tf.linspace(-100., 100., ns)[:,None]
-			ypos = -60*tf.ones(ns)[:,None]
-			# ypos = (-60*tf.ones(ns) + 10*tf.sin(tf.linspace(-3., 3., ns)))[:,None]
-			zpos = hs*i*tf.ones(ns)[:,None]
-			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+# 	for i in range(height*5):
+# 		#back wall
+# 		if i < height:
+# 			xpos = tf.linspace(-100., 100., ns)[:,None]
+# 			ypos = -60*tf.ones(ns)[:,None]
+# 			# ypos = (-60*tf.ones(ns) + 10*tf.sin(tf.linspace(-3., 3., ns)))[:,None]
+# 			zpos = hs*i*tf.ones(ns)[:,None]
+# 			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
 
-		if i > height and i < 2*height:
-			ypos = tf.linspace(-20., 100., int(.6*ns))[:,None]
-			xpos = -30*tf.ones(int(.6*ns))[:,None]
-			zpos = hs*(i%height)*tf.ones(int(.6*ns))[:,None]
-			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+# 		if i > height and i < 2*height:
+# 			ypos = tf.linspace(-20., 100., int(.6*ns))[:,None]
+# 			xpos = -30*tf.ones(int(.6*ns))[:,None]
+# 			zpos = hs*(i%height)*tf.ones(int(.6*ns))[:,None]
+# 			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
 
-		if i > 2*height and i < 3*height:
-			ypos = tf.linspace(-20., 100., int(.6*ns))[:,None]
-			xpos = 30*tf.ones(int(.6*ns))[:,None]
-			zpos = hs*(i%height)*tf.ones(int(.6*ns))[:,None]
-			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+# 		if i > 2*height and i < 3*height:
+# 			ypos = tf.linspace(-20., 100., int(.6*ns))[:,None]
+# 			xpos = 30*tf.ones(int(.6*ns))[:,None]
+# 			zpos = hs*(i%height)*tf.ones(int(.6*ns))[:,None]
+# 			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
 
-		#left & right connector
-		if i > 3*height and i < 4*height:
-			xpos = tf.linspace(30., 100., int(.7*ns))[:,None]
-			ypos = -20*tf.ones(int(.7*ns))[:,None]
-			zpos = hs*(i%height)*tf.ones(int(.7*ns))[:,None]
-			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
-		if i > 4*height and i < 5*height:
-			xpos = tf.linspace(-30., -100., int(.7*ns))[:,None]
-			ypos = -20*tf.ones(int(.7*ns))[:,None]
-			zpos = hs*(i%height)*tf.ones(int(.7*ns))[:,None]
-			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+# 		#left & right connector
+# 		if i > 3*height and i < 4*height:
+# 			xpos = tf.linspace(30., 100., int(.7*ns))[:,None]
+# 			ypos = -20*tf.ones(int(.7*ns))[:,None]
+# 			zpos = hs*(i%height)*tf.ones(int(.7*ns))[:,None]
+# 			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+# 		if i > 4*height and i < 5*height:
+# 			xpos = tf.linspace(-30., -100., int(.7*ns))[:,None]
+# 			ypos = -20*tf.ones(int(.7*ns))[:,None]
+# 			zpos = hs*(i%height)*tf.ones(int(.7*ns))[:,None]
+# 			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
 
-		pp1 = tf.concat((pp1, pp1_i), axis = 0)
+# 		pp1 = tf.concat((pp1, pp1_i), axis = 0)
 
-	#add floor -------------------------------------------
-	for i in range(-100, 100, 1):
-		ypos = tf.linspace(-60., -20., 100)[:,None]
-		xpos = i*tf.ones(100)[:,None]
-		zpos = tf.ones(100)[:,None]
-		pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
-		pp1 = tf.concat((pp1, pp1_i), axis = 0)
-	for i in range(-30, 30, 1):
-		ypos = tf.linspace(-20., 100., 100)[:,None]
-		xpos = i*tf.ones(100)[:,None]
-		zpos = tf.ones(100)[:,None]
-		pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
-		pp1 = tf.concat((pp1, pp1_i), axis = 0)
-	#------------------------------------------------------
+# 	#add floor -------------------------------------------
+# 	for i in range(-100, 100, 1):
+# 		ypos = tf.linspace(-60., -20., 100)[:,None]
+# 		xpos = i*tf.ones(100)[:,None]
+# 		zpos = tf.ones(100)[:,None]
+# 		pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+# 		pp1 = tf.concat((pp1, pp1_i), axis = 0)
+# 	for i in range(-30, 30, 1):
+# 		ypos = tf.linspace(-20., 100., 100)[:,None]
+# 		xpos = i*tf.ones(100)[:,None]
+# 		zpos = tf.ones(100)[:,None]
+# 		pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+# 		pp1 = tf.concat((pp1, pp1_i), axis = 0)
+# 	#------------------------------------------------------
 	
-	print(tf.shape(pp1))
-	# for debug - add particles in middle to prevent L1 rank deficiency bug
-	# pp1 = tf.concat((pp1, tf.random.normal((100,3))), axis = 0)
+# 	print(tf.shape(pp1))
+# 	# for debug - add particles in middle to prevent L1 rank deficiency bug
+# 	# pp1 = tf.concat((pp1, tf.random.normal((100,3))), axis = 0)
 
-	#rotate scan 1
-	# pp1 = pp1 @ (R_tf(tf.constant([0.1,0.1,-0.1]))) + tf.constant([1.,2.,3.])
+# 	#rotate scan 1
+# 	# pp1 = pp1 @ (R_tf(tf.constant([0.1,0.1,-0.1]))) + tf.constant([1.,2.,3.])
 
-	# pp2 = tf.random.normal((100,3))
-	rot = R_tf(x[3:])
-	pp2 = pp1 @ rot + x[:3]
+# 	# pp2 = tf.random.normal((100,3))
+# 	rot = R_tf(x[3:])
+# 	pp2 = pp1 @ rot + x[:3]
 
-	#add a little bit of noise
-	pp1 = pp1 + tf.random.normal(tf.shape(pp1))*0.2
-	pp2 = pp2 + tf.random.normal(tf.shape(pp2))*0.2
+# 	#add a little bit of noise
+# 	pp1 = pp1 + tf.random.normal(tf.shape(pp1))*0.2
+# 	pp2 = pp2 + tf.random.normal(tf.shape(pp2))*0.2
 
-	return(pp1, pp2, bounds, x)
+# 	return(pp1, pp2, bounds, x)
 #______________________________________________________________________________________________
 
 # def generate_test_dataset():
@@ -1080,7 +1097,7 @@ def generate_test_dataset():
 # 	x = tf.constant([0., 1., 0., 0., 0.0, -0.1])
 
 
-# 	height = 40
+# 	height = 120 #40
 # 	hs = 1 #height spacing
 # 	ns = 200 #number of points scale
 
@@ -1119,3 +1136,61 @@ def generate_test_dataset():
 
 
 # 	return(pp1, pp2, bounds, x)
+
+#____________________________________________________________________________________________
+
+def generate_test_dataset():
+
+	""" Generate FLAT tunnel scene for 2D-ICET paper"""
+	tf.random.set_seed(1337)
+
+	bounds = tf.constant([-15.,15.,-50.,50.,-1,1])
+	x = tf.constant([1., 0., 0., -0., 0.0, 0.1]) #was this for demo
+	# x = tf.constant([0.1, 0., 0., 0., 0., 0.01]) #used for last 
+
+	print("starting transformation \n", x)
+
+	height = 1
+	hs = 1 #height spacing
+	ns = 500 #number of points scale
+	sp = -40. #start point
+
+
+	for i in range(height*2):
+
+		if i < height:
+			ypos = tf.linspace(sp, 40., ns)[:,None]
+			xpos = -5*tf.ones(ns)[:,None]
+			zpos = hs*(i%height)*tf.ones(ns)[:,None]
+			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+
+		if i >= height:
+			ypos = tf.linspace(sp, 40., ns)[:,None]
+			xpos = 5*tf.ones(ns)[:,None]
+			zpos = hs*(i%height)*tf.ones(ns)[:,None]
+			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+
+		if i == 0:
+			pp1 = pp1_i
+		else:
+			pp1 = tf.concat((pp1, pp1_i), axis = 0)
+
+	
+	print(tf.shape(pp1))
+
+	#rotate scan 1
+	# pp1 = pp1 @ (R_tf(tf.constant([0.1,0.1,-0.1]))) + tf.constant([1.,2.,3.])
+
+	#adjust initial pc relative to car
+	pp1 = pp1 + tf.constant([-3.,4.,0.0])
+
+	rot = R_tf(x[3:])
+	# pp2 = pp1 @ rot + x[:3] #was this 11/30
+	pp2 = (pp1 + x[:3]) @ rot #actually think this is better
+
+	#add noise
+	scale = tf.constant([0.1,0.01,0.01])
+	pp1 = pp1 + tf.random.normal(tf.shape(pp1))*scale
+	pp2 = pp2 + tf.random.normal(tf.shape(pp2))*scale
+
+	return(pp1, pp2, bounds, x)
