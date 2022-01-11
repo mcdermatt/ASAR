@@ -844,7 +844,8 @@ if gpstime <= msrk1(1) && gpstime > msrk(1)  % If GPS time between two inertial 
     % dr = [0.794;2.52;0.468];
     dr = [1e-9;1e-9;1e-9];  % LEVER ARM in m (XYZ body frame, YX(-Z) aligns with NED)
     lla_gps_corr = coeff*(gpsmsr(2:4))' - cbn*dr;
-
+    
+    coeff*(gpsmsr(2:4).')    
     
 %     coeff % ~= 6e6
     y = coeff*lla_in' - lla_gps_corr;
@@ -859,7 +860,7 @@ if gpstime <= msrk1(1) && gpstime > msrk(1)  % If GPS time between two inertial 
     L = PM*H'*inv(H*PM*H'+R);
     yHat = H*xHatM;
     
-    yHat %yHat(1)~0.002
+%     yHat %yHat(1)~0.002
     
     xHatP = xHatM + L*(y-yHat);         % a posteriori estimate
     PP = (eye(size(F))-L*H)*PM*(eye(size(F))-L*H)'+L*R*L';
