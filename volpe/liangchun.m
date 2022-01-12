@@ -818,6 +818,8 @@ Qk = 0.5*(F*B*Q*B'+B*Q*B'*F')*dt;
 xHatM = F*xHatP;                    % Forward Euler integration (A priori)
 PM = F*PP*F'+Qk;                    % cov. Estimate
 
+xHatM(4)
+
 rn = WGS84_A / sqrt(1 - e * e * sin(lla_in(1)) * sin(lla_in(1)));
 rm = WGS84_A * (1 - e * e) / sqrt(power(1 - e * e * sin(lla_in(1)) * sin(lla_in(1)), 3));
 coeff = diag([(rm+lla_in(3)); ((rn+lla_in(3))*cos(lla_in(1))); -1]);
