@@ -41,7 +41,7 @@ qbnTime = dat.inspvax.sow1465;
 pos_lidar_enu = -load('pos_lidar_enu.mat').pos_lidar_enu;
 % position: [2851×7 double]:
     % Columns 1-3: Translation vector (x,y,z) (in meters)
-    % Columns 4-7: Rotational vector (qw,qx,qy,qz) (in meters)
+    % Columns 4-7: Rotational vector (qw,qx,qy,qz) (in rad)
  
 [lat_lidar, lon_lidar, hgt_lidar] = enu2geodetic(pos_lidar_enu(:,1), pos_lidar_enu(:,2), ... 
         pos_lidar_enu(:,3), ppplat(1), ppplon(1), ppphgt(1), wgs84Ellipsoid('m'));
@@ -223,7 +223,8 @@ lidarCnt = 0;
 i = 2;
 while i < endIndx  
     
-    %TODO: bring in lidar r
+    %TODO: bring in lidar rotations to correct INS data???
+    qbn_lidar = pos_lidar_enu(lidarCnt+1, 4:7);
     
     if(mod(i,1e3)==2); i-2, end  % echo time step to screen current step
 
@@ -249,7 +250,7 @@ while i < endIndx
         
     % GPS/INS solution
     [lla_ins, ned_lidar, lla_combined, vel, rpy, dv, qbn, xHatM_ins, xHatM_lidar, xHatM_combined, PP, gpsUpdated, lidarUpdated, gpsCnt, lidarCnt, gpsResUpd, PM_ins, PM_lidar, PM_combined, F200] = ...
-        ins_gps(lla0_ins, ned0_lidar, lla0_combined, lla_ins_last, vel0, rpy0, dv0, qbn0, msrk, msrk1, gpsmsr, lidarmsr, xHatM_ins, xHatM_lidar, xHatM_ins_cum, xHatM_lidar_cum, PP, gpsCnt, lidarCnt, t_last_lidar, PM_lidar_last, fuse_lidar, fuse_gps, F200);
+        ins_gps(lla0_ins, ned0_lidar, lla0_combined, lla_ins_last, vel0, rpy0, dv0, qbn0, qbn_lidar, msrk, msrk1, gpsmsr, lidarmsr, xHatM_ins, xHatM_lidar, xHatM_ins_cum, xHatM_lidar_cum, PP, gpsCnt, lidarCnt, t_last_lidar, PM_lidar_last, fuse_lidar, fuse_gps, F200);
 
 %     vel %TODO why is this exploding???
 
@@ -480,7 +481,7 @@ rn_list = WGS84_A ./ sqrt(1 - e * e * sin(resArr(:,1)).^2);
 rm_list = WGS84_A * (1 - e * e) ./ sqrt(power(1 - e * e * sin(resArr(:,1)).^2, 3));
 
 function [lla_ins, ned_lidar, lla_combined, vel, rpy, dv, qbn, xHatM_ins, xHatM_lidar, xHatM_combined, PP, gpsUpdated, lidarUpdated, gpsCnt, lidarCnt, gpsResUpd, PM_ins, PM_lidar, PM_combined, F200] = ...
-    ins_gps(lla0_ins, ned0_lidar, lla0_combined, lla_ins_last, vel0, rpy0, dv0, qbn0, msrk, msrk1, gpsmsr, lidarmsr, xHatM_ins, xHatM_lidar, xHatM_ins_cum, xHatM_lidar_cum, PP, gpsCnt, lidarCnt, t_last_lidar, PM_lidar_last, fuse_lidar, fuse_gps, F200)
+    ins_gps(lla0_ins, ned0_lidar, lla0_combined, lla_ins_last, vel0, rpy0, dv0, qbn0, qbn_lidar, msrk, msrk1, gpsmsr, lidarmsr, xHatM_ins, xHatM_lidar, xHatM_ins_cum, xHatM_lidar_cum, PP, gpsCnt, lidarCnt, t_last_lidar, PM_lidar_last, fuse_lidar, fuse_gps, F200)
 
 WGS84_A = 6378137.0;           % earth semi-major axis (WGS84) (m) 
 WGS84_B = 6356752.3142;        % earth semi-minor axis (WGS84) (m) 
@@ -916,10 +917,6 @@ F200 = F*F200; %keep product of sequential F matrices for use in Lidar fusion
 [xHatM_ins_E, xHatM_ins_N, xHatM_ins_U] = geodetic2enu(lla_ins(1), lla_ins(2), lla_ins(3), lla0_ins(1), lla0_ins(2), lla0_ins(3), wgs84Ellipsoid, 'radians');
 xHatM_ins(1:3) = [-xHatM_ins_N, -xHatM_ins_E, xHatM_ins_U];
 
-% xHatM_ins(1)
-
-% lla_ins(1) - lla0_ins(1) %always increasing ...
-
 %set noise covariance matrix for lidar
 %     Qk_lidar = 1e4*ones(3,3); %init arbitrarily high values
 Qk_lidar = zeros(3,3); %test w/ zeros
@@ -955,7 +952,7 @@ if lidartime <= msrk1(1) && lidartime > msrk(1)
     lidarCnt = lidarCnt + 1;
     
     ned_lidar = ned0_lidar + (xHatM_lidar(1:3).');
-        
+    
     else
         lidarUpdated = 0;
         ned_lidar = ned0_lidar;
