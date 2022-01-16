@@ -341,7 +341,7 @@ hold on
 xlabel('timestep')
 %TODO: make sure this is still lon/ lat after ENU->NED swap
 ylabel('estimated change in lon per GPS frame (m)')
-plot(xHatM_ins_hist(:,1))
+plot(xHatM_ins_hist(:,2))
 plot(xHatM_lidar_hist(:,1))
 plot(xHatM_combined_hist(:,1))
 dEgps = -Egps(nonzero);
@@ -353,7 +353,7 @@ subplot(3,1,2)
 hold on
 xlabel('timestep')
 ylabel('estimated change in lat per GPS frame (m)')
-plot(xHatM_ins_hist(:,2))
+plot(xHatM_ins_hist(:,1))
 plot(xHatM_lidar_hist(:,2))
 plot(xHatM_combined_hist(:,2))
 dNgps = -Ngps(nonzero);
@@ -915,7 +915,7 @@ F200 = F*F200; %keep product of sequential F matrices for use in Lidar fusion
 %transform xHatM_ins into ENU here before combining with lidar...
 %DEBUG -> why is xHatM_ins(1:3) exploding???
 [xHatM_ins_E, xHatM_ins_N, xHatM_ins_U] = geodetic2enu(lla_ins(1), lla_ins(2), lla_ins(3), lla0_ins(1), lla0_ins(2), lla0_ins(3), wgs84Ellipsoid, 'radians');
-xHatM_ins(1:3) = [-xHatM_ins_N, -xHatM_ins_E, xHatM_ins_U];
+xHatM_ins(1:3) = [xHatM_ins_N, -xHatM_ins_E, xHatM_ins_U];
 
 %set noise covariance matrix for lidar
 %     Qk_lidar = 1e4*ones(3,3); %init arbitrarily high values
