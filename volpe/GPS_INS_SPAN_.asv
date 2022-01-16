@@ -223,7 +223,7 @@ lidarCnt = 0;
 i = 2;
 while i < endIndx  
     
-    %TODO: bring in lidar rotations to correct INS data???
+    %TODO: bring in lidar r
     
     if(mod(i,1e3)==2); i-2, end  % echo time step to screen current step
 
