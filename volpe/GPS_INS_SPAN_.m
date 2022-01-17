@@ -71,6 +71,12 @@ dE = pos_lidar_enu(:,2) - [pos_lidar_enu(2:end,2).' 0].';
 dN = pos_lidar_enu(:,1) - [pos_lidar_enu(2:end,1).' 0].';
 dU = pos_lidar_enu(:,3) - [pos_lidar_enu(2:end,3).' 0].';
 dpos_lidar = [(t_lidar + ppptime(1)), -dN(1:end-1), -dE(1:end-1), -dU(1:end-1)];
+
+%debug: get change in velocity from lidar
+ddE = dE(:) - [dE(2:end).' 0].';
+ddN = dN(:) - [dN(2:end).' 0].';
+ddU = dU(:) - [dU(2:end).' 0].';
+dvel_lidar = [ddN(1:end-1), ddE(1:end-1), ddU(1:end-1)];
 %--------------------------------------------------------------------------
 
 % sync and interpolate GPS readings so they occur at the same time as Lidar
@@ -265,6 +271,7 @@ while i < endIndx
         t_last_lidar = lidarmsr(1);
         lidarmsr = dpos_lidar(lidarCnt+1, :);%update lidar measurement
         ned0_lidar = ned_lidar;
+        vel = dpos_lidar(lidarCnt, 2:4)*10; %-> BIG improvement
         if gpsUpdated == 1
             xHatM_lidar_hist(gpsCnt,:) = xHatM_lidar_hist(gpsCnt,:) + xHatM_lidar.';
             lla_ins_last = lla_ins;
@@ -324,7 +331,7 @@ time = msrArr(1,:);
 startTime = time(1);
 
 %convert GPS measurements array to ENU
-[Egps, Ngps, Ugps] = geodetic2enu(gpsMsrArr(2,:), gpsMsrArr(3,:), gpsMsrArr(4,:), ...
+[Ngps, Egps, Ugps] = geodetic2enu(gpsMsrArr(2,:), gpsMsrArr(3,:), gpsMsrArr(4,:), ...
     gpsMsrArr(2,1), gpsMsrArr(3,1), gpsMsrArr(4,1), wgs84Ellipsoid);
 %find timesteps where gpsMsrArr != 0
 nonzero = find( gpsMsrArr(1,:) ~= 0); %nonzero elements of GPS
@@ -342,7 +349,7 @@ xlabel('timestep')
 %TODO: make sure this is still lon/ lat after ENU->NED swap
 ylabel('estimated change in lon per GPS frame (m)')
 plot(xHatM_ins_hist(:,2))
-plot(xHatM_lidar_hist(:,1))
+plot(xHatM_lidar_hist(:,2))
 plot(xHatM_combined_hist(:,1))
 dEgps = -Egps(nonzero);
 dEgps = dEgps - [dEgps(2:end) 0];
@@ -354,7 +361,7 @@ hold on
 xlabel('timestep')
 ylabel('estimated change in lat per GPS frame (m)')
 plot(xHatM_ins_hist(:,1))
-plot(xHatM_lidar_hist(:,2))
+plot(xHatM_lidar_hist(:,1))
 plot(xHatM_combined_hist(:,2))
 dNgps = -Ngps(nonzero);
 dNgps = dNgps - [dNgps(2:end) 0];
@@ -383,9 +390,9 @@ figure(6)
 subplot(3,1,1);
 hold on; grid on
 % plot(time-startTime, rad2deg(resArr_ins(:,1))); %was this with ins in lla
-plot(time-startTime, Nins)
+plot(time-startTime, Eins)
 % plot(time-startTime, rad2deg(resArr_lidar(:,1))); %was this with lidar in lla
-plot(time-startTime, resArr_lidar(:,1));
+plot(time-startTime, resArr_lidar(:,2));
 % plot(time-startTime, rad2deg(lla_combined_hist(1,1:end-1))); %not working
 
 % plot(gpsMsrArr(1, nonzero)-startTime, gpsMsrArr(2, nonzero)); %used for lat/lon
@@ -401,9 +408,9 @@ ylabel('East (m)');
 subplot(3,1,2);
 hold on; grid on
 % plot(time-startTime, rad2deg(resArr_ins(:,2)));
-plot(time-startTime, Eins)
+plot(time-startTime, Nins)
 % plot(time-startTime, rad2deg(resArr_lidar(:,2)));
-plot(time-startTime, resArr_lidar(:,2));
+plot(time-startTime, resArr_lidar(:,1));
 ylabel('longitude (deg)');
 % plot(gpsMsrArr(1, nonzero)-startTime, gpsMsrArr(3, nonzero));
 plot(gpsMsrArr(1, nonzero)-startTime, Ngps(nonzero));
@@ -915,7 +922,7 @@ F200 = F*F200; %keep product of sequential F matrices for use in Lidar fusion
 %transform xHatM_ins into ENU here before combining with lidar...
 %DEBUG -> why is xHatM_ins(1:3) exploding???
 [xHatM_ins_E, xHatM_ins_N, xHatM_ins_U] = geodetic2enu(lla_ins(1), lla_ins(2), lla_ins(3), lla0_ins(1), lla0_ins(2), lla0_ins(3), wgs84Ellipsoid, 'radians');
-xHatM_ins(1:3) = [xHatM_ins_N, -xHatM_ins_E, xHatM_ins_U];
+xHatM_ins(1:3) = [xHatM_ins_N, xHatM_ins_E, xHatM_ins_U];
 
 %set noise covariance matrix for lidar
 %     Qk_lidar = 1e4*ones(3,3); %init arbitrarily high values
@@ -954,7 +961,7 @@ if lidartime <= msrk1(1) && lidartime > msrk(1)
     ned_lidar = ned0_lidar + (xHatM_lidar(1:3).');
     
     %reset ins heading to lidar estimated heading
-    qbn = qbn_lidar; %wow this is helping a lot!!!
+%     qbn = qbn_lidar; %wow this is helping a lot!!!
     
     else
         lidarUpdated = 0;
@@ -1014,6 +1021,7 @@ if gpstime <= msrk1(1) && gpstime > msrk(1)  % If GPS time between two inertial 
         
 %          ~~~~~~~~~~~~~~~
         lla_ins = lla_lidar; %temp
+        qbn = qbn_lidar;
 %          ~~~~~~~~~~~~~~~
 %         [xHatM_ins_E, xHatM_ins_N, xHatM_ins_U] = geodetic2enu(lla_ins(1), lla_ins(2), lla_ins(3), lla0_ins(1), lla0_ins(2), lla0_ins(3), wgs84Ellipsoid, 'radians');
 %         xHatM_ins(1:3) = [xHatM_ins_N, xHatM_ins_E, -xHatM_ins_U];
@@ -1027,7 +1035,6 @@ if gpstime <= msrk1(1) && gpstime > msrk(1)  % If GPS time between two inertial 
         
         %test --------------
 %         PM = PM_ins;
-%         xHatM_ins = xHatM_combined; %this makes sense?
 %         PM_ins = zeros(21);
 %         PM_ins = eye(21)*gps_std;
 %         PM_ins(4:end,4:end) = 0;
@@ -1110,9 +1117,9 @@ if gpstime <= msrk1(1) && gpstime > msrk(1)  % If GPS time between two inertial 
 %         PM_lidar = eye(3)*gps_std;
     end
         
-    xi = rad2deg(xHatM_ins(7:9));
-    E = [0 -xi(3) xi(2); xi(3) 0 -xi(1); -xi(2) xi(1) 0];
-    cbn = (eye(3)+E)*cbn;
+%     xi = rad2deg(xHatM_ins(7:9));
+%     E = [0 -xi(3) xi(2); xi(3) 0 -xi(1); -xi(2) xi(1) 0];
+%     cbn = (eye(3)+E)*cbn;
     %TODO: DEBUG THIS ---------------------------------------------
     %apply velocity correction
     %NOTE: looks like this is removing almost all velocity (xHatP is too big)
@@ -1122,7 +1129,7 @@ if gpstime <= msrk1(1) && gpstime > msrk(1)  % If GPS time between two inertial 
     
     %comment out below to ignore correction step- not ideal but helps
     %convergence?? -LX
-    qbn = dcm2quat(cbn');
+%     qbn = dcm2quat(cbn');
 
     % normalization
 %     e_q = sumsqr(qbn);
