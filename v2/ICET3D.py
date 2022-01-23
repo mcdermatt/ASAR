@@ -250,7 +250,8 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 			fname = "C:/Users/Derm/honda.vtk"
 			car = Mesh(fname).c("gray").addShadow(z=0)
 			car.pos(1.,0,0.1) #move slightly up to avoid clipping ground plane
-			plt.show([car, disp], "ICET3D", at=0, interactive = True)
+			# plt.show([car, disp], "ICET3D", at=0, interactive = True)
+			plt.show([car, disp], "ICET3D", at=0, resetcam = False)
 			#------------------------------------------------------------
 
 			#don't plot car ---------------------------------------------

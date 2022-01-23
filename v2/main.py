@@ -26,11 +26,21 @@ DE = True #draw ellipsoids
 DC = False #draw correspondences
 TD = True #use test dataset
 CM = "voxel" #correspondence method, "voxel" or "NN"
-vizL = False #draw arrows in direction of non-truncated directions for each distribution
+vizL = True #draw arrows in direction of non-truncated directions for each distribution
 
 # plt = Plotter(N=1, axes=1, bg = (0.1,0.1,0.1), bg2 = (0.3,0.3,0.3),  interactive=True)
 plt = Plotter(N=1, axes=4, interactive=True)
-# plt.parallelProjection(True, at=0) 
+# plt = Plotter(N=1, axes=4, resetcam=False)
+
+
+#copy and paste from terminal using shift+c on Vedo window-----------------------
+plt.camera.SetPosition( [-1.435, 1.429, 54.846] )
+plt.camera.SetFocalPoint( [0., 0., 0.154] )
+plt.camera.SetViewUp( [0.0, -1.0, 0.0] )
+plt.camera.SetDistance( 54.764 )
+plt.camera.SetClippingRange( [48.342, 61.103] )
+plt.camera.SetClippingRange( [0.154, 154.418] )
+#--------------------------------------------------------------------------------
 
 ## Use real data ----------------------------------------------------------------
 # basedir = 'C:/kitti/'

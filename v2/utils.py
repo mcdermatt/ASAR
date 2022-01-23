@@ -348,7 +348,7 @@ def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.
 		color = (0.5,0.5,1)
 	if show_pc == 2:
 		color = (1,0.5,0.5)
-	cloud = Points(cloud_tensor, c = color, alpha = 0.5)
+	cloud = Points(cloud_tensor, c = color, alpha = 0.9)
 	disp.append(cloud) #add point cloud object to viz
 
 	# cloud_tensor = tf.convert_to_tensor(pc, np.float32)
@@ -590,7 +590,7 @@ def make_scene(plt, disp, E, color, draw_grid = False, draw_ell = True, fid = No
 			if mu[i,0] != 0 and mu[i,1] != 0:
 				ell = Ell(pos=(mu[i,0], mu[i,1], mu[i,2]), axis1 = 4*np.sqrt(abs(a1)), 
 					axis2 = 4*np.sqrt(abs(a2)), axis3 = 4*np.sqrt(abs(a3)), 
-					angs = (np.array([-R2Euler(eigenvec)[0], -R2Euler(eigenvec)[1], -R2Euler(eigenvec)[2] ])), c=color, alpha=1, res=12)
+					angs = (np.array([-R2Euler(eigenvec)[0], -R2Euler(eigenvec)[1], -R2Euler(eigenvec)[2] ])), c=color, alpha=0.5, res=12)
 		#todo - fix rotation bug in angs[1]
 				
 				disp.append(ell)
@@ -1145,8 +1145,8 @@ def generate_test_dataset():
 	tf.random.set_seed(1337)
 
 	bounds = tf.constant([-15.,15.,-50.,50.,-1,1])
-	x = tf.constant([1., 0., 0., -0., 0.0, 0.1]) #was this for demo
-	# x = tf.constant([0.1, 0., 0., 0., 0., 0.01]) #used for last 
+	# x = tf.constant([1., 0., 0., -0., 0.0, 0.1]) #was this for demo
+	x = tf.constant([2., 0., 0., 0., 0., 0.01]) #used for last 
 
 	print("starting transformation \n", x)
 
@@ -1189,7 +1189,7 @@ def generate_test_dataset():
 	pp2 = (pp1 + x[:3]) @ rot #actually think this is better
 
 	#add noise
-	scale = tf.constant([0.1,0.01,0.01])
+	scale = tf.constant([0.1,0.01,0.01]) #TODO debug: adding too much nosie prevenets translation estimates???
 	pp1 = pp1 + tf.random.normal(tf.shape(pp1))*scale
 	pp2 = pp2 + tf.random.normal(tf.shape(pp2))*scale
 
