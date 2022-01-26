@@ -13,6 +13,7 @@ class divide():
 	def __init__(self, fig, ax, cloud = None):
 
 		self.minNumPts = 3
+		self.node_fidelity = 10 #creates an NxN grid of nodes
 
 		self.fig = fig
 		self.ax = ax
@@ -24,16 +25,7 @@ class divide():
 			self.cloud = cloud
 
 		self.initNodes()
-
-		# self.Nodes[5] += np.array([3,-2]) #test-> drag around a node to verify centroid updates
-
-		self.drawNodes()
-
-
-		# self.findPtsInVox(4)
-
-		c = self.getCentroid(4)
-		self.ax.plot(c[0],c[1],'bx')
+		# self.drawNodes()
 
 		self.main()
 
@@ -47,18 +39,89 @@ class divide():
 		numVox = (self.node_fidelity-1)**2
 
 		for i in range(numIter):
+
+			#initialize score vector
+			self.corrections = np.zeros(np.shape(self.Nodes))
+
 			for j in range(numVox):
 
 				pts = self.findPtsInVox(j)
-
-				self.drawVoxel(j, npts = np.shape(pts)[0])
+				#only draw on last
+				if i == numIter - 1:
+					self.drawVoxel(j, npts = np.shape(pts)[0]) #specifing number of points effects shading of voxel
 
 				#only consider voxels with sufficient number of points
-
 				if np.shape(pts)[0] > self.minNumPts:
+					#get mean (mu) and covariance (sigma) of distribution of points within distribution
 					mu, sigma = self.fit_gaussian(pts)
-					# print(sigma)
+					# self.ax.plot(mu[0], mu[1], 'rx') #plot centers of per-voxel distributions
 
+					eig = np.linalg.eig(sigma)
+					eigenval = eig[0]
+					eigenvec = eig[1]
+
+					rot = -np.rad2deg(np.arctan(eigenvec[0,1]/eigenvec[0,0]))
+					width = 4*np.sqrt(abs(eigenval[0]))
+					height = 4*np.sqrt(abs(eigenval[1]))
+					ell = Ellipse((mu[0],mu[1]),width, height, angle = rot, fill = True, color = [1, 0.5,0.5, 0.7])
+					self.ax.add_patch(ell)
+
+					#calculate centroid of the voxel
+					c = self.getCentroid(voxid = j)
+					# self.ax.plot(c[0],c[1],'bx') #plot centroids
+
+					# calcualte distance between voxel centroid and distribution center
+					d0j = np.sqrt( (c[0] - mu[0])**2 + (c[1] - mu[1])**2) 
+					# print(d0j)
+
+					#Strategy 1 ----------------------------------------------------------
+					#for each corner of the voxel, drag the node by a small perterbation
+					#  in the x and y directions, and re-calculate the distane betwen 
+					#  voxel centroid and distribution centers
+					
+					#get current locations of corners
+					corners = self.getCorners(j)
+					# print(corners)
+
+					#loop through the 4 corners
+					for k in range(4):
+
+						eps = 0.1 #arbitrarily small displacement
+
+						#move slightly in the x-direction and calculate change in score
+						corners_temp = corners.copy()
+						corners_temp[k,0] += eps
+						c_dx_jk = self.getCentroid(nodes = corners_temp)#centroid of voxel j after dx is applied to node k
+						ddkx = d0j - np.sqrt( (c_dx_jk[0] - mu[0])**2 + (c_dx_jk[1] - mu[1])**2)
+						# print(ddkx)
+
+						#move slightly in the y-direction and note change in score
+						corners_temp = corners.copy()
+						corners_temp[k,1] += eps
+						c_dy_jk = self.getCentroid(nodes = corners_temp)#centroid of voxel j after dy is applied to node k
+						ddky = d0j - np.sqrt( (c_dy_jk[0] - mu[0])**2 + (c_dy_jk[1] - mu[1])**2)
+
+						#identify which element in self.Nodes corresponds to the corner coordinaces
+						n = np.where((self.Nodes == corners[k]).all(axis = 1) == True)
+						# print(n)
+
+						#use these deltas to contribute to an overall score vector for each node												
+						#weight these contributons as a func. of the number of points in the cell?
+						self.corrections[n,0] += ddkx*np.shape(pts)[0]
+						self.corrections[n,1] += ddky*np.shape(pts)[0]
+
+
+					#-----------------------------------------------------------------
+
+			#apply score vector to nodes to adjust their positions
+			self.Nodes += self.corrections
+			# self.drawNodes()
+
+			#TODO: create a test to make sure voxels don't fold up on top of one another
+		
+
+			#TODO: figure out how to dynamically adjust teh extended axis pruning threshold
+			#		could try to inscribe a circle inside each polygon??
 
 
 	def fit_gaussian(self, pts, draw = True):
@@ -85,7 +148,6 @@ class divide():
 		""" set initial positions of nodes for voxel grid """
 
 		node_boundaries = np.array([-10, 10, -10, 10]) #[minx, maxx, miny, maxy]
-		self.node_fidelity = 4 #this many nodes in x and y 
 
 		self.Nodes = np.zeros([self.node_fidelity**2,2])
 
@@ -103,8 +165,6 @@ class divide():
 
 	def getCorners(self,voxid):
 		""" gets corner nodes bounding voxel # voxid """
-
-		self.node_fidelity = 4  
 
 		tl = voxid + voxid//(self.node_fidelity - 1) #top left
 		tr = tl+1
@@ -128,17 +188,20 @@ class divide():
 		p = PatchCollection(self.patches, alpha=0.4)
 
 		if npts != -1:
-			p.set_color([1 - npts/(np.shape(self.cloud)[0]) ,1 - npts/(np.shape(self.cloud)[0]) ,1 ])
+			p.set_color([(0.6 - npts/(np.shape(self.cloud)[0]))**2 , (0.6 - npts/(np.shape(self.cloud)[0]))**2 ,1 ])
 
 		self.ax.add_collection(p)
 
 	def genDemoCloud(self):
 		"""generate simple structured point cloud for testing """
 
-		npts = 50
-		self.cloud = 0.5*np.random.randn(npts,2)
-		self.cloud[:,0] += np.linspace(-8,8,npts)
-		self.cloud[:,1] += np.linspace(1,4,npts)
+		npts = 100
+		self.cloud = 0.25*np.random.randn(npts,2)
+		self.cloud[:npts//2,0] += np.linspace(-8,8,npts//2)
+		self.cloud[:npts//2,1] += np.linspace(1,4,npts//2)
+
+		self.cloud[npts//2:,0] += np.linspace(1,-1, npts//2)
+		self.cloud[npts//2:,1] += np.linspace(-8, 3, npts//2)
 
 
 		self.ax.plot(self.cloud[:,0], self.cloud[:,1], 'r.')
@@ -150,14 +213,19 @@ class divide():
 		vox = mplPath.Path(corners)
 		isInside = vox.contains_points(self.cloud)
 		inside = self.cloud[isInside]
-		self.ax.plot(inside[:,0],inside[:,1], 'ro')
+
+		#highlight points in voxel
+		# self.ax.plot(inside[:,0],inside[:,1], 'ro')
 
 		return inside
 
-	def getCentroid(self, voxid):
+	def getCentroid(self, voxid = None, nodes = None):
 		""" returns centroid of polygon specified by voxid """
 
-		corners = self.getCorners(voxid)
+		if voxid == None:
+			corners = nodes
+		else:
+			corners = self.getCorners(voxid)
 		tl = corners[0,:]
 		tr = corners[1,:]
 		br = corners[2,:]
