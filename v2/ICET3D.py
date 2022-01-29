@@ -24,7 +24,7 @@ from utils import *
 
 def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False, 
 	       num_cycles = 5, min_num_pts = 50, draw_grid = False, draw_ell = True, 
-	       draw_corr = False, CM = "voxel", vizL = True):
+	       draw_corr = False, CM = "voxel", vizL = True, xHat0 = tf.zeros([6,1])):
 
 	"""3D implementation of ICET algorithm using TensorFlow library
 	
@@ -77,7 +77,9 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 		disp1 = visualize_L(U, L, y0, disp1)
 
 	#init solution vector x
+	#TODO: use previous estimate to initialize next initial state estimate for x???
 	x = tf.zeros(6) #[x, y, z, phi, theta, psi].T
+	# x = tf.squeeze(xHat0)
 
 	#start with pp2_corrected with an initial transformation of [0,0,0]
 	t = x[:3]
@@ -226,7 +228,7 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 
 		#augment x by dx
 		x = x + dx
-		print("\n x \n", x)
+		# print("\n x \n", x)
 
 		#transform 2nd scan by x
 		t = x[:3]
@@ -246,16 +248,16 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 				# plt.clear(disp, at=0) 
 
 			#plot car in center------------------------------------------
-			# (used for making presentation graphics)
-			fname = "C:/Users/Derm/honda.vtk"
-			car = Mesh(fname).c("gray").addShadow(z=0)
-			car.pos(1.,0,0.1) #move slightly up to avoid clipping ground plane
-			# plt.show([car, disp], "ICET3D", at=0, interactive = True)
-			plt.show([car, disp], "ICET3D", at=0, resetcam = False)
+			# # (used for making presentation graphics)
+			# fname = "C:/Users/Derm/honda.vtk"
+			# car = Mesh(fname).c("gray").addShadow(z=0)
+			# car.pos(1.,0,0.1) #move slightly up to avoid clipping ground plane
+			# # plt.show([car, disp], "ICET3D", at=0, interactive = True)
+			# plt.show([car, disp], "ICET3D", at=0, resetcam = False)
 			#------------------------------------------------------------
 
 			#don't plot car ---------------------------------------------
-			# plt.show(disp, "ICET3D", at=0, interactive = True) 
+			plt.show(disp, "ICET3D", at=0, interactive = True) 
 			#------------------------------------------------------------
 
 			#set interactive to False to autoplay
@@ -496,22 +498,22 @@ def visualize_L(U, L, y0, disp1):
 		# ends =  L[i] @ U[i] #test
 
 		#for 3d -------------------------
-		# arrow_len = 5
-		# arr1 = shapes.Arrow(y0[i].numpy(), (y0[i] + arrow_len * ends[0,:]).numpy(), c = 'red')
-		# disp1.append(arr1)
-		# arr2 = shapes.Arrow(y0[i].numpy(), (y0[i] + arrow_len * ends[1,:]).numpy(), c = 'green')
-		# disp1.append(arr2)
-		# arr3 = shapes.Arrow(y0[i].numpy(), (y0[i] + arrow_len * ends[2,:]).numpy(), c = 'blue')
-		# disp1.append(arr3)
+		arrow_len = 5
+		arr1 = shapes.Arrow(y0[i].numpy(), (y0[i] + arrow_len * ends[0,:]).numpy(), c = 'red')
+		disp1.append(arr1)
+		arr2 = shapes.Arrow(y0[i].numpy(), (y0[i] + arrow_len * ends[1,:]).numpy(), c = 'green')
+		disp1.append(arr2)
+		arr3 = shapes.Arrow(y0[i].numpy(), (y0[i] + arrow_len * ends[2,:]).numpy(), c = 'blue')
+		disp1.append(arr3)
 		#---------------------------------
 	
-		#for 2D (making visuals for presentation)----
-		arrow_len = 1
-		arr2a = shapes.Arrow(y0[i].numpy(), (y0[i] + arrow_len * ends[1,:]).numpy(), c = 'green')
-		disp1.append(arr2a)
-		arr2b = shapes.Arrow(y0[i].numpy(), (y0[i] - arrow_len * ends[1,:]).numpy(), c = 'green')
-		disp1.append(arr2b)
-		#--------------------------------------------
+		# #for 2D (making visuals for presentation)----
+		# arrow_len = 1
+		# arr2a = shapes.Arrow(y0[i].numpy(), (y0[i] + arrow_len * ends[1,:]).numpy(), c = 'green')
+		# disp1.append(arr2a)
+		# arr2b = shapes.Arrow(y0[i].numpy(), (y0[i] - arrow_len * ends[1,:]).numpy(), c = 'green')
+		# disp1.append(arr2b)
+		# #--------------------------------------------
 
 
 

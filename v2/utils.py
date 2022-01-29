@@ -590,7 +590,7 @@ def make_scene(plt, disp, E, color, draw_grid = False, draw_ell = True, fid = No
 			if mu[i,0] != 0 and mu[i,1] != 0:
 				ell = Ell(pos=(mu[i,0], mu[i,1], mu[i,2]), axis1 = 4*np.sqrt(abs(a1)), 
 					axis2 = 4*np.sqrt(abs(a2)), axis3 = 4*np.sqrt(abs(a3)), 
-					angs = (np.array([-R2Euler(eigenvec)[0], -R2Euler(eigenvec)[1], -R2Euler(eigenvec)[2] ])), c=color, alpha=0.5, res=12)
+					angs = (np.array([-R2Euler(eigenvec)[0], -R2Euler(eigenvec)[1], -R2Euler(eigenvec)[2] ])), c=color, alpha=1, res=12)
 		#todo - fix rotation bug in angs[1]
 				
 				disp.append(ell)
@@ -927,96 +927,96 @@ class Ell(Mesh):
 
 #_______________________________________________________________________________________________
 
-# def generate_test_dataset():
+def generate_test_dataset():
 	
-# 	""" Generate a simple 3D T shaped intersection """
+	""" Generate a simple 3D T shaped intersection """
 
-# 	#TODO: take in transformation from pp1 to pp2
+	#TODO: take in transformation from pp1 to pp2
 
-# 	bounds = tf.constant ([-150.,150.,-150.,150.,-150,150])
-# 	# x = tf.constant([0.1, 3., 0.2, -0.02, -0.05, -0.12])
-# 	# x = tf.constant([0., 0., 0., 0., 0., 0.])
-# 	# x = tf.constant([0.1, 3., 0.2, -0.02, -0.05, -0.12])
-# 	x = tf.constant([1., 3., 2., -0.12, -0.1, -0.2])
-# 	# x = tf.constant([1., 3., 2., -0., 0.0, -0.2])
+	bounds = tf.constant ([-150.,150.,-150.,150.,-150,150])
+	# x = tf.constant([0.1, 3., 0.2, -0.02, -0.05, -0.12])
+	# x = tf.constant([0., 0., 0., 0., 0., 0.])
+	# x = tf.constant([0.1, 3., 0.2, -0.02, -0.05, -0.12])
+	x = tf.constant([1., 3., 2., -0.12, -0.1, -0.2])
+	# x = tf.constant([1., 3., 2., -0., 0.0, -0.2])
 
 
-# 	height = 40
-# 	hs = 1 #height spacing
-# 	ns = 200 #number of points scale
+	height = 40
+	hs = 1 #height spacing
+	ns = 200 #number of points scale
 
-# 	xpos = tf.linspace(-100., 100., ns)[:,None]
-# 	ypos = -60*tf.ones(ns)[:,None]
-# 	# ypos = (-60*tf.ones(ns) + 10*tf.sin(tf.linspace(-3., 3., ns)))[:,None]
-# 	zpos = tf.ones(ns)[:,None]
-# 	pp1 = tf.concat((xpos, ypos, zpos), axis = 1)
+	xpos = tf.linspace(-100., 100., ns)[:,None]
+	ypos = -60*tf.ones(ns)[:,None]
+	# ypos = (-60*tf.ones(ns) + 10*tf.sin(tf.linspace(-3., 3., ns)))[:,None]
+	zpos = tf.ones(ns)[:,None]
+	pp1 = tf.concat((xpos, ypos, zpos), axis = 1)
 
-# 	for i in range(height*5):
-# 		#back wall
-# 		if i < height:
-# 			xpos = tf.linspace(-100., 100., ns)[:,None]
-# 			ypos = -60*tf.ones(ns)[:,None]
-# 			# ypos = (-60*tf.ones(ns) + 10*tf.sin(tf.linspace(-3., 3., ns)))[:,None]
-# 			zpos = hs*i*tf.ones(ns)[:,None]
-# 			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+	for i in range(height*5):
+		#back wall
+		if i < height:
+			xpos = tf.linspace(-100., 100., ns)[:,None]
+			ypos = -60*tf.ones(ns)[:,None]
+			# ypos = (-60*tf.ones(ns) + 10*tf.sin(tf.linspace(-3., 3., ns)))[:,None]
+			zpos = hs*i*tf.ones(ns)[:,None]
+			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
 
-# 		if i > height and i < 2*height:
-# 			ypos = tf.linspace(-20., 100., int(.6*ns))[:,None]
-# 			xpos = -30*tf.ones(int(.6*ns))[:,None]
-# 			zpos = hs*(i%height)*tf.ones(int(.6*ns))[:,None]
-# 			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+		if i > height and i < 2*height:
+			ypos = tf.linspace(-20., 100., int(.6*ns))[:,None]
+			xpos = -30*tf.ones(int(.6*ns))[:,None]
+			zpos = hs*(i%height)*tf.ones(int(.6*ns))[:,None]
+			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
 
-# 		if i > 2*height and i < 3*height:
-# 			ypos = tf.linspace(-20., 100., int(.6*ns))[:,None]
-# 			xpos = 30*tf.ones(int(.6*ns))[:,None]
-# 			zpos = hs*(i%height)*tf.ones(int(.6*ns))[:,None]
-# 			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+		if i > 2*height and i < 3*height:
+			ypos = tf.linspace(-20., 100., int(.6*ns))[:,None]
+			xpos = 30*tf.ones(int(.6*ns))[:,None]
+			zpos = hs*(i%height)*tf.ones(int(.6*ns))[:,None]
+			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
 
-# 		#left & right connector
-# 		if i > 3*height and i < 4*height:
-# 			xpos = tf.linspace(30., 100., int(.7*ns))[:,None]
-# 			ypos = -20*tf.ones(int(.7*ns))[:,None]
-# 			zpos = hs*(i%height)*tf.ones(int(.7*ns))[:,None]
-# 			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
-# 		if i > 4*height and i < 5*height:
-# 			xpos = tf.linspace(-30., -100., int(.7*ns))[:,None]
-# 			ypos = -20*tf.ones(int(.7*ns))[:,None]
-# 			zpos = hs*(i%height)*tf.ones(int(.7*ns))[:,None]
-# 			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+		#left & right connector
+		if i > 3*height and i < 4*height:
+			xpos = tf.linspace(30., 100., int(.7*ns))[:,None]
+			ypos = -20*tf.ones(int(.7*ns))[:,None]
+			zpos = hs*(i%height)*tf.ones(int(.7*ns))[:,None]
+			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+		if i > 4*height and i < 5*height:
+			xpos = tf.linspace(-30., -100., int(.7*ns))[:,None]
+			ypos = -20*tf.ones(int(.7*ns))[:,None]
+			zpos = hs*(i%height)*tf.ones(int(.7*ns))[:,None]
+			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
 
-# 		pp1 = tf.concat((pp1, pp1_i), axis = 0)
+		pp1 = tf.concat((pp1, pp1_i), axis = 0)
 
-# 	#add floor -------------------------------------------
-# 	for i in range(-100, 100, 1):
-# 		ypos = tf.linspace(-60., -20., 100)[:,None]
-# 		xpos = i*tf.ones(100)[:,None]
-# 		zpos = tf.ones(100)[:,None]
-# 		pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
-# 		pp1 = tf.concat((pp1, pp1_i), axis = 0)
-# 	for i in range(-30, 30, 1):
-# 		ypos = tf.linspace(-20., 100., 100)[:,None]
-# 		xpos = i*tf.ones(100)[:,None]
-# 		zpos = tf.ones(100)[:,None]
-# 		pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
-# 		pp1 = tf.concat((pp1, pp1_i), axis = 0)
-# 	#------------------------------------------------------
+	#add floor -------------------------------------------
+	for i in range(-100, 100, 1):
+		ypos = tf.linspace(-60., -20., 100)[:,None]
+		xpos = i*tf.ones(100)[:,None]
+		zpos = tf.ones(100)[:,None]
+		pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+		pp1 = tf.concat((pp1, pp1_i), axis = 0)
+	for i in range(-30, 30, 1):
+		ypos = tf.linspace(-20., 100., 100)[:,None]
+		xpos = i*tf.ones(100)[:,None]
+		zpos = tf.ones(100)[:,None]
+		pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+		pp1 = tf.concat((pp1, pp1_i), axis = 0)
+	#------------------------------------------------------
 	
-# 	print(tf.shape(pp1))
-# 	# for debug - add particles in middle to prevent L1 rank deficiency bug
-# 	# pp1 = tf.concat((pp1, tf.random.normal((100,3))), axis = 0)
+	print(tf.shape(pp1))
+	# for debug - add particles in middle to prevent L1 rank deficiency bug
+	# pp1 = tf.concat((pp1, tf.random.normal((100,3))), axis = 0)
 
-# 	#rotate scan 1
-# 	# pp1 = pp1 @ (R_tf(tf.constant([0.1,0.1,-0.1]))) + tf.constant([1.,2.,3.])
+	#rotate scan 1
+	# pp1 = pp1 @ (R_tf(tf.constant([0.1,0.1,-0.1]))) + tf.constant([1.,2.,3.])
 
-# 	# pp2 = tf.random.normal((100,3))
-# 	rot = R_tf(x[3:])
-# 	pp2 = pp1 @ rot + x[:3]
+	# pp2 = tf.random.normal((100,3))
+	rot = R_tf(x[3:])
+	pp2 = pp1 @ rot + x[:3]
 
-# 	#add a little bit of noise
-# 	pp1 = pp1 + tf.random.normal(tf.shape(pp1))*0.2
-# 	pp2 = pp2 + tf.random.normal(tf.shape(pp2))*0.2
+	#add a little bit of noise
+	pp1 = pp1 + tf.random.normal(tf.shape(pp1))*0.2
+	pp2 = pp2 + tf.random.normal(tf.shape(pp2))*0.2
 
-# 	return(pp1, pp2, bounds, x)
+	return(pp1, pp2, bounds, x)
 #______________________________________________________________________________________________
 
 # def generate_test_dataset():
@@ -1139,58 +1139,58 @@ class Ell(Mesh):
 
 #____________________________________________________________________________________________
 
-def generate_test_dataset():
+# def generate_test_dataset():
 
-	""" Generate FLAT tunnel scene for 2D-ICET paper"""
-	tf.random.set_seed(1337)
+# 	""" Generate FLAT tunnel scene for 2D-ICET paper"""
+# 	tf.random.set_seed(1337)
 
-	bounds = tf.constant([-15.,15.,-50.,50.,-1,1])
-	# x = tf.constant([1., 0., 0., -0., 0.0, 0.1]) #was this for demo
-	x = tf.constant([2., 0., 0., 0., 0., 0.01]) #used for last 
+# 	bounds = tf.constant([-15.,15.,-50.,50.,-1,1])
+# 	# x = tf.constant([1., 0., 0., -0., 0.0, 0.1]) #was this for demo
+# 	x = tf.constant([2., 0., 0., 0., 0., 0.01]) #used for last 
 
-	print("starting transformation \n", x)
+# 	print("starting transformation \n", x)
 
-	height = 1
-	hs = 1 #height spacing
-	ns = 500 #number of points scale
-	sp = -40. #start point
+# 	height = 1
+# 	hs = 1 #height spacing
+# 	ns = 500 #number of points scale
+# 	sp = -40. #start point
 
 
-	for i in range(height*2):
+# 	for i in range(height*2):
 
-		if i < height:
-			ypos = tf.linspace(sp, 40., ns)[:,None]
-			xpos = -5*tf.ones(ns)[:,None]
-			zpos = hs*(i%height)*tf.ones(ns)[:,None]
-			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+# 		if i < height:
+# 			ypos = tf.linspace(sp, 40., ns)[:,None]
+# 			xpos = -5*tf.ones(ns)[:,None]
+# 			zpos = hs*(i%height)*tf.ones(ns)[:,None]
+# 			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
 
-		if i >= height:
-			ypos = tf.linspace(sp, 40., ns)[:,None]
-			xpos = 5*tf.ones(ns)[:,None]
-			zpos = hs*(i%height)*tf.ones(ns)[:,None]
-			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+# 		if i >= height:
+# 			ypos = tf.linspace(sp, 40., ns)[:,None]
+# 			xpos = 5*tf.ones(ns)[:,None]
+# 			zpos = hs*(i%height)*tf.ones(ns)[:,None]
+# 			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
 
-		if i == 0:
-			pp1 = pp1_i
-		else:
-			pp1 = tf.concat((pp1, pp1_i), axis = 0)
+# 		if i == 0:
+# 			pp1 = pp1_i
+# 		else:
+# 			pp1 = tf.concat((pp1, pp1_i), axis = 0)
 
 	
-	print(tf.shape(pp1))
+# 	print(tf.shape(pp1))
 
-	#rotate scan 1
-	# pp1 = pp1 @ (R_tf(tf.constant([0.1,0.1,-0.1]))) + tf.constant([1.,2.,3.])
+# 	#rotate scan 1
+# 	# pp1 = pp1 @ (R_tf(tf.constant([0.1,0.1,-0.1]))) + tf.constant([1.,2.,3.])
 
-	#adjust initial pc relative to car
-	pp1 = pp1 + tf.constant([-3.,4.,0.0])
+# 	#adjust initial pc relative to car
+# 	pp1 = pp1 + tf.constant([-3.,4.,0.0])
 
-	rot = R_tf(x[3:])
-	# pp2 = pp1 @ rot + x[:3] #was this 11/30
-	pp2 = (pp1 + x[:3]) @ rot #actually think this is better
+# 	rot = R_tf(x[3:])
+# 	# pp2 = pp1 @ rot + x[:3] #was this 11/30
+# 	pp2 = (pp1 + x[:3]) @ rot #actually think this is better
 
-	#add noise
-	scale = tf.constant([0.1,0.01,0.01]) #TODO debug: adding too much nosie prevenets translation estimates???
-	pp1 = pp1 + tf.random.normal(tf.shape(pp1))*scale
-	pp2 = pp2 + tf.random.normal(tf.shape(pp2))*scale
+# 	#add noise
+# 	scale = tf.constant([0.1,0.01,0.01]) #TODO debug: adding too much nosie prevenets translation estimates???
+# 	pp1 = pp1 + tf.random.normal(tf.shape(pp1))*scale
+# 	pp2 = pp2 + tf.random.normal(tf.shape(pp2))*scale
 
-	return(pp1, pp2, bounds, x)
+# 	return(pp1, pp2, bounds, x)

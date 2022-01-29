@@ -18,11 +18,11 @@ from ICET3D import ICET3D
 #NOTE: Out of Memory Error comes from too high fidelity/ pts in cloud tensor --> 100x100x2x120,000 > 2gb
 
 
-nc = 2	 #number of cycles
+nc = 5	 #number of cycles
 mnp = 10 #50#100 #minimum number of points per voxel
 D = True #draw sim
-DG = True #draw grid
-DE = True #draw ellipsoids
+DG = False #draw grid
+DE = False #draw ellipsoids
 DC = False #draw correspondences
 TD = True #use test dataset
 CM = "voxel" #correspondence method, "voxel" or "NN"
@@ -73,8 +73,8 @@ start = time.time()
 #----------------------------------------------------------------------------------
 limtest = tf.constant([-20.,20.,-20.,20.,-1.5,1.5])
 # f = tf.constant([35,35,35])
-f = tf.constant([9,30,1])
-# f = tf.constant([17,17,17])
+# f = tf.constant([9,30,1]) #for 2d paper viz
+f = tf.constant([17,17,17])
 
 cloud1_tensor = None
 cloud2_tensor = None
