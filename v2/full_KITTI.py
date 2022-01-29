@@ -31,8 +31,8 @@ date = '2011_09_26'
 drive = '0005'
 # drive = '0018' #difficult intersection case
 dataset = pykitti.raw(basedir, date, drive)
-f = tf.constant([50,50,2]) #fidelity in x, y, z # < 5s  --- works for 0005
-# f = tf.constant([20,20,2]) #0018
+# f = tf.constant([50,50,2]) #fidelity in x, y, z # < 5s  --- works for 0005
+f = tf.constant([20,20,2]) #0018
 # f = tf.constant([18,18,2]) #test
 
 lim = tf.constant([-100.,100.,-100.,100.,-10.,10.]) #needs to encompass every point
@@ -81,7 +81,6 @@ for i in range(num_frames):
 
 	#these are "pint" objects which hold on to units
 	dx_oxts, dy_oxts = lat_lon_grid_deltas(np.array([lon0,lon1]), np.array([lat0, lat1]))
-	# dy_oxts, dx_oxts = lat_lon_grid_deltas(np.array([lat0,lat1]), np.array([lon0, lon1])) #incorrect
 	# print(dx_oxts, dy_oxts) 
 	dx_oxts = dx_oxts[0,0].magnitude
 	dy_oxts = dy_oxts[0,0].magnitude
@@ -97,11 +96,13 @@ for i in range(num_frames):
 	dxyz_oxts = np.array([[dx_oxts, dy_oxts, dz_oxts]])
 	dxyz_lidar = dxyz_oxts.dot(rot)
 
-	#was this
+	# using lat/ lon deltas
 	# OXTS_baseline[i] = np.array([[dxyz_lidar[0,0], dxyz_lidar[0,1], dxyz_lidar[0,2], droll_oxts, dpitch_oxts, dyaw_oxts]])
 
-	#test using velocity
-	OXTS_baseline[i] = np.array([[poses1.packet.vf/10, poses1.packet.vl/10, poses1.packet.vu/10, droll_oxts, dpitch_oxts, dyaw_oxts]])
+	#using velocity
+	# dt = (dataset.timestamps[i+1] - dataset.timestamps[i]).microseconds/(10e5)
+	dt = 0.10327 #mean time between lidar samples
+	OXTS_baseline[i] = np.array([[poses1.packet.vf*dt, poses1.packet.vl*dt, poses1.packet.vu*dt, droll_oxts, dpitch_oxts, dyaw_oxts]])
 
 	print("\n solution from ICET \n", ICET_estimates[i])
 	print("\n solution from GPS/INS \n", OXTS_baseline[i])
@@ -113,9 +114,9 @@ for i in range(num_frames):
 print("ICET_estimates \n", ICET_estimates)
 print("\n OXTS baseline \n", OXTS_baseline)
 
-np.savetxt("ICET_pred_stds_926_test4.txt", ICET_pred_stds)
-np.savetxt("ICET_estimates_926_test4.txt", ICET_estimates)
-np.savetxt("OXTS_baseline_926_test4.txt", OXTS_baseline)
+np.savetxt("ICET_pred_stds_926_test3.txt", ICET_pred_stds)
+np.savetxt("ICET_estimates_926_test3.txt", ICET_estimates)
+np.savetxt("OXTS_baseline_926_test3.txt", OXTS_baseline)
 
 #NOTES:
 #		test3 == [20,20,2], xHat0 initialized at zero, n=5, mnp = 50
