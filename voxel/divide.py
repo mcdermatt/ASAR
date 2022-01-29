@@ -10,10 +10,12 @@ class divide():
 
 	"""numpy prototype of gradient descent voxel subdivision in 2D"""
 
-	def __init__(self, fig, ax, cloud = None):
+	def __init__(self, fig, ax, cloud = None, n = 10):
 
 		self.minNumPts = 3
-		self.node_fidelity = 10 #creates an NxN grid of nodes
+		self.node_fidelity = 12 #creates an NxN grid of nodes
+		self.numIter = n #number of iterations to loop through
+
 
 		self.fig = fig
 		self.ax = ax
@@ -35,10 +37,9 @@ class divide():
 	def main(self):
 		""" Main loop: iteratively adjusts placement of nodes to optimize a score function """
 
-		numIter = 1
 		numVox = (self.node_fidelity-1)**2
 
-		for i in range(numIter):
+		for i in range(self.numIter):
 
 			#initialize score vector
 			self.corrections = np.zeros(np.shape(self.Nodes))
@@ -47,7 +48,7 @@ class divide():
 
 				pts = self.findPtsInVox(j)
 				#only draw on last
-				if i == numIter - 1:
+				if i == self.numIter - 1:
 					self.drawVoxel(j, npts = np.shape(pts)[0]) #specifing number of points effects shading of voxel
 
 				#only consider voxels with sufficient number of points
@@ -86,7 +87,7 @@ class divide():
 					#loop through the 4 corners
 					for k in range(4):
 
-						eps = 0.1 #arbitrarily small displacement
+						eps = 0.01 #arbitrarily small displacement
 
 						#move slightly in the x-direction and calculate change in score
 						corners_temp = corners.copy()
@@ -120,7 +121,7 @@ class divide():
 			#TODO: create a test to make sure voxels don't fold up on top of one another
 		
 
-			#TODO: figure out how to dynamically adjust teh extended axis pruning threshold
+			#TODO: figure out how to dynamically adjust the extended axis pruning threshold
 			#		could try to inscribe a circle inside each polygon??
 
 
