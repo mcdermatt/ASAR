@@ -39,7 +39,7 @@ lim = tf.constant([-100.,100.,-100.,100.,-10.,10.]) #needs to encompass every po
 # npts = 100000 #need to cut number of points at finer voxel sizes because I only have 3gb VRAM
 npts = 123397 
 
-# num_frames = 10 #debug
+# num_frames = 20 #debug
 num_frames = 150 #0005
 # num_frames = 268 # 0018
 ICET_estimates = np.zeros([num_frames, 6])
@@ -102,7 +102,9 @@ for i in range(num_frames):
 	#using velocity
 	# dt = (dataset.timestamps[i+1] - dataset.timestamps[i]).microseconds/(10e5)
 	dt = 0.10327 #mean time between lidar samples
-	OXTS_baseline[i] = np.array([[poses1.packet.vf*dt, poses1.packet.vl*dt, poses1.packet.vu*dt, droll_oxts, dpitch_oxts, dyaw_oxts]])
+	# OXTS_baseline[i] = np.array([[poses1.packet.vf*dt, poses1.packet.vl*dt, poses1.packet.vu*dt, droll_oxts, dpitch_oxts, dyaw_oxts]]) #works, but has stepping behavior for yaw
+	OXTS_baseline[i] = np.array([[poses1.packet.vf*dt, poses1.packet.vl*dt, poses1.packet.vu*dt, -poses1.packet.wf*dt, -poses1.packet.wl*dt, -poses1.packet.wu*dt]]) #test
+
 
 	print("\n solution from ICET \n", ICET_estimates[i])
 	print("\n solution from GPS/INS \n", OXTS_baseline[i])
@@ -114,9 +116,9 @@ for i in range(num_frames):
 print("ICET_estimates \n", ICET_estimates)
 print("\n OXTS baseline \n", OXTS_baseline)
 
-np.savetxt("ICET_pred_stds_926_test3.txt", ICET_pred_stds)
-np.savetxt("ICET_estimates_926_test3.txt", ICET_estimates)
-np.savetxt("OXTS_baseline_926_test3.txt", OXTS_baseline)
+np.savetxt("ICET_pred_stds_926_test2.txt", ICET_pred_stds)
+np.savetxt("ICET_estimates_926_test2.txt", ICET_estimates)
+np.savetxt("OXTS_baseline_926_test2.txt", OXTS_baseline)
 
 #NOTES:
 #		test3 == [20,20,2], xHat0 initialized at zero, n=5, mnp = 50
