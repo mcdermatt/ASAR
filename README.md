@@ -1,3 +1,3 @@
-# vaRLnt
+# ASAR
 
-Sandbox model to be used for testing various RL, DNN and Point Cloud manipulation algorithms 
+Projects related to the Automated Systems And Robotics lab at Tufts University
