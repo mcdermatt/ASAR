@@ -236,10 +236,6 @@ while i < endIndx
     
     if(mod(i,1e3)==2); i-2, end  % echo time step to screen current step
 
-    %old (doesn't timeshift INS data)
-%     msrk1 = imuraw(i,:);
-%     msrk1 = msrk1';
-
     %timeshifted to match GPS/Lidar
     %can't just cut off the first 1109*200 elements since we need the
     %timestamps from imuraw intact
@@ -273,8 +269,7 @@ while i < endIndx
             %temp---------------
             %TODO: move vel update to WLS INSIDE FUNC!!
             vel = dpos_lidar(lidarCnt, 2:4)*10; %-> BIG improvement
-%             vel = (dpos_lidar(lidarCnt, 2:4)*10 + vel)/2 ;        
-%             vel = [dpos_lidar(lidarCnt, 3)*10, dpos_lidar(lidarCnt, 2)*10, dpos_lidar(lidarCnt, 4)*10];
+%             vel = [dpos_lidar(lidarCnt, 3)*10, dpos_lidar(lidarCnt, 2)*10, dpos_lidar(lidarCnt, 4)*10]; %for debug
             %-------------------
             xHatM_lidar_hist(gpsCnt,:) = xHatM_lidar_hist(gpsCnt,:) + xHatM_lidar.';
             lla_ins_last = lla_ins;
@@ -324,7 +319,7 @@ while i < endIndx
     i = i+1;  
 end 
 
-% (((more plots in Liangchun's file)))
+% (((more plots available in Liangchun's file)))
 
 time = msrArr(1,:);
 startTime = time(1);
@@ -366,7 +361,6 @@ dNgps = -Ngps(nonzero);
 dNgps = dNgps - [dNgps(2:end) 0];
 plot([0 dNgps(1:end-1)])
 legend('xHat- INS', 'xHat- Lidar', 'xHat- combined', 'gps baseline')
-
 
 %covaraince plots (new)
 figure(5)
@@ -910,8 +904,8 @@ Qk = 0.5*(F*B*Q*B'+B*Q*B'*F')*dt;
 
 % Extended Kalman Filter --------
 % was this (only uses INS stuff)
-% xHatM_ins(1:3) = lla_ins - lla0_ins; %old
-% xHatM_ins(4:6) = vel - vel0;         %old       
+% xHatM_ins(1:3) = lla_ins - lla0_ins; %for debug
+% xHatM_ins(4:6) = vel - vel0;         %for debug       
 xHatM_ins = F*xHatM_ins;          % Forward Euler integration (A priori)
 PM_ins = F*PP*F'+Qk;                    % cov. Estimate
 F200 = F*F200; %keep product of sequential F matrices for use in Lidar fusion
@@ -923,18 +917,15 @@ F200 = F*F200; %keep product of sequential F matrices for use in Lidar fusion
 xHatM_ins(1:3) = [xHatM_ins_N, xHatM_ins_E, xHatM_ins_U];
 
 %set noise covariance matrix for lidar
-%     Qk_lidar = 1e4*ones(3,3); %init arbitrarily high values
-Qk_lidar = zeros(3,3); %test w/ zeros
-%set useful parts of Qk_lidar based on values determined experimentally over the summer
-Qk_lidar(3,3) = 0.0001;%sigmaz**2 (meters)
-Qk_lidar(1,1) = 1.4e-17; %sigmalon**2 (deg)
-Qk_lidar(2,2) = 1.4e-17; %sigmalat**2 (deg)
-
-% from Final_Slides.pptx
-%TODO: these are currently in VEHICLE BODY FRAME
+% from Final_Slides.pptx - experimentally determined values from the summer
 % Qk_lidar(1,1) = 0.000784; %(m) 
 % Qk_lidar(2,2) = 0.000484; %(m)
 % Qk_lidar(3,3) = 0.005625; %(m)
+
+Qk_lidar = zeros(3,3); %test w/ zeros
+Qk_lidar(1,1) = 1.4e-17; %sigmalon**2 (deg)
+Qk_lidar(2,2) = 1.4e-17; %sigmalat**2 (deg)
+Qk_lidar(3,3) = 0.0001;%sigmaz**2 (meters)
 
 lidartime = lidarmsr(1);
 if lidartime <= msrk1(1) && lidartime > msrk(1)
@@ -963,6 +954,7 @@ if lidartime <= msrk1(1) && lidartime > msrk(1)
         lidarUpdated = 0;
         ned_lidar = ned0_lidar;
         PM_lidar = PM_lidar_last; %TODO - figure out a cleaner way to do this
+               %(this results in a step function for INS uncertainty                                
     end
 
 %e == 0.0818
@@ -984,31 +976,44 @@ if gpstime <= msrk1(1) && gpstime > msrk(1)  % If GPS time between two inertial 
         % P_k = P_bar + P_prime
         % P_bar = ??
         
-        
         %NOTE 1/20: we should be doing WLS on the NEW error added between
         % INS and lidar since the last update (since we are adding up the
         % new contributions anyways)??
         
+       %for debug---------
+%         'PM_ins'
+%         PM_ins(1,1) %this should be larger
+%         'PP_ins_last'
+%         PP_ins_last(1,1) %this should be smaller (since P should grow over time)
+    
+%         PM_ins(1,1) - (PP_ins_last(1,1) + 10*Qk_lidar(1,1))
+        %------------------        
+
           % was this (per Jason's instructions)
-        W = pinv([PM_ins, F200*PP_ins_last;
-                  PP_ins_last*(F200.'), PP_ins_last + [10*Qk_lidar, zeros(3,18); zeros(18,21)]]);   
+%         W = pinv([PM_ins, F200*PP_ins_last;
+%                   PP_ins_last*(F200.'), PP_ins_last + [10*Qk_lidar, zeros(3,18); zeros(18,21)]]);   
+        W = pinv([PM_ins, zeros(21,21);
+                  zeros(21,21), PP_ins_last + [10*Qk_lidar, zeros(3,18); zeros(18,21)]]);
         H = [eye(21);  eye(3), zeros(3,18); zeros(18,21)];
 
-        %weight based on CHANGE IN ERRROR between GPS keyframes
+        %TEST: weight based on CHANGE IN ERRROR between GPS keyframes
 %         W = pinv([(PM_ins - PP_ins_last), zeros(21,3);
 %                    zeros(3,21), 10*Qk_lidar], 1e-20);
 %         H = [eye(21); eye(3), zeros(3,18)];
               
         PM_combined = pinv(H.' * W * H);
+%         PM_combined(1,1)
+%         PM_combined = PM_ins + PM_lidar;
+        PM_combined = (PM_ins + [PM_lidar, zeros(3,18); zeros(18,21)])/2; %for debug
 
         %lla_lidar = (lla_ins at last fusion timestamp) + (xHatM_lidar in LLA)
         %update cumulative counts for this segment to include current xHatM estimates 
-%         xHatM_ins_cum = xHatM_ins + xHatM_ins_cum.';
         xHatM_lidar_cum = xHatM_lidar + xHatM_lidar_cum.';
         lla_lidar = lla_ins_last + [xHatM_lidar_cum(1)/coeff(1,1), xHatM_lidar_cum(2)/coeff(2,2), -xHatM_lidar_cum(3)];
-  
         
+        %This should work:
 %         lla_ins = pinv((H.')*W*H)*(H.')*W*[lla_ins.'; zeros(18,1); lla_lidar.'; zeros(18,1)];
+% %         lla_ins = pinv((H.')*W*H)*(H.')*W*[lla_ins.'; zeros(18,1); lla_lidar.'];
 % %         %resize to 3x1
 %         lla_ins = lla_ins(1:3).';
 % %         lla_ins
@@ -1024,7 +1029,9 @@ if gpstime <= msrk1(1) && gpstime > msrk(1)  % If GPS time between two inertial 
        
         %DEBUG: WLS is fluctuating A LOT and occationally giving negative values
         weights = pinv((H.')*W*H)*(H.')*W;
+        'ins'
         weights(1,1)  %ins
+        'lidar'
         weights(1,22) %lidar
     
 %         Qk_lidar(1,1)
@@ -1136,7 +1143,7 @@ else
     
 %     PM_combined = PM_ins; %placeholder
     % evolve PM_combined states similar to PM_ins
-    PM_combined = F*PM_combined*F' +  Qk;
+%     PM_combined = F*PM_combined*F' +  Qk;
 
     %test
 %     W = pinv([PM_ins, F200*PP_ins_last;
