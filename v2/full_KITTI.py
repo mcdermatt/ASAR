@@ -28,20 +28,22 @@ plt = Plotter(N=1, axes=4, interactive=True)
 ## set up point clouds
 basedir = 'C:/kitti/'
 date = '2011_09_26'
-drive = '0005'
+drive = '0005' #city
+# drive = '0009' #suburban
 # drive = '0018' #difficult intersection case
 dataset = pykitti.raw(basedir, date, drive)
 # f = tf.constant([50,50,2]) #fidelity in x, y, z # < 5s  --- works for 0005
-f = tf.constant([20,20,2]) #0018
-# f = tf.constant([18,18,2]) #test
+# f = tf.constant([20,20,2]) #0018
+f = tf.constant([40,40,4]) #test
 
 lim = tf.constant([-100.,100.,-100.,100.,-10.,10.]) #needs to encompass every point
-# npts = 100000 #need to cut number of points at finer voxel sizes because I only have 3gb VRAM
-npts = 123397 
+npts = 100000 #need to cut number of points at finer voxel sizes because I only have 3gb VRAM
+# npts = 123397 
 
 # num_frames = 20 #debug
 num_frames = 150 #0005
 # num_frames = 268 # 0018
+# num_frames = 445 #0009
 ICET_estimates = np.zeros([num_frames, 6])
 OXTS_baseline = np.zeros([num_frames, 6])
 ICET_pred_stds = np.zeros([num_frames, 6])
@@ -116,10 +118,11 @@ for i in range(num_frames):
 print("ICET_estimates \n", ICET_estimates)
 print("\n OXTS baseline \n", OXTS_baseline)
 
-np.savetxt("ICET_pred_stds_926_test2.txt", ICET_pred_stds)
-np.savetxt("ICET_estimates_926_test2.txt", ICET_estimates)
-np.savetxt("OXTS_baseline_926_test2.txt", OXTS_baseline)
+np.savetxt("ICET_pred_stds_926_0005.txt", ICET_pred_stds)
+np.savetxt("ICET_estimates_926_0005.txt", ICET_estimates)
+np.savetxt("OXTS_baseline_926_0005.txt", OXTS_baseline)
 
 #NOTES:
 #		test3 == [20,20,2], xHat0 initialized at zero, n=5, mnp = 50
 #		test4 == [50,50,5], ||	, n=5, mnp = 50
+#		...0005.txt == [40,40,4], 100k pts, n = 5, mnp = 50

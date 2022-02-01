@@ -78,8 +78,8 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 
 	#init solution vector x
 	#TODO: use previous estimate to initialize next initial state estimate for x???
-	x = tf.zeros(6) #[x, y, z, phi, theta, psi].T
-	# x = tf.squeeze(xHat0)
+	# x = tf.zeros(6) #[x, y, z, phi, theta, psi].T
+	x = tf.squeeze(xHat0)
 
 	#start with pp2_corrected with an initial transformation of [0,0,0]
 	t = x[:3]
@@ -228,7 +228,7 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 
 		#augment x by dx
 		x = x + dx
-		# print("\n x \n", x)
+		print("\n x \n", x)
 
 		#transform 2nd scan by x
 		t = x[:3]
