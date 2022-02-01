@@ -179,6 +179,7 @@ sg = zeros(3,1);                % scale factor gyros
 PP = PPinitialize;              % state-error matrix
 PP = PP*1e6;                    % Set initial covariance matrix to be large (indicating initial uncertainty)
 PP_ins_last = PP;               % init matrix that stores value of PP the last time fusion was performed
+PM_combined = zeros(21,21);               %init PM_combined value to PP
 Ncol = 22;
 msrArr = zeros(7,endIndx-2);        % INS measurement array
 resArr = zeros(endIndx-2,Ncol-1);   % Storage array of state-perturbation error results
@@ -257,7 +258,7 @@ while i < endIndx
         
     % GPS/INS solution
     [lla_ins, ned_lidar, lla_combined, vel, rpy, dv, qbn, xHatM_ins, xHatM_lidar, xHatM_combined, PP, gpsUpdated, lidarUpdated, gpsCnt, lidarCnt, gpsResUpd, PM_ins, PM_lidar, PM_combined, F200] = ...
-        ins_gps(lla0_ins, ned0_lidar, lla0_combined, lla_ins_last, vel0, rpy0, dv0, qbn0, qbn_lidar, msrk, msrk1, gpsmsr, lidarmsr, xHatM_ins, xHatM_lidar, xHatM_ins_cum, xHatM_lidar_cum, PP, PP_ins_last, gpsCnt, lidarCnt, t_last_lidar, PM_lidar_last, fuse_lidar, fuse_gps, F200);
+        ins_gps(lla0_ins, ned0_lidar, lla0_combined, lla_ins_last, vel0, rpy0, dv0, qbn0, qbn_lidar, msrk, msrk1, gpsmsr, lidarmsr, xHatM_ins, xHatM_lidar, xHatM_ins_cum, xHatM_lidar_cum, PP, PP_ins_last, PM_combined, gpsCnt, lidarCnt, t_last_lidar, PM_lidar_last, fuse_lidar, fuse_gps, F200);
     
     %save sigmas in units of (m)
     PM_hist_lidar(i-1,:) = [sqrt(PM_lidar(1,1))*6.36e6 sqrt(PM_lidar(2,2))*4.97e6, sqrt(PM_lidar(3,3))];
@@ -268,12 +269,13 @@ while i < endIndx
         t_last_lidar = lidarmsr(1);
         lidarmsr = dpos_lidar(lidarCnt+1, :);%update lidar measurement
         ned0_lidar = ned_lidar;
-        %temp---------------
-        %TODO: move vel update to WLS INSIDE FUNC!!
-%         vel = dpos_lidar(lidarCnt, 2:4)*10; %-> BIG improvement
-        vel = (dpos_lidar(lidarCnt, 2:4)*10 + vel)/2 ;        
-        %-------------------
         if gpsUpdated == 1
+            %temp---------------
+            %TODO: move vel update to WLS INSIDE FUNC!!
+            vel = dpos_lidar(lidarCnt, 2:4)*10; %-> BIG improvement
+%             vel = (dpos_lidar(lidarCnt, 2:4)*10 + vel)/2 ;        
+%             vel = [dpos_lidar(lidarCnt, 3)*10, dpos_lidar(lidarCnt, 2)*10, dpos_lidar(lidarCnt, 4)*10];
+            %-------------------
             xHatM_lidar_hist(gpsCnt,:) = xHatM_lidar_hist(gpsCnt,:) + xHatM_lidar.';
             lla_ins_last = lla_ins;
         else
@@ -290,6 +292,7 @@ while i < endIndx
         lla_combined_hist(:,gpsCnt) = lla_combined;
         lla0_combined = lla_combined;       
         PP_ins_last = PM_ins; %DEBUG: should this be PP_ins_last = PM_combined???
+%         PP_ins_last = PM_combined;
     else
         xHatM_ins_hist(gpsCnt+1,:) = xHatM_ins_hist(gpsCnt+1,:) + xHatM_ins.';
     end
@@ -482,7 +485,7 @@ rn_list = WGS84_A ./ sqrt(1 - e * e * sin(resArr(:,1)).^2);
 rm_list = WGS84_A * (1 - e * e) ./ sqrt(power(1 - e * e * sin(resArr(:,1)).^2, 3));
 
 function [lla_ins, ned_lidar, lla_combined, vel, rpy, dv, qbn, xHatM_ins, xHatM_lidar, xHatM_combined, PP, gpsUpdated, lidarUpdated, gpsCnt, lidarCnt, gpsResUpd, PM_ins, PM_lidar, PM_combined, F200] = ...
-    ins_gps(lla0_ins, ned0_lidar, lla0_combined, lla_ins_last, vel0, rpy0, dv0, qbn0, qbn_lidar, msrk, msrk1, gpsmsr, lidarmsr, xHatM_ins, xHatM_lidar, xHatM_ins_cum, xHatM_lidar_cum, PP, PP_ins_last, gpsCnt, lidarCnt, t_last_lidar, PM_lidar_last, fuse_lidar, fuse_gps, F200)
+    ins_gps(lla0_ins, ned0_lidar, lla0_combined, lla_ins_last, vel0, rpy0, dv0, qbn0, qbn_lidar, msrk, msrk1, gpsmsr, lidarmsr, xHatM_ins, xHatM_lidar, xHatM_ins_cum, xHatM_lidar_cum, PP, PP_ins_last, PM_combined, gpsCnt, lidarCnt, t_last_lidar, PM_lidar_last, fuse_lidar, fuse_gps, F200)
 
 WGS84_A = 6378137.0;           % earth semi-major axis (WGS84) (m) 
 WGS84_B = 6356752.3142;        % earth semi-minor axis (WGS84) (m) 
@@ -946,17 +949,15 @@ if lidartime <= msrk1(1) && lidartime > msrk(1)
 %     xHatM_lidar = [denu_lidar_scaled].'; %was this -just looking at changes in pos (no delta_rotation)
 
     xHatM_lidar = lidarmsr(2:4).'; %better
-       
-    %PM = F*PP*F' + Q
-    PM_lidar = PM_lidar_last + Qk_lidar;
+    
+    
+    PM_lidar = PM_lidar_last + Qk_lidar; %incorrect
+%     PM_lidar = PM_ins_last + Qk_lidar
 
     lidarUpdated = 1;
     lidarCnt = lidarCnt + 1;
     
     ned_lidar = ned0_lidar + (xHatM_lidar(1:3).');
-    
-    %reset ins heading to lidar estimated heading
-%     qbn = qbn_lidar; %wow this is helping a lot!!!
     
     else
         lidarUpdated = 0;
@@ -983,17 +984,20 @@ if gpstime <= msrk1(1) && gpstime > msrk(1)  % If GPS time between two inertial 
         % P_k = P_bar + P_prime
         % P_bar = ??
         
-%         PM_ins(1,1)
-%         test = PP_ins_last*F200;
-%         test(1,1)
+        
+        %NOTE 1/20: we should be doing WLS on the NEW error added between
+        % INS and lidar since the last update (since we are adding up the
+        % new contributions anyways)??
         
           % was this (per Jason's instructions)
-%         W = pinv([PM_ins, F200*PP_ins_last;
-%                   PP_ins_last*(F200.'), PP_ins_last + [10*Qk_lidar, zeros(3,18); zeros(18,21)]]);   
-        %test
-        W = pinv([PM_ins, zeros(21);
-                  zeros(21), PP_ins_last + [10*Qk_lidar, zeros(3,18); zeros(18,21)]]);   
+        W = pinv([PM_ins, F200*PP_ins_last;
+                  PP_ins_last*(F200.'), PP_ins_last + [10*Qk_lidar, zeros(3,18); zeros(18,21)]]);   
         H = [eye(21);  eye(3), zeros(3,18); zeros(18,21)];
+
+        %weight based on CHANGE IN ERRROR between GPS keyframes
+%         W = pinv([(PM_ins - PP_ins_last), zeros(21,3);
+%                    zeros(3,21), 10*Qk_lidar], 1e-20);
+%         H = [eye(21); eye(3), zeros(3,18)];
               
         PM_combined = pinv(H.' * W * H);
 
@@ -1002,33 +1006,37 @@ if gpstime <= msrk1(1) && gpstime > msrk(1)  % If GPS time between two inertial 
 %         xHatM_ins_cum = xHatM_ins + xHatM_ins_cum.';
         xHatM_lidar_cum = xHatM_lidar + xHatM_lidar_cum.';
         lla_lidar = lla_ins_last + [xHatM_lidar_cum(1)/coeff(1,1), xHatM_lidar_cum(2)/coeff(2,2), -xHatM_lidar_cum(3)];
-                
+  
+        
 %         lla_ins = pinv((H.')*W*H)*(H.')*W*[lla_ins.'; zeros(18,1); lla_lidar.'; zeros(18,1)];
 % %         %resize to 3x1
 %         lla_ins = lla_ins(1:3).';
 % %         lla_ins
 
+        %TODO: interpolate qbn's with SLERP
 %          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 %         lla_ins = lla_lidar; %temp
-        qbn = qbn_lidar; %temp
+        qbn = qbn_lidar; %temp 
 %          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 %         [xHatM_ins_E, xHatM_ins_N, xHatM_ins_U] = geodetic2enu(lla_ins(1), lla_ins(2), lla_ins(3), lla0_ins(1), lla0_ins(2), lla0_ins(3), wgs84Ellipsoid, 'radians');
 %         xHatM_ins(1:3) = [xHatM_ins_N, xHatM_ins_E, -xHatM_ins_U];
        
         %DEBUG: WLS is fluctuating A LOT and occationally giving negative values
-%         weights = pinv((H.')*W*H)*(H.')*W;
-%         weights(1,1)  %ins
-%         weights(1,22) %lidar
-     
-        'PM_lidar'
-        PM_lidar(1,1)
-        'PM_ins'
-        PM_ins(1,1)
-        'PP_ins_last'
-        PP_ins_last(1,1)
-        'PM_combined'
-        PM_combined(1,1) %this is exploding...
+        weights = pinv((H.')*W*H)*(H.')*W;
+        weights(1,1)  %ins
+        weights(1,22) %lidar
+    
+%         Qk_lidar(1,1)
+
+%         'PM_lidar'
+%         PM_lidar(1,1)
+%         'PM_ins'
+%         PM_ins(1,1)
+%         'PP_ins_last'
+%         PP_ins_last(1,1)
+%         'PM_combined'
+%         PM_combined(1,1) %this is exploding...
         %----------------------------------------------------------
                 
         F200 = F; %reset product
@@ -1126,9 +1134,9 @@ else
     gpsResUpd = [];
     gpsUpdated = 0;
     
-    PM_combined = PM_ins; %placeholder
-    % evolve PM_combined states similar to PM_ins(?)
-%     PM_combined = F*PM_combined*F' +  Qk;
+%     PM_combined = PM_ins; %placeholder
+    % evolve PM_combined states similar to PM_ins
+    PM_combined = F*PM_combined*F' +  Qk;
 
     %test
 %     W = pinv([PM_ins, F200*PP_ins_last;
