@@ -446,7 +446,9 @@ def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.
 
 	#updated sizes (order switches here)
 	temp = tf.gather(loc, tf.argsort(loc[:,0], direction = "ASCENDING"))#[:,0]
-	# print("\n temp \n", temp)
+	#BUG IS HERE -> fails on CPU, runs on GPU (only because it ignores negative indexing??)
+	# [-2147483648 -2147483648 -2147483648 ... ] instead of [0, 0, 0 ...]
+	#		this happens when you have points in the cloud that exist outside the furthest voxel boundaries
 	sizes_updated = tf.math.bincount(temp[:,0])
 	# print("sizes_updated \n", sizes_updated)
 

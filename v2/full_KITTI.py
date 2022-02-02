@@ -15,7 +15,7 @@ from ICET3D import ICET3D
 from metpy.calc import lat_lon_grid_deltas
 
 
-""" Runs ICET on each sequential set of scans in the KITTI dataset """
+""" Runs ICET on each sequential set of scans in the KITTI "raw" dataset """
 
 
 nc = 5	 #number of iterations of ICET per each pair of clouds

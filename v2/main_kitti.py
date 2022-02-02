@@ -1,10 +1,22 @@
 import numpy as np
 import tensorflow as tf
+
 #need to have these two lines to work on my ancient 1060 3gb
 #  https://stackoverflow.com/questions/43990046/tensorflow-blas-gemm-launch-failed
-# physical_devices = tf.config.list_physical_devices('GPU') 
+physical_devices = tf.config.list_physical_devices('GPU') 
 for device in physical_devices:
     tf.config.experimental.set_memory_growth(device, True)
+
+#-----uncomment to force run on CPU----------
+# import os
+# os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+
+# if tf.test.gpu_device_name():
+#     print('GPU found')
+# else:
+#     print("No GPU found")
+#--------------------------------------------
+
 from utils import *
 import tensorflow_probability as tfp
 import time
@@ -16,50 +28,58 @@ from ICET3D import ICET3D
 """Runs ICET on a SINGLE PAIR of scans from the KITTI dataset"""
 
 nc = 3	 #number of cycles
-mnp = 150 #50 #minimum number of points per voxel
+mnp = 50 #50 #minimum number of points per voxel
 D = True #draw sim
 DG = False #draw grid
-DE = True #draw ellipsoids
+DE = False #draw ellipsoids
 DC = False #draw correspondences
 TD = False #use test dataset
 CM = "voxel" #correspondence method, "voxel" or "NN"
-vizL = False #draw arrows in direction of non-truncated directions for each distribution
-id1 = 88 #idx of 1st scan #118 is the naughty scan
+vizL = True #draw arrows in direction of non-truncated directions for each distribution
+id1 = 37 #idx of 1st scan #118 is the naughty scan in raw 0005, 37 is bad in benchmark 05
 id2 = id1 + 1 #idx of 2nd scan
 
 plt = Plotter(N=1, axes=1, bg = (0.1,0.1,0.1), bg2 = (0.3,0.3,0.3),  interactive=True)
 # plt = Plotter(N=1, axes=4, interactive=True)
 
-## Use real data ----------------------------------------------------------------
-basedir = 'C:/kitti/'
-date = '2011_09_26'
+# ## Use raw data ----------------------------------------------------------------
+# basedir = 'C:/kitti/'
+# date = '2011_09_26'
+# drive = '0005' #urban
+# # drive = '0009' #suburban #len = 446
+# # drive = '0018' #highway traffic
+# dataset = pykitti.raw(basedir, date, drive)
 
-drive = '0005' #urban
-# drive = '0009' #suburban #len = 446
-# drive = '0018' #highway traffic
+# #-------------------------------------------------------------------------------
+
+## Use benchmark data ----------------------------------------------------------
+basepath = "E:/KITTI/dataset/"
+sequence = '05'
+
+dataset = pykitti.odometry(basepath, sequence)
+#-------------------------------------------------------------------------------
 
 
-dataset = pykitti.raw(basedir, date, drive)
 velo1 = dataset.get_velo(id1) # Each scan is a Nx4 array of [x,y,z,reflectance]
 cloud1 = velo1[:,:3]
 #remove far away points from cloud1
 lim1 = 50
-lim2 = -5
-# print(np.shape(cloud1))
-cloud1 = cloud1[ cloud1[:,0] < lim1]
-cloud1 = cloud1[ cloud1[:,0] > -lim1]
-cloud1 = cloud1[ cloud1[:,1] < lim1]
-cloud1 = cloud1[ cloud1[:,1] > -lim1]
+lim2 = -10
+print(np.shape(cloud1))
+# cloud1 = cloud1[ cloud1[:,0] < lim1]
+# cloud1 = cloud1[ cloud1[:,0] > -lim1]
+# cloud1 = cloud1[ cloud1[:,1] < lim1]
+# cloud1 = cloud1[ cloud1[:,1] > -lim1]
 cloud1 = cloud1[ cloud1[:,2] > lim2]
 cloud1_tensor = tf.convert_to_tensor(cloud1, np.float32)
 
 velo2 = dataset.get_velo(id2) # Each scan is a Nx4 array of [x,y,z,reflectance]
 cloud2 = velo2[:,:3]
 #repeat for cloud2
-cloud2 = cloud2[ cloud2[:,0] < lim1]
-cloud2 = cloud2[ cloud2[:,0] > -lim1]
-cloud2 = cloud2[ cloud2[:,1] < lim1]
-cloud2 = cloud2[ cloud2[:,1] > -lim1]
+# cloud2 = cloud2[ cloud2[:,0] < lim1]
+# cloud2 = cloud2[ cloud2[:,0] > -lim1]
+# cloud2 = cloud2[ cloud2[:,1] < lim1]
+# cloud2 = cloud2[ cloud2[:,1] > -lim1]
 cloud2 = cloud2[ cloud2[:,2] > lim2]
 
 cloud2_tensor = tf.convert_to_tensor(cloud2, np.float32)
@@ -68,9 +88,9 @@ cloud2_tensor = tf.convert_to_tensor(cloud2, np.float32)
 
 # #use whole point set
 # #---------------------------------------------------------------------------------
-# f = tf.constant([50,50,1]) #wa s 50,50,2... #fidelity in x, y, z # < 5s --- works for 005
+# f = tf.constant([50,50,5]) #wa s 50,50,2... #fidelity in x, y, z # < 5s --- works for 005
 f = tf.constant([20,20,2]) #need larger voxel sizes for 018
-# f = tf.constant([40,40,4]) #test
+# f = tf.constant([40,40,2]) #test
 lim = tf.constant([-100.,100.,-100.,100.,-10.,10.]) #needs to encompass every point
 # lim = tf.constant([-50.,50.,-50.,50.,-5.,5.])
 # npts = 100000
