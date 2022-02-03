@@ -228,7 +228,7 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 
 		#augment x by dx
 		x = x + dx
-		# print("\n x \n", x)
+		print("\n x \n", x)
 
 		#transform 2nd scan by x
 		t = x[:3]

@@ -2,9 +2,9 @@ import numpy as np
 import tensorflow as tf
 #need to have these two lines to work on my ancient 1060 3gb
 #  https://stackoverflow.com/questions/43990046/tensorflow-blas-gemm-launch-failed
-physical_devices = tf.config.list_physical_devices('GPU') 
-for device in physical_devices:
-    tf.config.experimental.set_memory_growth(device, True)
+# physical_devices = tf.config.list_physical_devices('GPU') 
+# for device in physical_devices:
+#     tf.config.experimental.set_memory_growth(device, True)
 from utils import *
 import tensorflow_probability as tfp
 import time
@@ -18,7 +18,8 @@ from metpy.calc import lat_lon_grid_deltas
 """ Runs ICET on each sequential set of scans in the KITTI "raw" dataset """
 
 
-nc = 5	 #number of iterations of ICET per each pair of clouds
+nc1 = 3	 #number of iterations of ICET per each pair of clouds
+nc2 = 4 #was 4 but OOM error...
 mnp = 50 #minimum number of points per voxel
 D = False #draw sim
 
@@ -33,12 +34,11 @@ drive = '0005' #city
 # drive = '0018' #difficult intersection case
 dataset = pykitti.raw(basedir, date, drive)
 # f = tf.constant([50,50,2]) #fidelity in x, y, z # < 5s  --- works for 0005
-# f = tf.constant([20,20,2]) #0018
-f = tf.constant([40,40,4]) #test
+f = tf.constant([20,20,2]) #0018
+f2 = tf.constant([40,40,4])
 
 lim = tf.constant([-100.,100.,-100.,100.,-10.,10.]) #needs to encompass every point
 npts = 100000 #need to cut number of points at finer voxel sizes because I only have 3gb VRAM
-# npts = 123397 
 
 # num_frames = 20 #debug
 num_frames = 150 #0005
@@ -53,19 +53,29 @@ for i in range(num_frames):
 
 	velo1 = dataset.get_velo(i) # Each scan is a Nx4 array of [x,y,z,reflectance]
 	cloud1 = velo1[:,:3]
+	imy = 30 #horizotal lim in +/- directions
+	lim2 = -1.65 #-1.5 #to ignore ground plane
+	# cloud1 = cloud1[ cloud1[:,1] < limy]
+	# cloud1 = cloud1[ cloud1[:,1] > -limy]
+	cloud1 = cloud1[ cloud1[:,2] > lim2]
 	cloud1_tensor = tf.convert_to_tensor(cloud1, np.float32)
 	velo2 = dataset.get_velo(i+1) # Each scan is a Nx4 array of [x,y,z,reflectance]
 	cloud2 = velo2[:,:3]
+	# cloud2 = cloud2[ cloud2[:,1] < limy]
+	# cloud2 = cloud2[ cloud2[:,1] > -limy]
+	cloud2 = cloud2[ cloud2[:,2] > lim2]
 	cloud2_tensor = tf.convert_to_tensor(cloud2, np.float32)
 
 	#estimate solution vector x using ICET
 	if i == 0:
-		Q, x_hist = ICET3D(cloud1_tensor[:npts], cloud2_tensor[:npts], plt, bounds = lim, 
-			fid = f, num_cycles = nc , min_num_pts = mnp, draw = D)
+		Q, x_hist = ICET3D(cloud1_tensor, cloud2_tensor, plt, bounds = lim, 
+			fid = f, num_cycles = nc1 , min_num_pts = mnp, draw = D)
 	# use estimates from previous frames to initialize xHat0
 	else:
-		Q, x_hist = ICET3D(cloud1_tensor[:npts], cloud2_tensor[:npts], plt, bounds = lim, 
-			fid = f, num_cycles = nc , min_num_pts = mnp, draw = D, xHat0 = x_hist[-1])
+		Q, x_hist = ICET3D(cloud1_tensor, cloud2_tensor, plt, bounds = lim, 
+			fid = f, num_cycles = nc1 , min_num_pts = mnp, draw = D, xHat0 = x_hist[-1])
+		Q2, x_hist = ICET3D(cloud1_tensor, cloud2_tensor, plt, bounds = lim, 
+			fid = f2, num_cycles = nc2 , min_num_pts = mnp, draw = D, xHat0 = x_hist[-1])
 
 	ICET_estimates[i] = x_hist[-1].numpy()
 
@@ -103,7 +113,8 @@ for i in range(num_frames):
 
 	#using velocity
 	# dt = (dataset.timestamps[i+1] - dataset.timestamps[i]).microseconds/(10e5)
-	dt = 0.10327 #mean time between lidar samples
+	# dt = 0.10327 #mean time between lidar samples
+	dt = 0.1
 	# OXTS_baseline[i] = np.array([[poses1.packet.vf*dt, poses1.packet.vl*dt, poses1.packet.vu*dt, droll_oxts, dpitch_oxts, dyaw_oxts]]) #works, but has stepping behavior for yaw
 	OXTS_baseline[i] = np.array([[poses1.packet.vf*dt, poses1.packet.vl*dt, poses1.packet.vu*dt, -poses1.packet.wf*dt, -poses1.packet.wl*dt, -poses1.packet.wu*dt]]) #test
 
@@ -118,9 +129,9 @@ for i in range(num_frames):
 print("ICET_estimates \n", ICET_estimates)
 print("\n OXTS baseline \n", OXTS_baseline)
 
-np.savetxt("ICET_pred_stds_926_0005.txt", ICET_pred_stds)
-np.savetxt("ICET_estimates_926_0005.txt", ICET_estimates)
-np.savetxt("OXTS_baseline_926_0005.txt", OXTS_baseline)
+np.savetxt("ICET_pred_stds_926_0005_test2.txt", ICET_pred_stds)
+np.savetxt("ICET_estimates_926_0005_test2.txt", ICET_estimates)
+np.savetxt("OXTS_baseline_926_0005_test2.txt", OXTS_baseline)
 
 #NOTES:
 #		test3 == [20,20,2], xHat0 initialized at zero, n=5, mnp = 50
