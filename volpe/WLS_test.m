@@ -2,12 +2,12 @@
 
 clear all
 
-PM_ins = eye(21)*1e-18;
+PM_ins = eye(21)*1e-19;
 PM_lidar = eye(3)*1e-19;
 
 xHatM_ins_cum = 1e-6*ones(21,1);
 xHatM_ins_cum(3) = 0.1;
-xHatM_lidar_cum = 2e-6*ones(3,1);
+xHatM_lidar_cum = 1e-6*ones(3,1);
 xHatM_lidar_cum(3) = 0.1; 
 
 % PM_block = [PM_ins, zeros(21,3); zeros(3,21), PM_lidar];
