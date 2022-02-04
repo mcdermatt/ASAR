@@ -473,58 +473,64 @@ def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.
 	# print(sigma_slow[:,1,:])
 	# # # -----------------------------------------------------------------------------------
 
-	mu = tf.math.reduce_mean(rag, axis=1) #works correctly
-	#get rid of nan values in mu
-	# print("\n mu before \n", mu)
-	mu = tf.where(tf.math.is_nan(mu), tf.zeros_like(mu), mu) #was this
-	# mu = tf.where(tf.math.is_nan(mu), -tf.ones_like(mu), mu) #test
-	# print("\n mu after \n", mu)
+	# ~~~~~ New strategy (2/4/2022) ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	#	loop though ragged tensor so we don't have to make the huge bounding box sized matrix 
+	#		whick eats up all the VRAMS
 
+	mu, sigma = fit_gaussian_tf(rag, sizes_updated, mnp = min_num_pts)
+	#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-	#~~~~~~ Old strategy: pad all voxel tensors with zeros until they are the same length as the max voxel ~~~~~~~~~~~~~~
-	# Works well(ish) for coarse voxels, but becomes VERY memory intensive for finer voxels (single voxel with high number of points
-	#	requires N*M extra bytes where N is the number of voxels and M is the diff between max and 2nd max # of pts in voxels )
-	# This is the cause of OOM errors when working with finer voxel sizes on KITTI data
+	# #~~~~~~ Old strategy: pad all voxel tensors with zeros until they are the same length as the max voxel ~~~~~~~~~~~~~~
+	# # Works well(ish) for coarse voxels, but becomes VERY memory intensive for finer voxels (single voxel with high number of points
+	# #	requires N*M extra bytes where N is the number of voxels and M is the diff between max and 2nd max # of pts in voxels )
+	# # This is the cause of OOM errors when working with finer voxel sizes on KITTI data
 
-	vox_with_zeros = rag.to_tensor() #[voxel #, point in voxel #, x y or z]
-	# print(vox_with_zeros)
+	# mu = tf.math.reduce_mean(rag, axis=1) #works correctly
+	# #get rid of nan values in mu
+	# # print("\n mu before \n", mu)
+	# mu = tf.where(tf.math.is_nan(mu), tf.zeros_like(mu), mu) #was this
+	# # mu = tf.where(tf.math.is_nan(mu), -tf.ones_like(mu), mu) #test
+	# # print("\n mu after \n", mu)
 
-	#need to create mask vector to ignore all summation results from places where vox_with_zeros is 0,0,0
-		#create a ragged tensor of ones using shape "sizes" and then convert to a standard tensor
-	mask = tf.RaggedTensor.from_row_lengths(tf.ones(tf.math.reduce_sum(sizes_updated)), sizes_updated).to_tensor()
+	# vox_with_zeros = rag.to_tensor() #[voxel #, point in voxel #, x y or z]
+	# # print(vox_with_zeros)
 
-	#calculate mu manually (for debug)
-	# mu_x = tf.math.reduce_sum(vox_with_zeros[:,:,0]*mask, axis = 1)/tf.cast(sizes_updated,tf.float32)
-	# print(mu_x)
+	# #need to create mask vector to ignore all summation results from places where vox_with_zeros is 0,0,0
+	# 	#create a ragged tensor of ones using shape "sizes" and then convert to a standard tensor
+	# mask = tf.RaggedTensor.from_row_lengths(tf.ones(tf.math.reduce_sum(sizes_updated)), sizes_updated).to_tensor()
 
-	std_x = tf.reduce_sum( tf.math.square(vox_with_zeros[:,:,0]-mu[:,0][:,None])*mask , axis = 1)/ tf.cast(sizes_updated, tf.float32)
-	std_y = tf.reduce_sum( tf.math.square(vox_with_zeros[:,:,1]-mu[:,1][:,None])*mask , axis = 1)/ tf.cast(sizes_updated, tf.float32)
-	std_z = tf.reduce_sum( tf.math.square(vox_with_zeros[:,:,2]-mu[:,2][:,None])*mask , axis = 1)/ tf.cast(sizes_updated, tf.float32)
+	# #calculate mu manually (for debug)
+	# # mu_x = tf.math.reduce_sum(vox_with_zeros[:,:,0]*mask, axis = 1)/tf.cast(sizes_updated,tf.float32)
+	# # print(mu_x)
 
-	# E_xy = mean((xpts-mux)(ypts-muy))
-	E_xy = tf.reduce_sum( ((vox_with_zeros[:,:,0] - mu[:,0][:,None])*(vox_with_zeros[:,:,1] - mu[:,1][:,None]))*mask , axis = 1)/ tf.cast(sizes_updated, tf.float32)
-	E_xz = -tf.reduce_sum( ((vox_with_zeros[:,:,0] - mu[:,0][:,None])*(vox_with_zeros[:,:,2] - mu[:,2][:,None]))*mask , axis = 1)/ tf.cast(sizes_updated, tf.float32)
-	E_yz = -tf.reduce_sum( ((vox_with_zeros[:,:,1] - mu[:,1][:,None])*(vox_with_zeros[:,:,2] - mu[:,2][:,None]))*mask , axis = 1)/ tf.cast(sizes_updated, tf.float32)
+	# std_x = tf.reduce_sum( tf.math.square(vox_with_zeros[:,:,0]-mu[:,0][:,None])*mask , axis = 1)/ tf.cast(sizes_updated, tf.float32)
+	# std_y = tf.reduce_sum( tf.math.square(vox_with_zeros[:,:,1]-mu[:,1][:,None])*mask , axis = 1)/ tf.cast(sizes_updated, tf.float32)
+	# std_z = tf.reduce_sum( tf.math.square(vox_with_zeros[:,:,2]-mu[:,2][:,None])*mask , axis = 1)/ tf.cast(sizes_updated, tf.float32)
+	# # print(std_x[-1])
+
+	# # E_xy = mean((xpts-mux)(ypts-muy))
+	# E_xy = tf.reduce_sum( ((vox_with_zeros[:,:,0] - mu[:,0][:,None])*(vox_with_zeros[:,:,1] - mu[:,1][:,None]))*mask , axis = 1)/ tf.cast(sizes_updated, tf.float32)
+	# E_xz = -tf.reduce_sum( ((vox_with_zeros[:,:,0] - mu[:,0][:,None])*(vox_with_zeros[:,:,2] - mu[:,2][:,None]))*mask , axis = 1)/ tf.cast(sizes_updated, tf.float32)
+	# E_yz = -tf.reduce_sum( ((vox_with_zeros[:,:,1] - mu[:,1][:,None])*(vox_with_zeros[:,:,2] - mu[:,2][:,None]))*mask , axis = 1)/ tf.cast(sizes_updated, tf.float32)
 	
-	#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	# # [3,3,N]
+	# # sigma = tf.Variable([[std_x, E_xy, E_xz],
+	# # 					 [E_xy, std_y, E_yz],
+	# # 					 [E_xz, E_yz, std_z]]) 
 
+	# # [N, 3, 3]
+	# sigma = tf.Variable([std_x, E_xy, E_xz,
+	# 					 E_xy, std_y, E_yz,
+	# 					 E_xz, E_yz, std_z]) 
+	# sigma = tf.reshape(tf.transpose(sigma), (tf.shape(sigma)[1] ,3,3))
+	# # print("sigma \n", sigma)
 
-	# [3,3,N]
-	# sigma = tf.Variable([[std_x, E_xy, E_xz],
-	# 					 [E_xy, std_y, E_yz],
-	# 					 [E_xz, E_yz, std_z]]) 
+	# #get rid of any nan values in sigma
+	# sigma = tf.where(tf.math.is_nan(sigma), tf.zeros_like(sigma), sigma)
+	# print(sigma[-1])
+	# # sigma = tf.reshape(sigma, (tf.shape(sigma)[2] ,3,3))
+	# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-	# [N, 3, 3]
-	sigma = tf.Variable([std_x, E_xy, E_xz,
-						 E_xy, std_y, E_yz,
-						 E_xz, E_yz, std_z]) 
-	sigma = tf.reshape(tf.transpose(sigma), (tf.shape(sigma)[1] ,3,3))
-	# print("sigma \n", sigma)
-
-	#get rid of any nan values in sigma
-	sigma = tf.where(tf.math.is_nan(sigma), tf.zeros_like(sigma), sigma)
-	# print(sigma)
-	# sigma = tf.reshape(sigma, (tf.shape(sigma)[2] ,3,3))
 
 	print("took", time.time() - start, "seconds with tensorflow")
 
@@ -670,48 +676,83 @@ def fit_gaussian(points):
 
 	return mu, sigma
 
-def fit_gaussian_tf(points):
-	"""DEPRECIATED
-	input: [N,3] tensor"""
+def fit_gaussian_tf(rag, sizes, mnp = 50):
+	"""not as efficient on smaller datasets but prevents OOM errors on high fidelity point clouds"""
 
-	# print("input to fit_gaussian_tf(): \n", points)
+	mu = tf.math.reduce_mean(rag, axis = 1)
 
-	x = tf.math.reduce_mean(points[:,:,0], axis = 1)
-	y = tf.math.reduce_mean(points[:,:,1], axis = 1)
-	z = tf.math.reduce_mean(points[:,:,2], axis = 1)
-	mu = tf.transpose(tf.Variable([x, y, z]))
+	#TODO: only consider i where mu[i] != NaN
+	cnt = 0 # count var for number of loops since last useful data point
+
+	start = time.time()
+
+	for i in range(rag.bounding_shape()[0]):
+		#init stds on first loop, concat on subsequent loops
+		if i == 0:
+			# print("rag[i][:,0] \n", rag[i][:,0])
+			# print("mu[i,0] \n", mu[i,0])
+			std_x = tf.reduce_sum(tf.math.square( rag[i][:,0] - mu[i,0]))[None] / tf.cast(sizes[i], tf.float32)
+			std_y = tf.reduce_sum(tf.math.square( rag[i][:,1] - mu[i,1]))[None] / tf.cast(sizes[i], tf.float32)
+			std_z = tf.reduce_sum(tf.math.square( rag[i][:,2] - mu[i,2]))[None] / tf.cast(sizes[i], tf.float32)
+		
+			E_xy = tf.reduce_sum( ( rag[i][:,0] - mu[i,0])*( rag[i][:,1] - mu[i,1]) )[None] / tf.cast(sizes[i], tf.float32)
+			E_xz = -tf.reduce_sum( ( rag[i][:,0] - mu[i,0])*( rag[i][:,2] - mu[i,2]) )[None] / tf.cast(sizes[i], tf.float32)
+			E_yz = -tf.reduce_sum( ( rag[i][:,1] - mu[i,1])*( rag[i][:,2] - mu[i,2]) )[None] / tf.cast(sizes[i], tf.float32)
 
 
-	# print("points: \n" , points)
-	# print("mux: \n", mu[:,0])
+		else:
 
-	# print("pointsx - mux \n", tf.transpose(points[:, :, 0]) - mu[:,0])
+			# if (tf.math.is_nan(mu[i,0]) == True):
+			if (tf.math.is_nan(mu[i,0]) == True) or sizes[i] < mnp:
+				cnt += 1
+			else:
+				if cnt != 0:
+					# print("skipped this many voxels :\n",cnt)
+					#pad with zeros to account for voxels we skipped
+					# c = tf.constant([cnt, 1], tf.int32)
+					# zer = tf.tile(tf.zeros([1])[None], tf.constant([1,cnt], tf.int32))
+					zer = tf.zeros(cnt)
+					std_x = tf.concat([std_x, zer], 0)
+					std_y = tf.concat([std_y, zer], 0)
+					std_z = tf.concat([std_z, zer], 0)
+					E_xy = tf.concat([E_xy, zer], 0)
+					E_xz = tf.concat([E_xz, zer], 0)
+					E_yz = tf.concat([E_yz, zer], 0)
 
-	# print("\n tf.math.reduce_sum(points[:,0] - mu[0]) \n", tf.math.reduce_sum((points[:,0] - mu[0])))
+				cnt = 0
 
-	# nonzeroxidx = tf.math.not_equal(points, tf.constant([[0.,0.,0.]])) 
-	# print(nonzeroxidx)
-	# nonzerox = tf.squeeze(tf.gather(points,tf.where(tf.math.reduce_any(nonzeroxidx, axis = 2) == True)))
-	# print(nonzerox)
+				newx = tf.reduce_sum(tf.math.square( rag[i][:,0] - mu[i,0]))[None] / tf.cast(sizes[i], tf.float32)
+				std_x = tf.concat([std_x, newx], 0)
 
-	#standard deviations
-	std_x = tf.math.reduce_sum( (tf.transpose(points[:,:,0]) - mu[:,0])**2, axis = 0) / tf.shape(points)[0].numpy()
-	std_y = tf.math.reduce_sum( (tf.transpose(points[:,:,1]) - mu[:,1])**2, axis = 0) / tf.shape(points)[0].numpy()
-	std_z = tf.math.reduce_sum( (tf.transpose(points[:,:,2]) - mu[:,2])**2, axis = 0) / tf.shape(points)[0].numpy()
+				newy = tf.reduce_sum(tf.math.square( rag[i][:,1] - mu[i,1]))[None] / tf.cast(sizes[i], tf.float32)
+				std_y = tf.concat([std_y, newy], 0)
+				
+				newz = tf.reduce_sum(tf.math.square( rag[i][:,2] - mu[i,2]))[None] / tf.cast(sizes[i], tf.float32)
+				std_z = tf.concat([std_z, newz], 0)
 
-	# print("std_x \n",std_x)
-	# print("std_y \n",std_y)
-	# print("std_z \n",std_z)
+				new_E_xy = tf.reduce_sum( ( rag[i][:,0] - mu[i,0])*( rag[i][:,1] - mu[i,1]) )[None] / tf.cast(sizes[i], tf.float32)
+				E_xy = tf.concat([E_xy, new_E_xy], 0)
 
-	E_xy = tf.math.reduce_mean( (tf.transpose(points[:,:,0]) - mu[:,0]) * ( tf.transpose(points[:,:,1]) - mu[:,1]), axis =0 ) 	#expected value
-	E_xz = tf.math.reduce_mean( (tf.transpose(points[:,:,0]) - mu[:,0]) * ( tf.transpose(points[:,:,2]) - mu[:,2]), axis =0 )
-	E_yz = tf.math.reduce_mean( (tf.transpose(points[:,:,1]) - mu[:,1]) * ( tf.transpose(points[:,:,2]) - mu[:,2]), axis =0 )	
+				new_E_xz = -tf.reduce_sum( ( rag[i][:,0] - mu[i,0])*( rag[i][:,2] - mu[i,2]) )[None] / tf.cast(sizes[i], tf.float32)
+				E_xz = tf.concat([E_xz, new_E_xz], 0)
+				
+				new_E_yz = -tf.reduce_sum( ( rag[i][:,1] - mu[i,1])*( rag[i][:,2] - mu[i,2]) )[None] / tf.cast(sizes[i], tf.float32)
+				E_yz = tf.concat([E_yz, new_E_yz], 0)
 
-	# print("E_xy: \n", E_xy)
+	# sigma = tf.Variable([std_x, std_y, std_z])
 
-	sigma = tf.Variable([[std_x, E_xy, E_xz],
-					     [E_xy, std_y, E_yz],
-					     [E_xz, E_yz, std_z]])
+	# [N, 3, 3]
+	sigma = tf.Variable([std_x, E_xy, E_xz,
+						 E_xy, std_y, E_yz,
+						 E_xz, E_yz, std_z]) 
+
+	sigma = tf.reshape(tf.transpose(sigma), (tf.shape(sigma)[1] ,3,3))
+
+	#get rid of any nan values in mu and sigma
+	sigma = tf.where(tf.math.is_nan(sigma), tf.zeros_like(sigma), sigma)
+	mu = tf.where(tf.math.is_nan(mu), tf.zeros_like(mu), mu)
+
+	print("took ", time.time() - start, "seconds") 
 
 	return mu, sigma
 

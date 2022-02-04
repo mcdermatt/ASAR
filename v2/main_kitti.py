@@ -27,15 +27,15 @@ from ICET3D import ICET3D
 
 """Runs ICET on a SINGLE PAIR of scans from the KITTI dataset"""
 
-nc1 = 1	 #number of cycles using coarse voxel sizes
-mnp = 3 #50 #minimum number of points per voxel
-D = True #draw sim
+nc1 = 5	 #number of cycles using coarse voxel sizes
+mnp = 50 #minimum number of points per voxel
+D = False #draw sim
 DG = False #draw grid
 DE = True #draw ellipsoids
 DC = False #draw correspondences
 TD = False #use test dataset
 CM = "voxel" #correspondence method, "voxel" or "NN"
-vizL = False #draw arrows in direction of non-truncated directions for each distribution
+vizL = True #draw arrows in direction of non-truncated directions for each distribution
 id1 = 55 #idx of 1st scan #118 is the naughty scan in raw 0005, 37 is bad in benchmark 05
 id2 = id1 + 1 #idx of 2nd scan
 
@@ -91,7 +91,7 @@ cloud2_tensor = tf.convert_to_tensor(cloud2, np.float32)
 
 # #use whole point set
 # #---------------------------------------------------------------------------------
-# f = tf.constant([50,50,5]) #wa s 50,50,2... #fidelity in x, y, z # < 5s --- works for 005
+# f = tf.constant([50,50,4]) #wa s 50,50,2... #fidelity in x, y, z # < 5s --- works for 005
 # f = tf.constant([20,20,2]) #need larger voxel sizes for 018
 f = tf.constant([100,100,4]) #test
 lim = tf.constant([-100.,100.,-100.,100.,-10.,10.]) #needs to encompass every point
