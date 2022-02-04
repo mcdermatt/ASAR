@@ -480,21 +480,22 @@ def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.
 	# mu = tf.where(tf.math.is_nan(mu), -tf.ones_like(mu), mu) #test
 	# print("\n mu after \n", mu)
 
+
+	#~~~~~~ Old strategy: pad all voxel tensors with zeros until they are the same length as the max voxel ~~~~~~~~~~~~~~
+	# Works well(ish) for coarse voxels, but becomes VERY memory intensive for finer voxels (single voxel with high number of points
+	#	requires N*M extra bytes where N is the number of voxels and M is the diff between max and 2nd max # of pts in voxels )
+	# This is the cause of OOM errors when working with finer voxel sizes on KITTI data
+
 	vox_with_zeros = rag.to_tensor() #[voxel #, point in voxel #, x y or z]
 	# print(vox_with_zeros)
 
 	#need to create mask vector to ignore all summation results from places where vox_with_zeros is 0,0,0
 		#create a ragged tensor of ones using shape "sizes" and then convert to a standard tensor
 	mask = tf.RaggedTensor.from_row_lengths(tf.ones(tf.math.reduce_sum(sizes_updated)), sizes_updated).to_tensor()
-	# print("\n mask: \n", mask)
 
 	#calculate mu manually (for debug)
 	# mu_x = tf.math.reduce_sum(vox_with_zeros[:,:,0]*mask, axis = 1)/tf.cast(sizes_updated,tf.float32)
 	# print(mu_x)
-
-	# print("\n voxwzeros[:,:,0]: \n",vox_with_zeros[:,:,0])
-	# print("\n mu[:,0] \n ", mu[:,0][:,None])
-	# print("\n test2 \n", ( tf.reduce_sum( tf.math.square(vox_with_zeros[:,:,0]-mu[:,0][:,None])*mask,  axis = 1) )) #correct
 
 	std_x = tf.reduce_sum( tf.math.square(vox_with_zeros[:,:,0]-mu[:,0][:,None])*mask , axis = 1)/ tf.cast(sizes_updated, tf.float32)
 	std_y = tf.reduce_sum( tf.math.square(vox_with_zeros[:,:,1]-mu[:,1][:,None])*mask , axis = 1)/ tf.cast(sizes_updated, tf.float32)
@@ -505,6 +506,9 @@ def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.
 	E_xz = -tf.reduce_sum( ((vox_with_zeros[:,:,0] - mu[:,0][:,None])*(vox_with_zeros[:,:,2] - mu[:,2][:,None]))*mask , axis = 1)/ tf.cast(sizes_updated, tf.float32)
 	E_yz = -tf.reduce_sum( ((vox_with_zeros[:,:,1] - mu[:,1][:,None])*(vox_with_zeros[:,:,2] - mu[:,2][:,None]))*mask , axis = 1)/ tf.cast(sizes_updated, tf.float32)
 	
+	#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
 	# [3,3,N]
 	# sigma = tf.Variable([[std_x, E_xy, E_xz],
 	# 					 [E_xy, std_y, E_yz],
@@ -518,7 +522,6 @@ def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.
 	# print("sigma \n", sigma)
 
 	#get rid of any nan values in sigma
-
 	sigma = tf.where(tf.math.is_nan(sigma), tf.zeros_like(sigma), sigma)
 	# print(sigma)
 	# sigma = tf.reshape(sigma, (tf.shape(sigma)[2] ,3,3))
@@ -603,41 +606,41 @@ def make_scene(plt, disp, E, color, draw_grid = False, draw_ell = True, fid = No
 		ybound = np.linspace(bounds[2], bounds[3], fid[1] + 1)
 		zbound = np.linspace(bounds[4], bounds[5], fid[2] + 1)
 
-		# #normal (for 3D)---------------------------------
-		# for y in range(fid[1]+1):
-		# 	for z in range(fid[2]+1):
-		# 		p0 = np.array([xbound[-1], ybound[y], zbound[z]])
-		# 		p1 = np.array([xbound[0], ybound[y], zbound[z]])
-		# 		x_lines = shapes.Line(p0, p1, closed=False, c='black', alpha=1, lw=0.25, res=0)
-		# 		disp.append(x_lines)
-		# for x in range(fid[0]+1):
-		# 	for z in range(fid[2]+1):
-		# 		p0 = np.array([xbound[x], ybound[-1], zbound[z]])
-		# 		p1 = np.array([xbound[x], ybound[0], zbound[z]])
-		# 		y_lines = shapes.Line(p0, p1, closed=False, c='black', alpha=1, lw=0.25, res=0)
-		# 		disp.append(y_lines)
-		# for x in range(fid[0]+1):
-		# 	for y in range(fid[1]+1):
-		# 		p0 = np.array([xbound[x], ybound[y], zbound[-1]])
-		# 		p1 = np.array([xbound[x], ybound[y], zbound[0]])
-		# 		z_lines = shapes.Line(p0, p1, closed=False, c='black', alpha=1, lw=0.25, res=0)
-		# 		disp.append(z_lines)
-		# #-------------------------------------------------
-
-		# for 2d viz -------------------------------------
+		#normal (for 3D)---------------------------------
 		for y in range(fid[1]+1):
-			for z in range(fid[2]):
-				p0 = np.array([xbound[-1], ybound[y], 0])
-				p1 = np.array([xbound[0], ybound[y], 0])
+			for z in range(fid[2]+1):
+				p0 = np.array([xbound[-1], ybound[y], zbound[z]])
+				p1 = np.array([xbound[0], ybound[y], zbound[z]])
 				x_lines = shapes.Line(p0, p1, closed=False, c='black', alpha=1, lw=0.25, res=0)
 				disp.append(x_lines)
 		for x in range(fid[0]+1):
-			for z in range(fid[2]):
-				p0 = np.array([xbound[x], ybound[-1], 0])
-				p1 = np.array([xbound[x], ybound[0], 0])
+			for z in range(fid[2]+1):
+				p0 = np.array([xbound[x], ybound[-1], zbound[z]])
+				p1 = np.array([xbound[x], ybound[0], zbound[z]])
 				y_lines = shapes.Line(p0, p1, closed=False, c='black', alpha=1, lw=0.25, res=0)
 				disp.append(y_lines)
+		for x in range(fid[0]+1):
+			for y in range(fid[1]+1):
+				p0 = np.array([xbound[x], ybound[y], zbound[-1]])
+				p1 = np.array([xbound[x], ybound[y], zbound[0]])
+				z_lines = shapes.Line(p0, p1, closed=False, c='black', alpha=1, lw=0.25, res=0)
+				disp.append(z_lines)
 		#-------------------------------------------------
+
+		# # for 2d viz -------------------------------------
+		# for y in range(fid[1]+1):
+		# 	for z in range(fid[2]):
+		# 		p0 = np.array([xbound[-1], ybound[y], 0])
+		# 		p1 = np.array([xbound[0], ybound[y], 0])
+		# 		x_lines = shapes.Line(p0, p1, closed=False, c='black', alpha=1, lw=0.25, res=0)
+		# 		disp.append(x_lines)
+		# for x in range(fid[0]+1):
+		# 	for z in range(fid[2]):
+		# 		p0 = np.array([xbound[x], ybound[-1], 0])
+		# 		p1 = np.array([xbound[x], ybound[0], 0])
+		# 		y_lines = shapes.Line(p0, p1, closed=False, c='black', alpha=1, lw=0.25, res=0)
+		# 		disp.append(y_lines)
+		# #-------------------------------------------------
 
 	return(disp)
 	# plt.show(disp, "subdivide_scan", at=0) #was here, moving to inside main loop
