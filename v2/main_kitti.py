@@ -28,15 +28,16 @@ from ICET3D import ICET3D
 """Runs ICET on a SINGLE PAIR of scans from the KITTI dataset"""
 
 nc1 = 5	 #number of cycles using coarse voxel sizes
-mnp = 50 #minimum number of points per voxel
-D = False #draw sim
+mnp = 20 #minimum number of points per voxel
+D = True #draw sim
 DG = False #draw grid
 DE = True #draw ellipsoids
 DC = False #draw correspondences
 TD = False #use test dataset
 CM = "voxel" #correspondence method, "voxel" or "NN"
-vizL = True #draw arrows in direction of non-truncated directions for each distribution
-id1 = 55 #idx of 1st scan #118 is the naughty scan in raw 0005, 37 is bad in benchmark 05
+fast_gaussian = False
+vizL = False #draw arrows in direction of non-truncated directions for each distribution
+id1 = 99 #idx of 1st scan #118 is the naughty scan in raw 0005, 37 is bad in benchmark 05
 id2 = id1 + 1 #idx of 2nd scan
 
 plt = Plotter(N=1, axes=1, bg = (0.1,0.1,0.1), bg2 = (0.3,0.3,0.3),  interactive=True)
@@ -92,19 +93,19 @@ cloud2_tensor = tf.convert_to_tensor(cloud2, np.float32)
 # #use whole point set
 # #---------------------------------------------------------------------------------
 # f = tf.constant([50,50,4]) #wa s 50,50,2... #fidelity in x, y, z # < 5s --- works for 005
-# f = tf.constant([20,20,2]) #need larger voxel sizes for 018
-f = tf.constant([100,100,4]) #test
+# f = tf.constant([100,100,4]) #test
 lim = tf.constant([-100.,100.,-100.,100.,-10.,10.]) #needs to encompass every point
 # lim = tf.constant([-100.,100.,-50.,50.,-5.,5.])
 # npts = 100000
+f1 = tf.constant([60, 60, 10]) #need larger voxel sizes for 018
+# f2 = tf.constant([200,200,4])
 Q, x_hist = ICET3D(cloud1_tensor, cloud2_tensor, plt, bounds = lim, 
-           fid = f, num_cycles = nc1 , min_num_pts = mnp, draw = D, draw_grid = DG, 
-           draw_ell = DE, draw_corr = DC, test_dataset = TD, CM = CM, vizL = vizL)
+           fid = f1, num_cycles = nc1 , min_num_pts = mnp, draw = D, draw_grid = DG, 
+           draw_ell = DE, draw_corr = DC, test_dataset = TD, CM = CM, vizL = vizL, FG = fast_gaussian)
 
-# f2 = tf.constant([40,40,4])
 # Q2, x_hist = ICET3D(cloud1_tensor, cloud2_tensor, plt, bounds = lim, 
-# 			fid = f2, num_cycles = 5, draw_ell = False, draw_corr = DC, 
-# 			min_num_pts = 20, draw = D, vizL = vizL, xHat0 = x_hist[-1])
+# 			fid = f2, num_cycles = 2, draw_ell = True, draw_corr = DC, 
+# 			min_num_pts = 20, draw = True, vizL = vizL, xHat0 = x_hist[-1])
 # #---------------------------------------------------------------------------------
 
 #just consider small section of image where there are easily identifiable features:

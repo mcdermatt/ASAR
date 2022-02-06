@@ -18,9 +18,9 @@ from metpy.calc import lat_lon_grid_deltas
 """ Runs ICET on each sequential set of scans in the KITTI "raw" dataset """
 
 
-nc1 = 3	 #number of iterations of ICET per each pair of clouds
-nc2 = 4 #was 4 but OOM error...
-mnp = 50 #minimum number of points per voxel
+nc1 = 5	 #number of iterations of ICET per each pair of clouds
+nc2 = 1 
+mnp = 20 #minimum number of points per voxel
 D = False #draw sim
 
 # plt = Plotter(N=1, axes=1, bg = (0.1,0.1,0.1), bg2 = (0.3,0.3,0.3),  interactive=True)
@@ -34,11 +34,10 @@ drive = '0005' #city
 # drive = '0018' #difficult intersection case
 dataset = pykitti.raw(basedir, date, drive)
 # f = tf.constant([50,50,2]) #fidelity in x, y, z # < 5s  --- works for 0005
-f = tf.constant([20,20,2]) #0018
-f2 = tf.constant([40,40,4])
+f = tf.constant([20,20,10]) #0018
+f2 = tf.constant([60,60,10])
 
-lim = tf.constant([-100.,100.,-100.,100.,-10.,10.]) #needs to encompass every point
-npts = 100000 #need to cut number of points at finer voxel sizes because I only have 3gb VRAM
+lim = tf.constant([-100.,100.,-100.,100.,-5.,10.]) #needs to encompass every point
 
 # num_frames = 20 #debug
 num_frames = 150 #0005
@@ -69,13 +68,13 @@ for i in range(num_frames):
 	#estimate solution vector x using ICET
 	if i == 0:
 		Q, x_hist = ICET3D(cloud1_tensor, cloud2_tensor, plt, bounds = lim, 
-			fid = f, num_cycles = nc1 , min_num_pts = mnp, draw = D)
+			fid = f, num_cycles = nc1 , min_num_pts = mnp, draw = D, FG = True)
 	# use estimates from previous frames to initialize xHat0
 	else:
 		Q, x_hist = ICET3D(cloud1_tensor, cloud2_tensor, plt, bounds = lim, 
-			fid = f, num_cycles = nc1 , min_num_pts = mnp, draw = D, xHat0 = x_hist[-1])
-		Q2, x_hist = ICET3D(cloud1_tensor, cloud2_tensor, plt, bounds = lim, 
-			fid = f2, num_cycles = nc2 , min_num_pts = mnp, draw = D, xHat0 = x_hist[-1])
+			fid = f, num_cycles = nc1 , min_num_pts = mnp, draw = D, xHat0 = x_hist[-1], FG = True)
+		# Q2, x_hist = ICET3D(cloud1_tensor, cloud2_tensor, plt, bounds = lim, 
+		# 	fid = f2, num_cycles = nc2 , min_num_pts = mnp, draw = D, xHat0 = x_hist[-1], FG = False)
 
 	ICET_estimates[i] = x_hist[-1].numpy()
 
@@ -129,9 +128,9 @@ for i in range(num_frames):
 print("ICET_estimates \n", ICET_estimates)
 print("\n OXTS baseline \n", OXTS_baseline)
 
-np.savetxt("ICET_pred_stds_926_0005_test2.txt", ICET_pred_stds)
-np.savetxt("ICET_estimates_926_0005_test2.txt", ICET_estimates)
-np.savetxt("OXTS_baseline_926_0005_test2.txt", OXTS_baseline)
+np.savetxt("ICET_pred_stds_926_0005_test3.txt", ICET_pred_stds)
+np.savetxt("ICET_estimates_926_0005_test3.txt", ICET_estimates)
+np.savetxt("OXTS_baseline_926_0005_test3.txt", OXTS_baseline)
 
 #NOTES:
 #		test3 == [20,20,2], xHat0 initialized at zero, n=5, mnp = 50

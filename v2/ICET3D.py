@@ -24,7 +24,7 @@ from utils import *
 
 def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False, 
 	       num_cycles = 5, min_num_pts = 50, draw_grid = False, draw_ell = True, 
-	       draw_corr = False, CM = "voxel", vizL = True, xHat0 = tf.zeros([6,1])):
+	       draw_corr = False, CM = "voxel", vizL = True, xHat0 = tf.zeros([6,1]), FG = True):
 
 	"""3D implementation of ICET algorithm using TensorFlow library
 	
@@ -39,9 +39,9 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 
 	#subdivide keyframe scan
 	if draw == True:
-		E1 = subdivide_scan_tf(pp1, plt, bounds, fid, draw = True, show_pc = 1, draw_grid = draw_grid, draw_ell = draw_ell)
+		E1 = subdivide_scan_tf(pp1, plt, bounds, fid, draw = True, show_pc = 1, draw_grid = draw_grid, draw_ell = draw_ell, fast_gaussian = FG)
 	else:
-		E1 = subdivide_scan_tf(pp1, plt, bounds, fid, draw = False, draw_grid = draw_grid)
+		E1 = subdivide_scan_tf(pp1, plt, bounds, fid, draw = False, draw_grid = draw_grid, fast_gaussian = FG)
 	mu1 = E1[0]
 	sigma1 = E1[1]
 	npts1 = E1[2]
@@ -82,9 +82,13 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 	x = tf.squeeze(xHat0)
 
 	#start with pp2_corrected with an initial transformation of [0,0,0]
+	# t = x[:3]
+	# rot = R_tf(x[3:])
+	# pp2_corrected = tf.matmul(pp2, rot) + t
+
 	t = x[:3]
-	rot = R_tf(x[3:])
-	pp2_corrected = tf.matmul(pp2, rot) + t
+	rot = R_tf(-x[3:])
+	pp2_corrected = tf.matmul((pp2 + t), tf.transpose(rot))
 
 	x_hist = tf.zeros([1,6])
 
@@ -94,9 +98,9 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 		#subdivide second scan
 		if draw == True:
 			#referencing disp 1 here prevents re-drawing old transformations of scan2
-			E2 = subdivide_scan_tf(pp2_corrected, plt, bounds, fid, disp = disp1, draw=True, show_pc = 2, draw_grid = draw_grid, draw_ell = draw_ell)
+			E2 = subdivide_scan_tf(pp2_corrected, plt, bounds, fid, disp = disp1, draw=True, show_pc = 2, draw_grid = draw_grid, draw_ell = draw_ell,  fast_gaussian = FG)
 		else:
-			E2 = subdivide_scan_tf(pp2_corrected, plt, bounds, fid, draw=False)
+			E2 = subdivide_scan_tf(pp2_corrected, plt, bounds, fid, draw=False,  fast_gaussian = FG)
 		mu2 = E2[0]
 		# print("\n mu2 \n", mu2)
 		sigma2 = E2[1]

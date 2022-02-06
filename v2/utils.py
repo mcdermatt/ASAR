@@ -332,7 +332,7 @@ def dR_simp(n_hat, theta):
 
 
 def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.,-10.,10.]), fid = tf.constant([10,10,3]), disp = [],
-					min_num_pts = 20, draw = False, nstd = 2, draw_grid = True, draw_ell = True, show_pc = True):
+					min_num_pts = 20, draw = False, nstd = 2, draw_grid = True, draw_ell = True, show_pc = True, fast_gaussian = True):
 
 	"""Subdivide point cloud into voxels and calculate means and covaraince matrices for each voxel
 			cloud_tensor = point cloud input
@@ -473,63 +473,67 @@ def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.
 	# print(sigma_slow[:,1,:])
 	# # # -----------------------------------------------------------------------------------
 
-	# ~~~~~ New strategy (2/4/2022) ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-	#	loop though ragged tensor so we don't have to make the huge bounding box sized matrix 
-	#		whick eats up all the VRAMS
 
-	mu, sigma = fit_gaussian_tf(rag, sizes_updated, mnp = min_num_pts)
-	#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	if fast_gaussian == False:
+		# ~~~~~ New strategy (2/4/2022) ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		#	loop though ragged tensor so we don't have to make the huge bounding box sized matrix 
+		#		whick eats up all the VRAM
+		
+		mu, sigma = fit_gaussian_tf(rag, sizes_updated, mnp = min_num_pts)
+		#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-	# #~~~~~~ Old strategy: pad all voxel tensors with zeros until they are the same length as the max voxel ~~~~~~~~~~~~~~
-	# # Works well(ish) for coarse voxels, but becomes VERY memory intensive for finer voxels (single voxel with high number of points
-	# #	requires N*M extra bytes where N is the number of voxels and M is the diff between max and 2nd max # of pts in voxels )
-	# # This is the cause of OOM errors when working with finer voxel sizes on KITTI data
+	if fast_gaussian == True:
+		#~~~~~~ Old strategy (pre 2/4) ~~~~~~~~~~~~~~
+		# pad all voxel tensors with zeros until they are the same length as the max voxel
+		# Works well(ish) for coarse voxels, but becomes VERY memory intensive for finer voxels (single voxel with high number of points
+		#	requires N*M extra bytes where N is the number of voxels and M is the diff between max and 2nd max # of pts in voxels )
+		# This is the cause of OOM errors when working with finer voxel sizes on KITTI data
 
-	# mu = tf.math.reduce_mean(rag, axis=1) #works correctly
-	# #get rid of nan values in mu
-	# # print("\n mu before \n", mu)
-	# mu = tf.where(tf.math.is_nan(mu), tf.zeros_like(mu), mu) #was this
-	# # mu = tf.where(tf.math.is_nan(mu), -tf.ones_like(mu), mu) #test
-	# # print("\n mu after \n", mu)
+		mu = tf.math.reduce_mean(rag, axis=1) #works correctly
+		#get rid of nan values in mu
+		# print("\n mu before \n", mu)
+		mu = tf.where(tf.math.is_nan(mu), tf.zeros_like(mu), mu) #was this
+		# mu = tf.where(tf.math.is_nan(mu), -tf.ones_like(mu), mu) #test
+		# print("\n mu after \n", mu)
 
-	# vox_with_zeros = rag.to_tensor() #[voxel #, point in voxel #, x y or z]
-	# # print(vox_with_zeros)
+		vox_with_zeros = rag.to_tensor() #[voxel #, point in voxel #, x y or z]
+		# print(vox_with_zeros)
 
-	# #need to create mask vector to ignore all summation results from places where vox_with_zeros is 0,0,0
-	# 	#create a ragged tensor of ones using shape "sizes" and then convert to a standard tensor
-	# mask = tf.RaggedTensor.from_row_lengths(tf.ones(tf.math.reduce_sum(sizes_updated)), sizes_updated).to_tensor()
+		#need to create mask vector to ignore all summation results from places where vox_with_zeros is 0,0,0
+			#create a ragged tensor of ones using shape "sizes" and then convert to a standard tensor
+		mask = tf.RaggedTensor.from_row_lengths(tf.ones(tf.math.reduce_sum(sizes_updated)), sizes_updated).to_tensor()
 
-	# #calculate mu manually (for debug)
-	# # mu_x = tf.math.reduce_sum(vox_with_zeros[:,:,0]*mask, axis = 1)/tf.cast(sizes_updated,tf.float32)
-	# # print(mu_x)
+		#calculate mu manually (for debug)
+		# mu_x = tf.math.reduce_sum(vox_with_zeros[:,:,0]*mask, axis = 1)/tf.cast(sizes_updated,tf.float32)
+		# print(mu_x)
 
-	# std_x = tf.reduce_sum( tf.math.square(vox_with_zeros[:,:,0]-mu[:,0][:,None])*mask , axis = 1)/ tf.cast(sizes_updated, tf.float32)
-	# std_y = tf.reduce_sum( tf.math.square(vox_with_zeros[:,:,1]-mu[:,1][:,None])*mask , axis = 1)/ tf.cast(sizes_updated, tf.float32)
-	# std_z = tf.reduce_sum( tf.math.square(vox_with_zeros[:,:,2]-mu[:,2][:,None])*mask , axis = 1)/ tf.cast(sizes_updated, tf.float32)
-	# # print(std_x[-1])
+		std_x = tf.reduce_sum( tf.math.square(vox_with_zeros[:,:,0]-mu[:,0][:,None])*mask , axis = 1)/ tf.cast(sizes_updated, tf.float32)
+		std_y = tf.reduce_sum( tf.math.square(vox_with_zeros[:,:,1]-mu[:,1][:,None])*mask , axis = 1)/ tf.cast(sizes_updated, tf.float32)
+		std_z = tf.reduce_sum( tf.math.square(vox_with_zeros[:,:,2]-mu[:,2][:,None])*mask , axis = 1)/ tf.cast(sizes_updated, tf.float32)
+		# print(std_x[-1])
 
-	# # E_xy = mean((xpts-mux)(ypts-muy))
-	# E_xy = tf.reduce_sum( ((vox_with_zeros[:,:,0] - mu[:,0][:,None])*(vox_with_zeros[:,:,1] - mu[:,1][:,None]))*mask , axis = 1)/ tf.cast(sizes_updated, tf.float32)
-	# E_xz = -tf.reduce_sum( ((vox_with_zeros[:,:,0] - mu[:,0][:,None])*(vox_with_zeros[:,:,2] - mu[:,2][:,None]))*mask , axis = 1)/ tf.cast(sizes_updated, tf.float32)
-	# E_yz = -tf.reduce_sum( ((vox_with_zeros[:,:,1] - mu[:,1][:,None])*(vox_with_zeros[:,:,2] - mu[:,2][:,None]))*mask , axis = 1)/ tf.cast(sizes_updated, tf.float32)
-	
-	# # [3,3,N]
-	# # sigma = tf.Variable([[std_x, E_xy, E_xz],
-	# # 					 [E_xy, std_y, E_yz],
-	# # 					 [E_xz, E_yz, std_z]]) 
+		# E_xy = mean((xpts-mux)(ypts-muy))
+		E_xy = tf.reduce_sum( ((vox_with_zeros[:,:,0] - mu[:,0][:,None])*(vox_with_zeros[:,:,1] - mu[:,1][:,None]))*mask , axis = 1)/ tf.cast(sizes_updated, tf.float32)
+		E_xz = -tf.reduce_sum( ((vox_with_zeros[:,:,0] - mu[:,0][:,None])*(vox_with_zeros[:,:,2] - mu[:,2][:,None]))*mask , axis = 1)/ tf.cast(sizes_updated, tf.float32)
+		E_yz = -tf.reduce_sum( ((vox_with_zeros[:,:,1] - mu[:,1][:,None])*(vox_with_zeros[:,:,2] - mu[:,2][:,None]))*mask , axis = 1)/ tf.cast(sizes_updated, tf.float32)
+		
+		# [3,3,N]
+		# sigma = tf.Variable([[std_x, E_xy, E_xz],
+		# 					 [E_xy, std_y, E_yz],
+		# 					 [E_xz, E_yz, std_z]]) 
 
-	# # [N, 3, 3]
-	# sigma = tf.Variable([std_x, E_xy, E_xz,
-	# 					 E_xy, std_y, E_yz,
-	# 					 E_xz, E_yz, std_z]) 
-	# sigma = tf.reshape(tf.transpose(sigma), (tf.shape(sigma)[1] ,3,3))
-	# # print("sigma \n", sigma)
+		# [N, 3, 3]
+		sigma = tf.Variable([std_x, E_xy, E_xz,
+							 E_xy, std_y, E_yz,
+							 E_xz, E_yz, std_z]) 
+		sigma = tf.reshape(tf.transpose(sigma), (tf.shape(sigma)[1] ,3,3))
+		# print("sigma \n", sigma)
 
-	# #get rid of any nan values in sigma
-	# sigma = tf.where(tf.math.is_nan(sigma), tf.zeros_like(sigma), sigma)
-	# print(sigma[-1])
-	# # sigma = tf.reshape(sigma, (tf.shape(sigma)[2] ,3,3))
-	# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		#get rid of any nan values in sigma
+		sigma = tf.where(tf.math.is_nan(sigma), tf.zeros_like(sigma), sigma)
+		# print(sigma[-1])
+		# sigma = tf.reshape(sigma, (tf.shape(sigma)[2] ,3,3))
+		#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
 	print("took", time.time() - start, "seconds with tensorflow")
