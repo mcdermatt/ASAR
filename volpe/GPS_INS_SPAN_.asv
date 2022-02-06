@@ -248,11 +248,13 @@ while i < endIndx
 %     ins_rpy = flip(quat2eul(qbn0))
 %     lidar_rpy
    
-%     %reset INS state estimates every 10 seconds -----------------------
+%     %reset INS measurements every 10 seconds ----------------------------
     if mod(i,2e3) == 0 
         qbn0 = qbn_lidar; %reset INS heading to lidar
 %         dt_lidar = dpos_lidar(lidarCnt+1,1) - dpos_lidar(lidarCnt,1);
 %         vel0 = [dpos_lidar(lidarCnt+1, 3)/dt_lidar, dpos_lidar(lidarCnt+1, 2)/dt_lidar, dpos_lidar(lidarCnt+1, 4)/dt_lidar];
+
+
 
 %         lla0_ins = [deg2rad(gpsmsr(2)), deg2rad(gpsmsr(3)), gpsmsr(4)];
 %         if gpsCnt > 0
@@ -260,7 +262,7 @@ while i < endIndx
 % %             lla0_ins = gpspos(gpsCnt, 2:4); %why is this working for N???s
 %         end
     end 
-%     %------------------------------------------------------------------
+%     %-------------------------------------------------------------
 
     %timeshifted to match GPS/Lidar
     %can't just cut off the first 1109*200 elements since we need the
@@ -294,10 +296,6 @@ while i < endIndx
         lidarmsr = dpos_lidar(lidarCnt+1, :);%update lidar measurement
         ned0_lidar = ned_lidar;
         if gpsUpdated == 1
-            %temp---------------
-            %TODO: move vel update to WLS INSIDE FUNC!!
-%             vel = [dpos_lidar(lidarCnt, 3)*10, dpos_lidar(lidarCnt, 2)*10, dpos_lidar(lidarCnt, 4)*10]; %for debug
-            %-------------------
             xHatM_lidar_hist(gpsCnt,:) = xHatM_lidar_hist(gpsCnt,:) + xHatM_lidar.';
             lla_ins_last = lla_ins;
         else

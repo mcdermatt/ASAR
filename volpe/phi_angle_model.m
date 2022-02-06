@@ -141,7 +141,6 @@ cnn(3,2) =  0.5 * zeta(1);
     
 % calculate dvfn_k, dvgn_k
 dvfn_k = (cbn0'*cnn)*dvfb_k; %was this in Liangchun's code
-% dvfn_k = (cbn0'*cnn)*dvfb_k .* dt; % I think Liangchun forgot to multiply by dt here???
 dvfn_k = dvfn_k';
 dvgn_k = (gl_m-cross((2*wie_m+wen_m), vel_m)).* dt;
 
