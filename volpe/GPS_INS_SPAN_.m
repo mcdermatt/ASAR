@@ -44,6 +44,7 @@ pos_lidar_enu = load('pos_lidar_enu.mat').pos_lidar_enu;
     % Columns 1-3: Translation vector (x,y,z) (in meters)
     % Columns 4-7: Rotational vector (qw,qx,qy,qz) (in rad)
  
+%DEBUG: is this actually used?? -no
 [lat_lidar, lon_lidar, hgt_lidar] = enu2geodetic(pos_lidar_enu(:,1), pos_lidar_enu(:,2), ... 
         pos_lidar_enu(:,3), ppplat(1), ppplon(1), ppphgt(1), wgs84Ellipsoid('m'));
 
@@ -187,6 +188,7 @@ PM_combined = PP;               %init PM_combined value to PP
 Ncol = 22;
 msrArr = zeros(7,endIndx-2);        % INS measurement array
 resArr = zeros(endIndx-2,Ncol-1);   % Storage array of state-perturbation error results
+resArr_lidar = zeros(endIndx-2,Ncol-1);  
 qbnArr = zeros(endIndx-2,4);        % Storage of quaternion results (relating Body to Inertial)
 gpsMsrArr = zeros(4,gpsEndIndx);    % GPS measurement
 gps_res = zeros(gpsEndIndx,4);
@@ -207,7 +209,7 @@ msrk = imuraw(1,:);
 msrk = msrk';
 gpsmsr = gpspos(1,:);
 lidarmsr = dpos_lidar(1, :);
-ned0_lidar = [0, 0, 0]; %lla0_ins;
+ned0_lidar = [0, 0, gpspos(1,4)]; %lla0_ins;
 lla0_combined = lla0_ins;
 lla_ins_last = lla0_ins; %lla_in the last time GPS was called
 lla_combined_hist = zeros(3, gpsEndIndx); %array to hold lla_combined data
@@ -246,29 +248,35 @@ while i < endIndx
     %Lidar qbn frame is upside down- need to flip sign of yaw
     lidar_rpy = flip(quat2eul(qbn_lidar));
     lidar_rpy(3) = -lidar_rpy(3);
-    lidar_rpy(1) = 0; %debug: remove roll and pitch
+    lidar_rpy(1) = 0; %remove roll and pitch components of lidar (should be 0)
     lidar_rpy(2) = 0;
     qbn_lidar = eul2quat(flip(lidar_rpy));
-    
 %     ins_rpy = flip(quat2eul(qbn0))
 %     lidar_rpy
     
 %     %reset INS state estimates every __ seconds -----------------------
-    if mod(i,2e3) == 0 
+%     interval = 12e3; %60s
+%     interval = 6e3; %30s
+%     interval = 2e3; %10s
+    interval = 1e3; %5s
+%     interval = 4e2; %2s
+    if mod(i,interval) == 0 
         %reset INS heading to lidar
         qbn0 = qbn_lidar; 
 
         %reset velocity 
         dt_lidar = dpos_lidar(lidarCnt+1,1) - dpos_lidar(lidarCnt,1);
-        vel0 = [dpos_lidar(lidarCnt+1, 3)/dt_lidar, dpos_lidar(lidarCnt+1, 2)/dt_lidar, dpos_lidar(lidarCnt+1, 4)/dt_lidar];
-%         vel0 = [dvel_lidar(lidarCnt+1, 2)/dt_lidar, dvel_lidar(lidarCnt+1, 1)/dt_lidar, dvel_lidar(lidarCnt+1, 3)/dt_lidar];
+        vel0 = [dpos_lidar(lidarCnt, 3)/dt_lidar, dpos_lidar(lidarCnt, 2)/dt_lidar, dpos_lidar(lidarCnt, 4)/dt_lidar];
 
-        %TODO: REMEMBER TO UPDATE dv0 as well!!
+        %reset dv0
 %         dv0 = [0, 0, 0];
         
-        %reset LLA
+        %reset lla_ins to GPS
 %         lla0_ins = [deg2rad(gpsmsr(2)), deg2rad(gpsmsr(3)), gpsmsr(4)];
-
+        %reset lla_ins to lidar
+        [Lat0, Lon0, Alt0] = enu2geodetic(resArr_lidar(i-2,2), resArr_lidar(i-2,1), -resArr_lidar(i-2,3), ...
+            ppplat(1), ppplon(1), ppphgt(1), wgs84Ellipsoid('m'), 'degrees');
+        lla0_ins = [deg2rad(Lat0), deg2rad(Lon0), Alt0];
     end 
 %     %------------------------------------------------------------------
 
@@ -379,58 +387,73 @@ dEgps = Egps(nonzero);
 dEgps = [dEgps(2:end) 0] - dEgps;
 dNgps = Ngps(nonzero);
 dNgps = [dNgps(2:end) 0] - dNgps;
+dUgps = Ugps(nonzero);
+dUgps = [dUgps(2:end) 0] - dUgps;
 
-%plot summed xHats between GPS frames for INS and Lidar
+%plot velocity ----------------------------------------------------
 figure()
-title('cumulative xHat')
 subplot(3,1,1)
+title('Estimated Velocity')
+hold on
+xlabel('timestep')
+ylabel('East (m/s)')
+plot(xHatM_ins_hist(:,1))
+plot(xHatM_lidar_hist(:,1))
+plot(xHatM_combined_hist(:,1))
+plot([0 dEgps(1:end-1)])
+legend('xHat- INS', 'xHat- Lidar', 'xHat- combined', 'gps baseline')
+
+subplot(3,1,2)
 hold on
 xlabel('timestep')
 %TODO: make sure this is still lon/ lat after ENU->NED swap
-ylabel('estimated change in lon per GPS frame (m)')
+ylabel('North (m/s)')
 plot(xHatM_ins_hist(:,2))
 plot(xHatM_lidar_hist(:,2))
 plot(xHatM_combined_hist(:,2))
 plot([0 dNgps(1:end-1)])
 legend('xHat- INS', 'xHat- Lidar', 'xHat- combined', 'gps baseline')
 
-subplot(3,1,2)
+subplot(3,1,3)
 hold on
 xlabel('timestep')
-ylabel('estimated change in lat per GPS frame (m)')
-plot(xHatM_ins_hist(:,1))
-plot(xHatM_lidar_hist(:,1))
-plot(xHatM_combined_hist(:,1))
-plot([0 dEgps(1:end-1)])
+%TODO: make sure this is still lon/ lat after ENU->NED swap
+ylabel('North (m/s)')
+plot(xHatM_ins_hist(:,3))
+plot(xHatM_lidar_hist(:,3))
+plot(xHatM_combined_hist(:,3))
+plot([0 dUgps(1:end-1)])
 legend('xHat- INS', 'xHat- Lidar', 'xHat- combined', 'gps baseline')
- 
-% %covaraince plots (new)-------------------------
-% figure(5)
-% title('GPS Corrected Lidar/ INS')
-% % sgtitle('Lidar corrected INS')
-% % sgtitle('Lidar and INS, no correction')
-% % hold on %putting this here prevents logy axis
-% skip_start = 1; %2500;
-% semilogy(time(skip_start:end) - startTime, PM_hist_ins(skip_start:end-2,1), ...
-%     time(skip_start:end) - startTime, PM_hist_lidar(skip_start:end-2,1), ...
-%     time(skip_start:end) - startTime, PM_hist_combined(skip_start:end-2,1))
-% xlim([50, 60])
-% grid on
-% legend('\sigma_{lon,ins}', '\sigma_{lon,lidar}', '\sigma_{lon,combined}')
-% xlabel('time (s)')
-% ylabel('standard deviation of error (m)')
-% %-----------------------------------------------
+
+%--------------------------------------------------------------------
+
+%covaraince plots ---------------------------------------------------
+figure(5)
+title('GPS Corrected Lidar/ INS')
+% sgtitle('Lidar corrected INS')
+% sgtitle('Lidar and INS, no correction')
+% hold on %putting this here prevents logy axis
+skip_start = 1; %2500;
+semilogy(time(skip_start:end) - startTime, PM_hist_ins(skip_start:end-2,1), ...
+    time(skip_start:end) - startTime, PM_hist_lidar(skip_start:end-2,1), ...
+    time(skip_start:end) - startTime, PM_hist_combined(skip_start:end-2,1))
+xlim([50, 60])
+grid on
+legend('\sigma_{lon,ins}', '\sigma_{lon,lidar}', '\sigma_{lon,combined}')
+xlabel('time (s)')
+ylabel('standard deviation of error (m)')
+%--------------------------------------------------------------------
 
 figure(6)
-% Postion Plots ----------------------
+% Postion Plots -------------------------------------------------------
 subplot(3,1,1);
+title('Estimated Position')
 hold on; grid on
 % plot(time-startTime, rad2deg(resArr_ins(:,1))); %was this with ins in lla
 plot(time-startTime, Nins)
 % plot(time-startTime, rad2deg(resArr_lidar(:,1))); %was this with lidar in lla
 plot(time-startTime, resArr_lidar(:,1));
 % plot(time-startTime, rad2deg(lla_combined_hist(1,1:end-1))); %not working
-
 % plot(gpsMsrArr(1, nonzero)-startTime, gpsMsrArr(2, nonzero)); %used for lat/lon
 plot(gpsMsrArr(1, nonzero)-startTime, Egps(nonzero));
 % plot(gpsMsrArr(1,nonzero_combined)-startTime, lla_combined_hist(1,nonzero_combined))
@@ -438,7 +461,6 @@ plot(gpsMsrArr(1, nonzero)-startTime, Egps(nonzero));
 legend('LLA INS', 'LLA Lidar Dead Reckoning', 'pure GPS') %temp
 hold on; grid on
 ylabel('East (m)');
-
 
 subplot(3,1,2);
 hold on; grid on
@@ -465,32 +487,9 @@ legend('LLA INS', 'LLA Lidar Dead Reckoning', 'pure GPS')
 hold on; grid on
 ylabel('altitude (m)');
 xlabel('Time (s)');
+%-----------------------------------------------------------------------
 
-
-len = length(time);
-ylabel('altitude (m)');
-xlabel('Time (s)');
-
-lat_lc = rad2deg(resArr(:,1));
-lon_lc = rad2deg(resArr(:,2));
-alt_lc = resArr(:,3);
-
-%%% IS THIS NEXT CODE SNIPPET (through "len") USED? %%%
-kmlFolder = './';
-
-filename = fullfile(kmlFolder,'urbanloco_lc.kml');
-% kmlwritepoint(filename,lat_lc,lon_lc,alt_lc, 'IconScale',1);
-
-lat_gps = gpsMsrArr(2, :);
-lon_gps = gpsMsrArr(3, :);
-alt_gps = gpsMsrArr(4, :);
-
-filename = fullfile(kmlFolder,'urbanloco_gps.kml');
-% kmlwritepoint(filename,lat_gps,lon_gps,alt_gps, 'Color','red', 'IconScale',1);
-
-len = length(qbnArr(:,1));
-
-%Quaternion plot
+% %Quaternion plot -----------------------------------------------------
 % figure(7)
 % subplot(4,1,1);
 % plot(imutime(3:endIndx)-startTime,qbnArr(:,1));
@@ -513,14 +512,7 @@ len = length(qbnArr(:,1));
 % plot(qbnTime(1:gpsEndIndx)-startTime,-qbnRef(1:gpsEndIndx,3));
 % ylabel('{q_4}');
 % legend('EKF','Ref')
-
-% compute rn, rm
-WGS84_A = 6378137.0;           % earth semi-major axis (WGS84) (m) 
-WGS84_B = 6356752.3142;        % earth semi-minor axis (WGS84) (m) 
-e = sqrt(WGS84_A * WGS84_A - WGS84_B * WGS84_B) / WGS84_A;
-rn_list = WGS84_A ./ sqrt(1 - e * e * sin(resArr(:,1)).^2);
-rm_list = WGS84_A * (1 - e * e) ./ sqrt(power(1 - e * e * sin(resArr(:,1)).^2, 3));
-
+% %----------------------------------------------------------------------
 
 
 function PP = PPinitialize
