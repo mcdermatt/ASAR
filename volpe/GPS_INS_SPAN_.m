@@ -257,8 +257,8 @@ while i < endIndx
 %     %reset INS state estimates every __ seconds -----------------------
 %     interval = 12e3; %60s
 %     interval = 6e3; %30s
-%     interval = 2e3; %10s
-    interval = 1e3; %5s
+    interval = 2e3; %10s
+%     interval = 1e3; %5s
 %     interval = 4e2; %2s
     if mod(i,interval) == 0 
         %reset INS heading to lidar
@@ -266,7 +266,7 @@ while i < endIndx
 
         %reset velocity 
         dt_lidar = dpos_lidar(lidarCnt+1,1) - dpos_lidar(lidarCnt,1);
-        vel0 = [dpos_lidar(lidarCnt, 3)/dt_lidar, dpos_lidar(lidarCnt, 2)/dt_lidar, dpos_lidar(lidarCnt, 4)/dt_lidar];
+        vel0 = [dpos_lidar(lidarCnt, 3)/dt_lidar, dpos_lidar(lidarCnt, 2)/dt_lidar, -dpos_lidar(lidarCnt, 4)/dt_lidar];
 
         %reset dv0
 %         dv0 = [0, 0, 0];
@@ -276,7 +276,7 @@ while i < endIndx
         %reset lla_ins to lidar
         [Lat0, Lon0, Alt0] = enu2geodetic(resArr_lidar(i-2,2), resArr_lidar(i-2,1), -resArr_lidar(i-2,3), ...
             ppplat(1), ppplon(1), ppphgt(1), wgs84Ellipsoid('m'), 'degrees');
-        lla0_ins = [deg2rad(Lat0), deg2rad(Lon0), Alt0];
+        lla0_ins = [deg2rad(Lat0), deg2rad(Lon0), resArr_lidar(i-2,3)];
     end 
 %     %------------------------------------------------------------------
 
@@ -395,7 +395,7 @@ figure()
 subplot(3,1,1)
 title('Estimated Velocity')
 hold on
-xlabel('timestep')
+xlabel('time (s)')
 ylabel('East (m/s)')
 plot(xHatM_ins_hist(:,1))
 plot(xHatM_lidar_hist(:,1))
@@ -405,7 +405,7 @@ legend('xHat- INS', 'xHat- Lidar', 'xHat- combined', 'gps baseline')
 
 subplot(3,1,2)
 hold on
-xlabel('timestep')
+xlabel('time (s)')
 %TODO: make sure this is still lon/ lat after ENU->NED swap
 ylabel('North (m/s)')
 plot(xHatM_ins_hist(:,2))
@@ -416,9 +416,9 @@ legend('xHat- INS', 'xHat- Lidar', 'xHat- combined', 'gps baseline')
 
 subplot(3,1,3)
 hold on
-xlabel('timestep')
+xlabel('time (s)')
 %TODO: make sure this is still lon/ lat after ENU->NED swap
-ylabel('North (m/s)')
+ylabel('Up (m/s)')
 plot(xHatM_ins_hist(:,3))
 plot(xHatM_lidar_hist(:,3))
 plot(xHatM_combined_hist(:,3))
