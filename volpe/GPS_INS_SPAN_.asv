@@ -250,9 +250,10 @@ while i < endIndx
 %     ins_rpy = flip(quat2eul(qbn0))
 %     lidar_rpy
     
-%     %Hard reset INS state estimates to lidar every n seconds ----------
+%     %reset INS state estimates every __ seconds -----------------------
 %     interval = 2e3; %10s
-    interval = 2e2; %1s
+%     interval = 2e2; %1s
+
     if mod(i,interval) == 0 
         %reset INS heading to lidar
         qbn0 = qbn_lidar; 
@@ -275,7 +276,9 @@ while i < endIndx
     %timeshifted to match GPS/Lidar
     %can't just cut off the first 1109*200 elements since we need the
     %timestamps from imuraw intact
+%     221745 % from manual inspection of LX code...
     msrk1 = [imuraw(i), imuraw(221800 + i, 2:end)].';
+%     msrk1 = [imuraw(i), imuraw(i, 2:end)].'; %for debug
   
     if isempty(msrk1) 
         break;
@@ -291,25 +294,15 @@ while i < endIndx
     [lla_ins, ned_lidar, lla_combined, vel, rpy, dv, qbn, xHatM_ins, x_lidar, xHatM_combined, gpsUpdated, lidarUpdated, gpsCnt, lidarCnt, gpsResUpd, PM_ins, PM_lidar, PM_combined, F200, Qk200] = ...
         EKF(lla0_ins, ned0_lidar, lla0_combined, lla_ins_last, vel0, dv0, qbn0, msrk, msrk1, gpsmsr, lidarmsr, xHatM_ins, x_lidar, x_lidar_cum, PM_ins, PP_ins_last, PM_combined, gpsCnt, lidarCnt, PM_lidar_last, fuse_lidar, fuse_gps, F200, Qk200);   
     
+    %DEBUG: reset INS covariance to Lidar
     if fuse_lidar == 1
         if  mod(i,interval) == 0
-            
-%             "----"
-%             PM_ins(1,1) %should be largest 
-%             PM_lidar(1,1) 
-%             PP_ins_last(1,1) %baseline -> should be smallest
-            
-
-            %reset INS covariance to Lidar
             PM_ins = diag(diag(PM_ins)); %remove all non-diagonal elements
             PM_ins(1:3,1:3) = PM_lidar; %reset positon covariance
             %reset velocity covariance
             PM_ins(4,4) = PM_lidar(1,1);
             PM_ins(5,5) = PM_lidar(2,2);
             PM_ins(6,6) = PM_lidar(3,3);    
-            
-            %update baseline
-            PP_ins_last = PM_ins;
         end
     end
         
@@ -347,7 +340,8 @@ while i < endIndx
         xHatM_combined_hist(gpsCnt,:) = xHatM_combined;
         lla_combined_hist(:,gpsCnt) = lla_combined;
         lla0_combined = lla_combined;       
-%         PP_ins_last = PM_ins;
+        PP_ins_last = PM_ins; %DEBUG: should this be PP_ins_last = PM_combined???
+%         PP_ins_last = PM_combined;
     else
         x_ins_hist(gpsCnt+1,:) = x_ins_hist(gpsCnt+1,:) + xHatM_ins.';
     end

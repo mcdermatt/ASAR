@@ -1,5 +1,5 @@
-function [lla_ins, ned_lidar, lla_combined, vel, rpy, dv, qbn, xHatM_ins, xHatM_lidar, xHatM_combined, PP, gpsUpdated, lidarUpdated, gpsCnt, lidarCnt, gpsResUpd, PM_ins, PM_lidar, PM_combined, F200, Qk200] = ...
-    EKF(lla0_ins, ned0_lidar, lla0_combined, lla_ins_last, vel0, rpy0, dv0, qbn0, qbn_lidar, msrk, msrk1, gpsmsr, lidarmsr, xHatM_ins, xHatM_lidar, xHatM_ins_cum, xHatM_lidar_cum, PP, PP_ins_last, PM_combined, gpsCnt, lidarCnt, t_last_lidar, PM_lidar_last, fuse_lidar, fuse_gps, F200, Qk200)
+function [lla_ins, ned_lidar, lla_combined, vel, rpy, dv, qbn, xHatM_ins, x_lidar, xHatM_combined, gpsUpdated, lidarUpdated, gpsCnt, lidarCnt, gpsResUpd, PM_ins, PM_lidar, PM_combined, F200, Qk200] = ...
+    EKF(lla0_ins, ned0_lidar, lla0_combined, lla_ins_last, vel0, dv0, qbn0, msrk, msrk1, gpsmsr, lidarmsr, xHatM_ins, x_lidar, x_lidar_cum, PM_ins, PP_ins_last, PM_combined, gpsCnt, lidarCnt, PM_lidar_last, fuse_lidar, fuse_gps, F200, Qk200)
 
 %extract input parameters -------------
 % lla0_ins = EKF_input(1);
@@ -36,14 +36,12 @@ rpy = flip(quat2eul(qbn));
 % Extended Kalman Filter --------
 xHatM_ins = F*xHatM_ins;          % Forward Euler integration (A priori)
 
-PM_ins = F*PP*F'+Qk;                    % cov. Estimate
-F200 = F*F200; %keep product of sequential F matrices for use in Lidar fusion
+PM_ins = F*PM_ins*F'+Qk;                    % cov. Estimate
+% PM_ins(1,1)
+
+F200 = F*F200; %keep product of sequential F matrices for use in Lidar fusion0
 %for debug- add up Qk's between fusion frames to verify PM_ins is evolving
 Qk200 = Qk200 + Qk; 
-
-if PM_ins(1,1) - PP(1,1) < 0
-    'problem here PM < PP'
-end
 
 %transform xHatM_ins into ENU here before combining with lidar...
 [xHatM_ins_E, xHatM_ins_N, xHatM_ins_U] = geodetic2enu(lla_ins(1), lla_ins(2), lla_ins(3), lla0_ins(1), lla0_ins(2), lla0_ins(3), wgs84Ellipsoid, 'radians');
@@ -65,8 +63,8 @@ if lidartime <= msrk1(1) && lidartime > msrk(1)
     %only using lidar translation estimates:
        %[dxyz dvxyz quats ...] -> 21x1 vec    
 
-%     xHatM_lidar = lidarmsr(2:4).'; %was this-> wrong??
-    xHatM_lidar = [lidarmsr(3), lidarmsr(2), lidarmsr(4)].';
+%     x_lidar = lidarmsr(2:4).'; %was this-> wrong??
+    x_lidar = [lidarmsr(3), lidarmsr(2), lidarmsr(4)].';
     
     
     PM_lidar = PM_lidar_last + Qk_lidar;
@@ -74,7 +72,7 @@ if lidartime <= msrk1(1) && lidartime > msrk(1)
     lidarUpdated = 1;
     lidarCnt = lidarCnt + 1;
     
-    ned_lidar = ned0_lidar + (xHatM_lidar(1:3).');
+    ned_lidar = ned0_lidar + (x_lidar(1:3).');
     
 else
     lidarUpdated = 0;
@@ -92,7 +90,6 @@ coeff = diag([(rm+lla_in(3)); ((rn+lla_in(3))*cos(lla_in(1))); -1]);
 if gpstime <= msrk1(1) && gpstime > msrk(1)  % If GPS time between two inertial measurement times, do an update %
 
     if fuse_lidar == 1
-               
         %new ------------------------------------------------------
 
         % W = ([P_k         , F_big*P_{k-1};
@@ -106,14 +103,11 @@ if gpstime <= msrk1(1) && gpstime > msrk(1)  % If GPS time between two inertial 
 
         %TODO- update PM_combined at every time step
         PM_combined = pinv(H.' * W * H);
-%         PM_combined(1,1)
-%         PM_combined = PM_ins + PM_lidar;
-%         PM_combined = (PM_ins + [PM_lidar, zeros(3,18); zeros(18,21)])/2; %for debug
 
-        %lla_lidar = (lla_ins at last fusion timestamp) + (xHatM_lidar in LLA)
+        %lla_lidar = (lla_ins at last fusion timestamp) + (x_lidar in LLA)
         %update cumulative counts for this segment to include current xHatM estimates 
-        xHatM_lidar_cum = xHatM_lidar + xHatM_lidar_cum.';        
-        lla_lidar = lla_ins_last + [xHatM_lidar_cum(1)/coeff(1,1), xHatM_lidar_cum(2)/coeff(2,2), -xHatM_lidar_cum(3)];
+        x_lidar_cum = x_lidar + x_lidar_cum.';        
+        lla_lidar = lla_ins_last + [x_lidar_cum(1)/coeff(1,1), x_lidar_cum(2)/coeff(2,2), -x_lidar_cum(3)];
         
 %        %This SHOULD work (but currently does not due to issues with W???):
 %         lla_ins = pinv((H.')*W*H)*(H.')*W*[lla_ins.'; zeros(18,1); lla_lidar.'; zeros(18,1)];
@@ -121,12 +115,6 @@ if gpstime <= msrk1(1) && gpstime > msrk(1)  % If GPS time between two inertial 
 %         lla_ins = lla_ins(1:3).';
 % %         lla_ins
 
-        %TODO: interpolate qbn's with SLERP
-%          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-%         lla_ins = lla_lidar; %temp
-%         qbn = qbn_lidar; %temp - just update heading of INS to that of lidar 
-%         vel = [lidarmsr(3), lidarmsr(2), lidarmsr(4)]./0.1; %works??
-%          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
        
         %DEBUG: WLS is fluctuating A LOT and occationally giving negative values
 %         weights = pinv((H.')*W*H)*(H.')*W;
@@ -187,7 +175,7 @@ if gpstime <= msrk1(1) && gpstime > msrk(1)  % If GPS time between two inertial 
 
         xHatM_ins = xHatP;
                 
-        PP = (eye(size(F))-L*H)*PM*(eye(size(F))-L*H)'+L*R*L';
+        PM_ins = (eye(size(F))-L*H)*PM*(eye(size(F))-L*H)'+L*R*L';
         %-------------------------------------------------
 
     %     L(1,1) % 1.5e-7 == 1/coeff(1,1)
@@ -234,7 +222,6 @@ if gpstime <= msrk1(1) && gpstime > msrk(1)  % If GPS time between two inertial 
 else
     lla_combined = lla0_combined;
 %     xHatP = xHatM; %TODO-- figure out if I should still output this...
-    PP = PM_ins;
     xHatM_combined = xHatM_ins; %placeholder
     
     gpsResUpd = [];
