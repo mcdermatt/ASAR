@@ -1,6 +1,6 @@
 %GPS_INS_SPAN Loosely Coupled - version 11/22/2021
 
-%TODO: xHatM_ins is currently holding full changes in state per timestep-
+%TODO: x_ins is currently holding full changes in state per timestep-
 %       (rather than accumulated bias errors as specified in the doc)
 %       this is incorrect and we need a new variable to hold changes in x
 %TODO: get rid of *_combined vars, instead overwrite INS data
@@ -72,13 +72,13 @@ dpos_lidar = [(t_lidar + ppptime(1)) dlat_lidar dlon_lidar dhgt_lidar];
 dE = pos_lidar_enu(:,2) - [pos_lidar_enu(2:end,2).' 0].';
 dN = pos_lidar_enu(:,1) - [pos_lidar_enu(2:end,1).' 0].';
 dU = pos_lidar_enu(:,3) - [pos_lidar_enu(2:end,3).' 0].';
-dpos_lidar = [(t_lidar + ppptime(1)), dN(1:end-1), dE(1:end-1), dU(1:end-1)];
+dpos_lidar = [(t_lidar + ppptime(1)), dN(1:end-1), dE(1:end-1), -dU(1:end-1)];
 
 %debug: get change in velocity from lidar
 ddE = dE(:) - [dE(2:end).' 0].';
 ddN = dN(:) - [dN(2:end).' 0].';
 ddU = dU(:) - [dU(2:end).' 0].';
-dvel_lidar = [ddN(1:end-1), ddE(1:end-1), ddU(1:end-1)];
+dvel_lidar = [ddN(1:end-1), ddE(1:end-1), ddU(1:end-1)]; %not used
 %--------------------------------------------------------------------------
 
 % sync and interpolate GPS readings so they occur at the same time as Lidar
@@ -92,7 +92,7 @@ gps_time = ppptime - ppptime(1);
 gps_time = gps_time(startGPS:end)-startGPS;
 
 %create new time vector for GPS that:
-%   1) Samples at coinciding with every 10th lidar point
+%   1) Samples at coincide with every 10th lidar point
 %   2) Interpolates in regions with Lidar data outages
 t_gps_new = t_lidar(1:10:end);
 t_gps_new = [t_gps_new(1:112); linspace(139.5, 185.5, 47).'; t_gps_new(113:122); ...
@@ -172,7 +172,7 @@ imuEndTime = imutime(endIndx);
 gpsEndIndx = max(find(ppptime<=imuEndTime));
 
 %Initialization of Arrays
-xHatM_ins = double(zeros(21,1));            % state estimate
+x_ins = double(zeros(21,1));            % state estimate
 x_lidar = double(zeros(3,1));
 x_ins_hist = double(zeros(gpsEndIndx, 21)); %cumulative vars for summing between GPS keyframes
 x_lidar_hist = double(zeros(gpsEndIndx, 3));
@@ -203,6 +203,16 @@ dv0 = [0 0 0];
 qbn0 = eul2quat(flip(rpy0));     %Initialize with RPY solutoin
 bias = 0;
 
+%set noise covariance matrix for lidar
+Qk_lidar = zeros(3,3); %test w/ zeros
+% from Final_Slides.pptx - experimentally determined values from the summer
+% Qk_lidar(1,1) = 0.000784; %(m) 
+% Qk_lidar(2,2) = 0.000484; %(m)
+% Qk_lidar(3,3) = 0.005625; %(m)
+Qk_lidar(1,1) = 1.4e-17; %sigmalon**2 (deg)
+Qk_lidar(2,2) = 1.4e-17; %sigmalat**2 (deg)
+Qk_lidar(3,3) = 0.0001;%sigmaz**2 (meters)
+
 % Seed initial measurements
 msrk = imuraw(1,:);
 msrk = msrk';
@@ -213,7 +223,7 @@ lla0_combined = lla0_ins;
 lla_ins_last = lla0_ins; %lla_in the last time GPS was called
 lla_combined_hist = zeros(3, gpsEndIndx); %array to hold lla_combined data
 t_last_lidar = msrk(1);
-xHatM_ins_cum = zeros(21,1);
+x_ins_cum = zeros(21,1);
 x_lidar_cum = zeros(3,1);
 
 %init matrices for storing PM info
@@ -224,8 +234,9 @@ PM_lidar_last = 0*eye(3); %init uncertainty for lidar
 PM_ins = zeros(21);
 PM_ins(1:3,1:3) = eye(3)*1e-17;
 
-%initialize var containing product of Fs
-F200 = zeros(21,21);
+%init F
+F = zeros(21,21);
+F200 = zeros(21);
 Qk200 = zeros(21,21);
 
 %init ins qbn to lidar
@@ -252,6 +263,7 @@ while i < endIndx
     
 %     %Hard reset INS state estimates to lidar every n seconds ----------
 %     interval = 2e3; %10s
+%     interval = 1e3; %5s
     interval = 2e2; %1s
     if mod(i,interval) == 0 
         %reset INS heading to lidar
@@ -288,8 +300,15 @@ while i < endIndx
     msrk1(7) =  msrk1(7) - bias*dt; 
         
     % GPS/INS solution
-    [lla_ins, ned_lidar, lla_combined, vel, rpy, dv, qbn, xHatM_ins, x_lidar, xHatM_combined, gpsUpdated, lidarUpdated, gpsCnt, lidarCnt, gpsResUpd, PM_ins, PM_lidar, PM_combined, F200, Qk200] = ...
-        EKF(lla0_ins, ned0_lidar, lla0_combined, lla_ins_last, vel0, dv0, qbn0, msrk, msrk1, gpsmsr, lidarmsr, xHatM_ins, x_lidar, x_lidar_cum, PM_ins, PP_ins_last, PM_combined, gpsCnt, lidarCnt, PM_lidar_last, fuse_lidar, fuse_gps, F200, Qk200);   
+    [lla_ins, ned_lidar, lla_combined, vel, rpy, dv, qbn, xHatM_ins, x_ins, x_lidar, xHatM_combined, gpsUpdated, lidarUpdated, gpsCnt, lidarCnt, gpsResUpd, PM_ins, PM_lidar, PM_combined, F, Qk200] = ...
+        EKF(lla0_ins, ned0_lidar, lla0_combined, lla_ins_last, vel0, dv0, qbn0, msrk, msrk1, gpsmsr, lidarmsr, x_ins, x_lidar, x_lidar_cum, PM_ins, PP_ins_last, PM_combined, gpsCnt, lidarCnt, PM_lidar_last, fuse_lidar, fuse_gps, Qk200);   
+    
+     %only considering diagonal elements fixes negative eig bug
+    W = pinv([diag(diag(PM_ins)), diag(diag(F200*PP_ins_last));
+          diag(diag(PP_ins_last*(F200.'))), diag(diag(PP_ins_last)) + [interval/20*Qk_lidar, zeros(3,18); zeros(18,21)]], 1e-20);
+
+    H = [eye(21);  eye(3), zeros(3,18); zeros(18,21)];
+    PM_combined = pinv(H.' * W * H);   
     
     if fuse_lidar == 1
         if  mod(i,interval) == 0
@@ -298,18 +317,36 @@ while i < endIndx
 %             PM_ins(1,1) %should be largest 
 %             PM_lidar(1,1) 
 %             PP_ins_last(1,1) %baseline -> should be smallest
-            
+%             PM_ins(1,1) - PP_ins_last(1,1)
+%             10*Qk_lidar(1,1)
+                       
+%             %FOR DEBUG
+%             weights = pinv((H.')*W*H, 1e-20)*(H.')*W;
+% %             weights = [diag(diag(weights(:,1:21))), diag(diag(weights(:,22:end)))];
+%             'ins'
+%             weights(1,1)  %ins
+%             'lidar'
+%             weights(1,22) %lidar    
+%             if weights(1,22) > 1
+% %                 eig(F200*PP_ins_last) < 0 %no negative eigenvalue here
+% %                 eig(PP_ins_last + [10*Qk_lidar, zeros(3,18); zeros(18,21)]) < 0 %no negative eigs here either
+% %                 eig(PM_ins) < 0 %none here
+%                 eig(W) < 0
+%             end
 
-            %reset INS covariance to Lidar
+            %reset INS absolute position covariance to Lidar
             PM_ins = diag(diag(PM_ins)); %remove all non-diagonal elements
             PM_ins(1:3,1:3) = PM_lidar; %reset positon covariance
-            %reset velocity covariance
+            %reset INS velocity covariance
             PM_ins(4,4) = PM_lidar(1,1);
             PM_ins(5,5) = PM_lidar(2,2);
             PM_ins(6,6) = PM_lidar(3,3);    
             
             %update baseline
             PP_ins_last = PM_ins;
+            F200 = F;
+        else
+            F200 = F200*F;
         end
     end
         
@@ -340,16 +377,16 @@ while i < endIndx
     end
     
     if gpsUpdated == 1
-        x_ins_hist(gpsCnt,:) = x_ins_hist(gpsCnt,:) + xHatM_ins.';
+        x_ins_hist(gpsCnt,:) = x_ins_hist(gpsCnt,:) + x_ins.';
         gpsmsr = gpspos(gpsCnt+1, :);   
         gps_res(gpsCnt,:) = gpsResUpd;
-        xHatM_ins(1:9) = zeros(9,1);        % Reset error states %was xHatP_ins
+        x_ins(1:9) = zeros(9,1);        % Reset error states %was xHatP_ins
         xHatM_combined_hist(gpsCnt,:) = xHatM_combined;
         lla_combined_hist(:,gpsCnt) = lla_combined;
         lla0_combined = lla_combined;       
 %         PP_ins_last = PM_ins;
     else
-        x_ins_hist(gpsCnt+1,:) = x_ins_hist(gpsCnt+1,:) + xHatM_ins.';
+        x_ins_hist(gpsCnt+1,:) = x_ins_hist(gpsCnt+1,:) + x_ins.';
     end
 
     % Store Data
@@ -370,7 +407,7 @@ while i < endIndx
     qbn0 = qbn;
     msrk = msrk1;
     
-%     xHatM_ins_cum = x_ins_hist(gpsCnt+1,:);
+%     x_ins_cum = x_ins_hist(gpsCnt+1,:);
     x_lidar_cum = x_lidar_hist(gpsCnt+1,:);
     
     i = i+1;  
@@ -453,12 +490,13 @@ skip_start = 1; %2500;
 hold on
 plot(time(skip_start:end) - startTime, PM_hist_ins(skip_start:end-2,1))
 plot(time(skip_start:end) - startTime, PM_hist_lidar(skip_start:end-2,1))
+plot(time(skip_start:end) - startTime, PM_hist_combined(skip_start:end-2,1))
 %----------
 
 xlim([50, 60])
 grid on
-% legend('\sigma_{lon,ins}', '\sigma_{lon,lidar}', '\sigma_{lon,combined}')
-legend('\sigma_{lon,ins}', '\sigma_{lon,lidar}')
+legend('\sigma_{lon,ins}', '\sigma_{lon,lidar}', '\sigma_{lon,combined}')
+% legend('\sigma_{lon,ins}', '\sigma_{lon,lidar}')
 xlabel('time (s)')
 ylabel('standard deviation of error (m)')
 %--------------------------------------------------------------------
