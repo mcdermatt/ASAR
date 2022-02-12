@@ -5,7 +5,7 @@
 %       this is incorrect and we need a new variable to hold changes in x
 %TODO: get rid of *_combined vars, instead overwrite INS data
 %TODO: remap inputs and outputs of main func into data structure
-%TODO: fix WLS
+%TODO: while no new lidar updates, set WLS to entirely INS
 
 clear all
 
@@ -221,10 +221,12 @@ lidarmsr = dpos_lidar(1, :);
 ned0_lidar = [0, 0, gpspos(1,4)]; %lla0_ins;
 lla0_combined = lla0_ins;
 lla_ins_last = lla0_ins; %lla_in the last time GPS was called
+lla_lidar_last = lla0_ins;
 lla_combined_hist = zeros(3, gpsEndIndx); %array to hold lla_combined data
 t_last_lidar = msrk(1);
 x_ins_cum = zeros(21,1);
 x_lidar_cum = zeros(3,1);
+nlidar_since_reset = 0;
 
 %init matrices for storing PM info
 PM_hist_ins = zeros(endIndx,3);
@@ -258,32 +260,9 @@ while i < endIndx
     lidar_rpy(1) = 0; %remove roll and pitch components of lidar (should be 0)
     lidar_rpy(2) = 0;
     qbn_lidar = eul2quat(flip(lidar_rpy));
-%     ins_rpy = flip(quat2eul(qbn0))
-%     lidar_rpy
+%     ins_rpy = flip(quat2eul(qbn0)) %for debug
+%     lidar_rpy %for debug
     
-%     %Hard reset INS state estimates to lidar every n seconds ----------
-%     interval = 2e3; %10s
-%     interval = 1e3; %5s
-    interval = 2e2; %1s
-    if mod(i,interval) == 0 
-        %reset INS heading to lidar
-        qbn0 = qbn_lidar; 
-
-        %reset velocity 
-        dt_lidar = dpos_lidar(lidarCnt+1,1) - dpos_lidar(lidarCnt,1);
-        vel0 = [dpos_lidar(lidarCnt, 3)/dt_lidar, dpos_lidar(lidarCnt, 2)/dt_lidar, -dpos_lidar(lidarCnt, 4)/dt_lidar];
-
-%         dv0 = [0, 0, 0]; %reset dv0
-%         lla0_ins = [deg2rad(gpsmsr(2)), deg2rad(gpsmsr(3)), gpsmsr(4)]; %reset lla_ins to GPS
-        
-        %reset lla_ins to lidar
-        [Lat0, Lon0, Alt0] = enu2geodetic(resArr_lidar(i-2,2), resArr_lidar(i-2,1), -resArr_lidar(i-2,3), ...
-                                ppplat(1), ppplon(1), ppphgt(1), wgs84Ellipsoid('m'), 'degrees');
-        lla0_ins = [deg2rad(Lat0), deg2rad(Lon0), resArr_lidar(i-2,3)];
-                
-    end 
-%     %------------------------------------------------------------------
-
     %timeshifted to match GPS/Lidar
     %can't just cut off the first 1109*200 elements since we need the
     %timestamps from imuraw intact
@@ -304,36 +283,65 @@ while i < endIndx
         EKF(lla0_ins, ned0_lidar, lla0_combined, lla_ins_last, vel0, dv0, qbn0, msrk, msrk1, gpsmsr, lidarmsr, x_ins, x_lidar, x_lidar_cum, PM_ins, PP_ins_last, PM_combined, gpsCnt, lidarCnt, PM_lidar_last, fuse_lidar, fuse_gps, Qk200);   
     
      %only considering diagonal elements fixes negative eig bug
+    %considering time since last lidar reset
     W = pinv([diag(diag(PM_ins)), diag(diag(F200*PP_ins_last));
-          diag(diag(PP_ins_last*(F200.'))), diag(diag(PP_ins_last)) + [interval/20*Qk_lidar, zeros(3,18); zeros(18,21)]], 1e-20);
+          diag(diag(PP_ins_last*(F200.'))), diag(diag(PP_ins_last)) + [10*(msrk1(1)-t_last_lidar)*Qk_lidar, zeros(3,18); zeros(18,21)]], 1e-20);
 
     H = [eye(21);  eye(3), zeros(3,18); zeros(18,21)];
     PM_combined = pinv(H.' * W * H);   
     
+%     interval = 2e3; %10s
+%     interval = 1e3; %5s
+    interval = 2e2; %1s
     if fuse_lidar == 1
         if  mod(i,interval) == 0
             
-%             "----"
-%             PM_ins(1,1) %should be largest 
-%             PM_lidar(1,1) 
-%             PP_ins_last(1,1) %baseline -> should be smallest
-%             PM_ins(1,1) - PP_ins_last(1,1)
-%             10*Qk_lidar(1,1)
-                       
-%             %FOR DEBUG
-%             weights = pinv((H.')*W*H, 1e-20)*(H.')*W;
-% %             weights = [diag(diag(weights(:,1:21))), diag(diag(weights(:,22:end)))];
-%             'ins'
-%             weights(1,1)  %ins
-%             'lidar'
-%             weights(1,22) %lidar    
-%             if weights(1,22) > 1
-% %                 eig(F200*PP_ins_last) < 0 %no negative eigenvalue here
-% %                 eig(PP_ins_last + [10*Qk_lidar, zeros(3,18); zeros(18,21)]) < 0 %no negative eigs here either
-% %                 eig(PM_ins) < 0 %none here
-%                 eig(W) < 0
-%             end
+            %Correct position estimates of INS ----------------------------
+            %WLS LLA -> not correct: we want to do WLS on CHANGES in position since last update
+            [Lat0, Lon0, Alt0] = enu2geodetic(resArr_lidar(i-2,2), resArr_lidar(i-2,1), -resArr_lidar(i-2,3), ...
+                                    ppplat(1), ppplon(1), ppphgt(1), wgs84Ellipsoid('m'), 'degrees');
+            lla_lidar = [deg2rad(Lat0), deg2rad(Lon0), resArr_lidar(i-2,3)];            
+%             lla0_ins = pinv((H.')*W*H)*(H.')*W*[lla_ins.'; zeros(18,1); lla_lidar.'; zeros(18,1)];
+%             lla0_ins = lla0_ins(1:3).'; %reshape to 3x1
 
+%             %WLS on changes in LLA~~~~~~~
+%             [lat_lidar, lon_lidar, h_lidar] = enu2geodetic(ned_lidar(2), ned_lidar(1), -ned_lidar(3), ...
+%                                     ppplat(1), ppplon(1), ppphgt(1), wgs84Ellipsoid('m'), 'degrees');
+%             lla_lidar = [lat_lidar, lon_lidar, h_lidar];
+%             dlla_lidar = lla_lidar - lla_lidar_last;
+%             dlla_ins = lla_ins - lla_ins_last;                    
+%             
+%             wls_dlla = pinv((H.')*W*H, 1e-20)*(H.')*W*[dlla_ins.'; zeros(18,1); dlla_lidar.'; zeros(18,1)];
+%             lla_ins = lla_ins_last + wls_dlla(1:3).';
+%             
+%             lla_lidar_last = lla_lidar;
+%             lla_ins_last = lla_ins;
+%             %~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            
+              %Naive: simply reset lla_ins to lidar
+%             lla0_ins = lla_lidar;            
+            %--------------------------------------------------------------
+
+            %Correct velocity estimates of INS-----------------------------                               
+            dt_lidar = dpos_lidar(lidarCnt+1,1) - dpos_lidar(lidarCnt,1);
+
+            vel_lidar = [dpos_lidar(lidarCnt, 3)/dt_lidar, dpos_lidar(lidarCnt, 2)/dt_lidar, -dpos_lidar(lidarCnt, 4)/dt_lidar];
+            
+            %WLS absolute vel update
+            vel0 = pinv((H.')*W*H, 1e-20)*(H.')*W*[vel.'; zeros(18,1); vel_lidar.'; zeros(18,1)];
+            vel0 = vel0(1:3).';
+
+            % Naive: reset ins velocity to lidar velocity estimate
+%             vel0 = vel_lidar; 
+
+            % TODO: do WLS for CHANGE in velocity between subsequent fusion periods
+
+            %--------------------------------------------------------------
+
+            
+            %reset INS heading to lidar
+            qbn0 = qbn_lidar;             
+            
             %reset INS absolute position covariance to Lidar
             PM_ins = diag(diag(PM_ins)); %remove all non-diagonal elements
             PM_ins(1:3,1:3) = PM_lidar; %reset positon covariance
@@ -345,8 +353,15 @@ while i < endIndx
             %update baseline
             PP_ins_last = PM_ins;
             F200 = F;
+
+            nlidar_since_reset = 0;
+            t_last_lidar = lidarmsr(1); %TODO: change to T last reset??
+
         else
             F200 = F200*F;
+            lla0_ins = lla_ins;
+            qbn0 = qbn;
+            vel0 = vel; 
         end
     end
         
@@ -355,22 +370,13 @@ while i < endIndx
     PM_hist_ins(i-1,:) = [sqrt(PM_ins(1,1))*6.36e6 sqrt(PM_ins(2,2))*4.97e6, sqrt(PM_ins(3,3))]; %was this, thinking it should be in (m) though
     PM_hist_combined(i-1,:) = [sqrt(PM_combined(1,1))*6.36e6 sqrt(PM_combined(2,2))*4.97e6, sqrt(PM_combined(3,3))];
 
-    %actual P values (instead of stds)
-%     PM_hist_lidar(i-1,:) = [(PM_lidar(1,1))*6.36e6 (PM_lidar(2,2))*4.97e6, (PM_lidar(3,3))];
-%     PM_hist_ins(i-1,:) = [(PM_ins(1,1))*6.36e6 (PM_ins(2,2))*4.97e6, (PM_ins(3,3))]; %was this, thinking it should be in (m) though
-%     PM_hist_combined(i-1,:) = [(PM_combined(1,1))*6.36e6 (PM_combined(2,2))*4.97e6, (PM_combined(3,3))];
-
     if lidarUpdated == 1
-        t_last_lidar = lidarmsr(1);
         lidarmsr = dpos_lidar(lidarCnt+1, :);%update lidar measurement
         ned0_lidar = ned_lidar;
+        nlidar_since_reset = nlidar_since_reset + 1;
         if gpsUpdated == 1
-            %temp---------------
-            %TODO: move vel update to WLS INSIDE FUNC!!
-%             vel = [dpos_lidar(lidarCnt, 3)*10, dpos_lidar(lidarCnt, 2)*10, dpos_lidar(lidarCnt, 4)*10]; %for debug
-            %-------------------
             x_lidar_hist(gpsCnt,:) = x_lidar_hist(gpsCnt,:) + x_lidar.';
-            lla_ins_last = lla_ins;
+%             lla_ins_last = lla_ins;
         else
             x_lidar_hist(gpsCnt+1,:) = x_lidar_hist(gpsCnt+1,:) + x_lidar.';
         end
@@ -384,7 +390,6 @@ while i < endIndx
         xHatM_combined_hist(gpsCnt,:) = xHatM_combined;
         lla_combined_hist(:,gpsCnt) = lla_combined;
         lla0_combined = lla_combined;       
-%         PP_ins_last = PM_ins;
     else
         x_ins_hist(gpsCnt+1,:) = x_ins_hist(gpsCnt+1,:) + x_ins.';
     end
@@ -400,14 +405,10 @@ while i < endIndx
     PM_lidar_last = PM_lidar;
 
     msrArr(:,i-1) = msrk1;
-    lla0_ins = lla_ins; 
-    vel0 = vel; 
     rpy0 = rpy;
     dv0 = dv; 
-    qbn0 = qbn;
     msrk = msrk1;
     
-%     x_ins_cum = x_ins_hist(gpsCnt+1,:);
     x_lidar_cum = x_lidar_hist(gpsCnt+1,:);
     
     i = i+1;  
@@ -446,9 +447,10 @@ xlabel('time (s)')
 ylabel('East (m/s)')
 plot(x_ins_hist(:,1))
 plot(x_lidar_hist(:,1))
-plot(xHatM_combined_hist(:,1))
+% plot(xHatM_combined_hist(:,1))
 plot([0 dEgps(1:end-1)])
-legend('xHat- INS', 'xHat- Lidar', 'xHat- combined', 'gps baseline')
+% legend('INS', 'Lidar', 'xHat- combined', 'GPS')
+legend('INS', 'Lidar', 'GPS')
 
 subplot(3,1,2)
 hold on
@@ -457,9 +459,10 @@ xlabel('time (s)')
 ylabel('North (m/s)')
 plot(x_ins_hist(:,2))
 plot(x_lidar_hist(:,2))
-plot(xHatM_combined_hist(:,2))
+% plot(xHatM_combined_hist(:,2))
 plot([0 dNgps(1:end-1)])
-legend('xHat- INS', 'xHat- Lidar', 'xHat- combined', 'gps baseline')
+% legend('xHat- INS', 'xHat- Lidar', 'xHat- combined', 'gps baseline')
+legend('INS', 'Lidar', 'GPS')
 
 subplot(3,1,3)
 hold on
@@ -468,9 +471,10 @@ xlabel('time (s)')
 ylabel('Up (m/s)')
 plot(x_ins_hist(:,3))
 plot(x_lidar_hist(:,3))
-plot(xHatM_combined_hist(:,3))
+% plot(xHatM_combined_hist(:,3))
 plot([0 dUgps(1:end-1)])
-legend('xHat- INS', 'xHat- Lidar', 'xHat- combined', 'gps baseline')
+% legend('xHat- INS', 'xHat- Lidar', 'xHat- combined', 'gps baseline')
+legend('INS', 'Lidar', 'GPS')
 %--------------------------------------------------------------------
 
 %covaraince plots ---------------------------------------------------
@@ -482,15 +486,15 @@ title('Covariance')
 skip_start = 1; %2500;
 
 %log--
-% semilogy(time(skip_start:end) - startTime, PM_hist_ins(skip_start:end-2,1), ...
-%     time(skip_start:end) - startTime, PM_hist_lidar(skip_start:end-2,1))%, ...
-% %     time(skip_start:end) - startTime, PM_hist_combined(skip_start:end-2,1))
+semilogy(time(skip_start:end) - startTime, PM_hist_ins(skip_start:end-2,1), ...
+    time(skip_start:end) - startTime, PM_hist_lidar(skip_start:end-2,1), ...
+    time(skip_start:end) - startTime, PM_hist_combined(skip_start:end-2,1))
 %-----
 %standard--
-hold on
-plot(time(skip_start:end) - startTime, PM_hist_ins(skip_start:end-2,1))
-plot(time(skip_start:end) - startTime, PM_hist_lidar(skip_start:end-2,1))
-plot(time(skip_start:end) - startTime, PM_hist_combined(skip_start:end-2,1))
+% hold on
+% plot(time(skip_start:end) - startTime, PM_hist_ins(skip_start:end-2,1))
+% plot(time(skip_start:end) - startTime, PM_hist_lidar(skip_start:end-2,1))
+% plot(time(skip_start:end) - startTime, PM_hist_combined(skip_start:end-2,1))
 %----------
 
 xlim([50, 60])
@@ -515,7 +519,7 @@ plot(time-startTime, resArr_lidar(:,1));
 plot(gpsMsrArr(1, nonzero)-startTime, Egps(nonzero));
 % plot(gpsMsrArr(1,nonzero_combined)-startTime, lla_combined_hist(1,nonzero_combined))
 % legend('LLA INS', 'LLA Lidar Dead Reckoning', 'pure GPS', 'Lidar and INS only')
-legend('LLA INS', 'LLA Lidar Dead Reckoning', 'pure GPS') %temp
+legend('INS', 'Lidar', 'GPS')
 hold on; grid on
 ylabel('East (m)');
 
@@ -530,7 +534,8 @@ ylabel('longitude (deg)');
 plot(gpsMsrArr(1, nonzero)-startTime, Ngps(nonzero));
 % plot(gpsMsrArr(1,nonzero_combined)-startTime, lla_combined_hist(2,nonzero_combined))
 % legend('LLA INS', 'LLA Lidar Dead Reckoning', 'pure GPS', 'Lidar and INS only')
-legend('LLA INS', 'LLA Lidar Dead Reckoning', 'pure GPS')
+% legend('LLA INS', 'LLA Lidar Dead Reckoning', 'pure GPS')
+legend('INS', 'Lidar', 'GPS')
 hold on; grid on
 ylabel('North (m)');
 
@@ -540,7 +545,8 @@ plot(time-startTime, resArr_ins(:,3));
 plot(time-startTime, resArr_lidar(:,3));
 %     plot(gpsMsrArr(1, :)-startTime, gpsMsrArr(4, :));
 plot(gpsMsrArr(1, nonzero)-startTime, gpsMsrArr(4, nonzero));  
-legend('LLA INS', 'LLA Lidar Dead Reckoning', 'pure GPS')
+% legend('LLA INS', 'LLA Lidar Dead Reckoning', 'pure GPS')
+legend('INS', 'Lidar', 'GPS')
 hold on; grid on
 ylabel('altitude (m)');
 xlabel('Time (s)');
