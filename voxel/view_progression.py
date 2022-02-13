@@ -3,14 +3,18 @@ import matplotlib.pyplot as plt
 import numpy as np
 from time import sleep
 
-for i in range(5):
+fig = plt.figure()
+ax = fig.add_subplot()
 
-	fig = plt.figure()
-	ax = fig.add_subplot()
-	ax.set_xlim([-10,10])
-	ax.set_ylim([-10,10])
+for i in range(50):
 
-	D = divide(fig, ax, n = 10*i+1)
-	plt.show()
-	sleep(1)
+	D = divide(fig, ax, n = i+1)
 
+	D.ax.set_xlim([-10,10])
+	D.ax.set_ylim([-10,10])
+
+	plt.draw()
+	plt.pause(0.01)
+	D.ax.cla()
+	D.patches = []
+	D.ax.patches = []

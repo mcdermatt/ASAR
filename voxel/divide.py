@@ -12,6 +12,8 @@ class divide():
 
 	def __init__(self, fig, ax, cloud = None, n = 10):
 
+		np.random.seed(187)
+
 		self.minNumPts = 3
 		self.node_fidelity = 12 #creates an NxN grid of nodes
 		self.numIter = n #number of iterations to loop through
@@ -31,7 +33,7 @@ class divide():
 
 		self.main()
 
-		plt.show()
+		# plt.show()
 
 
 	def main(self):
@@ -158,7 +160,7 @@ class divide():
 		for i in range(1,self.node_fidelity+1):
 			self.Nodes[(i-1)*self.node_fidelity:i*self.node_fidelity,1] = ypos[i-1]
 
-		print("created grid with", (self.node_fidelity-1)**2, "voxels")
+		# print("created grid with", (self.node_fidelity-1)**2, "voxels")
 
 
 	def drawNodes(self):
@@ -196,7 +198,7 @@ class divide():
 	def genDemoCloud(self):
 		"""generate simple structured point cloud for testing """
 
-		npts = 100
+		npts = 1000 #100
 		self.cloud = 0.25*np.random.randn(npts,2)
 		self.cloud[:npts//2,0] += np.linspace(-8,8,npts//2)
 		self.cloud[:npts//2,1] += np.linspace(1,4,npts//2)
