@@ -221,12 +221,11 @@ lidarmsr = dpos_lidar(1, :);
 ned0_lidar = [0, 0, gpspos(1,4)]; %lla0_ins;
 lla0_combined = lla0_ins;
 lla_ins_last = lla0_ins; %lla_in the last time GPS was called
-lla_lidar_last = lla0_ins;
+ned_lidar_last = [0, 0, 0];
 lla_combined_hist = zeros(3, gpsEndIndx); %array to hold lla_combined data
-t_last_lidar = msrk(1);
+t_last_fuse = msrk(1);
 x_ins_cum = zeros(21,1);
 x_lidar_cum = zeros(3,1);
-nlidar_since_reset = 0;
 
 %init matrices for storing PM info
 PM_hist_ins = zeros(endIndx,3);
@@ -285,7 +284,7 @@ while i < endIndx
      %only considering diagonal elements fixes negative eig bug
     %considering time since last lidar reset
     W = pinv([diag(diag(PM_ins)), diag(diag(F200*PP_ins_last));
-          diag(diag(PP_ins_last*(F200.'))), diag(diag(PP_ins_last)) + [10*(msrk1(1)-t_last_lidar)*Qk_lidar, zeros(3,18); zeros(18,21)]], 1e-20);
+          diag(diag(PP_ins_last*(F200.'))), diag(diag(PP_ins_last)) + [10*(msrk1(1)-t_last_fuse)*Qk_lidar, zeros(3,18); zeros(18,21)]], 1e-20);
 
     H = [eye(21);  eye(3), zeros(3,18); zeros(18,21)];
     PM_combined = pinv(H.' * W * H);   
@@ -296,11 +295,20 @@ while i < endIndx
     if fuse_lidar == 1
         if  mod(i,interval) == 0
             
+            %reset INS and Lidar covariance to combined estiamte
+            PM_ins(1:3,1:3) = PM_combined(1:3,1:3);
+            PM_lidar(1:3,1:3) = PM_combined(1:3,1:3);
+%             weights = pinv((H.')*W*H, 1e-20)*(H.')*W;
+%             'ins'
+%             weights(1,1)  %ins
+%             'lidar'
+%             weights(1,22) %lidar
+            
             %Correct position estimates of INS ----------------------------
             %WLS LLA -> not correct: we want to do WLS on CHANGES in position since last update
-            [Lat0, Lon0, Alt0] = enu2geodetic(resArr_lidar(i-2,2), resArr_lidar(i-2,1), -resArr_lidar(i-2,3), ...
-                                    ppplat(1), ppplon(1), ppphgt(1), wgs84Ellipsoid('m'), 'degrees');
-            lla_lidar = [deg2rad(Lat0), deg2rad(Lon0), resArr_lidar(i-2,3)];            
+%             [Lat0, Lon0, Alt0] = enu2geodetic(resArr_lidar(i-2,2), resArr_lidar(i-2,1), -resArr_lidar(i-2,3), ...
+%                                     ppplat(1), ppplon(1), ppphgt(1), wgs84Ellipsoid('m'), 'degrees');
+%             lla_lidar = [deg2rad(Lat0), deg2rad(Lon0), resArr_lidar(i-2,3)];            
 %             lla0_ins = pinv((H.')*W*H)*(H.')*W*[lla_ins.'; zeros(18,1); lla_lidar.'; zeros(18,1)];
 %             lla0_ins = lla0_ins(1:3).'; %reshape to 3x1
 
@@ -308,14 +316,19 @@ while i < endIndx
 %             [lat_lidar, lon_lidar, h_lidar] = enu2geodetic(ned_lidar(2), ned_lidar(1), -ned_lidar(3), ...
 %                                     ppplat(1), ppplon(1), ppphgt(1), wgs84Ellipsoid('m'), 'degrees');
 %             lla_lidar = [lat_lidar, lon_lidar, h_lidar];
-%             dlla_lidar = lla_lidar - lla_lidar_last;
-%             dlla_ins = lla_ins - lla_ins_last;                    
-%             
-%             wls_dlla = pinv((H.')*W*H, 1e-20)*(H.')*W*[dlla_ins.'; zeros(18,1); dlla_lidar.'; zeros(18,1)];
-%             lla_ins = lla_ins_last + wls_dlla(1:3).';
-%             
-%             lla_lidar_last = lla_lidar;
-%             lla_ins_last = lla_ins;
+%             dlla_lidar = lla_lidar - lla_lidar_last; %not working -> scaling issue??
+
+            [Lat_delta, Lon_delta, Alt_delta] = enu2geodetic(ned_lidar(2) - ned_lidar_last(2), ned_lidar(1) - ned_lidar_last(1), -ned_lidar(3) + ned_lidar_last(3), ...
+                                    ppplat(1), ppplon(1), ppphgt(1), wgs84Ellipsoid('m'), 'degrees');
+            dlla_lidar = [deg2rad(Lat_delta), deg2rad(Lon_delta), Alt_delta] - [deg2rad(ppplat(1)), deg2rad(ppplon(1)), ppphgt(1)];                                
+            dlla_ins = lla_ins - lla_ins_last;                                
+            
+            wls_dlla = pinv((H.')*W*H, 1e-20)*(H.')*W*[dlla_ins.'; zeros(18,1); dlla_lidar.'; zeros(18,1)];
+            lla_ins = lla_ins_last + wls_dlla(1:3).';
+            lla0_ins = lla_ins;
+            
+            ned_lidar_last = ned_lidar;
+            lla_ins_last = lla_ins;
 %             %~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             
               %Naive: simply reset lla_ins to lidar
@@ -324,15 +337,14 @@ while i < endIndx
 
             %Correct velocity estimates of INS-----------------------------                               
             dt_lidar = dpos_lidar(lidarCnt+1,1) - dpos_lidar(lidarCnt,1);
-
             vel_lidar = [dpos_lidar(lidarCnt, 3)/dt_lidar, dpos_lidar(lidarCnt, 2)/dt_lidar, -dpos_lidar(lidarCnt, 4)/dt_lidar];
             
             %WLS absolute vel update
-            vel0 = pinv((H.')*W*H, 1e-20)*(H.')*W*[vel.'; zeros(18,1); vel_lidar.'; zeros(18,1)];
-            vel0 = vel0(1:3).';
+%             vel0 = pinv((H.')*W*H, 1e-20)*(H.')*W*[vel.'; zeros(18,1); vel_lidar.'; zeros(18,1)];
+%             vel0 = vel0(1:3).';
 
             % Naive: reset ins velocity to lidar velocity estimate
-%             vel0 = vel_lidar; 
+            vel0 = vel_lidar; 
 
             % TODO: do WLS for CHANGE in velocity between subsequent fusion periods
 
@@ -354,8 +366,7 @@ while i < endIndx
             PP_ins_last = PM_ins;
             F200 = F;
 
-            nlidar_since_reset = 0;
-            t_last_lidar = lidarmsr(1); %TODO: change to T last reset??
+            t_last_fuse = msrk1(1);
 
         else
             F200 = F200*F;
@@ -373,7 +384,6 @@ while i < endIndx
     if lidarUpdated == 1
         lidarmsr = dpos_lidar(lidarCnt+1, :);%update lidar measurement
         ned0_lidar = ned_lidar;
-        nlidar_since_reset = nlidar_since_reset + 1;
         if gpsUpdated == 1
             x_lidar_hist(gpsCnt,:) = x_lidar_hist(gpsCnt,:) + x_lidar.';
 %             lla_ins_last = lla_ins;
