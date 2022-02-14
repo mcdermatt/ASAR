@@ -200,11 +200,14 @@ class divide():
 
 		npts = 1000 #100
 		self.cloud = 0.25*np.random.randn(npts,2)
-		self.cloud[:npts//2,0] += np.linspace(-8,8,npts//2)
-		self.cloud[:npts//2,1] += np.linspace(1,4,npts//2)
+		self.cloud[:npts//4,0] += np.linspace(-8,8,npts//4)
+		self.cloud[:npts//4,1] += np.linspace(1,4,npts//4)
 
-		self.cloud[npts//2:,0] += np.linspace(1,-1, npts//2)
-		self.cloud[npts//2:,1] += np.linspace(-8, 3, npts//2)
+		self.cloud[npts//4:npts//2,0] += np.linspace(1,-4, npts//4)
+		self.cloud[npts//4:npts//2,1] += np.linspace(-8, 4, npts//4)
+
+		self.cloud[npts//2:,0] += np.linspace(-5,5, npts//2)
+		self.cloud[npts//2:,1] += np.linspace(-3, -2, npts//2)
 
 
 		self.ax.plot(self.cloud[:,0], self.cloud[:,1], 'r.')
