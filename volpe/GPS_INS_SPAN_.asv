@@ -291,7 +291,6 @@ while i < endIndx
     H = [eye(21);  eye(3), zeros(3,18); zeros(18,21)];
     PM_combined = pinv(H.' * W * H);   
     
-    %TODO- replace interval with vector containing measurement timestamps
 %     interval = 2e3; %10s
 %     interval = 1e3; %5s
     interval = 2e2; %1s
@@ -307,30 +306,30 @@ while i < endIndx
 %             'lidar'
 %             weights(1,22) %lidar
             
-%             %Correct position estimates of INS ----------------------------
-%             %WLS on changes in LLA~~~~~~~
-            [Lat_delta, Lon_delta, Alt_delta] = enu2geodetic(ned_lidar(2) - ned_lidar_last(2), ned_lidar(1) - ned_lidar_last(1), ned_lidar(3) - ned_lidar_last(3), ...
-                                    ppplat(1), ppplon(1), ppphgt(1), wgs84Ellipsoid('m'), 'degrees');
-            dlla_lidar = [deg2rad(Lat_delta), deg2rad(Lon_delta), Alt_delta] - [deg2rad(ppplat(1)), deg2rad(ppplon(1)), ppphgt(1)];                                
-            dlla_ins = lla_ins - lla_ins_last;                                
-            wls_dlla = pinv((H.')*W*H, 1e-20)*(H.')*W*[dlla_ins.'; zeros(18,1); dlla_lidar.'; zeros(18,1)];
-            lla0_ins = lla_ins_last + wls_dlla(1:3).';
-%             lla0_ins = lla_ins;
-            ned_lidar_last = ned_lidar;
-            lla_ins_last = lla0_ins;
-% %             %~~~~~~~~~~~~~~~~~~~~~~~~~~~~            
-%               %Naive: simply reset lla_ins to lidar
-% %             lla0_ins = lla_lidar;            
-%             %--------------------------------------------------------------
+% %             %Correct position estimates of INS ----------------------------
+% %             %WLS on changes in LLA~~~~~~~
+%             [Lat_delta, Lon_delta, Alt_delta] = enu2geodetic(ned_lidar(2) - ned_lidar_last(2), ned_lidar(1) - ned_lidar_last(1), ned_lidar(3) - ned_lidar_last(3), ...
+%                                     ppplat(1), ppplon(1), ppphgt(1), wgs84Ellipsoid('m'), 'degrees');
+%             dlla_lidar = [deg2rad(Lat_delta), deg2rad(Lon_delta), Alt_delta] - [deg2rad(ppplat(1)), deg2rad(ppplon(1)), ppphgt(1)];                                
+%             dlla_ins = lla_ins - lla_ins_last;                                
+%             wls_dlla = pinv((H.')*W*H, 1e-20)*(H.')*W*[dlla_ins.'; zeros(18,1); dlla_lidar.'; zeros(18,1)];
+%             lla0_ins = lla_ins_last + wls_dlla(1:3).';
+% 
+%             ned_lidar_last = ned_lidar;
+%             lla_ins_last = lla0_ins;
+% % %             %~~~~~~~~~~~~~~~~~~~~~~~~~~~~            
+% %               %Naive: simply reset lla_ins to lidar
+% % %             lla0_ins = lla_lidar;            
+% %             %--------------------------------------------------------------
 
             %Correct velocity estimates of INS-----------------------------                               
-%             %WLS changes in vel ~~~~~~~~~~~
+            %WLS changes in vel ~~~~~~~~~~~
             dt_lidar = dpos_lidar(lidarCnt+1,1) - dpos_lidar(lidarCnt,1);
             vel_lidar = [dpos_lidar(lidarCnt, 3)/dt_lidar, dpos_lidar(lidarCnt, 2)/dt_lidar, -dpos_lidar(lidarCnt, 4)/dt_lidar];
             dvel_lidar = vel_lidar - vel_lidar_last;
             dvel_ins = vel - vel_ins_last;
-            wls_dvel = pinv((H.')*W*H, 1e-20)*(H.')*W*[dvel_ins.'; zeros(18,1); dvel_lidar.'; zeros(18,1)];
-            vel0 = vel_lidar_last + wls_dvel(1:3).';
+%             wls_dvel = pinv((H.')*W*H, 1e-20)*(H.')*W*[dvel_ins.'; zeros(18,1); dvel_lidar.'; zeros(18,1)];
+%             vel0 = vel_ins_last + wls_dvel(1:3).';
 % 
             %just do WLS on absolute velocity
 %             vel0 = pinv((H.')*W*H, 1e-20)*(H.')*W*[vel.'; zeros(18,1); vel_lidar.'; zeros(18,1)];
@@ -348,8 +347,7 @@ while i < endIndx
             %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
             % Naive: reset ins velocity to lidar velocity estimate
-%             vel = vel_lidar;
-%             vel0 = vel; 
+%             vel0 = vel_lidar; 
             %--------------------------------------------------------------
 
             
