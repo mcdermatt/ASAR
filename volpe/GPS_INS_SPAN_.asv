@@ -1,9 +1,5 @@
 %GPS_INS_SPAN Loosely Coupled - version 11/22/2021
 
-%TODO: x_ins is currently holding full changes in state per timestep-
-%       (rather than accumulated bias errors as specified in the doc)
-%       this is incorrect and we need a new variable to hold changes in x
-%TODO: get rid of *_combined vars, instead overwrite INS data
 %TODO: remap inputs and outputs of main func into data structure
 %TODO: while no new lidar updates, set WLS to entirely INS
 
@@ -228,6 +224,7 @@ lla_combined_hist = zeros(3, gpsEndIndx); %array to hold lla_combined data
 t_last_fuse = msrk(1);
 x_ins_cum = zeros(21,1);
 x_lidar_cum = zeros(3,1);
+xHatM_ins = zeros(21,21);
 
 %init matrices for storing PM info
 PM_hist_ins = zeros(endIndx,3);
@@ -247,7 +244,7 @@ qbn0 = pos_lidar_enu(1, 4:7);
 
 % Start Loop
 gpsCnt = 0;
-lidarCnt = 0;
+lidarCnt = 1; %was 0
 i = 2;
 while i < endIndx  
     
@@ -279,76 +276,133 @@ while i < endIndx
     dt = msrk1(1) - msrk(1);
     msrk1(7) =  msrk1(7) - bias*dt; 
         
-    % GPS/INS solution
-    [lla_ins, ned_lidar, lla_combined, vel, rpy, dv, qbn, xHatM_ins, x_ins, x_lidar, xHatM_combined, gpsUpdated, lidarUpdated, gpsCnt, lidarCnt, gpsResUpd, PM_ins, PM_lidar, PM_combined, F, Qk200] = ...
-        EKF(lla0_ins, ned0_lidar, lla0_combined, lla_ins_last, vel0, dv0, qbn0, msrk, msrk1, gpsmsr, lidarmsr, x_ins, x_lidar, x_lidar_cum, PM_ins, PP_ins_last, PM_combined, gpsCnt, lidarCnt, PM_lidar_last, fuse_lidar, fuse_gps, Qk200);   
+    %set up input strucutre for getting updated estimates -------------
+    vals.lla0_ins = lla0_ins;
+    vals.ned0_lidar = ned0_lidar;
+    vals.lla0_combined = lla0_combined;
+    vals.lla_ins_last = lla_ins_last;
+    vals.vel0 = vel0;
+    vals.rpy0 = rpy0;
+    vals.dv0 = dv0;
+    vals.qbn0 = qbn0;
+%     vals.qbn_lidar = qbn_lidar;
+    vals.msrk = msrk;
+    vals.msrk1 = msrk1;
+    vals.gpsmsr = gpsmsr;
+    vals.lidarmsr = lidarmsr;
+    vals.x_ins = x_ins;
+    vals.xHatM_ins = xHatM_ins;
+    vals.x_lidar = x_lidar;
+    vals.x_lidar_cum = x_lidar_cum;
+    vals.PM_ins = PM_ins;
+    vals.PP_ins_last = PP_ins_last;
+    vals.PM_combined = PM_combined;
+    vals.gpsCnt = gpsCnt;
+    vals.lidarCnt = lidarCnt;
+    vals.PM_lidar_last = PM_lidar_last;
+    vals.fuse_lidar = fuse_lidar;
+    vals.fuse_gps = fuse_gps;
+    vals.Qk200 = Qk200;
+    %----------------------------------------------------------------
     
-     %only considering diagonal elements fixes negative eig bug
-    %considering time since last lidar reset
+    % get updated estimates
+    [out] = EKF(vals);   
+    
+    %extract updated estimates --------------------------------------
+    lla_ins = out.lla_ins;
+    ned_lidar = out.ned_lidar;
+%     lla_combined = out.lla_combined;
+    vel = out.vel;
+    rpy = out.rpy;
+    dv = out.dv;
+    qbn = out.qbn;
+    xHatM_ins = out.xHatM_ins;
+    x_ins =out.x_ins;
+    x_lidar = out.x_lidar;
+%     xHatM_combined = out.xHatM_combined;
+    gpsUpdated = out.gpsUpdated;
+    lidarUpdated = out.lidarUpdated;
+    gpsCnt = out.gpsCnt;
+    lidarCnt = out.lidarCnt;
+    gpsResUpd = out.gpsResUpd;
+    PM_ins = out.PM_ins;
+    PM_lidar = out.PM_lidar;
+%     PM_combined = out.PM_combined;
+    F = out.F;
+    Qk200 = out.Qk200;    
+    %----------------------------------------------------------------
+    
+    %only considering diagonal elements of each P block fixes negative eig bug
     W = pinv([diag(diag(PM_ins)), diag(diag(F200*PP_ins_last));
           diag(diag(PP_ins_last*(F200.'))), diag(diag(PP_ins_last)) + [10*(msrk1(1)-t_last_fuse)*Qk_lidar, zeros(3,18); zeros(18,21)]], 1e-20);
 
     H = [eye(21);  eye(3), zeros(3,18); zeros(18,21)];
     PM_combined = pinv(H.' * W * H);   
     
-%     interval = 2e3; %10s
-%     interval = 1e3; %5s
-    interval = 2e2; %1s
+
     if fuse_lidar == 1
-        if  mod(i,interval) == 0
-            
+%         interval = 2e3; %10s
+%         interval = 1e3; %5s
+%         interval = 2e2; %1s
+%         if  mod(i,interval) == 0 %fuse at regular arbitrary interval
+        if gpsmsr(1) <= msrk1(1) && gpsmsr(1) > msrk(1)  % If GPS time between two inertial measurement times, do an update %
+
             %reset INS and Lidar covariance to combined estiamte
             PM_ins(1:3,1:3) = PM_combined(1:3,1:3);
             PM_lidar(1:3,1:3) = PM_combined(1:3,1:3);
+
 %             weights = pinv((H.')*W*H, 1e-20)*(H.')*W;
 %             'ins'
 %             weights(1,1)  %ins
 %             'lidar'
 %             weights(1,22) %lidar
             
-% %             %Correct position estimates of INS ----------------------------
-% %             %WLS on changes in LLA~~~~~~~
-%             [Lat_delta, Lon_delta, Alt_delta] = enu2geodetic(ned_lidar(2) - ned_lidar_last(2), ned_lidar(1) - ned_lidar_last(1), ned_lidar(3) - ned_lidar_last(3), ...
+%             %Correct position estimates of INS ----------------------------
+%             %WLS on changes in LLA~~~~~~~
+            [Lat_delta, Lon_delta, Alt_delta] = enu2geodetic(ned_lidar(2) - ned_lidar_last(2), ned_lidar(1) - ned_lidar_last(1), ned_lidar(3) - ned_lidar_last(3), ...
+                                    ppplat(1), ppplon(1), ppphgt(1), wgs84Ellipsoid('m'), 'degrees');
+            dlla_lidar = [deg2rad(Lat_delta), deg2rad(Lon_delta), Alt_delta] - [deg2rad(ppplat(1)), deg2rad(ppplon(1)), ppphgt(1)];                                
+            dlla_ins = lla_ins - lla_ins_last;                                
+            wls_dlla = pinv((H.')*W*H, 1e-20)*(H.')*W*[dlla_ins.'; zeros(18,1); dlla_lidar.'; zeros(18,1)];
+            lla0_ins = lla_ins_last + wls_dlla(1:3).';
+%             lla0_ins = lla_ins;
+            ned_lidar_last = ned_lidar;
+            lla_ins_last = lla0_ins;
+%             %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~           
+% %               %Naive: simply reset lla_ins to lidar~~~~~~~~~~~~
+%             [lat_lidar, lon_lidar, h_lidar] = enu2geodetic(ned_lidar(2), ned_lidar(1), -ned_lidar(3), ...
 %                                     ppplat(1), ppplon(1), ppphgt(1), wgs84Ellipsoid('m'), 'degrees');
-%             dlla_lidar = [deg2rad(Lat_delta), deg2rad(Lon_delta), Alt_delta] - [deg2rad(ppplat(1)), deg2rad(ppplon(1)), ppphgt(1)];                                
-%             dlla_ins = lla_ins - lla_ins_last;                                
-%             wls_dlla = pinv((H.')*W*H, 1e-20)*(H.')*W*[dlla_ins.'; zeros(18,1); dlla_lidar.'; zeros(18,1)];
-%             lla0_ins = lla_ins_last + wls_dlla(1:3).';
-% 
-%             ned_lidar_last = ned_lidar;
-%             lla_ins_last = lla0_ins;
-% % %             %~~~~~~~~~~~~~~~~~~~~~~~~~~~~            
-% %               %Naive: simply reset lla_ins to lidar
-% % %             lla0_ins = lla_lidar;            
-% %             %--------------------------------------------------------------
+%             lla_lidar = [deg2rad(lat_lidar), deg2rad(lon_lidar), h_lidar];
+%             lla0_ins = lla_lidar;            
+%             %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            
+            
+            %store differnces between lidar and ins changes
+            residual(gpsCnt,:) = dlla_lidar - dlla_ins;
+%             %--------------------------------------------------------------
 
             %Correct velocity estimates of INS-----------------------------                               
-            %WLS changes in vel ~~~~~~~~~~~
+%             %WLS changes in vel ~~~~~~~~~~~
             dt_lidar = dpos_lidar(lidarCnt+1,1) - dpos_lidar(lidarCnt,1);
             vel_lidar = [dpos_lidar(lidarCnt, 3)/dt_lidar, dpos_lidar(lidarCnt, 2)/dt_lidar, -dpos_lidar(lidarCnt, 4)/dt_lidar];
             dvel_lidar = vel_lidar - vel_lidar_last;
             dvel_ins = vel - vel_ins_last;
-%             wls_dvel = pinv((H.')*W*H, 1e-20)*(H.')*W*[dvel_ins.'; zeros(18,1); dvel_lidar.'; zeros(18,1)];
-%             vel0 = vel_ins_last + wls_dvel(1:3).';
+            wls_dvel = pinv((H.')*W*H, 1e-20)*(H.')*W*[dvel_ins.'; zeros(18,1); dvel_lidar.'; zeros(18,1)];
+            vel0 = vel_lidar_last + wls_dvel(1:3).';
 % 
             %just do WLS on absolute velocity
 %             vel0 = pinv((H.')*W*H, 1e-20)*(H.')*W*[vel.'; zeros(18,1); vel_lidar.'; zeros(18,1)];
 %             vel0 = vel0(1:3).';
             
             vel_lidar_last = vel_lidar;
-            vel_ins_last = vel0;          
-            
-% %             %DEBUG set vel of INS to lidar for noisy section until t = 20
-%             if i < interval*40
-%                vel = vel_lidar; 
-%                vel0 = vel;
-%                vel_ins_last = vel_lidar_last;
-%             end
-            %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            vel_ins_last = vel0;                      
+%             %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
             % Naive: reset ins velocity to lidar velocity estimate
-%             vel0 = vel_lidar; 
-            %--------------------------------------------------------------
+%             vel = vel_lidar;
+%             vel0 = vel; 
+% %             vel0 = vel_lidar;
+            %-------------------------------
 
             
             %reset INS heading to lidar
@@ -386,7 +440,6 @@ while i < endIndx
         ned0_lidar = ned_lidar;
         if gpsUpdated == 1
             x_lidar_hist(gpsCnt,:) = x_lidar_hist(gpsCnt,:) + x_lidar.';
-%             lla_ins_last = lla_ins;
         else
             x_lidar_hist(gpsCnt+1,:) = x_lidar_hist(gpsCnt+1,:) + x_lidar.';
         end
@@ -396,10 +449,7 @@ while i < endIndx
         x_ins_hist(gpsCnt,:) = x_ins_hist(gpsCnt,:) + x_ins.';
         gpsmsr = gpspos(gpsCnt+1, :);   
         gps_res(gpsCnt,:) = gpsResUpd;
-        x_ins(1:9) = zeros(9,1);        % Reset error states %was xHatP_ins
-        xHatM_combined_hist(gpsCnt,:) = xHatM_combined;
-        lla_combined_hist(:,gpsCnt) = lla_combined;
-        lla0_combined = lla_combined;       
+        xHatM_ins(1:9) = zeros(9,1);        % Reset error states  
     else
         x_ins_hist(gpsCnt+1,:) = x_ins_hist(gpsCnt+1,:) + x_ins.';
     end
@@ -587,6 +637,20 @@ xlabel('Time (s)');
 % legend('EKF','Ref')
 % %----------------------------------------------------------------------
 
+%residual plot ----------------------------------------------------------
+figure(8)
+hold on
+subplot(3,1,1)
+plot(residual(:,1)*6.36e6)
+xlabel('time (s)')
+ylabel('Differnce in movement East per second (m)')
+
+subplot(3,1,2)
+plot(residual(:,2)*4.97e6)
+xlabel('time (s)')
+ylabel('Differnce in movement North per second (m)')
+
+%------------------------------------------------------------------------
 
 function PP = PPinitialize
 %function PP = PPinitialize

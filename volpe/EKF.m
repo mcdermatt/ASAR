@@ -1,18 +1,32 @@
-function [lla_ins, ned_lidar, lla_combined, vel, rpy, dv, qbn, xHatM_ins, x_ins, x_lidar, xHatM_combined, gpsUpdated, lidarUpdated, gpsCnt, lidarCnt, gpsResUpd, PM_ins, PM_lidar, PM_combined, F, Qk200] = ...
-    EKF(lla0_ins, ned0_lidar, lla0_combined, lla_ins_last, vel0, dv0, qbn0, msrk, msrk1, gpsmsr, lidarmsr, xHatM_ins, x_lidar, x_lidar_cum, PM_ins, PP_ins_last, PM_combined, gpsCnt, lidarCnt, PM_lidar_last, fuse_lidar, fuse_gps, Qk200)
+function [out] = EKF(vals)
 
 %extract input parameters -------------
-% lla0_ins = EKF_input(1);
-% ned0_lidar = EKF_input(2);
-% lla0_combined = EKF_input(3);
-% lla_ins_last = EKF_input(4);
-% vel0 = EKF_input(5);
-% rpy0 = EKF_input(6);
-% dv0 = EKF_input(7);
-% qbn0 = EKF_input(8);
-% qbn_lidar = EKF_input(9);
-% msrk = EKF_input(10);
-% msrk1 = EKF_input(11);
+lla0_ins = vals.lla0_ins;
+ned0_lidar = vals.ned0_lidar;
+lla0_combined = vals.lla0_combined;
+lla_ins_last = vals.lla_ins_last;
+vel0 = vals.vel0;
+rpy0 = vals.rpy0;
+dv0 = vals.dv0;
+qbn0 = vals.qbn0;
+% qbn_lidar = vals.qbn_lidar;
+msrk = vals.msrk;
+msrk1 = vals.msrk1;
+gpsmsr = vals.gpsmsr;
+lidarmsr = vals.lidarmsr;
+x_ins = vals.x_ins;
+xHatM_ins = vals.xHatM_ins;
+x_lidar = vals.x_lidar;
+x_lidar_cum = vals.x_lidar_cum;
+PM_ins = vals.PM_ins;
+PP_ins_last = vals.PP_ins_last;
+PM_combined = vals.PM_combined;
+gpsCnt = vals.gpsCnt;
+lidarCnt = vals.lidarCnt;
+PM_lidar_last = vals.PM_lidar_last;
+fuse_lidar = vals.fuse_lidar;
+fuse_gps = vals.fuse_gps;
+Qk200 = vals.Qk200;
 %---------------------------------------
 
 
@@ -33,18 +47,16 @@ gpsmsr(2:3) = deg2rad(gpsmsr(2:3));
 qbn = quatnormalize(qbn);
 rpy = flip(quat2eul(qbn));
 
-% Extended Kalman Filter --------
-xHatM_ins = F*xHatM_ins;          % Forward Euler integration (A priori)
+% evolve INS state estimates via Forward Euler integration (A priori)
+x_ins = F*x_ins;         
 
 PM_ins = F*PM_ins*F'+Qk;                    % cov. Estimate
-% PM_ins(1,1)
 
 % F200 = F*F200; %keep product of sequential F matrices for use in Lidar fusion0
 %for debug- add up Qk's between fusion frames to verify PM_ins is evolving
 Qk200 = Qk200 + Qk; 
 
 %transform xHatM_ins into ENU here before combining with lidar...
-x_ins = xHatM_ins;
 [x_ins_E, x_ins_N, x_ins_U] = geodetic2enu(lla_ins(1), lla_ins(2), lla_ins(3), lla0_ins(1), lla0_ins(2), lla0_ins(3), wgs84Ellipsoid, 'radians');
 x_ins(1:3) = [x_ins_N, x_ins_E, x_ins_U];
 
@@ -78,8 +90,7 @@ if lidartime <= msrk1(1) && lidartime > msrk(1)
 else
     lidarUpdated = 0;
     ned_lidar = ned0_lidar;
-    PM_lidar = PM_lidar_last; %TODO - figure out a cleaner way to do this
-                   %(this results in a step function for INS uncertainty)                                
+    PM_lidar = PM_lidar_last;                                 
 end
 
 %e == 0.0818
@@ -110,28 +121,6 @@ if gpstime <= msrk1(1) && gpstime > msrk(1)  % If GPS time between two inertial 
         x_lidar_cum = x_lidar + x_lidar_cum.';        
         lla_lidar = lla_ins_last + [x_lidar_cum(1)/coeff(1,1), x_lidar_cum(2)/coeff(2,2), -x_lidar_cum(3)];
         
-%        %This SHOULD work (but currently does not due to issues with W???):
-%         lla_ins = pinv((H.')*W*H)*(H.')*W*[lla_ins.'; zeros(18,1); lla_lidar.'; zeros(18,1)];
-% %         %resize to 3x1
-%         lla_ins = lla_ins(1:3).';
-% %         lla_ins
-
-       
-        %DEBUG: WLS is fluctuating A LOT and occationally giving negative values
-%         weights = pinv((H.')*W*H)*(H.')*W;
-%         'ins'
-%         weights(1,1)  %ins
-%         'lidar'
-%         weights(1,22) %lidar
-    
-%         'PM_lidar'
-%         PM_lidar(1,1)
-%         'PM_ins'
-%         PM_ins(1,1)
-%         'PP_ins_last'
-%         PP_ins_last(1,1)
-%         'PM_combined'
-%         PM_combined(1,1) %this is exploding...
         %----------------------------------------------------------
                 
         %Reset F and Q
@@ -239,5 +228,29 @@ else
 
 end
 
+
+%store updated estimates --------------------------------------
+out.lla_ins = lla_ins;
+out.ned_lidar = ned_lidar;
+out.lla_combined = lla_combined;
+out.vel = vel;
+out.rpy = rpy;
+out.dv = dv;
+out.qbn = qbn;
+out.xHatM_ins = xHatM_ins;
+out.x_ins = x_ins;
+out.x_lidar = x_lidar;
+out.xHatM_combined = xHatM_combined;
+out.gpsUpdated = gpsUpdated;
+out.lidarUpdated = lidarUpdated;
+out.gpsCnt = gpsCnt;
+out.lidarCnt = lidarCnt;
+out.gpsResUpd = gpsResUpd;
+out.PM_ins = PM_ins;
+out.PM_lidar = PM_lidar;
+out.PM_combined = PM_combined;
+out.F = F;
+out.Qk200 = Qk200;    
+%----------------------------------------------------------------
 
 end
