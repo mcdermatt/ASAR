@@ -225,6 +225,7 @@ t_last_fuse = msrk(1);
 x_ins_cum = zeros(21,1);
 x_lidar_cum = zeros(3,1);
 xHatM_ins = zeros(21,21);
+corr_ins = zeros(1,3); %init WLS correction for INS position estimates
 
 %init matrices for storing PM info
 PM_hist_ins = zeros(endIndx,3);
@@ -275,7 +276,7 @@ while i < endIndx
        
     dt = msrk1(1) - msrk(1);
     msrk1(7) =  msrk1(7) - bias*dt; 
-        
+            
     %set up input strucutre for getting updated estimates -------------
     vals.lla0_ins = lla0_ins;
     vals.ned0_lidar = ned0_lidar;
@@ -364,18 +365,20 @@ while i < endIndx
             dlla_lidar = [deg2rad(Lat_delta), deg2rad(Lon_delta), Alt_delta] - [deg2rad(ppplat(1)), deg2rad(ppplon(1)), ppphgt(1)];                                
             dlla_ins = lla_ins - lla_ins_last;                                
             wls_dlla = pinv((H.')*W*H, 1e-20)*(H.')*W*[dlla_ins.'; zeros(18,1); dlla_lidar.'; zeros(18,1)];
-            lla0_ins = lla_ins_last + wls_dlla(1:3).';
-%             lla0_ins = lla_ins;
+            lla_ins = lla_ins_last + wls_dlla(1:3).';
+%             lla0_ins = lla_ins; %DEBUG: shows continuous ins estimation but kills velocity estimates
             ned_lidar_last = ned_lidar;
             lla_ins_last = lla0_ins;
+
+%             corr_ins = corr_ins + wls_dlla(1:3).';
+            
 %             %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~           
 % %               %Naive: simply reset lla_ins to lidar~~~~~~~~~~~~
 %             [lat_lidar, lon_lidar, h_lidar] = enu2geodetic(ned_lidar(2), ned_lidar(1), -ned_lidar(3), ...
 %                                     ppplat(1), ppplon(1), ppphgt(1), wgs84Ellipsoid('m'), 'degrees');
 %             lla_lidar = [deg2rad(lat_lidar), deg2rad(lon_lidar), h_lidar];
 %             lla0_ins = lla_lidar;            
-%             %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-            
+%             %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~        
             
             %store differnces between lidar and ins changes
             residual(gpsCnt,:) = dlla_lidar - dlla_ins;
@@ -389,11 +392,7 @@ while i < endIndx
             dvel_ins = vel - vel_ins_last;
             wls_dvel = pinv((H.')*W*H, 1e-20)*(H.')*W*[dvel_ins.'; zeros(18,1); dvel_lidar.'; zeros(18,1)];
             vel0 = vel_lidar_last + wls_dvel(1:3).';
-% 
-            %just do WLS on absolute velocity
-%             vel0 = pinv((H.')*W*H, 1e-20)*(H.')*W*[vel.'; zeros(18,1); vel_lidar.'; zeros(18,1)];
-%             vel0 = vel0(1:3).';
-            
+
             vel_lidar_last = vel_lidar;
             vel_ins_last = vel0;                      
 %             %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -429,7 +428,9 @@ while i < endIndx
             vel0 = vel; 
         end
     end
-        
+    
+%     corr_ins_hist(i, :) =  corr_ins.';
+    
     %save sigmas in units of (m)
     PM_hist_lidar(i-1,:) = [sqrt(PM_lidar(1,1))*6.36e6 sqrt(PM_lidar(2,2))*4.97e6, sqrt(PM_lidar(3,3))];
     PM_hist_ins(i-1,:) = [sqrt(PM_ins(1,1))*6.36e6 sqrt(PM_ins(2,2))*4.97e6, sqrt(PM_ins(3,3))]; %was this, thinking it should be in (m) though

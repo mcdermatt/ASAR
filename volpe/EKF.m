@@ -48,7 +48,7 @@ qbn = quatnormalize(qbn);
 rpy = flip(quat2eul(qbn));
 
 % evolve INS state estimates via Forward Euler integration (A priori)
-x_ins = F*x_ins;         
+xHatM_ins = F*xHatM_ins;         
 
 PM_ins = F*PM_ins*F'+Qk;                    % cov. Estimate
 
