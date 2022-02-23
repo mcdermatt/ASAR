@@ -1,5 +1,4 @@
 from vedo import *
-# settings.embedWindow(backend='ipyvtk', verbose = True)
 import os
 from ipyvtklink.viewer import ViewInteractiveWidget
 import pykitti
@@ -14,10 +13,10 @@ frame_range = range(150, 151, 1)
 dataset = pykitti.raw(basedir, date, drive)
 velo1 = dataset.get_velo(0) # Each scan is a Nx4 array of [x,y,z,reflectance]
 cloud = velo1[:,:3]
-# cloud = cloud[cloud[:,2] > -1.5] #ignore ground plane
+cloud = cloud[cloud[:,2] > -1.5] #ignore ground plane
 ## ------------------------------------------------------------------------------------
 
 
-S = scene(cloud = cloud, fid = 20)
+S = scene(cloud = cloud, fid = 80, cull = True)
 
 ViewInteractiveWidget(S.plt.window)

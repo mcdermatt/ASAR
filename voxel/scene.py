@@ -7,19 +7,22 @@ class scene():
 	""" cubic voxel grid used for occlusion culling demo """
 
 
-	def __init__(self, cloud = None, fid = 20):
+	def __init__(self, cloud = None, fid = 20, cull = False):
 
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.cloud = cloud
-		self.mnp = 1 #minimum number of points to count as occupied
-		self.numvox = (self.fid+1)*(self.fid + 1)*(self.fid + 1) #number of voxels
+		self.mnp = 50 #minimum number of points to count as occupied
+		self.numvox = (self.fid+1)*(self.fid + 1)*(self.fid//10 + 1) #number of voxels
 		self.wire = True #draw cells as wireframe
 
 		self.plt = Plotter(N = 1, axes = 4, bg = (1, 1, 1), interactive = True)
 		self.disp = []
 
 		self.occupancy_grid(draw = False)
-		# self.cull()
+		if cull == True:
+			self.cull()
+			for b in np.squeeze(np.asarray(np.where(self.occluded == 1))):
+				self.draw_cell(int(b), wire = False)
 
 		self.draw_cloud()
 		self.draw_car()
@@ -51,57 +54,86 @@ class scene():
 			theta = np.arctan2(voxctr[1],voxctr[0])
 			if np.isnan(theta) == True:
 				theata = 0
-			# print("theta", theta)
 			#rotation up/down
-			# phi = 
+			phi = np.arctan2(voxctr[2], np.sqrt(voxctr[0]**2 + voxctr[1]**2))
+			if np.isnan(phi) == True:
+				phi = 0
+
 			dthetamax = 0
 			dthetamin = 0
+			dphimax = 0
+			dphimin = 0
 			for i in range(8):			#loop through each corner
 				#find corners with largest horizonatal rotation band
-				# theta_i = np.sin(corners[i,0]/corners[i,1])
 				theta_i = np.arctan2(corners[i,1],corners[i,0])
-				# print("theta_i", theta_i)
 				dtheta = theta_i - theta
-				# print("dtheta", dtheta)
 				if dtheta > dthetamax:
 					dthetamax = dtheta
-					thetamax = i
+					thetamax = theta_i
+					maxcorner = i
 				if dtheta < dthetamin:
 					dthetamin = dtheta
-					thetamin = i				
+					thetamin = theta_i
+					mincorner = i	
 
 				#find corners with largest vertical rotation band			
-					#...
+				phi_i = np.arctan2(corners[i, 2], np.sqrt(corners[i,0]**2 + corners[i,1]**2))
+				dphi = phi_i - phi
+				if dphi > dphimax:
+					dphimax = dphi
+					phimax = phi_i
+					#todo: draw corners for phi...
+				if dphi < dphimin:
+					dphimin = dphi
+					phimin = phi_i
 
-			L_theta_min = shapes.Line(np.array([0,0,0]), corners[thetamin], lw = 4, c ='b')
-			L_theta_max = shapes.Line(np.array([0,0,0]), corners[thetamax], lw = 4, c='b')
-			self.disp.append(L_theta_min)
-			self.disp.append(L_theta_max)
-
-			corn = Points(corners, c = [0.5,0.9,0.5], r = 10)
-			self.disp.append(corn)
+			# #for debug ~~~~~~~~~~~~~~~~~~~~~~~~
+			# #draw lines to outisde corners
+			# L_theta_min = shapes.Line(np.array([0,0,0]), corners[mincorner], lw = 4, c ='b')
+			# L_theta_max = shapes.Line(np.array([0,0,0]), corners[maxcorner], lw = 4, c='b')
+			# self.disp.append(L_theta_min)
+			# self.disp.append(L_theta_max)
+			# #highlight corners
+			# corn = Points(corners, c = [0.5,0.9,0.5], r = 10)
+			# self.disp.append(corn)
+			# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 			#find grid centers that fall between thetamin and thetamax
 			grid_thetas = np.arctan2(self.grid[:,1], self.grid[:,0])
-			between = np.asarray(np.where(np.array([ grid_thetas < thetamax,
-										  grid_thetas > thetamin
+			grid_phis = np.arctan2(self.grid[:, 2], np.sqrt(self.grid[:,0]**2 + self.grid[:,1]**2))
+			# print(np.shape(grid_thetas))
+
+			d2o = np.sqrt(np.sum(voxctr**2)) #distance from oberver to center of o 
+			# print(d2o)
+			d2vc = np.sqrt(np.sum(self.grid[:]**2, axis = 1)) #distance to each voxel center
+			# print(d2vc)
+
+			blocked = np.asarray(np.where(np.array([ grid_thetas < thetamax, #must fall within frusturm of occlusion 
+										  			 grid_thetas > thetamin, #horizontal compoent
+										  			 grid_phis < phimax, #vertical component
+										  			 grid_phis > phimin, #vertical component
+													 d2vc > d2o#,		  #must be further away from the observer than the center of the occluding voxel
+													 # d2vc > 3, 	#must be some minimum distance away (to ignore artifacts from KITTI ego vehicle)
 											]).all(axis = 0) == True)).T
-			# print(between)
-			for b in between:
-				self.draw_cell(b, wire = False)
+			blocked = np.squeeze(blocked)
+			self.occluded[blocked] = 1
 
 	def occupancy_grid(self, draw = True):
 
 		""" constructs occupancy grid from input point cloud """
 		minxy = -50 #-100
 		maxxy = 50 #100
-		minz = -50#-2
-		maxz = 50#3#8
+		minz = -3
+		maxz = 7
 
 		self.cw = 100/self.fid #cell width
 
-		self.grid = np.mgrid[minxy:maxxy:(self.fid+1)*1j, minxy:maxxy:(self.fid+1)*1j, minz:maxz:(self.fid + 1)*1j]
+		self.grid = np.mgrid[minxy:maxxy:(self.fid+1)*1j, minxy:maxxy:(self.fid+1)*1j, minz:maxz:(self.fid//10 + 1)*1j]
 		self.grid = np.flip(np.reshape(self.grid, (3,-1), order = 'C').T, axis = 0)
+
+		#init arr for storing info on if a voxel is occluded
+		self.occluded = np.zeros(np.shape(self.grid)[0])
+
 		if draw:
 			g = Points(self.grid, c = [0.8, 0.5, 0.5], r = 4)
 			self.disp.append(g)
@@ -112,25 +144,25 @@ class scene():
 		#loop through all voxels
 		for j in range(self.numvox):
 
-			# if j%1000 == 0:
-			# 	print(j)
-
 			#test if there are points in lidar scan in voxel j
 			inside =  np.where(np.array([self.cloud[:,0] > self.grid[j,0] - self.cw/2,  # greater than minx 
 							  			self.cloud[:,0] < self.grid[j,0] + self.cw/2,  # less than maxx
 										self.cloud[:,1] > self.grid[j,1] - self.cw/2,
 										self.cloud[:,1] < self.grid[j,1] + self.cw/2,
 										self.cloud[:,2] > self.grid[j,2] - self.cw/2,
-										self.cloud[:,2] < self.grid[j,2] + self.cw/2,
+										self.cloud[:,2] < self.grid[j,2] + self.cw/2
 										]).all(axis = 0) == True)
 
+
 			if np.shape(inside)[1] >= self.mnp:
-				self.draw_cell(j)
-				has_pts[j] = 1
+				 #don't count stuff too close to ego-vehicle as occupied
+				if np.sqrt(np.sum(self.grid[j]**2)) > 7:
+					self.draw_cell(j, wire = True)
+					has_pts[j] = 1
 
 		self.occupied = np.asarray(np.where(has_pts == 1)).T
 
-	def draw_cell(self, cell, wire = True):
+	def draw_cell(self, cell, wire = False):
 		"""draw specified cell number"""
 	
 		#get defining boundary of cell
