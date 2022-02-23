@@ -7,22 +7,31 @@ class scene():
 	""" cubic voxel grid used for occlusion culling demo """
 
 
-	def __init__(self, cloud = None, fid = 20, cull = False):
+	def __init__(self, cloud = None, fid = 20, cull = False, coord = 0):
+		""" coord: 0 == cartesian, 1 == spherical"""
 
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.cloud = cloud
-		self.mnp = 50 #minimum number of points to count as occupied
-		self.numvox = (self.fid+1)*(self.fid + 1)*(self.fid//10 + 1) #number of voxels
+		self.mnp = 1 #minimum number of points to count as occupied
 		self.wire = True #draw cells as wireframe
-
+		self.coord = coord
 		self.plt = Plotter(N = 1, axes = 4, bg = (1, 1, 1), interactive = True)
 		self.disp = []
 
-		self.occupancy_grid(draw = False)
-		if cull == True:
-			self.cull()
-			for b in np.squeeze(np.asarray(np.where(self.occluded == 1))):
-				self.draw_cell(int(b), wire = False)
+		self.numvox = (self.fid+1)*(self.fid + 1)*(self.fid//10 + 1) #number of voxels
+
+		if self.coord == 0:
+			self.occupancy_grid_cart(draw = False)
+			if cull == True:
+				self.cull()
+				for b in np.squeeze(np.asarray(np.where(self.occluded == 1))):
+					self.draw_cell(int(b), wire = False)
+
+		if self.coord == 1:
+			self.occupancy_grid_spherical()
+			cnum = 12
+			print(self.grid[cnum])
+			self.draw_cell(cnum)
 
 		self.draw_cloud()
 		self.draw_car()
@@ -118,32 +127,25 @@ class scene():
 			blocked = np.squeeze(blocked)
 			self.occluded[blocked] = 1
 
-	def occupancy_grid(self, draw = True):
-
-		""" constructs occupancy grid from input point cloud """
+	def occupancy_grid_cart(self, draw = True):
+		""" constructs cartesian occupancy grid from input point cloud """
 		minxy = -50 #-100
 		maxxy = 50 #100
 		minz = -3
 		maxz = 7
 
 		self.cw = 100/self.fid #cell width
-
 		self.grid = np.mgrid[minxy:maxxy:(self.fid+1)*1j, minxy:maxxy:(self.fid+1)*1j, minz:maxz:(self.fid//10 + 1)*1j]
 		self.grid = np.flip(np.reshape(self.grid, (3,-1), order = 'C').T, axis = 0)
-
 		#init arr for storing info on if a voxel is occluded
 		self.occluded = np.zeros(np.shape(self.grid)[0])
 
 		if draw:
 			g = Points(self.grid, c = [0.8, 0.5, 0.5], r = 4)
 			self.disp.append(g)
-
-
 		has_pts = np.zeros(self.numvox)
 
-		#loop through all voxels
-		for j in range(self.numvox):
-
+		for j in range(self.numvox): #loop through all voxels
 			#test if there are points in lidar scan in voxel j
 			inside =  np.where(np.array([self.cloud[:,0] > self.grid[j,0] - self.cw/2,  # greater than minx 
 							  			self.cloud[:,0] < self.grid[j,0] + self.cw/2,  # less than maxx
@@ -153,7 +155,6 @@ class scene():
 										self.cloud[:,2] < self.grid[j,2] + self.cw/2
 										]).all(axis = 0) == True)
 
-
 			if np.shape(inside)[1] >= self.mnp:
 				 #don't count stuff too close to ego-vehicle as occupied
 				if np.sqrt(np.sum(self.grid[j]**2)) > 7:
@@ -162,24 +163,73 @@ class scene():
 
 		self.occupied = np.asarray(np.where(has_pts == 1)).T
 
+	def occupancy_grid_spherical(self, draw = True):
+		""" constructs occupancy grid in spherical coordinates """
+
+		fid_r = 3 #self.fid #num radial division
+		rmax = 50
+		fid_theta = 3 #number of subdivisions in horizontal directin
+		thetamin = np.pi/2 #-np.pi / 6
+		thetamax = np.pi/4 #np.pi / 6
+		fid_phi = 3 #self.fid #number of subdivision in vertical direction
+		phimin = np.pi / 4
+		phimax = np.pi/ 2
+
+		#establish grid array which describes the center point of each cell
+		self.grid = np.mgrid[0:rmax:(fid_r)*1j, thetamin:thetamax:(fid_theta)*1j, phimin:phimax:(fid_phi)*1j]
+		self.grid = np.reshape(self.grid, (3,-1), order = 'C').T
+
+		p = Points(self.s2c(self.grid), c = [0.3,0.8,0.3], r = 5)
+		self.disp.append(p)
+
+
+	def s2c(self, arr):
+		"""convert spherical coordiances to cartesian"""
+
+		if len(np.shape(arr)) == 1:
+			r = arr[0]
+			theta = arr[1]
+			phi = arr[2]
+		else:
+			r = arr[:,0]
+			theta = arr[:,1]
+			phi = arr[:,2]
+
+		x = r*np.sin(phi)*np.cos(theta)
+		y = r*np.sin(phi)*np.sin(theta)
+		z = r*np.cos(phi)
+
+		return(np.array([x, y, z]))
+
 	def draw_cell(self, cell, wire = False):
 		"""draw specified cell number"""
-	
-		#get defining boundary of cell
+		
+		if self.coord == 0:
+			#for convex hull--------
+			# pts = self.grid[np.array([0, 10, 151, 23, 55])]
+			# h = shapes.ConvexHull(pts).c("red").alpha(1)
+			# self.disp.append(h)
+			#-----------------------
 
-		#for convex hull--------
-		# pts = self.grid[np.array([0, 10, 151, 23, 55])]
-		# h = shapes.ConvexHull(pts).c("red").alpha(1)
-		# self.disp.append(h)
-		#-----------------------
+			#for simple cube--------
+			# s = [xmin,xmax, ymin,ymax, zmin,zmax]
+			s = [self.grid[cell,0] - self.cw/2, self.grid[cell,0] + self.cw/2, 
+				 self.grid[cell,1] - self.cw/2, self.grid[cell,1] + self.cw/2,
+				 self.grid[cell,2] - self.cw/2, self.grid[cell,2] + self.cw/2 ]
+			b = shapes.Box(size = s, c = [0.2,0.2,0.5]).wireframe(wire)
+			self.disp.append(b)
 
-		#for simple cube--------
-		# s = [xmin,xmax, ymin,ymax, zmin,zmax]
-		s = [self.grid[cell,0] - self.cw/2, self.grid[cell,0] + self.cw/2, 
-			 self.grid[cell,1] - self.cw/2, self.grid[cell,1] + self.cw/2,
-			 self.grid[cell,2] - self.cw/2, self.grid[cell,2] + self.cw/2 ]
-		b = shapes.Box(size = s, c = [0.2,0.2,0.5]).wireframe(wire)
-		self.disp.append(b)
+		#for spherical coordinates
+		if self.coord == 1:
+
+			#draw arc on side closet to ego-vehicle
+			p1 = self.s2c(self.grid[cell])
+			p2 = self.s2c(self.grid[cell+3])
+
+			print("p1", p1, "\n p2", p2)
+
+			a = shapes.Arc(center = [0,0,0], point1 = p1, point2 = p2, c = 'red')			
+			self.disp.append(a)
 
 
 	def draw_cloud(self):

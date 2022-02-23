@@ -17,6 +17,6 @@ cloud = cloud[cloud[:,2] > -1.5] #ignore ground plane
 ## ------------------------------------------------------------------------------------
 
 
-S = scene(cloud = cloud, fid = 80, cull = True)
+S = scene(cloud = cloud, fid = 40, cull = False)
 
 ViewInteractiveWidget(S.plt.window)
