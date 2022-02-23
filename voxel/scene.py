@@ -15,7 +15,7 @@ class scene():
 		self.mnp = 1 #minimum number of points to count as occupied
 		self.wire = True #draw cells as wireframe
 		self.coord = coord
-		self.plt = Plotter(N = 1, axes = 4, bg = (1, 1, 1), interactive = True)
+		self.plt = Plotter(N = 1, axes = 1, bg = (1, 1, 1), interactive = True) #axis = 4
 		self.disp = []
 
 		self.numvox = (self.fid+1)*(self.fid + 1)*(self.fid//10 + 1) #number of voxels
@@ -29,9 +29,10 @@ class scene():
 
 		if self.coord == 1:
 			self.occupancy_grid_spherical()
-			cnum = 12
-			print(self.grid[cnum])
-			self.draw_cell(cnum)
+			# cnum = 73
+			# self.draw_cell(cnum)
+			for i in range(25):
+				self.draw_cell(3*i)
 
 		self.draw_cloud()
 		self.draw_car()
@@ -166,17 +167,17 @@ class scene():
 	def occupancy_grid_spherical(self, draw = True):
 		""" constructs occupancy grid in spherical coordinates """
 
-		fid_r = 3 #self.fid #num radial division
+		self.fid_r = 5 #self.fid #num radial division
 		rmax = 50
-		fid_theta = 3 #number of subdivisions in horizontal directin
-		thetamin = np.pi/2 #-np.pi / 6
-		thetamax = np.pi/4 #np.pi / 6
-		fid_phi = 3 #self.fid #number of subdivision in vertical direction
+		self.fid_theta = 15 #number of subdivisions in horizontal directin
+		thetamin = -np.pi + 2*np.pi/self.fid_theta #np.pi/2 # / 6
+		thetamax = np.pi#/
+		self.fid_phi = 8 #self.fid #number of subdivision in vertical direction
 		phimin = np.pi / 4
 		phimax = np.pi/ 2
 
 		#establish grid array which describes the center point of each cell
-		self.grid = np.mgrid[0:rmax:(fid_r)*1j, thetamin:thetamax:(fid_theta)*1j, phimin:phimax:(fid_phi)*1j]
+		self.grid = np.mgrid[0:rmax:(self.fid_r)*1j, thetamin:thetamax:(self.fid_theta)*1j, phimin:phimax:(self.fid_phi)*1j]
 		self.grid = np.reshape(self.grid, (3,-1), order = 'C').T
 
 		p = Points(self.s2c(self.grid), c = [0.3,0.8,0.3], r = 5)
@@ -203,7 +204,7 @@ class scene():
 
 	def draw_cell(self, cell, wire = False):
 		"""draw specified cell number"""
-		
+
 		if self.coord == 0:
 			#for convex hull--------
 			# pts = self.grid[np.array([0, 10, 151, 23, 55])]
@@ -222,14 +223,42 @@ class scene():
 		#for spherical coordinates
 		if self.coord == 1:
 
+			cell = cell + (cell//(self.fid_phi))*self.fid_phi
+
 			#draw arc on side closet to ego-vehicle
 			p1 = self.s2c(self.grid[cell])
-			p2 = self.s2c(self.grid[cell+3])
+			p2 = self.s2c(self.grid[cell+self.fid_phi])
+			p3 = self.s2c(self.grid[cell + (self.fid_theta*self.fid_phi)])
+			p4 = self.s2c(self.grid[cell + self.fid_phi + (self.fid_theta*self.fid_phi)])
+			p5 = self.s2c(self.grid[cell +1])
+			p6 = self.s2c(self.grid[cell+self.fid_phi +1])
+			p7 = self.s2c(self.grid[cell + (self.fid_theta*self.fid_phi) +1])
+			p8 = self.s2c(self.grid[cell + self.fid_phi + (self.fid_theta*self.fid_phi) +1])
 
-			print("p1", p1, "\n p2", p2)
+			arc1 = shapes.Arc(center = [0,0,0], point1 = p1, point2 = p2, c = 'red')			
+			self.disp.append(arc1)
+			arc2 = shapes.Arc(center = [0,0,0], point1 = p3, point2 = p4, c = 'red')
+			self.disp.append(arc2)
+			line1 = shapes.Line(p1, p3, c = 'red', lw = 3)
+			self.disp.append(line1)
+			line2 = shapes.Line(p2, p4, c = 'red', lw = 3)
+			self.disp.append(line2)
 
-			a = shapes.Arc(center = [0,0,0], point1 = p1, point2 = p2, c = 'red')			
-			self.disp.append(a)
+			arc3 = shapes.Arc(center = [0,0,0], point1 = p5, point2 = p6, c = 'red')			
+			self.disp.append(arc3)
+			arc4 = shapes.Arc(center = [0,0,0], point1 = p7, point2 = p8, c = 'red')
+			self.disp.append(arc4)
+			line3 = shapes.Line(p5, p7, c = 'red', lw = 3)
+			self.disp.append(line3)
+			line4 = shapes.Line(p6, p8, c = 'red', lw = 3)
+			self.disp.append(line4)
+
+			self.disp.append(Points(np.array([p1]), c = "blue", r = 8))
+			print(p1)
+			self.disp.append(shapes.Line(p1,p5,c = 'red', lw = 3))
+			self.disp.append(shapes.Line(p2,p6,c = 'red', lw = 3))
+			self.disp.append(shapes.Line(p3,p7,c = 'red', lw = 3))
+			self.disp.append(shapes.Line(p4,p8,c = 'red', lw = 3))
 
 
 	def draw_cloud(self):
