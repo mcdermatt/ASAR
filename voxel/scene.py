@@ -28,11 +28,15 @@ class scene():
 					self.draw_cell(int(b), wire = False)
 
 		if self.coord == 1:
-			self.occupancy_grid_spherical()
-			# cnum = 73
-			# self.draw_cell(cnum)
-			for i in range(25):
-				self.draw_cell(3*i)
+			self.occupancy_grid_spherical(draw = False)
+			cnum = self.fid_theta*(self.fid_phi-1)*5 - 1 #probelmatic cell
+			print("cnum", cnum)
+			self.draw_cell(cnum, draw_corners = True)
+			self.draw_cell(cnum + self.fid_phi - 1)
+			self.draw_cell(cnum - (self.fid_phi -1))
+			# self.draw_cell(200)
+			for _ in range(50):
+				self.draw_cell(int(800*np.random.rand() + 200))
 
 		self.draw_cloud()
 		self.draw_car()
@@ -165,24 +169,53 @@ class scene():
 		self.occupied = np.asarray(np.where(has_pts == 1)).T
 
 	def occupancy_grid_spherical(self, draw = True):
-		""" constructs occupancy grid in spherical coordinates """
+		""" constructs grid in spherical coordinates """
 
-		self.fid_r = 5 #self.fid #num radial division
+		self.fid_r = 40 #self.fid #num radial division
+		self.fid_theta = 20 #number of subdivisions in horizontal directin
+		self.fid_phi = 4 #self.fid #number of subdivision in vertical direction
+
 		rmax = 50
-		self.fid_theta = 15 #number of subdivisions in horizontal directin
 		thetamin = -np.pi + 2*np.pi/self.fid_theta #np.pi/2 # / 6
 		thetamax = np.pi#/
-		self.fid_phi = 8 #self.fid #number of subdivision in vertical direction
 		phimin = np.pi / 4
 		phimax = np.pi/ 2
 
-		#establish grid array which describes the center point of each cell
+		#establish grid array which describes the ego front right point of each cell
 		self.grid = np.mgrid[0:rmax:(self.fid_r)*1j, thetamin:thetamax:(self.fid_theta)*1j, phimin:phimax:(self.fid_phi)*1j]
 		self.grid = np.reshape(self.grid, (3,-1), order = 'C').T
+		# print(self.grid)
 
-		p = Points(self.s2c(self.grid), c = [0.3,0.8,0.3], r = 5)
-		self.disp.append(p)
+		if draw == True:
+			p = Points(self.s2c(self.grid), c = [0.3,0.8,0.3], r = 5)
+			self.disp.append(p)
 
+	def get_corners_spherical(self, cell):
+
+		n = cell + cell//(self.fid_phi - 1) #close but not perfect ??
+		# n = cell + cell//(self.fid_phi) #test
+		print("n", n)
+
+		t = self.fid_theta*(self.fid_phi-1)
+		# t = self.fid_theta*self.fid_phi
+		print(t)
+
+		# p1 = self.s2c(self.grid[n + (t*((t - (n%t))//t ) )]) #was this
+		p1 = self.s2c(self.grid[n + t*((t - (n%t))//t) ]) #DEBUG HERE
+		p2 = self.s2c(self.grid[n+self.fid_phi])
+		p3 = self.s2c(self.grid[n + self.fid_theta*self.fid_phi])
+		p4 = self.s2c(self.grid[n + self.fid_phi + (self.fid_theta*self.fid_phi)]) 
+
+
+
+		p5 = self.s2c(self.grid[n +1])
+		p6 = self.s2c(self.grid[n+self.fid_phi +1])
+		p7 = self.s2c(self.grid[n + (self.fid_theta*self.fid_phi) +1])
+		p8 = self.s2c(self.grid[n + self.fid_phi + (self.fid_theta*self.fid_phi) +1])
+
+		corners = np.array([p1, p2, p3, p4, p5, p6, p7, p8])
+
+		return(corners)
 
 	def s2c(self, arr):
 		"""convert spherical coordiances to cartesian"""
@@ -202,7 +235,7 @@ class scene():
 
 		return(np.array([x, y, z]))
 
-	def draw_cell(self, cell, wire = False):
+	def draw_cell(self, cell, wire = False, draw_corners = False):
 		"""draw specified cell number"""
 
 		if self.coord == 0:
@@ -223,42 +256,45 @@ class scene():
 		#for spherical coordinates
 		if self.coord == 1:
 
-			cell = cell + (cell//(self.fid_phi))*self.fid_phi
+			p1, p2, p3, p4, p5, p6, p7, p8 = self.get_corners_spherical(cell)
 
-			#draw arc on side closet to ego-vehicle
-			p1 = self.s2c(self.grid[cell])
-			p2 = self.s2c(self.grid[cell+self.fid_phi])
-			p3 = self.s2c(self.grid[cell + (self.fid_theta*self.fid_phi)])
-			p4 = self.s2c(self.grid[cell + self.fid_phi + (self.fid_theta*self.fid_phi)])
-			p5 = self.s2c(self.grid[cell +1])
-			p6 = self.s2c(self.grid[cell+self.fid_phi +1])
-			p7 = self.s2c(self.grid[cell + (self.fid_theta*self.fid_phi) +1])
-			p8 = self.s2c(self.grid[cell + self.fid_phi + (self.fid_theta*self.fid_phi) +1])
+
+			if draw_corners:
+				#for debug --------
+				self.disp.append(Points(np.array([p1]), c = 'red', r = 10))
+				self.disp.append(Points(np.array([p2]), c = 'green', r = 10))
+				self.disp.append(Points(np.array([p3]), c = 'blue', r = 10))
+				self.disp.append(Points(np.array([p4]), c = 'black', r = 10))
+				#------------------
+
+			# print(self.get_corners_spherical(cell))
 
 			arc1 = shapes.Arc(center = [0,0,0], point1 = p1, point2 = p2, c = 'red')			
 			self.disp.append(arc1)
 			arc2 = shapes.Arc(center = [0,0,0], point1 = p3, point2 = p4, c = 'red')
 			self.disp.append(arc2)
-			line1 = shapes.Line(p1, p3, c = 'red', lw = 3)
+			line1 = shapes.Line(p1, p3, c = 'red', lw = 1)
 			self.disp.append(line1)
-			line2 = shapes.Line(p2, p4, c = 'red', lw = 3)
+			line2 = shapes.Line(p2, p4, c = 'red', lw = 1) #problem here
 			self.disp.append(line2)
 
-			arc3 = shapes.Arc(center = [0,0,0], point1 = p5, point2 = p6, c = 'red')			
-			self.disp.append(arc3)
-			arc4 = shapes.Arc(center = [0,0,0], point1 = p7, point2 = p8, c = 'red')
-			self.disp.append(arc4)
-			line3 = shapes.Line(p5, p7, c = 'red', lw = 3)
-			self.disp.append(line3)
-			line4 = shapes.Line(p6, p8, c = 'red', lw = 3)
-			self.disp.append(line4)
+			# print(arc1)
+			# print(line1)
 
-			self.disp.append(Points(np.array([p1]), c = "blue", r = 8))
-			print(p1)
-			self.disp.append(shapes.Line(p1,p5,c = 'red', lw = 3))
-			self.disp.append(shapes.Line(p2,p6,c = 'red', lw = 3))
-			self.disp.append(shapes.Line(p3,p7,c = 'red', lw = 3))
-			self.disp.append(shapes.Line(p4,p8,c = 'red', lw = 3))
+			# arc3 = shapes.Arc(center = [0,0,0], point1 = p5, point2 = p6, c = 'red')			
+			# self.disp.append(arc3)
+			# arc4 = shapes.Arc(center = [0,0,0], point1 = p7, point2 = p8, c = 'red')
+			# self.disp.append(arc4)
+			# line3 = shapes.Line(p5, p7, c = 'red', lw = 1)
+			# self.disp.append(line3)
+			# line4 = shapes.Line(p6, p8, c = 'red', lw = 1)
+			# self.disp.append(line4)
+
+			# # self.disp.append(Points(np.array([p1]), c = "blue", r = 8))
+			# self.disp.append(shapes.Line(p1,p5,c = 'red', lw = 1))
+			# self.disp.append(shapes.Line(p2,p6,c = 'red', lw = 1))
+			# self.disp.append(shapes.Line(p3,p7,c = 'red', lw = 1))
+			# self.disp.append(shapes.Line(p4,p8,c = 'red', lw = 1))
 
 
 	def draw_cloud(self):
