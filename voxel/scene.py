@@ -34,12 +34,11 @@ class scene():
 			# self.draw_cell(self.fid_theta*(self.fid_phi-1)*5 - 2, draw_corners = True)
 			# self.draw_cell(self.fid_theta*(self.fid_phi-1)*5 - 3, draw_corners = True)
 			# self.draw_cell(self.fid_theta*(self.fid_phi-1)*2 - 1, draw_corners = True)
-
 			# self.draw_cell(cnum + self.fid_phi - 1)
 			# self.draw_cell(cnum - (self.fid_phi -1))
-			self.draw_cell(200)
+			# self.draw_cell(200)
 			for _ in range(20):
-				self.draw_cell(int(800*np.random.rand() + 200))
+				self.draw_cell(int(1000*np.random.rand()) + self.fid**2)
 
 		self.draw_cloud()
 		self.draw_car()
@@ -62,8 +61,6 @@ class scene():
 			corners[0:-1:2,1] += self.cw
 			corners[:4,2] += self.cw/2
 			corners[4:,2] -= self.cw/2
-			# print(corners)
-			# print(voxctr)
 
 			#get angle to center of cell
 			#rotation about vertical axis
@@ -174,20 +171,30 @@ class scene():
 	def occupancy_grid_spherical(self, draw = True):
 		""" constructs grid in spherical coordinates """
 
-		self.fid_r = 40 #self.fid #num radial division
-		self.fid_theta = 20 #number of subdivisions in horizontal directin
-		self.fid_phi = 4 #self.fid #number of subdivision in vertical direction
+		self.fid_r = self.fid #40 #self.fid #num radial division
+		self.fid_theta = self.fid #20 #number of subdivisions in horizontal directin
+		self.fid_phi = self.fid//6 #4 #number of subdivision in vertical direction
 
 		rmax = 50
 		thetamin = -np.pi + 2*np.pi/self.fid_theta #np.pi/2 # / 6
 		thetamax = np.pi#/
 		phimin = np.pi / 4
-		phimax = np.pi/ 2
+		phimax = np.pi/2 #9*np.pi/16
 
 		#establish grid array which describes the ego front right point of each cell
+		#using constant raidus incraments (old) ----------------------
 		self.grid = np.mgrid[0:rmax:(self.fid_r)*1j, thetamin:thetamax:(self.fid_theta)*1j, phimin:phimax:(self.fid_phi)*1j]
 		self.grid = np.reshape(self.grid, (3,-1), order = 'C').T
-		# print(self.grid)
+		#-------------------------------------------------------------
+
+		#using increasing radius steps to keep voxels roughly cubic (new) -----
+		# self.grid = np.mgrid[0:self.fid_r, thetamin:thetamax:(self.fid_theta)*1j, phimin:phimax:(self.fid_phi)*1j]
+		# self.grid = np.reshape(self.grid, (3,-1), order = 'C').T
+		# self.grid[:,0] = 1/np.pi*self.grid[:,0]**2
+		#-----------------------------------------------------------------------
+
+
+		print(self.grid)
 
 		if draw == True:
 			p = Points(self.s2c(self.grid), c = [0.3,0.8,0.3], r = 5)
@@ -199,25 +206,14 @@ class scene():
 		# n = cell + cell//(self.fid_phi) #test
 
 		#need to account for end of ring where cells wrap around
-		print("--------- \ncell", cell)
-		print("n", n)
-		# t = self.fid_theta*(self.fid_phi - 1)#was this -> only works for bottom layer
-		per_shell = self.fid_theta*(self.fid_phi - 1)#test
-		# fix =  (self.fid_phi*self.fid_theta)*((per_shell - ( (cell+1)%per_shell) )//per_shell) #was this 
 
+		per_shell = self.fid_theta*(self.fid_phi - 1)
+		fix =  (self.fid_phi*self.fid_theta)*((((cell)%per_shell) + (self.fid_phi-1) )//per_shell)
 
-		# fix =  (self.fid_phi*self.fid_theta)*((((cell)%self.fid_theta) + self.fid_phi )//self.fid_theta) #test
-		fix =  (self.fid_phi*self.fid_theta)*((((cell)%per_shell) + (self.fid_phi-1) )//per_shell) #test
-
-
-		print("fix", fix)
 		p1 = self.s2c(self.grid[n + fix])
 		p2 = self.s2c(self.grid[n+self.fid_phi])
 		p3 = self.s2c(self.grid[n + self.fid_theta*self.fid_phi + fix])
 		p4 = self.s2c(self.grid[n + self.fid_phi + (self.fid_theta*self.fid_phi)]) 
-
-
-
 		p5 = self.s2c(self.grid[n + 1 + fix])
 		p6 = self.s2c(self.grid[n+self.fid_phi +1])
 		p7 = self.s2c(self.grid[n + (self.fid_theta*self.fid_phi) + 1 + fix])
