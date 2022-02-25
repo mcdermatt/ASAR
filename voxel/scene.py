@@ -12,10 +12,10 @@ class scene():
 
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.cloud = cloud
-		self.mnp = 1 #minimum number of points to count as occupied
+		self.mnp = 50 #minimum number of points to count as occupied
 		self.wire = True #draw cells as wireframe
 		self.coord = coord
-		self.plt = Plotter(N = 1, axes = 1, bg = (1, 1, 1), interactive = True) #axis = 4
+		self.plt = Plotter(N = 1, axes = 4, bg = (1, 1, 1), interactive = True) #axis = 4
 		self.disp = []
 
 		self.numvox = (self.fid+1)*(self.fid + 1)*(self.fid//10 + 1) #number of voxels
@@ -28,27 +28,23 @@ class scene():
 					self.draw_cell(int(b), wire = False)
 
 		if self.coord == 1:
-			self.occupancy_grid_spherical(draw = False)
+			self.grid_spherical(draw = False)
+
+			self.get_occupied_spherical()
 	
-			# self.draw_cell(self.fid_theta*(self.fid_phi-1)*5 - 1, draw_corners = True)
-			# self.draw_cell(self.fid_theta*(self.fid_phi-1)*5 - 2, draw_corners = True)
-			# self.draw_cell(self.fid_theta*(self.fid_phi-1)*5 - 3, draw_corners = True)
-			# self.draw_cell(self.fid_theta*(self.fid_phi-1)*2 - 1, draw_corners = True)
-			# self.draw_cell(cnum + self.fid_phi - 1)
-			# self.draw_cell(cnum - (self.fid_phi -1))
-			# self.draw_cell(200)
 			# for _ in range(20):
-			# 	self.draw_cell(int(300*np.random.rand()))
-			for i in range(100):
-				self.draw_cell(i*10)
+			# 	testpt = int(3000*np.random.rand())
+			# 	self.draw_cell(testpt)
+			# 	# self.find_pts_in_cell(testpt)
+
 
 		self.draw_cloud()
 		self.draw_car()
-		self.plt.show(self.disp, "3D Occlusion Culling Test")
+		self.plt.show(self.disp, "Spherical Grid Test")
 
 
 	def cull(self):
-		""" culls all voxels occluded from POV of observer """
+		""" culls all voxels occluded from POV of observer (for use with cartesian voxels) """
 		
 		#loop through each occupied voxel
 		for o in self.occupied:
@@ -170,10 +166,10 @@ class scene():
 
 		self.occupied = np.asarray(np.where(has_pts == 1)).T
 
-	def occupancy_grid_spherical(self, draw = True):
+	def grid_spherical(self, draw = True):
 		""" constructs grid in spherical coordinates """
 
-		self.fid_r = 15 #self.fid  #num radial division
+		self.fid_r = 20 #self.fid  #num radial division
 		self.fid_theta = self.fid  #number of subdivisions in horizontal directin
 		self.fid_phi = self.fid_theta//6 #number of subdivision in vertical direction + 1
 
@@ -198,17 +194,70 @@ class scene():
 		nshell = self.fid_theta*(self.fid_phi) #number of grid cells per shell
 		r_last = 3 #radis of line from observer to previous shell
 		for i in range(1,self.fid_r):
-			r_new = r_last + (1/self.fid_theta)*r_last/(np.arctan( np.pi/self.fid_theta))
+			r_new = r_last + (1/self.fid_theta)*r_last/(np.arctan( np.pi/self.fid_theta)) #works(ish) for fid =30...
+			# r_new = r_last + (1/120)*r_last/(np.arctan( np.pi/self.fid_theta)) #works for fid = 50
 			self.grid[(i*nshell):((i+1)*nshell+1),0] = r_new
 			r_last = r_new
 			# print(r_last)
 		#-----------------------------------------------------------------------
 
-		print(self.grid)
-
 		if draw == True:
 			p = Points(self.s2c(self.grid), c = [0.3,0.8,0.3], r = 5)
 			self.disp.append(p)
+
+
+	def get_occupied_spherical(self):
+		"""sweeps through scan to find occupied spherical grid cells"""
+
+		#for each radial excursion in central surface sphere, check each cell until we find an occupied one
+		for j in range(self.fid_theta*(self.fid_phi-1)):
+			for i in range(self.fid_r - 2):
+				testpt = i*self.fid_theta*(self.fid_phi-1) + j
+				inside = self.find_pts_in_cell(testpt)
+
+				if np.shape(inside)[1] >= self.mnp:
+					self.draw_cell(testpt)
+					break
+
+		occupied = None #temp
+		return(occupied)
+
+	def find_pts_in_cell(self,cell):
+		"""get idx of points from cloud in spherical cell"""
+
+		corn = self.get_corners_spherical(cell)
+
+		#convert point cloud to spherical coordinates
+		self.cloud_spherical = self.c2s(self.cloud)
+		# print(self.cloud_spherical)
+
+		#get subset of points in radial band between maxr and minr (from corn)
+		rmin = self.c2s(corn)[0,0]
+		rmax = self.c2s(corn)[2,0]
+		thetamin = self.c2s(corn)[0,1]
+		thetamax = self.c2s(corn)[3,1]
+		phimin = self.c2s(corn)[0,2]
+		phimax = self.c2s(corn)[4,2]
+
+		#need to fix edge case where thetamax < thetamin
+		if thetamax == -np.pi:
+			thetamax = np.pi
+
+		# inside = np.where(self.cloud_spherical[:,0] < rmax )
+		inside = np.where(np.array([self.cloud_spherical[:,0] < rmax,
+									self.cloud_spherical[:,0] > rmin,
+									self.cloud_spherical[:,1] < thetamax,
+									self.cloud_spherical[:,1] > thetamin,
+									self.cloud_spherical[:,2] < phimax,
+									self.cloud_spherical[:,2] > phimin
+									]).all(axis = 0) == True)
+
+		# print(inside)
+
+		#temp -> draw these points
+		self.disp.append(Points(self.cloud[inside], c = [0.4,0.8,0.3], r = 10))
+
+		return(inside)
 
 	def get_corners_spherical(self, cell):
 
@@ -250,6 +299,19 @@ class scene():
 		z = r*np.cos(phi)
 
 		return(np.array([x, y, z]))
+
+	def c2s(self,arr):
+		""" convert cartesian coordinates to spherical """
+
+		x = arr[:,0]
+		y = arr[:,1]
+		z = arr[:,2]
+
+		r = np.sqrt(x**2 + y**2 + z**2)
+		phi = np.arccos(z/r)
+		theta = np.arctan2(y,x)
+
+		return(np.array([r, theta, phi]).T)
 
 	def draw_cell(self, cell, wire = False, draw_corners = False):
 		"""draw specified cell number"""
@@ -322,8 +384,11 @@ class scene():
 	def draw_car(self):
 		# (used for making presentation graphics)
 		fname = "C:/Users/Derm/honda.vtk"
-		car = Mesh(fname).c("gray").addShadow(z=-1.85)
-		car.pos(1.,-1,-1.72) 
+		car = Mesh(fname).c("gray").rotate(90, axis = (0,0,1)).addShadow(z=-1.85)
+		car.pos(1.4,1,-1.72)
+		# car.orientation(vector(0,np.pi/2,0)) 
 		self.disp.append(car)
 		#draw red sphere at location of sensor
 		self.disp.append(Points(np.array([[0,0,0]]), c = [0.9,0.5,0.5], r = 10))
+
+		# print(car.rot)
