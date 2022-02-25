@@ -12,7 +12,7 @@ class scene():
 
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.cloud = cloud
-		self.mnp = 50 #minimum number of points to count as occupied
+		self.mnp = 10 #minimum number of points to count as occupied
 		self.wire = True #draw cells as wireframe
 		self.coord = coord
 		self.plt = Plotter(N = 1, axes = 4, bg = (1, 1, 1), interactive = True) #axis = 4
@@ -169,7 +169,7 @@ class scene():
 	def grid_spherical(self, draw = True):
 		""" constructs grid in spherical coordinates """
 
-		self.fid_r = 20 #self.fid  #num radial division
+		self.fid_r = 40 #self.fid  #num radial division
 		self.fid_theta = self.fid  #number of subdivisions in horizontal directin
 		self.fid_phi = self.fid_theta//6 #number of subdivision in vertical direction + 1
 
@@ -194,8 +194,9 @@ class scene():
 		nshell = self.fid_theta*(self.fid_phi) #number of grid cells per shell
 		r_last = 3 #radis of line from observer to previous shell
 		for i in range(1,self.fid_r):
-			r_new = r_last + (1/self.fid_theta)*r_last/(np.arctan( np.pi/self.fid_theta)) #works(ish) for fid =30...
+			# r_new = r_last + (1/self.fid_theta)*r_last/(np.arctan( np.pi/self.fid_theta)) #works(ish) for fid =30...
 			# r_new = r_last + (1/120)*r_last/(np.arctan( np.pi/self.fid_theta)) #works for fid = 50
+			r_new = r_last + (1/200)*r_last/(np.arctan( np.pi/self.fid_theta)) #test for fid = 70
 			self.grid[(i*nshell):((i+1)*nshell+1),0] = r_new
 			r_last = r_new
 			# print(r_last)
@@ -217,6 +218,7 @@ class scene():
 
 				if np.shape(inside)[1] >= self.mnp:
 					self.draw_cell(testpt)
+					self.disp.append(Points(self.cloud[inside], c = [0.4,0.8,0.3], r = 5))
 					break
 
 		occupied = None #temp
@@ -255,7 +257,7 @@ class scene():
 		# print(inside)
 
 		#temp -> draw these points
-		self.disp.append(Points(self.cloud[inside], c = [0.4,0.8,0.3], r = 10))
+		# self.disp.append(Points(self.cloud[inside], c = [0.4,0.8,0.3], r = 10))
 
 		return(inside)
 
