@@ -29,13 +29,16 @@ class scene():
 
 		if self.coord == 1:
 			self.occupancy_grid_spherical(draw = False)
-			cnum = self.fid_theta*(self.fid_phi-1)*5 - 1 #probelmatic cell
-			print("cnum", cnum)
-			self.draw_cell(cnum, draw_corners = True)
-			self.draw_cell(cnum + self.fid_phi - 1)
-			self.draw_cell(cnum - (self.fid_phi -1))
-			# self.draw_cell(200)
-			for _ in range(50):
+	
+			# self.draw_cell(self.fid_theta*(self.fid_phi-1)*5 - 1, draw_corners = True)
+			# self.draw_cell(self.fid_theta*(self.fid_phi-1)*5 - 2, draw_corners = True)
+			# self.draw_cell(self.fid_theta*(self.fid_phi-1)*5 - 3, draw_corners = True)
+			# self.draw_cell(self.fid_theta*(self.fid_phi-1)*2 - 1, draw_corners = True)
+
+			# self.draw_cell(cnum + self.fid_phi - 1)
+			# self.draw_cell(cnum - (self.fid_phi -1))
+			self.draw_cell(200)
+			for _ in range(20):
 				self.draw_cell(int(800*np.random.rand() + 200))
 
 		self.draw_cloud()
@@ -192,25 +195,32 @@ class scene():
 
 	def get_corners_spherical(self, cell):
 
-		n = cell + cell//(self.fid_phi - 1) #close but not perfect ??
+		n = cell + cell//(self.fid_phi - 1) #was this
 		# n = cell + cell//(self.fid_phi) #test
+
+		#need to account for end of ring where cells wrap around
+		print("--------- \ncell", cell)
 		print("n", n)
+		# t = self.fid_theta*(self.fid_phi - 1)#was this -> only works for bottom layer
+		per_shell = self.fid_theta*(self.fid_phi - 1)#test
+		# fix =  (self.fid_phi*self.fid_theta)*((per_shell - ( (cell+1)%per_shell) )//per_shell) #was this 
 
-		t = self.fid_theta*(self.fid_phi-1)
-		# t = self.fid_theta*self.fid_phi
-		print(t)
 
-		# p1 = self.s2c(self.grid[n + (t*((t - (n%t))//t ) )]) #was this
-		p1 = self.s2c(self.grid[n + t*((t - (n%t))//t) ]) #DEBUG HERE
+		# fix =  (self.fid_phi*self.fid_theta)*((((cell)%self.fid_theta) + self.fid_phi )//self.fid_theta) #test
+		fix =  (self.fid_phi*self.fid_theta)*((((cell)%per_shell) + (self.fid_phi-1) )//per_shell) #test
+
+
+		print("fix", fix)
+		p1 = self.s2c(self.grid[n + fix])
 		p2 = self.s2c(self.grid[n+self.fid_phi])
-		p3 = self.s2c(self.grid[n + self.fid_theta*self.fid_phi])
+		p3 = self.s2c(self.grid[n + self.fid_theta*self.fid_phi + fix])
 		p4 = self.s2c(self.grid[n + self.fid_phi + (self.fid_theta*self.fid_phi)]) 
 
 
 
-		p5 = self.s2c(self.grid[n +1])
+		p5 = self.s2c(self.grid[n + 1 + fix])
 		p6 = self.s2c(self.grid[n+self.fid_phi +1])
-		p7 = self.s2c(self.grid[n + (self.fid_theta*self.fid_phi) +1])
+		p7 = self.s2c(self.grid[n + (self.fid_theta*self.fid_phi) + 1 + fix])
 		p8 = self.s2c(self.grid[n + self.fid_phi + (self.fid_theta*self.fid_phi) +1])
 
 		corners = np.array([p1, p2, p3, p4, p5, p6, p7, p8])
@@ -269,9 +279,11 @@ class scene():
 
 			# print(self.get_corners_spherical(cell))
 
-			arc1 = shapes.Arc(center = [0,0,0], point1 = p1, point2 = p2, c = 'red')			
+			arc1 = shapes.Arc(center = [0,0,0], point1 = p1, point2 = p2, c = 'red')	
+			# arc1 = shapes.Line(p1, p2, c = 'red', lw = 1) #debug		
 			self.disp.append(arc1)
 			arc2 = shapes.Arc(center = [0,0,0], point1 = p3, point2 = p4, c = 'red')
+			# arc2 = shapes.Line(p3, p4, c = 'red', lw = 1) #debug
 			self.disp.append(arc2)
 			line1 = shapes.Line(p1, p3, c = 'red', lw = 1)
 			self.disp.append(line1)
@@ -281,20 +293,20 @@ class scene():
 			# print(arc1)
 			# print(line1)
 
-			# arc3 = shapes.Arc(center = [0,0,0], point1 = p5, point2 = p6, c = 'red')			
-			# self.disp.append(arc3)
-			# arc4 = shapes.Arc(center = [0,0,0], point1 = p7, point2 = p8, c = 'red')
-			# self.disp.append(arc4)
-			# line3 = shapes.Line(p5, p7, c = 'red', lw = 1)
-			# self.disp.append(line3)
-			# line4 = shapes.Line(p6, p8, c = 'red', lw = 1)
-			# self.disp.append(line4)
+			arc3 = shapes.Arc(center = [0,0,0], point1 = p5, point2 = p6, c = 'red')			
+			self.disp.append(arc3)
+			arc4 = shapes.Arc(center = [0,0,0], point1 = p7, point2 = p8, c = 'red')
+			self.disp.append(arc4)
+			line3 = shapes.Line(p5, p7, c = 'red', lw = 1)
+			self.disp.append(line3)
+			line4 = shapes.Line(p6, p8, c = 'red', lw = 1)
+			self.disp.append(line4)
 
-			# # self.disp.append(Points(np.array([p1]), c = "blue", r = 8))
-			# self.disp.append(shapes.Line(p1,p5,c = 'red', lw = 1))
-			# self.disp.append(shapes.Line(p2,p6,c = 'red', lw = 1))
-			# self.disp.append(shapes.Line(p3,p7,c = 'red', lw = 1))
-			# self.disp.append(shapes.Line(p4,p8,c = 'red', lw = 1))
+			# self.disp.append(Points(np.array([p1]), c = "blue", r = 8))
+			self.disp.append(shapes.Line(p1,p5,c = 'red', lw = 1))
+			self.disp.append(shapes.Line(p2,p6,c = 'red', lw = 1))
+			self.disp.append(shapes.Line(p3,p7,c = 'red', lw = 1))
+			self.disp.append(shapes.Line(p4,p8,c = 'red', lw = 1))
 
 
 	def draw_cloud(self):
