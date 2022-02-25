@@ -37,8 +37,10 @@ class scene():
 			# self.draw_cell(cnum + self.fid_phi - 1)
 			# self.draw_cell(cnum - (self.fid_phi -1))
 			# self.draw_cell(200)
-			for _ in range(20):
-				self.draw_cell(int(1000*np.random.rand()) + self.fid**2)
+			# for _ in range(20):
+			# 	self.draw_cell(int(300*np.random.rand()))
+			for i in range(100):
+				self.draw_cell(i*10)
 
 		self.draw_cloud()
 		self.draw_car()
@@ -171,28 +173,36 @@ class scene():
 	def occupancy_grid_spherical(self, draw = True):
 		""" constructs grid in spherical coordinates """
 
-		self.fid_r = self.fid #40 #self.fid #num radial division
-		self.fid_theta = self.fid #20 #number of subdivisions in horizontal directin
-		self.fid_phi = self.fid//6 #4 #number of subdivision in vertical direction
+		self.fid_r = 15 #self.fid  #num radial division
+		self.fid_theta = self.fid  #number of subdivisions in horizontal directin
+		self.fid_phi = self.fid_theta//6 #number of subdivision in vertical direction + 1
 
 		rmax = 50
 		thetamin = -np.pi + 2*np.pi/self.fid_theta #np.pi/2 # / 6
 		thetamax = np.pi#/
-		phimin = np.pi / 4
-		phimax = np.pi/2 #9*np.pi/16
+		phimin =  3*np.pi/8 # np.pi / 4
+		phimax = 5*np.pi/8 #np.pi/2 
 
 		#establish grid array which describes the ego front right point of each cell
 		#using constant raidus incraments (old) ----------------------
-		self.grid = np.mgrid[0:rmax:(self.fid_r)*1j, thetamin:thetamax:(self.fid_theta)*1j, phimin:phimax:(self.fid_phi)*1j]
-		self.grid = np.reshape(self.grid, (3,-1), order = 'C').T
+		# self.grid = np.mgrid[0:rmax:(self.fid_r)*1j, thetamin:thetamax:(self.fid_theta)*1j, phimin:phimax:(self.fid_phi)*1j]
+		# self.grid = np.reshape(self.grid, (3,-1), order = 'C').T
+		# self.grid[:,0] += 3 #start some distance from vehicle
 		#-------------------------------------------------------------
 
 		#using increasing radius steps to keep voxels roughly cubic (new) -----
-		# self.grid = np.mgrid[0:self.fid_r, thetamin:thetamax:(self.fid_theta)*1j, phimin:phimax:(self.fid_phi)*1j]
-		# self.grid = np.reshape(self.grid, (3,-1), order = 'C').T
-		# self.grid[:,0] = 1/np.pi*self.grid[:,0]**2
-		#-----------------------------------------------------------------------
+		self.grid = np.mgrid[0:self.fid_r, thetamin:thetamax:(self.fid_theta)*1j, phimin:phimax:(self.fid_phi)*1j]
+		self.grid = np.reshape(self.grid, (3,-1), order = 'C').T
+		self.grid[:,0] += 3 #start some distance from vehicle
 
+		nshell = self.fid_theta*(self.fid_phi) #number of grid cells per shell
+		r_last = 3 #radis of line from observer to previous shell
+		for i in range(1,self.fid_r):
+			r_new = r_last + (1/self.fid_theta)*r_last/(np.arctan( np.pi/self.fid_theta))
+			self.grid[(i*nshell):((i+1)*nshell+1),0] = r_new
+			r_last = r_new
+			# print(r_last)
+		#-----------------------------------------------------------------------
 
 		print(self.grid)
 

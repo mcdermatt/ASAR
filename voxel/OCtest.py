@@ -21,7 +21,7 @@ cloud = cloud[cloud[:,2] > -1.5] #ignore ground plane
 
 #spherical 
 c = np.array([[10,10,-1]])
-S2 = scene(cloud = c, fid = 50, cull = True, coord = 1)
+S2 = scene(cloud = c, fid = 30, cull = True, coord = 1)
 
 
 ViewInteractiveWidget(S.plt.window)
