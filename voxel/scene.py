@@ -1,6 +1,7 @@
 import numpy as np
 from vedo import *
 from ipyvtklink.viewer import ViewInteractiveWidget
+import time
 
 class scene():
 
@@ -17,10 +18,10 @@ class scene():
 		self.coord = coord
 		self.plt = Plotter(N = 1, axes = 4, bg = (1, 1, 1), interactive = True) #axis = 4
 		self.disp = []
-
-		self.numvox = (self.fid+1)*(self.fid + 1)*(self.fid//10 + 1) #number of voxels
+		self.min_cell_distance = 3 #begin closest spherical voxel here
 
 		if self.coord == 0:
+			self.numvox = (self.fid+1)*(self.fid + 1)*(self.fid//10 + 1) #number of voxels
 			self.occupancy_grid_cart(draw = False)
 			if cull == True:
 				self.cull()
@@ -28,15 +29,13 @@ class scene():
 					self.draw_cell(int(b), wire = False)
 
 		if self.coord == 1:
+			self.cloud_spherical = self.c2s(self.cloud)
 			self.grid_spherical(draw = False)
-
 			self.get_occupied_spherical()
-	
-			# for _ in range(20):
-			# 	testpt = int(3000*np.random.rand())
-			# 	self.draw_cell(testpt)
-			# 	# self.find_pts_in_cell(testpt)
-
+			for o in self.occupied:
+				self.draw_cell(o)
+				inside = self.find_pts_in_cell(o)
+				self.disp.append(Points(self.cloud[inside], c = [0.4,0.8,0.3], r = 5))
 
 		self.draw_cloud()
 		self.draw_car()
@@ -169,11 +168,11 @@ class scene():
 	def grid_spherical(self, draw = True):
 		""" constructs grid in spherical coordinates """
 
-		self.fid_r = 40 #self.fid  #num radial division
+		self.fid_r = self.fid  #num radial division
 		self.fid_theta = self.fid  #number of subdivisions in horizontal directin
 		self.fid_phi = self.fid_theta//6 #number of subdivision in vertical direction + 1
 
-		rmax = 50
+		# rmax = 100
 		thetamin = -np.pi + 2*np.pi/self.fid_theta #np.pi/2 # / 6
 		thetamax = np.pi#/
 		phimin =  3*np.pi/8 # np.pi / 4
@@ -189,17 +188,14 @@ class scene():
 		#using increasing radius steps to keep voxels roughly cubic (new) -----
 		self.grid = np.mgrid[0:self.fid_r, thetamin:thetamax:(self.fid_theta)*1j, phimin:phimax:(self.fid_phi)*1j]
 		self.grid = np.reshape(self.grid, (3,-1), order = 'C').T
-		self.grid[:,0] += 3 #start some distance from vehicle
+		self.grid[:,0] += self.min_cell_distance #start some distance from vehicle
 
 		nshell = self.fid_theta*(self.fid_phi) #number of grid cells per shell
 		r_last = 3 #radis of line from observer to previous shell
 		for i in range(1,self.fid_r):
-			# r_new = r_last + (1/self.fid_theta)*r_last/(np.arctan( np.pi/self.fid_theta)) #works(ish) for fid =30...
-			# r_new = r_last + (1/120)*r_last/(np.arctan( np.pi/self.fid_theta)) #works for fid = 50
-			r_new = r_last + (1/200)*r_last/(np.arctan( np.pi/self.fid_theta)) #test for fid = 70
+			r_new = r_last*(1 + (np.arctan(2*np.pi/self.fid_theta)))
 			self.grid[(i*nshell):((i+1)*nshell+1),0] = r_new
 			r_last = r_new
-			# print(r_last)
 		#-----------------------------------------------------------------------
 
 		if draw == True:
@@ -210,19 +206,76 @@ class scene():
 	def get_occupied_spherical(self):
 		"""sweeps through scan to find occupied spherical grid cells"""
 
-		#for each radial excursion in central surface sphere, check each cell until we find an occupied one
+		st = time.time()
+
+		has_pts = np.zeros(self.fid_theta*(self.fid_phi-1)*self.fid_r)
+
+		# for rare cases with extremely large spread of points: get rid of points outisde self.rmax
+		# print(self.grid[-1,0])
+		# self.cloud_spherical = self.cloud_spherical[self.cloud_spherical[:,0] < self.grid[-1,0]]
+
+		# ##(old) --------------------------------------------------------------------------------------------------
+		# ###~10x slower but allows use of self.mnp parameter
+		# #for each radial excursion in central surface sphere, check each cell until we find an occupied one
+		# for j in range(self.fid_theta*(self.fid_phi-1)):
+		# 	for i in range(self.fid_r - 2):
+		# 		testpt = i*self.fid_theta*(self.fid_phi-1) + j
+		# 		inside = self.find_pts_in_cell(testpt)
+
+		# 		if np.shape(inside)[1] >= self.mnp:
+		# 			has_pts[testpt] = 1
+		# 			# self.draw_cell(testpt)
+		# 			# self.disp.append(Points(self.cloud[inside], c = [0.4,0.8,0.3], r = 5))
+		# 			break
+		# # #-------------------------------------------------------------------------------------------------------
+
+		#(new) ---------------------------------------------------------------------------------------------------
+		cnt = 0
+		#loop through all radial spikes
 		for j in range(self.fid_theta*(self.fid_phi-1)):
-			for i in range(self.fid_r - 2):
-				testpt = i*self.fid_theta*(self.fid_phi-1) + j
-				inside = self.find_pts_in_cell(testpt)
 
-				if np.shape(inside)[1] >= self.mnp:
-					self.draw_cell(testpt)
-					self.disp.append(Points(self.cloud[inside], c = [0.4,0.8,0.3], r = 5))
-					break
+			corn = self.get_corners_spherical(j)
 
-		occupied = None #temp
-		return(occupied)
+			rmin = self.c2s(corn)[0,0]
+			thetamin = self.c2s(corn)[0,1]
+			thetamax = self.c2s(corn)[3,1]
+			phimin = self.c2s(corn)[0,2]
+			phimax = self.c2s(corn)[4,2]
+
+			# check if spike contains any points
+			in_j = np.where(np.array([self.cloud_spherical[:,0] > rmin,
+									self.cloud_spherical[:,1] < thetamax,
+									self.cloud_spherical[:,1] > thetamin,
+									self.cloud_spherical[:,2] < phimax,
+									self.cloud_spherical[:,2] > phimin
+									]).all(axis = 0) == True)
+
+			# for occupided spikes, find cell containing the first visible point
+			if np.shape(in_j)[1] > 0:
+				# cnt += 1
+				#get point closest to the center of all the points in spike j 
+				closest_radius =  np.min( self.cloud_spherical[in_j][:,0] )
+				# print(closest_radius)
+
+				#find what bin the closest point corresponds to
+				# print(np.where(closest_radius > np.unique(self.grid[:,0])))
+				shell_num = np.where(closest_radius > np.unique(self.grid[:,0]))[0][-1] #+ 1
+				# print(shell_num)
+				cell =  self.fid_theta*(self.fid_phi - 1)*shell_num + j
+				# print(cell)
+
+				# self.draw_cell(cell)
+				# inside = self.find_pts_in_cell(cell)
+				# self.disp.append(Points(self.cloud[inside], c = [0.4,0.8,0.3], r = 5))
+
+				has_pts[cell] = 1
+
+		# print("total number of useful spikes: ", cnt)
+		# print("fraction of spikes containing points", cnt / (self.fid_theta*(self.fid_phi - 1))) # ONLY 20-30% !!
+		#-------------------------------------------------------------------------------------------------------
+
+		self.occupied = np.asarray(np.where(has_pts == 1))[0,:]
+		print("took", time.time() - st, "s to identify occupied cells")
 
 	def find_pts_in_cell(self,cell):
 		"""get idx of points from cloud in spherical cell"""
@@ -230,7 +283,7 @@ class scene():
 		corn = self.get_corners_spherical(cell)
 
 		#convert point cloud to spherical coordinates
-		self.cloud_spherical = self.c2s(self.cloud)
+		# self.cloud_spherical = self.c2s(self.cloud)
 		# print(self.cloud_spherical)
 
 		#get subset of points in radial band between maxr and minr (from corn)
@@ -256,18 +309,13 @@ class scene():
 
 		# print(inside)
 
-		#temp -> draw these points
-		# self.disp.append(Points(self.cloud[inside], c = [0.4,0.8,0.3], r = 10))
-
 		return(inside)
 
 	def get_corners_spherical(self, cell):
 
 		n = cell + cell//(self.fid_phi - 1) #was this
-		# n = cell + cell//(self.fid_phi) #test
 
 		#need to account for end of ring where cells wrap around
-
 		per_shell = self.fid_theta*(self.fid_phi - 1)
 		fix =  (self.fid_phi*self.fid_theta)*((((cell)%per_shell) + (self.fid_phi-1) )//per_shell)
 
