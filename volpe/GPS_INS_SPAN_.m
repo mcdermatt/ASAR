@@ -243,6 +243,8 @@ Qk200 = zeros(21,21);
 %init ins qbn to lidar
 qbn0 = pos_lidar_enu(1, 4:7);
 
+vel_lidar = [0 0 0];%temp
+
 % Start Loop
 gpsCnt = 0;
 lidarCnt = 1; %was 0
@@ -312,7 +314,6 @@ while i < endIndx
     %extract updated estimates --------------------------------------
     lla_ins = out.lla_ins;
     ned_lidar = out.ned_lidar;
-%     lla_combined = out.lla_combined;
     vel = out.vel;
     rpy = out.rpy;
     dv = out.dv;
@@ -320,7 +321,6 @@ while i < endIndx
     xHatM_ins = out.xHatM_ins;
     x_ins =out.x_ins;
     x_lidar = out.x_lidar;
-%     xHatM_combined = out.xHatM_combined;
     gpsUpdated = out.gpsUpdated;
     lidarUpdated = out.lidarUpdated;
     gpsCnt = out.gpsCnt;
@@ -328,7 +328,6 @@ while i < endIndx
     gpsResUpd = out.gpsResUpd;
     PM_ins = out.PM_ins;
     PM_lidar = out.PM_lidar;
-%     PM_combined = out.PM_combined;
     F = out.F;
     Qk200 = out.Qk200;    
     %----------------------------------------------------------------
@@ -366,7 +365,7 @@ while i < endIndx
             dlla_ins = lla_ins - lla_ins_last;                                
             wls_dlla = pinv((H.')*W*H, 1e-20)*(H.')*W*[dlla_ins.'; zeros(18,1); dlla_lidar.'; zeros(18,1)];
             lla_ins = lla_ins_last + wls_dlla(1:3).';
-%             lla0_ins = lla_ins; %DEBUG: shows continuous ins estimation but kills velocity estimates
+            lla0_ins = lla_ins; %DEBUG: shows continuous ins estimation but kills velocity estimates
             ned_lidar_last = ned_lidar;
             lla_ins_last = lla0_ins;
 
@@ -403,7 +402,6 @@ while i < endIndx
 % %             vel0 = vel_lidar;
             %-------------------------------
 
-            
             %reset INS heading to lidar
             qbn0 = qbn_lidar;             
             
@@ -423,19 +421,14 @@ while i < endIndx
 
         else
             F200 = F200*F;
-            lla0_ins = lla_ins;
+            Qk200 = zeros(21,21);
+            lla0_ins = lla_ins; %was here
             qbn0 = qbn;
             vel0 = vel; 
         end
     end
+%     lla0_ins = lla_ins; %reset initial INS LLA 
     
-%     corr_ins_hist(i, :) =  corr_ins.';
-    
-    %save sigmas in units of (m)
-    PM_hist_lidar(i-1,:) = [sqrt(PM_lidar(1,1))*6.36e6 sqrt(PM_lidar(2,2))*4.97e6, sqrt(PM_lidar(3,3))];
-    PM_hist_ins(i-1,:) = [sqrt(PM_ins(1,1))*6.36e6 sqrt(PM_ins(2,2))*4.97e6, sqrt(PM_ins(3,3))]; %was this, thinking it should be in (m) though
-    PM_hist_combined(i-1,:) = [sqrt(PM_combined(1,1))*6.36e6 sqrt(PM_combined(2,2))*4.97e6, sqrt(PM_combined(3,3))];
-
     if lidarUpdated == 1
         lidarmsr = dpos_lidar(lidarCnt+1, :);%update lidar measurement
         ned0_lidar = ned_lidar;
@@ -455,9 +448,14 @@ while i < endIndx
         x_ins_hist(gpsCnt+1,:) = x_ins_hist(gpsCnt+1,:) + x_ins.';
     end
 
+    %save sigmas in units of (m)
+    PM_hist_lidar(i-1,:) = [sqrt(PM_lidar(1,1))*6.36e6 sqrt(PM_lidar(2,2))*4.97e6, sqrt(PM_lidar(3,3))];
+    PM_hist_ins(i-1,:) = [sqrt(PM_ins(1,1))*6.36e6 sqrt(PM_ins(2,2))*4.97e6, sqrt(PM_ins(3,3))]; %was this, thinking it should be in (m) though
+    PM_hist_combined(i-1,:) = [sqrt(PM_combined(1,1))*6.36e6 sqrt(PM_combined(2,2))*4.97e6, sqrt(PM_combined(3,3))];
+    
     % Store Data
     resArr_ins(i-1,:) = [lla_ins vel rpy rad2deg(bg')*3600 (ba')*10^6/9.7803267715 (sg')*10^-6 (sa')*10^-6];
-    resArr_lidar(i-1,:) = [ned_lidar vel rpy rad2deg(bg')*3600 (ba')*10^6/9.7803267715 (sg')*10^-6 (sa')*10^-6];
+    resArr_lidar(i-1,:) = [ned_lidar vel_lidar rpy rad2deg(bg')*3600 (ba')*10^6/9.7803267715 (sg')*10^-6 (sa')*10^-6];
     qbnArr(i-1,:) = qbn;
     if gpsUpdated == 1 && ~isempty(gpsmsr)
         gpsMsrArr(:,gpsCnt) = gpsmsr(1:4)';
@@ -638,20 +636,20 @@ xlabel('Time (s)');
 % legend('EKF','Ref')
 % %----------------------------------------------------------------------
 
-%residual plot ----------------------------------------------------------
-figure(8)
-hold on
-subplot(3,1,1)
-plot(residual(:,1)*6.36e6)
-xlabel('time (s)')
-ylabel('Differnce in movement East per second (m)')
-
-subplot(3,1,2)
-plot(residual(:,2)*4.97e6)
-xlabel('time (s)')
-ylabel('Differnce in movement North per second (m)')
-
-%------------------------------------------------------------------------
+% %residual plot ----------------------------------------------------------
+% figure(8)
+% hold on
+% subplot(3,1,1)
+% plot(residual(:,1)*6.36e6)
+% xlabel('time (s)')
+% ylabel('Differnce in movement East per second (m)')
+% 
+% subplot(3,1,2)
+% plot(residual(:,2)*4.97e6)
+% xlabel('time (s)')
+% ylabel('Differnce in movement North per second (m)')
+% 
+% %------------------------------------------------------------------------
 
 function PP = PPinitialize
 %function PP = PPinitialize
