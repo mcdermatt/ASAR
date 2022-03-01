@@ -27,6 +27,11 @@ class ICET():
 		self.cloud1_tensor_spherical = tf.cast(self.c2s(self.cloud1_tensor), tf.float32)
 		self.grid_spherical( draw = False )
 
+		# test = tf.constant([3, 4, 110])
+		test = tf.cast(tf.linspace(0, (self.fid_theta)*(self.fid_phi-1) - 1,(self.fid_theta)*(self.fid_phi-1)), tf.int32)
+		# test = tf.cast(tf.linspace(0, 10, 11), tf.int32)
+		# print(test)
+		self.draw_cell(test)
 
 		self.get_occupied()
 
@@ -44,14 +49,14 @@ class ICET():
 		fix =  (self.fid_phi*self.fid_theta)*((((cells)%per_shell) + (self.fid_phi-1) )//per_shell)
 		n = cells + cells//(self.fid_phi - 1)
 
-		p1 = tf.gather(self.grid, n+fix)
-		p2 = tf.gather(self.grid, n+self.fid_phi)
-		p3 = tf.gather(self.grid, n + self.fid_theta*self.fid_phi + fix)
-		p4 = tf.gather(self.grid, n + self.fid_phi + (self.fid_theta*self.fid_phi))
-		p5 = tf.gather(self.grid, n + 1 + fix)
-		p6 = tf.gather(self.grid, n+self.fid_phi +1)
-		p7 = tf.gather(self.grid, n + (self.fid_theta*self.fid_phi) + 1 + fix)
-		p8 = tf.gather(self.grid, n + self.fid_phi + (self.fid_theta*self.fid_phi) +1)
+		p1 = tf.gather(self.grid, n)
+		p2 = tf.gather(self.grid, n+self.fid_phi - fix)
+		p3 = tf.gather(self.grid, n + self.fid_theta*self.fid_phi)
+		p4 = tf.gather(self.grid, n + self.fid_phi + (self.fid_theta*self.fid_phi) - fix)
+		p5 = tf.gather(self.grid, n + 1)
+		p6 = tf.gather(self.grid, n+self.fid_phi +1 - fix)
+		p7 = tf.gather(self.grid, n + (self.fid_theta*self.fid_phi) + 1)
+		p8 = tf.gather(self.grid, n + self.fid_phi + (self.fid_theta*self.fid_phi) +1 - fix)
 
 		out = tf.transpose(tf.Variable([p1, p2, p3, p4, p5, p6, p7, p8]), [1, 0, 2])
 
@@ -73,9 +78,12 @@ class ICET():
 		# print(bins_theta)
 		edges_phi = tf.linspace(phimin, phimax, self.fid_phi)
 		bins_phi = tfp.stats.find_bins(self.cloud1_tensor_spherical[:,2], edges_phi)
-		print(bins_phi)
+		# print(bins_phi)
 
-		#find which spikes are occupied
+		#combine bins_theta and bins_phi to get spike bins
+		bins_spike = bins_theta*(self.fid_phi-1) + bins_phi
+		# print(tf.unique(bins_spike))
+		print(bins_spike)
 
 		#find min point in each occupied spike
 
@@ -119,6 +127,40 @@ class ICET():
 		# #--------------------------------------------------------------------------------------
 
 
+	def draw_cell(self, idx):
+		""" draws cell provided by idx tensor"""
+
+		corners = self.get_corners(idx)
+		# print(corners)
+
+		for i in range(tf.shape(corners)[0]):
+
+			p1, p2, p3, p4, p5, p6, p7, p8 = self.s2c(corners[i]).numpy()
+			arc1 = shapes.Arc(center = [0,0,0], point1 = p1, point2 = p2, c = 'red')	
+			# arc1 = shapes.Line(p1, p2, c = 'red', lw = 1) #debug		
+			self.disp.append(arc1)
+			arc2 = shapes.Arc(center = [0,0,0], point1 = p3, point2 = p4, c = 'red')
+			# arc2 = shapes.Line(p3, p4, c = 'red', lw = 1) #debug
+			self.disp.append(arc2)
+			line1 = shapes.Line(p1, p3, c = 'red', lw = 1)
+			self.disp.append(line1)
+			line2 = shapes.Line(p2, p4, c = 'red', lw = 1) #problem here
+			self.disp.append(line2)
+
+			arc3 = shapes.Arc(center = [0,0,0], point1 = p5, point2 = p6, c = 'red')			
+			self.disp.append(arc3)
+			arc4 = shapes.Arc(center = [0,0,0], point1 = p7, point2 = p8, c = 'red')
+			self.disp.append(arc4)
+			line3 = shapes.Line(p5, p7, c = 'red', lw = 1)
+			self.disp.append(line3)
+			line4 = shapes.Line(p6, p8, c = 'red', lw = 1)
+			self.disp.append(line4)
+
+			self.disp.append(shapes.Line(p1,p5,c = 'red', lw = 1))
+			self.disp.append(shapes.Line(p2,p6,c = 'red', lw = 1))
+			self.disp.append(shapes.Line(p3,p7,c = 'red', lw = 1))
+			self.disp.append(shapes.Line(p4,p8,c = 'red', lw = 1))
+
 	def grid_spherical(self, draw = False):
 		""" constructs grid in spherical coordinates """
 
@@ -126,8 +168,8 @@ class ICET():
 		self.fid_theta = self.fid  #number of subdivisions in horizontal directin
 		self.fid_phi = self.fid_theta//6 #number of subdivision in vertical direction + 1
 
-		thetamin = -np.pi + 2*np.pi/self.fid_theta
-		thetamax = np.pi
+		thetamin = -np.pi 
+		thetamax = np.pi - 2*np.pi/self.fid_theta
 		phimin =  3*np.pi/8
 		phimax = 5*np.pi/8 
 
@@ -174,6 +216,7 @@ class ICET():
 		z = pts[:,0]*tf.math.cos(pts[:,2])
 
 		out = tf.transpose(tf.Variable([x, y, z]))
+		# out = tf.Variable([x, y, z])
 		return(out)
 
 	def draw_cloud(self, points):
