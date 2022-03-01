@@ -31,15 +31,24 @@ class scene():
 		if self.coord == 1:
 			self.cloud_spherical = self.c2s(self.cloud)
 			self.grid_spherical(draw = False)
+			# print(self.grid)
+			# print(np.shape(self.grid))
 			self.get_occupied_spherical()
 			for o in self.occupied:
 				self.draw_cell(o)
 				inside = self.find_pts_in_cell(o)
 				self.disp.append(Points(self.cloud[inside], c = [0.4,0.8,0.3], r = 5))
 
+			# for i in range(3*self.fid_theta*(self.fid_phi-1)):
+			# 	self.draw_cell(i)
+
+			# self.draw_cell(int(2*self.fid_theta*(self.fid_phi-1) - 1))
+
 		self.draw_cloud()
 		self.draw_car()
 		self.plt.show(self.disp, "Spherical Grid Test")
+
+		# ViewInteractiveWidget()
 
 
 	def cull(self):
@@ -173,8 +182,11 @@ class scene():
 		self.fid_phi = self.fid_theta//6 #number of subdivision in vertical direction + 1
 
 		# rmax = 100
-		thetamin = -np.pi + 2*np.pi/self.fid_theta #np.pi/2 # / 6
-		thetamax = np.pi#/
+		# thetamin = -np.pi + 2*np.pi/self.fid_theta
+		# thetamax = np.pi
+		thetamin = -np.pi
+		thetamax = np.pi - 2*np.pi/self.fid_theta 
+
 		phimin =  3*np.pi/8 # np.pi / 4
 		phimax = 5*np.pi/8 #np.pi/2 
 
@@ -317,16 +329,16 @@ class scene():
 
 		#need to account for end of ring where cells wrap around
 		per_shell = self.fid_theta*(self.fid_phi - 1)
-		fix =  (self.fid_phi*self.fid_theta)*((((cell)%per_shell) + (self.fid_phi-1) )//per_shell)
+		fix =  (self.fid_phi*self.fid_theta)*((((cell)%per_shell) + (self.fid_phi-1) )//per_shell) 
 
-		p1 = self.s2c(self.grid[n + fix])
-		p2 = self.s2c(self.grid[n+self.fid_phi])
-		p3 = self.s2c(self.grid[n + self.fid_theta*self.fid_phi + fix])
-		p4 = self.s2c(self.grid[n + self.fid_phi + (self.fid_theta*self.fid_phi)]) 
-		p5 = self.s2c(self.grid[n + 1 + fix])
-		p6 = self.s2c(self.grid[n+self.fid_phi +1])
-		p7 = self.s2c(self.grid[n + (self.fid_theta*self.fid_phi) + 1 + fix])
-		p8 = self.s2c(self.grid[n + self.fid_phi + (self.fid_theta*self.fid_phi) +1])
+		p1 = self.s2c(self.grid[n])
+		p2 = self.s2c(self.grid[n + self.fid_phi - fix])
+		p3 = self.s2c(self.grid[n + self.fid_theta*self.fid_phi])
+		p4 = self.s2c(self.grid[n + self.fid_phi + (self.fid_theta*self.fid_phi) - fix]) 
+		p5 = self.s2c(self.grid[n + 1])
+		p6 = self.s2c(self.grid[n+self.fid_phi +1 - fix])
+		p7 = self.s2c(self.grid[n + (self.fid_theta*self.fid_phi) + 1])
+		p8 = self.s2c(self.grid[n + self.fid_phi + (self.fid_theta*self.fid_phi) +1 - fix])
 
 		corners = np.array([p1, p2, p3, p4, p5, p6, p7, p8])
 
