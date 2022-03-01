@@ -27,11 +27,8 @@ class ICET():
 		self.cloud1_tensor_spherical = tf.cast(self.c2s(self.cloud1_tensor), tf.float32)
 		self.grid_spherical( draw = False )
 
-		# test = tf.constant([3, 4, 110])
-		test = tf.cast(tf.linspace(0, (self.fid_theta)*(self.fid_phi-1) - 1,(self.fid_theta)*(self.fid_phi-1)), tf.int32)
-		# test = tf.cast(tf.linspace(0, 10, 11), tf.int32)
-		# print(test)
-		self.draw_cell(test)
+		# test = tf.cast(tf.linspace(0, (self.fid_theta)*(self.fid_phi-1) - 1,(self.fid_theta)*(self.fid_phi-1)), tf.int32)
+		# self.draw_cell(test)
 
 		self.get_occupied()
 
@@ -68,8 +65,8 @@ class ICET():
 
 		#attempt #2:------------------------------------------------------------------------------
 		#bin points by spike
-		thetamin = -np.pi + 2*np.pi/self.fid_theta
-		thetamax = np.pi
+		thetamin = -np.pi
+		thetamax = np.pi -  2*np.pi/self.fid_theta
 		phimin =  3*np.pi/8
 		phimax = 5*np.pi/8 
 
@@ -83,12 +80,27 @@ class ICET():
 		#combine bins_theta and bins_phi to get spike bins
 		bins_spike = bins_theta*(self.fid_phi-1) + bins_phi
 		# print(tf.unique(bins_spike))
-		print(bins_spike)
+		# print(bins_spike)
+		# self.draw_cell(tf.cast(bins_spike, tf.int32))
 
 		#find min point in each occupied spike
+		occupied_spikes, idxs = tf.unique(bins_spike)
+		# print(occupied_spikes)
+		# print(idxs)
+
+		temp =  tf.where(bins_spike == occupied_spikes[:,None]) #TODO- there has to be a better way to do this... 
+		# print(temp)
+		rag = tf.RaggedTensor.from_value_rowids(temp[:,1], temp[:,0])
+		# print(rag)
+
+		idx_by_rag = tf.gather(self.cloud1_tensor_spherical[:,0], rag)
+		# print(idx_by_rag)
+
+		min_per_spike = tf.math.reduce_min(idx_by_rag, axis = 1)
+		# print(min_per_spike)
 
 		#find bin corresponding to the identified closeset points per cell
-
+		
 
 
 		#-----------------------------------------------------------------------------------------
