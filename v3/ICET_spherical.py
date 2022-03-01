@@ -24,21 +24,99 @@ class ICET():
 		self.disp = []
 		self.min_cell_distance = 3 #begin closest spherical voxel here
 
-		self.cloud1_tensor_spherical = self.c2s(self.cloud1_tensor)
+		self.cloud1_tensor_spherical = tf.cast(self.c2s(self.cloud1_tensor), tf.float32)
 		self.grid_spherical( draw = False )
 
 
+		self.get_occupied()
 
 		self.draw_cloud(cloud1)
 		self.draw_car()
 		self.plt.show(self.disp, "Spherical ICET")
 
 
-	def get_occupied(self, ):
+	def get_corners(self, cells):
+		""" returns  spherical coordinates of coners of each input cell 
+			cells = tensor containing cell indices """
+
+		#to account for wrapping around at end of each ring
+		per_shell = self.fid_theta*(self.fid_phi - 1) #number of cells per radial shell
+		fix =  (self.fid_phi*self.fid_theta)*((((cells)%per_shell) + (self.fid_phi-1) )//per_shell)
+		n = cells + cells//(self.fid_phi - 1)
+
+		p1 = tf.gather(self.grid, n+fix)
+		p2 = tf.gather(self.grid, n+self.fid_phi)
+		p3 = tf.gather(self.grid, n + self.fid_theta*self.fid_phi + fix)
+		p4 = tf.gather(self.grid, n + self.fid_phi + (self.fid_theta*self.fid_phi))
+		p5 = tf.gather(self.grid, n + 1 + fix)
+		p6 = tf.gather(self.grid, n+self.fid_phi +1)
+		p7 = tf.gather(self.grid, n + (self.fid_theta*self.fid_phi) + 1 + fix)
+		p8 = tf.gather(self.grid, n + self.fid_phi + (self.fid_theta*self.fid_phi) +1)
+
+		out = tf.transpose(tf.Variable([p1, p2, p3, p4, p5, p6, p7, p8]), [1, 0, 2])
+
+		return(out)
+
+
+	def get_occupied(self):
 		""" returns idx of all voxels that occupy the line of sight closest to the observer """
 
-		# corners = self.get_corners()
-		
+		#attempt #2:------------------------------------------------------------------------------
+		#bin points by spike
+		thetamin = -np.pi + 2*np.pi/self.fid_theta
+		thetamax = np.pi
+		phimin =  3*np.pi/8
+		phimax = 5*np.pi/8 
+
+		edges_theta = tf.linspace(thetamin, thetamax, self.fid_theta)
+		bins_theta = tfp.stats.find_bins(self.cloud1_tensor_spherical[:,1], edges_theta)
+		# print(bins_theta)
+		edges_phi = tf.linspace(phimin, phimax, self.fid_phi)
+		bins_phi = tfp.stats.find_bins(self.cloud1_tensor_spherical[:,2], edges_phi)
+		print(bins_phi)
+
+		#find which spikes are occupied
+
+		#find min point in each occupied spike
+
+		#find bin corresponding to the identified closeset points per cell
+
+
+
+		#-----------------------------------------------------------------------------------------
+
+
+
+		# #attempt #1: directly find which bins points are in (inefficient)-----------------------
+
+		# #get spherical coordinates of all of the corners of the cells in the innermost shell
+		# # shell_cells = tf.constant([1,300]) #debug
+		# shell_cells = tf.cast(tf.linspace(0, (self.fid_theta-1)*(self.fid_phi - 1) - 1, tf.cast((self.fid_theta-1)*(self.fid_phi - 1), tf.int32)), tf.int32)
+
+		# corn = self.get_corners(shell_cells)
+		# # print(corn)
+		# rmin = corn[:,0,0][:,None]
+		# thetamin = corn[:,0,1][:,None]
+		# thetamax = corn[:,3,1][:,None]
+		# phimin = corn[:,0,2][:,None]
+		# phimax = corn[:,4,2][:,None]
+
+		# # #for debug: draw all corners of cells in shell ----------------
+		# # for i in range(tf.shape(shell_cells)[0]):
+		# # 	pts = self.s2c(corn[i])
+		# # 	self.disp.append(Points(pts.numpy(), c = 'red', r =10))
+		# # #--------------------------------------------------------------
+
+		# inside = tf.Variable([tf.greater(self.cloud1_tensor_spherical[:,0], rmin),
+		# 					tf.less(self.cloud1_tensor_spherical[:,1], thetamax),
+		# 					tf.greater(self.cloud1_tensor_spherical[:,1], thetamin)
+		# 					])
+		# inside = tf.transpose(inside, [1,2,0])
+		# # print(inside)
+
+		# combined = tf.math.reduce_all(inside, axis = 2)
+		# # print(combined)
+		# #--------------------------------------------------------------------------------------
 
 
 	def grid_spherical(self, draw = False):
