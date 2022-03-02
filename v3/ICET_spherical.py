@@ -24,16 +24,21 @@ class ICET():
 		self.disp = []
 		self.min_cell_distance = 3 #begin closest spherical voxel here
 
+		#convert cloud to spherical coordinates
 		self.cloud1_tensor_spherical = tf.cast(self.c2s(self.cloud1_tensor), tf.float32)
+		#remove  points closer than minimum radial distance
+		self.cloud1_tensor_spherical =  self.cloud1_tensor_spherical[self.cloud1_tensor_spherical[:,0] > self.min_cell_distance]
 		self.grid_spherical( draw = False )
 
 		# test = tf.cast(tf.linspace(0, (self.fid_theta)*(self.fid_phi-1) - 1,(self.fid_theta)*(self.fid_phi-1)), tf.int32)
 		# self.draw_cell(test)
 
-		self.get_occupied()
+		o = self.get_occupied()
+		print("occupied = ", o)
+		self.draw_cell(o)
 
 		self.draw_cloud(cloud1)
-		self.draw_car()
+		# self.draw_car()
 		self.plt.show(self.disp, "Spherical ICET")
 
 
@@ -63,6 +68,8 @@ class ICET():
 	def get_occupied(self):
 		""" returns idx of all voxels that occupy the line of sight closest to the observer """
 
+		st = time.time()
+
 		#attempt #2:------------------------------------------------------------------------------
 		#bin points by spike
 		thetamin = -np.pi
@@ -78,14 +85,14 @@ class ICET():
 		# print(bins_phi)
 
 		#combine bins_theta and bins_phi to get spike bins
-		bins_spike = bins_theta*(self.fid_phi-1) + bins_phi
+		bins_spike = tf.cast(bins_theta*(self.fid_phi-1) + bins_phi, tf.int32)
 		# print(tf.unique(bins_spike))
-		# print(bins_spike)
+		# print("bins_spike", bins_spike)
 		# self.draw_cell(tf.cast(bins_spike, tf.int32))
 
 		#find min point in each occupied spike
 		occupied_spikes, idxs = tf.unique(bins_spike)
-		# print(occupied_spikes)
+		# print("occupied_spikes:", occupied_spikes)
 		# print(idxs)
 
 		temp =  tf.where(bins_spike == occupied_spikes[:,None]) #TODO- there has to be a better way to do this... 
@@ -97,12 +104,22 @@ class ICET():
 		# print(idx_by_rag)
 
 		min_per_spike = tf.math.reduce_min(idx_by_rag, axis = 1)
-		# print(min_per_spike)
+		# print("min_per_spike:", min_per_spike)
+
+		#get closest shell for each point in min_per_spike
+		# print(tf.unique(self.grid[:,0]))
+		radii, _ = tf.unique(self.grid[:,0])
+		# print(radii)
+		shell_idx = tf.math.reduce_sum(tf.cast(tf.greater(min_per_spike, radii[:,None] ), tf.int32), axis = 0) - 1
+		# print(shell_idx)
 
 		#find bin corresponding to the identified closeset points per cell
-		
+		occupied_cells = occupied_spikes + shell_idx*self.fid_theta*(self.fid_phi -1)
+		# print("occupied_cells:", occupied_cells)
 
-
+		print("took", time.time() - st, "s to find occupied cells")
+		return(occupied_cells)
+		# return(bins_spike)
 		#-----------------------------------------------------------------------------------------
 
 
