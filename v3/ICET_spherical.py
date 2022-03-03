@@ -5,9 +5,13 @@ import time
 import tensorflow as tf
 from tensorflow.math import sin, cos, tan
 import tensorflow_probability as tfp
+from utils import R2Euler, Ell
+
+#TODO:
+	#ignore cells with fewer than n points
+	#get correspondences
 
 class ICET():
-
 
 	def __init__(self, cloud1, cloud2 = None, fid = 30):
 
@@ -28,6 +32,7 @@ class ICET():
 		self.cloud1_tensor_spherical = tf.cast(self.c2s(self.cloud1_tensor), tf.float32)
 		#remove  points closer than minimum radial distance
 		self.cloud1_tensor_spherical =  self.cloud1_tensor_spherical[self.cloud1_tensor_spherical[:,0] > self.min_cell_distance]
+		
 		self.grid_spherical( draw = False )
 
 		# test = tf.cast(tf.linspace(0, (self.fid_theta)*(self.fid_phi-1) - 1,(self.fid_theta)*(self.fid_phi-1)), tf.int32)
@@ -39,16 +44,37 @@ class ICET():
 
 		# test = o[:3][:,None]
 		test = o[:,None]
-		inside = self.get_points_inside(self.cloud1_tensor_spherical,test)		
+		inside, npts = self.get_points_inside(self.cloud1_tensor_spherical,test)		
 		# print(inside)
 
-		mu, sigma, npts = self.fit_gaussian(self.cloud1_tensor, inside)
+		mu, sigma = self.fit_gaussian(self.cloud1_tensor, inside, tf.cast(npts, tf.float32))
 		# print("mu", mu)
+		self.draw_ell(mu, sigma)
 
 		self.draw_cloud(cloud1)
 		# self.draw_car()
 		self.plt.show(self.disp, "Spherical ICET")
 
+	def draw_ell(self, mu, sigma, color = [0.8, 0.3, 0.3]):
+		"""draw distribution ellipses given mu and sigma tensors"""
+
+		for i in range(tf.shape(sigma)[0]):
+
+			eig = np.linalg.eig(sigma[i,:,:].numpy())
+			eigenval = eig[0] #correspond to lengths of axis
+			eigenvec = eig[1]
+
+			# assmues decreasing size
+			a1 = eigenval[0]
+			a2 = eigenval[1]
+			a3 = eigenval[2]
+
+			if mu[i,0] != 0 and mu[i,1] != 0:
+				ell = Ell(pos=(mu[i,0], mu[i,1], mu[i,2]), axis1 = 4*np.sqrt(abs(a1)), 
+					axis2 = 4*np.sqrt(abs(a2)), axis3 = 4*np.sqrt(abs(a3)), 
+					angs = (np.array([-R2Euler(eigenvec)[0], -R2Euler(eigenvec)[1], -R2Euler(eigenvec)[2] ])), c=color, alpha=1, res=12)
+				
+				self.disp.append(ell)
 
 	def get_corners(self, cells):
 		""" returns  spherical coordinates of coners of each input cell 
@@ -73,20 +99,41 @@ class ICET():
 		return(out)
 
 
-	def fit_gaussian(self, cloud, rag):
+	def fit_gaussian(self, cloud, rag, npts):
 		""" fits 3D gaussian distribution to each elelment of 
 			rag, which cointains indices of points in cloud """
+		st = time.time()
 
 		coords = tf.gather(cloud, rag)
-
 		mu = tf.math.reduce_mean(coords, axis=1)
-
-		#for debug
+		#for debug ------
 		# self.disp.append(Points( mu.numpy(), c = 'b', r = 20 ))
+		#----------------
 
-		sigma = None
-		npts = None
-		return(mu, sigma, npts)
+		xpos = tf.gather(cloud[:,0], rag)
+		ypos = tf.gather(cloud[:,1], rag)
+		zpos = tf.gather(cloud[:,2], rag)
+		# print(xpos)
+		# print("mux",mu[:,0])
+
+		xx = tf.math.reduce_sum(tf.math.square(xpos - mu[:,0][:,None] ), axis = 1)/npts
+		yy = tf.math.reduce_sum(tf.math.square(ypos - mu[:,1][:,None] ), axis = 1)/npts
+		zz = tf.math.reduce_sum(tf.math.square(zpos - mu[:,2][:,None] ), axis = 1)/npts
+
+		xy = tf.math.reduce_sum( (xpos - mu[:,0][:,None])*(ypos - mu[:,1][:,None]), axis = 1)/npts
+		xz = tf.math.reduce_sum( (xpos - mu[:,0][:,None])*(zpos - mu[:,2][:,None]), axis = 1)/npts
+		yz = tf.math.reduce_sum( (ypos - mu[:,1][:,None])*(zpos - mu[:,2][:,None]), axis = 1)/npts
+
+
+		sigma = tf.Variable([xx, xy, xz,
+							 xy, yy, yz,
+							 xz, yz, zz]) 
+		sigma = tf.reshape(tf.transpose(sigma), (tf.shape(sigma)[1] ,3,3))
+		# print("sigma", sigma)
+
+		print("took", time.time()-st, "s to fit gaussians to each cell")
+
+		return(mu, sigma)
 
 
 	def get_points_inside(self, cloud, cells):
@@ -111,11 +158,20 @@ class ICET():
 		# print("cell index for each point", cell_idx)
 
 		pts_in_c = tf.where(cell_idx == cells)
+
+		# print("pts_in_c", pts_in_c[:,0])
+		
+		numPtsPerCell = tf.math.bincount(tf.cast(pts_in_c[:,0], tf.int32))
+		# print("ptsPerCell", numPtsPerCell)
+		#test
+		# _, num_pts = tf.unique(pts_in_c[:,0])
+		# print("num_pts", num_pts)
+
 		pts_in_c = tf.RaggedTensor.from_value_rowids(pts_in_c[:,1], pts_in_c[:,0])
 		# print("index of points in specified cell", pts_in_c)
 
 		print("took", time.time()-st, "s to find pts in cells")
-		return(pts_in_c)
+		return(pts_in_c, numPtsPerCell)
 
 
 	def get_occupied(self):
