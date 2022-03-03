@@ -34,8 +34,16 @@ class ICET():
 		# self.draw_cell(test)
 
 		o = self.get_occupied()
-		print("occupied = ", o)
+		# print("occupied = ", o)
 		self.draw_cell(o)
+
+		# test = o[:3][:,None]
+		test = o[:,None]
+		inside = self.get_points_inside(self.cloud1_tensor_spherical,test)		
+		# print(inside)
+
+		mu, sigma, npts = self.fit_gaussian(self.cloud1_tensor, inside)
+		# print("mu", mu)
 
 		self.draw_cloud(cloud1)
 		# self.draw_car()
@@ -63,6 +71,51 @@ class ICET():
 		out = tf.transpose(tf.Variable([p1, p2, p3, p4, p5, p6, p7, p8]), [1, 0, 2])
 
 		return(out)
+
+
+	def fit_gaussian(self, cloud, rag):
+		""" fits 3D gaussian distribution to each elelment of 
+			rag, which cointains indices of points in cloud """
+
+		coords = tf.gather(cloud, rag)
+
+		mu = tf.math.reduce_mean(coords, axis=1)
+
+		#for debug
+		# self.disp.append(Points( mu.numpy(), c = 'b', r = 20 ))
+
+		sigma = None
+		npts = None
+		return(mu, sigma, npts)
+
+
+	def get_points_inside(self, cloud, cells):
+		""" returns ragged tensor containing the indices of points in <cloud> inside each cell in <cells>"""
+		st = time.time()
+		# print("specified cells:", cells)
+
+		thetamin = -np.pi
+		thetamax = np.pi -  2*np.pi/self.fid_theta
+		phimin =  3*np.pi/8
+		phimax = 5*np.pi/8 
+
+		edges_r, _ = tf.unique(self.grid[:,0])
+		bins_r = tfp.stats.find_bins(cloud[:,0], edges_r)
+		edges_theta = tf.linspace(thetamin, thetamax, self.fid_theta)
+		bins_theta = tfp.stats.find_bins(cloud[:,1], edges_theta)
+		edges_phi = tf.linspace(phimin, phimax, self.fid_phi)
+		bins_phi = tfp.stats.find_bins(cloud[:,2], edges_phi)		
+
+		#cell index for every point in cloud
+		cell_idx = tf.cast(bins_theta*(self.fid_phi-1) + bins_phi + bins_r*self.fid_theta*(self.fid_phi-1), tf.int32)
+		# print("cell index for each point", cell_idx)
+
+		pts_in_c = tf.where(cell_idx == cells)
+		pts_in_c = tf.RaggedTensor.from_value_rowids(pts_in_c[:,1], pts_in_c[:,0])
+		# print("index of points in specified cell", pts_in_c)
+
+		print("took", time.time()-st, "s to find pts in cells")
+		return(pts_in_c)
 
 
 	def get_occupied(self):
@@ -119,7 +172,6 @@ class ICET():
 
 		print("took", time.time() - st, "s to find occupied cells")
 		return(occupied_cells)
-		# return(bins_spike)
 		#-----------------------------------------------------------------------------------------
 
 
