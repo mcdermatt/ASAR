@@ -8,55 +8,91 @@ import tensorflow_probability as tfp
 from utils import R2Euler, Ell
 
 #TODO:
-	#ignore cells with fewer than n points
-	#get correspondences
+	# ignore cells with fewer than n points
+	# get correspondences
+	# take stuff out of __init__, begin working on main loop
 
 class ICET():
 
-	def __init__(self, cloud1, cloud2 = None, fid = 30):
+	def __init__(self, cloud1, cloud2, fid = 30):
+
+		self.min_cell_distance = 3 #begin closest spherical voxel here
+		self.min_num_pts = 10 #ignore cells with fewer than this #pts
 
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.cloud1 = cloud1
+		self.cloud2 = cloud2
 
 		#convert cloud1 to tesnsor
 		self.cloud1_tensor = tf.convert_to_tensor(cloud1)
-		# print(tf.shape(self.cloud1_tensor))
+		self.cloud2_tensor = tf.convert_to_tensor(cloud2)
 
 		# self.mnp = 10 #minimum number of points to count as occupied
-		# self.wire = True #draw cells as wireframe
 		self.plt = Plotter(N = 1, axes = 4, bg = (1, 1, 1), interactive = True) #axis = 4
 		self.disp = []
-		self.min_cell_distance = 3 #begin closest spherical voxel here
 
 		#convert cloud to spherical coordinates
 		self.cloud1_tensor_spherical = tf.cast(self.c2s(self.cloud1_tensor), tf.float32)
+		self.cloud2_tensor_spherical = tf.cast(self.c2s(self.cloud2_tensor), tf.float32)
+
 		#remove  points closer than minimum radial distance
 		self.cloud1_tensor_spherical =  self.cloud1_tensor_spherical[self.cloud1_tensor_spherical[:,0] > self.min_cell_distance]
+		self.cloud2_tensor_spherical =  self.cloud2_tensor_spherical[self.cloud2_tensor_spherical[:,0] > self.min_cell_distance]
 		
 		self.grid_spherical( draw = False )
-
-		# test = tf.cast(tf.linspace(0, (self.fid_theta)*(self.fid_phi-1) - 1,(self.fid_theta)*(self.fid_phi-1)), tf.int32)
-		# self.draw_cell(test)
 
 		o = self.get_occupied()
 		# print("occupied = ", o)
 		self.draw_cell(o)
 
-		# test = o[:3][:,None]
-		test = o[:,None]
-		inside, npts = self.get_points_inside(self.cloud1_tensor_spherical,test)		
-		# print(inside)
+		inside1, npts1 = self.get_points_inside(self.cloud1_tensor_spherical,o[:,None])		
+		mu1, sigma1 = self.fit_gaussian(self.cloud1_tensor, inside1, tf.cast(npts1, tf.float32))
+		# print("npts1", npts1)
+		# print("mu1", mu1)
+		# self.draw_ell(mu1, sigma1, pc = 1)
 
-		mu, sigma = self.fit_gaussian(self.cloud1_tensor, inside, tf.cast(npts, tf.float32))
-		# print("mu", mu)
-		self.draw_ell(mu, sigma)
+		enough1 = tf.where(npts1 > self.min_num_pts)[:,0]
+		mu1_enough = tf.gather(mu1, enough1)
+		sigma1_enough = tf.gather(sigma1, enough1)
+		self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = 0.5)
 
-		self.draw_cloud(cloud1)
+		inside2, npts2 = self.get_points_inside(self.cloud2_tensor_spherical,o[:,None])		
+		mu2, sigma2 = self.fit_gaussian(self.cloud2_tensor, inside2, tf.cast(npts2, tf.float32))
+		# print("npts2", npts2)
+		# print("mu2", mu2)
+
+		#idx of (inside2, mu2, sigma2, npts2) with sufficient num pts 
+		enough2 = tf.where(npts2 > self.min_num_pts)[:,0]
+		mu2_enough = tf.gather(mu2, enough2)
+		sigma2_enough = tf.gather(sigma2, enough2)
+		# print(tf.shape(sigma2))
+		# print(tf.shape(sigma2_enough))
+		self.draw_ell(mu2_enough, sigma2_enough, pc = 2, alpha = 0.5)
+
+		print("enough1", enough1)
+		print(tf.gather(o, enough1))
+		print("enough2", enough2)
+		print(tf.gather(o, enough2))
+
+		#get correspondences
+		corr = tf.sets.intersection(enough1[None,:], enough2[None,:]).values
+		print("corr indices", corr)
+		self.draw_correspondences(mu1, mu2, corr)
+
+		self.draw_cloud(self.cloud1, pc = 1)
+		self.draw_cloud(self.cloud2, pc = 2)
 		# self.draw_car()
+
+		# self.disp.append(addons.LegendBox(self.disp))
 		self.plt.show(self.disp, "Spherical ICET")
 
-	def draw_ell(self, mu, sigma, color = [0.8, 0.3, 0.3]):
+	def draw_ell(self, mu, sigma, pc = 1, alpha = 1):
 		"""draw distribution ellipses given mu and sigma tensors"""
+
+		if pc == 1:
+			color = [0.8, 0.3, 0.3]
+		if pc ==2:
+			color = [0.3, 0.3, 0.8]
 
 		for i in range(tf.shape(sigma)[0]):
 
@@ -72,9 +108,19 @@ class ICET():
 			if mu[i,0] != 0 and mu[i,1] != 0:
 				ell = Ell(pos=(mu[i,0], mu[i,1], mu[i,2]), axis1 = 4*np.sqrt(abs(a1)), 
 					axis2 = 4*np.sqrt(abs(a2)), axis3 = 4*np.sqrt(abs(a3)), 
-					angs = (np.array([-R2Euler(eigenvec)[0], -R2Euler(eigenvec)[1], -R2Euler(eigenvec)[2] ])), c=color, alpha=1, res=12)
+					angs = (np.array([-R2Euler(eigenvec)[0], -R2Euler(eigenvec)[1], -R2Euler(eigenvec)[2] ])), c=color, alpha=alpha, res=12)
 				
 				self.disp.append(ell)
+
+	def draw_correspondences(self, mu1, mu2, corr):
+		""" draw arrow between distributions between scans that:
+			1- contain sufficient number of points 
+			2- occupy the same voxel """
+
+		# print("correspondences", corr)
+		for i in corr:
+			a = shapes.Arrow(mu2[i].numpy(), mu1[i].numpy(), c = "black")
+			self.disp.append(a)
 
 	def get_corners(self, cells):
 		""" returns  spherical coordinates of coners of each input cell 
@@ -131,8 +177,7 @@ class ICET():
 		sigma = tf.reshape(tf.transpose(sigma), (tf.shape(sigma)[1] ,3,3))
 		# print("sigma", sigma)
 
-		print("took", time.time()-st, "s to fit gaussians to each cell")
-
+		# print("took", time.time()-st, "s to fit gaussians to each cell")
 		return(mu, sigma)
 
 
@@ -170,7 +215,7 @@ class ICET():
 		pts_in_c = tf.RaggedTensor.from_value_rowids(pts_in_c[:,1], pts_in_c[:,0])
 		# print("index of points in specified cell", pts_in_c)
 
-		print("took", time.time()-st, "s to find pts in cells")
+		# print("took", time.time()-st, "s to find pts in cells")
 		return(pts_in_c, numPtsPerCell)
 
 
@@ -226,7 +271,7 @@ class ICET():
 		occupied_cells = occupied_spikes + shell_idx*self.fid_theta*(self.fid_phi -1)
 		# print("occupied_cells:", occupied_cells)
 
-		print("took", time.time() - st, "s to find occupied cells")
+		# print("took", time.time() - st, "s to find occupied cells")
 		return(occupied_cells)
 		#-----------------------------------------------------------------------------------------
 
@@ -356,8 +401,14 @@ class ICET():
 		# out = tf.Variable([x, y, z])
 		return(out)
 
-	def draw_cloud(self, points):
-		c = Points(points, c = [0.5, 0.5, 0.8], r = 4)
+	def draw_cloud(self, points, pc = 1):
+
+		if pc == 1:
+			color = [0.8, 0.5, 0.5]
+		if pc == 2:
+			color = [0.5, 0.5, 0.8]
+		
+		c = Points(points, c = color, r = 4)
 		self.disp.append(c)
 
 	def draw_car(self):
