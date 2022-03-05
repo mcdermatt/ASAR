@@ -24,8 +24,8 @@ class ICET():
 		self.cloud2 = cloud2
 
 		#convert cloud1 to tesnsor
-		self.cloud1_tensor = tf.convert_to_tensor(cloud1)
-		self.cloud2_tensor = tf.convert_to_tensor(cloud2)
+		self.cloud1_tensor = tf.cast(tf.convert_to_tensor(cloud1), tf.float32)
+		self.cloud2_tensor = tf.cast(tf.convert_to_tensor(cloud2), tf.float32)
 
 		# self.mnp = 10 #minimum number of points to count as occupied
 		self.plt = Plotter(N = 1, axes = 4, bg = (1, 1, 1), interactive = True) #axis = 4
@@ -36,55 +36,90 @@ class ICET():
 		self.cloud2_tensor_spherical = tf.cast(self.c2s(self.cloud2_tensor), tf.float32)
 
 		#remove  points closer than minimum radial distance
-		self.cloud1_tensor_spherical =  self.cloud1_tensor_spherical[self.cloud1_tensor_spherical[:,0] > self.min_cell_distance]
-		self.cloud2_tensor_spherical =  self.cloud2_tensor_spherical[self.cloud2_tensor_spherical[:,0] > self.min_cell_distance]
+		not_too_close1 = tf.where(self.cloud1_tensor_spherical[:,0] > self.min_cell_distance)[:,0]
+		self.cloud1_tensor_spherical = tf.gather(self.cloud1_tensor_spherical, not_too_close1)
+		self.cloud1_tensor = tf.gather(self.cloud1_tensor, not_too_close1)
+		not_too_close2 = tf.where(self.cloud2_tensor_spherical[:,0] > self.min_cell_distance)[:,0]
+		self.cloud2_tensor_spherical = tf.gather(self.cloud2_tensor_spherical, not_too_close2)
+		self.cloud2_tensor = tf.gather(self.cloud2_tensor, not_too_close2)
 		
 		self.grid_spherical( draw = False )
 
 		o = self.get_occupied()
 		# print("occupied = ", o)
-		self.draw_cell(o)
+		# self.draw_cell(o)
+
+		#draw 2 shells (for debug)~~~~~
+		# z = tf.cast(tf.linspace(0, (self.fid_phi-1)*self.fid_theta*3 - 1, (self.fid_phi-1)*self.fid_theta*3), tf.int32)
+		# self.draw_cell(z)
+		#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 		inside1, npts1 = self.get_points_inside(self.cloud1_tensor_spherical,o[:,None])		
 		mu1, sigma1 = self.fit_gaussian(self.cloud1_tensor, inside1, tf.cast(npts1, tf.float32))
+		enough1 = tf.where(npts1 > self.min_num_pts)[:,0]
+		mu1_enough = tf.gather(mu1, enough1)
+		sigma1_enough = tf.gather(sigma1, enough1)
 		# print("npts1", npts1)
 		# print("mu1", mu1)
 		# self.draw_ell(mu1, sigma1, pc = 1)
 
-		enough1 = tf.where(npts1 > self.min_num_pts)[:,0]
-		mu1_enough = tf.gather(mu1, enough1)
-		sigma1_enough = tf.gather(sigma1, enough1)
-		self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = 0.5)
+		# #------------------------------------------------------------------------------------------------
+		# #debug - draw points within a single occupied cell  
+		# # working on simple cluster but not on KITTI data
+		
+		# n = 56 #nth cell with sufficient number of points
+		# idx = enough1[n]
+		# # print(idx)
+		# # print("npts1", npts1[idx])
+		# # print("inside1[idx]", inside1[idx])
+		# temp = tf.gather(self.cloud1_tensor, inside1[idx]).numpy()
+		# # print(temp)
+		# self.disp.append(Points(temp, c = 'green', r = 10))
+		# # self.draw_cell(tf.gather(o, idx))
+		# # print(o)
+		# # print(tf.gather(o, idx)[None, None])
+		# self.draw_cell(tf.gather(o, idx)[None])
 
-		inside2, npts2 = self.get_points_inside(self.cloud2_tensor_spherical,o[:,None])		
+		# # self.draw_ell(mu1, sigma1)
+		# # print(tf.shape(mu1))
+		# #-------------------------------------------------------------------------------------------------
+
+
+		inside2, npts2 = self.get_points_inside(self.cloud2_tensor_spherical, o[:,None])		
 		mu2, sigma2 = self.fit_gaussian(self.cloud2_tensor, inside2, tf.cast(npts2, tf.float32))
-		# print("npts2", npts2)
-		# print("mu2", mu2)
-
-		#idx of (inside2, mu2, sigma2, npts2) with sufficient num pts 
 		enough2 = tf.where(npts2 > self.min_num_pts)[:,0]
 		mu2_enough = tf.gather(mu2, enough2)
 		sigma2_enough = tf.gather(sigma2, enough2)
+		# print("npts2", npts2)
+		# print("mu2", mu2)
+		#idx of (inside2, mu2, sigma2, npts2) with sufficient num pts 
 		# print(tf.shape(sigma2))
 		# print(tf.shape(sigma2_enough))
-		self.draw_ell(mu2_enough, sigma2_enough, pc = 2, alpha = 0.5)
 
-		print("enough1", enough1)
-		print(tf.gather(o, enough1))
-		print("enough2", enough2)
-		print(tf.gather(o, enough2))
-
-		#get correspondences
+		# #get correspondences
 		corr = tf.sets.intersection(enough1[None,:], enough2[None,:]).values
-		print("corr indices", corr)
-		self.draw_correspondences(mu1, mu2, corr)
+		# # print("corr indices", corr)
 
-		self.draw_cloud(self.cloud1, pc = 1)
-		self.draw_cloud(self.cloud2, pc = 2)
-		# self.draw_car()
+
+
+		self.draw_correspondences(mu1, mu2, corr)
+		self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = 1)
+		self.draw_ell(mu2_enough, sigma2_enough, pc = 2, alpha = 1)
+		# self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
+		# self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
+		self.draw_car()
 
 		# self.disp.append(addons.LegendBox(self.disp))
 		self.plt.show(self.disp, "Spherical ICET")
+
+	def main(self, niter, x0):
+		""" main loop """
+
+		for i in range(niter):
+			print(i)
+
+
+
 
 	def draw_ell(self, mu, sigma, pc = 1, alpha = 1):
 		"""draw distribution ellipses given mu and sigma tensors"""
@@ -187,32 +222,49 @@ class ICET():
 		# print("specified cells:", cells)
 
 		thetamin = -np.pi
-		thetamax = np.pi -  2*np.pi/self.fid_theta
+		thetamax = np.pi #-  2*np.pi/self.fid_theta
 		phimin =  3*np.pi/8
 		phimax = 5*np.pi/8 
+		# print(self.grid)
 
 		edges_r, _ = tf.unique(self.grid[:,0])
 		bins_r = tfp.stats.find_bins(cloud[:,0], edges_r)
-		edges_theta = tf.linspace(thetamin, thetamax, self.fid_theta)
+		
+		edges_theta = tf.linspace(thetamin, thetamax, self.fid_theta + 1)
+		# edges_theta, _ = tf.unique(self.grid[:,1])
 		bins_theta = tfp.stats.find_bins(cloud[:,1], edges_theta)
+		# print("edges_theta", edges_theta)
+		# print("bins_theta", bins_theta)
+
 		edges_phi = tf.linspace(phimin, phimax, self.fid_phi)
+		# edges_phi, _ = tf.unique(self.grid[:,2])
 		bins_phi = tfp.stats.find_bins(cloud[:,2], edges_phi)		
 
 		#cell index for every point in cloud
-		cell_idx = tf.cast(bins_theta*(self.fid_phi-1) + bins_phi + bins_r*self.fid_theta*(self.fid_phi-1), tf.int32)
+		cell_idx = tf.cast( bins_theta*(self.fid_phi-1) + bins_phi + bins_r*self.fid_theta*(self.fid_phi-1), tf.int32) #was this pre 3/5 (incorrect??)
+
+
+
 		# print("cell index for each point", cell_idx)
 
 		pts_in_c = tf.where(cell_idx == cells)
+		# print("cell ID for each point", pts_in_c[:,0])
 
-		# print("pts_in_c", pts_in_c[:,0])
+		#TODO: check for skipped indices here -> it may be producing a bug
+		# print(tf.unique(pts_in_c[:,0]))
 		
 		numPtsPerCell = tf.math.bincount(tf.cast(pts_in_c[:,0], tf.int32))
-		# print("ptsPerCell", numPtsPerCell)
+		# print("numPtsPerCell", numPtsPerCell)
 		#test
 		# _, num_pts = tf.unique(pts_in_c[:,0])
 		# print("num_pts", num_pts)
 
-		pts_in_c = tf.RaggedTensor.from_value_rowids(pts_in_c[:,1], pts_in_c[:,0])
+		pts_in_c = tf.RaggedTensor.from_value_rowids(pts_in_c[:,1], pts_in_c[:,0]) 
+		# pts_in_c = tf.RaggedTensor.from_value_rowids(pts_in_c[:,1], pts_in_c[:,0], nrows = tf.shape(cells)[0].numpy())
+		# print(pts_in_c.get_shape())
+		# print(tf.shape(cells))
+		# print("pts_in_c", pts_in_c)
+
 		# print("index of points in specified cell", pts_in_c)
 
 		# print("took", time.time()-st, "s to find pts in cells")
@@ -227,11 +279,11 @@ class ICET():
 		#attempt #2:------------------------------------------------------------------------------
 		#bin points by spike
 		thetamin = -np.pi
-		thetamax = np.pi -  2*np.pi/self.fid_theta
+		thetamax = np.pi #-  2*np.pi/self.fid_theta
 		phimin =  3*np.pi/8
 		phimax = 5*np.pi/8 
 
-		edges_theta = tf.linspace(thetamin, thetamax, self.fid_theta)
+		edges_theta = tf.linspace(thetamin, thetamax, self.fid_theta + 1)
 		bins_theta = tfp.stats.find_bins(self.cloud1_tensor_spherical[:,1], edges_theta)
 		# print(bins_theta)
 		edges_phi = tf.linspace(phimin, phimax, self.fid_phi)
@@ -419,6 +471,6 @@ class ICET():
 		# car.orientation(vector(0,np.pi/2,0)) 
 		self.disp.append(car)
 		#draw red sphere at location of sensor
-		self.disp.append(Points(np.array([[0,0,0]]), c = [0.9,0.5,0.5], r = 10))
+		self.disp.append(Points(np.array([[0,0,0]]), c = [0.9,0.9,0.5], r = 10))
 
 		# print(car.rot)
