@@ -8,9 +8,8 @@ import tensorflow_probability as tfp
 from utils import R2Euler, Ell
 
 #TODO:
-	# ignore cells with fewer than n points
-	# get correspondences
 	# take stuff out of __init__, begin working on main loop
+	# figure out why <get_occupied()> always includes cell 0 at the end
 
 class ICET():
 
@@ -47,21 +46,27 @@ class ICET():
 
 		o = self.get_occupied()
 		# print("occupied = ", o)
-		# self.draw_cell(o)
-
-		#draw 2 shells (for debug)~~~~~
-		# z = tf.cast(tf.linspace(0, (self.fid_phi-1)*self.fid_theta*3 - 1, (self.fid_phi-1)*self.fid_theta*3), tf.int32)
-		# self.draw_cell(z)
-		#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		self.draw_cell(o)
 
 		inside1, npts1 = self.get_points_inside(self.cloud1_tensor_spherical,o[:,None])		
 		mu1, sigma1 = self.fit_gaussian(self.cloud1_tensor, inside1, tf.cast(npts1, tf.float32))
 		enough1 = tf.where(npts1 > self.min_num_pts)[:,0]
 		mu1_enough = tf.gather(mu1, enough1)
 		sigma1_enough = tf.gather(sigma1, enough1)
-		# print("npts1", npts1)
 		# print("mu1", mu1)
-		# self.draw_ell(mu1, sigma1, pc = 1)
+
+		# print(o)
+		# print("npts1", npts1)
+		# print(tf.gather(o, enough1))
+		# print(tf.unique(self.grid[:,0]))
+
+		U, L = self.get_U_and_L(sigma1_enough, tf.gather(o, enough1))
+		# print("U: \n", U)
+		# print("L: \n", L)
+
+		# for z in enough1:
+		# 	temp = tf.gather(self.cloud1_tensor, inside1[z]).numpy()
+		# 	self.disp.append(Points(temp, c = 'green', r = 6))
 
 		# #------------------------------------------------------------------------------------------------
 		# #debug - draw points within a single occupied cell  
@@ -83,7 +88,10 @@ class ICET():
 		# # self.draw_ell(mu1, sigma1)
 		# # print(tf.shape(mu1))
 		# #-------------------------------------------------------------------------------------------------
-
+		#draw 2 shells (for debug)~~~~~
+		# z = tf.cast(tf.linspace(0, (self.fid_phi-1)*self.fid_theta*3 - 1, (self.fid_phi-1)*self.fid_theta*3), tf.int32)
+		# self.draw_cell(z)
+		#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 		inside2, npts2 = self.get_points_inside(self.cloud2_tensor_spherical, o[:,None])		
 		mu2, sigma2 = self.fit_gaussian(self.cloud2_tensor, inside2, tf.cast(npts2, tf.float32))
@@ -96,11 +104,9 @@ class ICET():
 		# print(tf.shape(sigma2))
 		# print(tf.shape(sigma2_enough))
 
-		# #get correspondences
+		#get correspondences
 		corr = tf.sets.intersection(enough1[None,:], enough2[None,:]).values
-		# # print("corr indices", corr)
-
-
+		# print("corr indices", corr)
 
 		self.draw_correspondences(mu1, mu2, corr)
 		self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = 1)
@@ -119,7 +125,49 @@ class ICET():
 			print(i)
 
 
+	def get_U_and_L(self, sigma1, cells):
+		""" 	sigma1 = sigmas from the first scan
+				cells = tensor containing the indices of each scan
 
+				U = rotation matrix for each voxel to transform scan 2 distribution
+				 into frame of corresponding to ellipsoid axis in keyframe
+			    L = matrix to prune extended directions in each voxel (from keyframe)
+		
+				# starting out by constructing this similar to 3D-ICET, eventually the plan is to try Jason's unscented KF strategy"""
+
+		eigenval, eigenvec = tf.linalg.eig(sigma1)
+		U = tf.math.real(eigenvec)
+
+		#need to create [N,3,3] diagonal matrices for axislens
+		zeros = tf.zeros([tf.shape(tf.math.real(eigenval))[0]])
+		axislen = tf.Variable([tf.math.real(eigenval)[:,0], zeros, zeros,
+							   zeros, tf.math.real(eigenval)[:,1], zeros,
+							   zeros, zeros, tf.math.real(eigenval)[:,2]])
+
+		axislen = tf.reshape(tf.transpose(axislen), (tf.shape(axislen)[1], 3, 3))
+		# print("\n axislen \n", axislen)
+
+		# get projections of axis length in each direction
+		rotated = tf.abs(tf.matmul(U,axislen))
+		# print("rotated", rotated)
+
+		#need information on the cell index to be able to perform truncation 
+		#	-> (cells further from vehicle will require larger distribution length thresholds)
+		shell = cells//(self.fid_theta*(self.fid_phi - 1))
+		# print("shell", shell)
+		r_grid, _ = tf.unique(self.grid[:,0])
+		# print("r_grid", r_grid)
+		cell_width = tf.experimental.numpy.diff(r_grid)
+		# print("cell_width", cell_width)
+		thresholds = (tf.gather(cell_width, shell)**2)/16
+		# print("thresholds", thresholds)
+
+		# test = tf.math.greater(rotated, thresholds)
+		# print(test)
+
+		L = None #temp
+
+		return(U,L)
 
 	def draw_ell(self, mu, sigma, pc = 1, alpha = 1):
 		"""draw distribution ellipses given mu and sigma tensors"""

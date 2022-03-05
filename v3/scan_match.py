@@ -25,5 +25,5 @@ c1 = c1[c1[:,2] > -1.5] #ignore ground plane
 
 c2 = c1 - np.array([0.1, 0.4, 0.0])
 
-it = ICET(cloud1 = c1, cloud2 = c2,  fid = 50)
+it = ICET(cloud1 = c1, cloud2 = c2,  fid = 80)
 ViewInteractiveWidget(it.plt.window)
