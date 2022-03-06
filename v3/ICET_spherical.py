@@ -17,20 +17,22 @@ from utils import R2Euler, Ell, jacobian_tf, R_tf
 
 class ICET():
 
-	def __init__(self, cloud1, cloud2, fid = 30, draw = True):
+	def __init__(self, cloud1, cloud2, fid = 30, niter = 5, draw = True, x0 = tf.constant([0.0, 0.0, 0., 0., 0., 0.])):
 
 		self.min_cell_distance = 3 #begin closest spherical voxel here
-		self.min_num_pts = 10 #ignore "occupied" cells with fewer than this number of pts
+		self.min_num_pts = 30 #ignore "occupied" cells with fewer than this number of pts
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
+		self.niter = niter
 
 		#convert cloud1 to tesnsor
 		self.cloud1_tensor = tf.cast(tf.convert_to_tensor(cloud1), tf.float32)
 		self.cloud2_tensor = tf.cast(tf.convert_to_tensor(cloud2), tf.float32)
 		self.cloud2_tensor_OG = tf.cast(tf.convert_to_tensor(cloud2), tf.float32) #TODO- try and avoid repeating this...
 
-		self.plt = Plotter(N = 1, axes = 4, bg = (1, 1, 1), interactive = True) #axis = 4
-		self.disp = []
+		if self.draw == True:
+			self.plt = Plotter(N = 1, axes = 4, bg = (1, 1, 1), interactive = True) #axis = 4
+			self.disp = []
 
 		#convert cloud to spherical coordinates
 		self.cloud1_tensor_spherical = tf.cast(self.c2s(self.cloud1_tensor), tf.float32)
@@ -73,21 +75,23 @@ class ICET():
 		# self.draw_cell(z)
 		#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-		x0 = tf.constant([0.1, 0.3, 0., 0., 0., 0.])
-		self.main(niter = 5, x0 = x0)
+		self.main(niter = self.niter, x0 = x0)
 
-		# self.disp.append(addons.LegendBox(self.disp))
-		self.plt.show(self.disp, "Spherical ICET")
+		if self.draw == True:
+			# self.disp.append(addons.LegendBox(self.disp))
+			self.plt.show(self.disp, "Spherical ICET")
 
 	def main(self, niter, x0):
 		""" main loop """
 
 		self.X = x0
 
-		self.draw_car()
 		o = self.get_occupied()
 		# print("occupied = ", o)
-		self.draw_cell(o)
+		if self.draw:
+			self.draw_cell(o)
+			self.draw_car()
+
 
 		inside1, npts1 = self.get_points_inside(self.cloud1_tensor_spherical,o[:,None])		
 		mu1, sigma1 = self.fit_gaussian(self.cloud1_tensor, inside1, tf.cast(npts1, tf.float32))
@@ -106,10 +110,10 @@ class ICET():
 		U, L = self.get_U_and_L(sigma1, o)
 		# print("U: \n", U)
 		# print("L: \n", L)
-		self.visualize_L(mu1_enough, U, L)
-
-		self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = 0.5)
-		self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
+		if self.draw:
+			self.visualize_L(mu1_enough, U, L)
+			self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = 1)
+			self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
 
 		for i in range(niter):
 			print("estimated solution vector X: \n", self.X)
@@ -190,14 +194,16 @@ class ICET():
 			# print("\n Q \n", Q)
 
 			stds = tf.math.sqrt(tf.abs(Q))
-			print("stds: \n", tf.linalg.tensor_diag_part(stds))
+		print("stds: \n", tf.linalg.tensor_diag_part(stds))
 
 		if self.draw == True:
-			# self.draw_ell(y_i, sigma_i, pc = 2, alpha = 0.5)
+			self.draw_ell(y_i, sigma_i, pc = 2, alpha = 1)
 			self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
-			print("\n L2 \n", L2)
-			print("\n lam \n", lam)
-			print("\n U2 \n", U2)
+			self.draw_cloud(self.cloud2_tensor_OG.numpy(), pc = 3) #draw in differnt color
+			
+			# print("\n L2 \n", L2)
+			# print("\n lam \n", lam)
+			# print("\n U2 \n", U2)
 
 
 
@@ -281,7 +287,7 @@ class ICET():
 			U2 = rotation matrix to transform for L2 pruning 
 			"""
 
-		cutoff = 1e4 #1e5 #TODO-> experiment with this to get a good value
+		cutoff = 1e5 #1e5 #TODO-> experiment with this to get a good value
 
 		#do eigendecomposition
 		eigenval, eigenvec = tf.linalg.eig(HTWH)
@@ -671,6 +677,8 @@ class ICET():
 			color = [0.8, 0.5, 0.5]
 		if pc == 2:
 			color = [0.5, 0.5, 0.8]
+		if pc == 3:
+			color = [0.5, 0.8, 0.5]
 		
 		c = Points(points, c = color, r = 4)
 		self.disp.append(c)
