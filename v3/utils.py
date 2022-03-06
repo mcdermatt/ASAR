@@ -15,6 +15,54 @@ def R2Euler(mat):
 	angs = np.array([phi, theta, psi])
 	return angs
 
+def R_tf(angs):
+    """generates rotation matrix using euler angles
+    angs = tf.constant(phi, theta, psi) (aka rot about (x,y,z))"""
+
+    phi = angs[0]
+    theta = angs[1]
+    psi = angs[2]
+
+    mat = tf.Variable([[cos(theta)*cos(psi), sin(psi)*cos(phi) + sin(phi)*sin(theta)*cos(psi), sin(phi)*sin(psi) - sin(theta)*cos(phi)*cos(psi)],
+                       [-sin(psi)*cos(theta), cos(phi)*cos(psi) - sin(phi)*sin(theta)*sin(psi), sin(phi)*cos(psi) + sin(theta)*sin(psi)*cos(phi)],
+                       [sin(theta), -sin(phi)*cos(theta), cos(phi)*cos(theta)]
+                        ])
+    return mat
+
+def jacobian_tf(p_point, angs):
+    """calculates jacobian for point using TensorFlow
+        angs = tf.constant[phi, theta, psi] aka (x,y,z)"""
+
+    phi = angs[0]
+    theta = angs[1]
+    psi = angs[2]
+
+    #correct method using tf.tile
+    eyes = tf.tile(-tf.eye(3), [tf.shape(p_point)[1] , 1])
+
+    # (deriv of R() wrt phi).dot(p_point)
+    #   NOTE: any time sin/cos operator is used, output will be 1x1 instead of constant (not good)
+    Jx = tf.tensordot(tf.Variable([[tf.constant(0.), (-sin(psi)*sin(phi) + cos(phi)*sin(theta)*cos(psi)), (cos(phi)*sin(psi) + sin(theta)*sin(phi)*cos(psi))],
+                                   [tf.constant(0.), (-sin(phi)*cos(psi) - cos(phi)*sin(theta)*sin(psi)), (cos(phi)*cos(psi) - sin(theta)*sin(psi)*sin(phi))], 
+                                   [tf.constant(0.), (-cos(phi)*cos(theta)), (-sin(phi)*cos(theta))] ]), p_point, axes = 1)
+
+    # (deriv of R() wrt theta).dot(p_point)
+    Jy = tf.tensordot(tf.Variable([[(-sin(theta)*cos(psi)), (cos(theta)*sin(phi)*cos(psi)), (-cos(theta)*cos(phi)*cos(psi))],
+                                   [(sin(psi)*sin(theta)), (-cos(theta)*sin(phi)*sin(psi)), (cos(theta)*sin(psi)*cos(phi))],
+                                   [(cos(theta)), (sin(phi)*sin(theta)), (-sin(theta)*cos(phi))] ]), p_point, axes = 1)
+
+    Jz = tf.tensordot(tf.Variable([[(-cos(theta)*sin(psi)), (cos(psi)*cos(phi) - sin(phi)*sin(theta)*sin(psi)), (cos(psi)*sin(phi) + sin(theta)*cos(phi)*sin(psi)) ],
+                                       [(-cos(psi)*cos(theta)), (-sin(psi)*cos(phi) - sin(phi)*sin(theta)*cos(psi)), (-sin(phi)*sin(psi) + sin(theta)*cos(psi)*cos(phi))],
+                                       [tf.constant(0.),tf.constant(0.),tf.constant(0.)]]), p_point, axes = 1)
+
+    Jx_reshape = tf.reshape(tf.transpose(Jx), shape = (tf.shape(Jx)[0]*tf.shape(Jx)[1],1))
+    Jy_reshape = tf.reshape(tf.transpose(Jy), shape = (tf.shape(Jy)[0]*tf.shape(Jy)[1],1))
+    Jz_reshape = tf.reshape(tf.transpose(Jz), shape = (tf.shape(Jz)[0]*tf.shape(Jz)[1],1))
+
+    J = tf.concat([eyes, Jx_reshape, Jy_reshape, Jz_reshape], axis = 1) #was this
+
+    return J
+
 class Ell(Mesh):
     """
     Build a 3D ellipsoid centered at position `pos`.

@@ -5,28 +5,30 @@ import time
 import tensorflow as tf
 from tensorflow.math import sin, cos, tan
 import tensorflow_probability as tfp
-from utils import R2Euler, Ell
+from utils import R2Euler, Ell, jacobian_tf, R_tf
 
 #TODO:
 	# take stuff out of __init__, begin working on main loop
 	# figure out why <get_occupied()> always includes cell 0 at the end
+	# why are some arrows from visualize_L() not perfectly aligned with distribution axis??
+	# for voxles that have an insufficient number of points, sweep through the corresponding spike until we find one with enough points
+	# try stretching out voxels at steep angles
+	# make easy way to turn visualization off to improve runtime
 
 class ICET():
 
-	def __init__(self, cloud1, cloud2, fid = 30):
+	def __init__(self, cloud1, cloud2, fid = 30, draw = True):
 
 		self.min_cell_distance = 3 #begin closest spherical voxel here
-		self.min_num_pts = 10 #ignore cells with fewer than this #pts
-
+		self.min_num_pts = 10 #ignore "occupied" cells with fewer than this number of pts
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
-		self.cloud1 = cloud1
-		self.cloud2 = cloud2
+		self.draw = draw
 
 		#convert cloud1 to tesnsor
 		self.cloud1_tensor = tf.cast(tf.convert_to_tensor(cloud1), tf.float32)
 		self.cloud2_tensor = tf.cast(tf.convert_to_tensor(cloud2), tf.float32)
+		self.cloud2_tensor_OG = tf.cast(tf.convert_to_tensor(cloud2), tf.float32) #TODO- try and avoid repeating this...
 
-		# self.mnp = 10 #minimum number of points to count as occupied
 		self.plt = Plotter(N = 1, axes = 4, bg = (1, 1, 1), interactive = True) #axis = 4
 		self.disp = []
 
@@ -44,34 +46,7 @@ class ICET():
 		
 		self.grid_spherical( draw = False )
 
-		o = self.get_occupied()
-		# print("occupied = ", o)
-		self.draw_cell(o)
-
-		inside1, npts1 = self.get_points_inside(self.cloud1_tensor_spherical,o[:,None])		
-		mu1, sigma1 = self.fit_gaussian(self.cloud1_tensor, inside1, tf.cast(npts1, tf.float32))
-		enough1 = tf.where(npts1 > self.min_num_pts)[:,0]
-		mu1_enough = tf.gather(mu1, enough1)
-		sigma1_enough = tf.gather(sigma1, enough1)
-		# print("mu1", mu1)
-
-		# print(o)
-		# print("npts1", npts1)
-		# print(tf.gather(o, enough1))
-		# print(tf.unique(self.grid[:,0]))
-
-		U, L = self.get_U_and_L(sigma1_enough, tf.gather(o, enough1))
-		# print("U: \n", U)
-		# print("L: \n", L)
-
-		y0 = mu1_enough
-		self.visualize_L(y0, U, L)
-
-		# for z in enough1:
-		# 	temp = tf.gather(self.cloud1_tensor, inside1[z]).numpy()
-		# 	self.disp.append(Points(temp, c = 'green', r = 6))
-
-		# #------------------------------------------------------------------------------------------------
+		# #-----------------------------------------------------------
 		# #debug - draw points within a single occupied cell  
 		# # working on simple cluster but not on KITTI data
 		
@@ -90,33 +65,16 @@ class ICET():
 
 		# # self.draw_ell(mu1, sigma1)
 		# # print(tf.shape(mu1))
-		# #-------------------------------------------------------------------------------------------------
-		#draw 2 shells (for debug)~~~~~
+		# #------------------------------------------------------------
+
+		#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		#draw 2 shells (for debug)
 		# z = tf.cast(tf.linspace(0, (self.fid_phi-1)*self.fid_theta*3 - 1, (self.fid_phi-1)*self.fid_theta*3), tf.int32)
 		# self.draw_cell(z)
-		#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-		inside2, npts2 = self.get_points_inside(self.cloud2_tensor_spherical, o[:,None])		
-		mu2, sigma2 = self.fit_gaussian(self.cloud2_tensor, inside2, tf.cast(npts2, tf.float32))
-		enough2 = tf.where(npts2 > self.min_num_pts)[:,0]
-		mu2_enough = tf.gather(mu2, enough2)
-		sigma2_enough = tf.gather(sigma2, enough2)
-		# print("npts2", npts2)
-		# print("mu2", mu2)
-		#idx of (inside2, mu2, sigma2, npts2) with sufficient num pts 
-		# print(tf.shape(sigma2))
-		# print(tf.shape(sigma2_enough))
-
-		#get correspondences
-		corr = tf.sets.intersection(enough1[None,:], enough2[None,:]).values
-		# print("corr indices", corr)
-
-		# self.draw_correspondences(mu1, mu2, corr)
-		self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = 0.5)
-		# self.draw_ell(mu2_enough, sigma2_enough, pc = 2, alpha = 1)
-		# self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
-		# self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
-		self.draw_car()
+		x0 = tf.constant([0.1, 0.3, 0., 0., 0., 0.])
+		self.main(niter = 5, x0 = x0)
 
 		# self.disp.append(addons.LegendBox(self.disp))
 		self.plt.show(self.disp, "Spherical ICET")
@@ -124,8 +82,124 @@ class ICET():
 	def main(self, niter, x0):
 		""" main loop """
 
+		self.X = x0
+
+		self.draw_car()
+		o = self.get_occupied()
+		# print("occupied = ", o)
+		self.draw_cell(o)
+
+		inside1, npts1 = self.get_points_inside(self.cloud1_tensor_spherical,o[:,None])		
+		mu1, sigma1 = self.fit_gaussian(self.cloud1_tensor, inside1, tf.cast(npts1, tf.float32))
+		enough1 = tf.where(npts1 > self.min_num_pts)[:,0]
+		mu1_enough = tf.gather(mu1, enough1)
+		sigma1_enough = tf.gather(sigma1, enough1)
+
+		#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		## highlight points in usable cells from scan 1
+		# for z in enough1:
+		# 	temp = tf.gather(self.cloud1_tensor, inside1[z]).numpy()
+		# 	self.disp.append(Points(temp, c = 'green', r = 6))
+		#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+		# U, L = self.get_U_and_L(sigma1_enough, tf.gather(o, enough1))
+		U, L = self.get_U_and_L(sigma1, o)
+		# print("U: \n", U)
+		# print("L: \n", L)
+		self.visualize_L(mu1_enough, U, L)
+
+		self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = 0.5)
+		self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
+
 		for i in range(niter):
-			print(i)
+			print("estimated solution vector X: \n", self.X)
+
+			#transform cartesian point cloud 2 by estimated solution vector X
+			t = self.X[:3]
+			rot = R_tf(-self.X[3:])
+			self.cloud2_tensor = tf.matmul((self.cloud2_tensor_OG + t), tf.transpose(rot)) 
+
+			#convert back to spherical coordinates
+			self.cloud2_tensor_spherical = tf.cast(self.c2s(self.cloud2_tensor), tf.float32)
+
+			#find points from scan 2 that fall inside occupied voxels
+			inside2, npts2 = self.get_points_inside(self.cloud2_tensor_spherical, o[:,None])
+
+			#fit gaussians distributions to each of these groups of points 		
+			mu2, sigma2 = self.fit_gaussian(self.cloud2_tensor, inside2, tf.cast(npts2, tf.float32))
+			enough2 = tf.where(npts2 > self.min_num_pts)[:,0]
+			mu2_enough = tf.gather(mu2, enough2)
+			#draw all distribution from scan 2, even in cells without distribution from scan1
+			# sigma2_enough = tf.gather(sigma2, enough2)
+			# self.draw_ell(mu2_enough, sigma2_enough, pc = 2, alpha = 0.5)
+
+			#get correspondences
+			corr = tf.sets.intersection(enough1[None,:], enough2[None,:]).values
+			# print("corr indices", corr)
+			# self.draw_correspondences(mu1, mu2, corr)
+
+			y0_i = tf.gather(mu1, corr)
+			sigma0_i = tf.gather(sigma1, corr)
+			npts0_i = tf.gather(npts1, corr)
+
+			y_i = tf.gather(mu2, corr)
+			sigma_i = tf.gather(sigma2, corr)
+			npts_i = tf.gather(npts2, corr)
+
+			U_i = tf.gather(U, corr)
+			L_i = tf.gather(L, corr)
+
+			#get matrix containing partial derivatives for each voxel mean
+			H = jacobian_tf(tf.transpose(y_i), self.X[3:]) # shape = [num of corr * 3, 6]
+			H = tf.reshape(H, (tf.shape(H)[0]//3,3,6)) # -> need shape [#corr//3, 3, 6]
+			# print("H \n", H)
+
+			#construct sensor noise covariance matrix
+			R_noise = (tf.transpose(tf.transpose(sigma0_i, [1,2,0]) / tf.cast(npts0_i - 1, tf.float32)) + 
+						tf.transpose(tf.transpose(sigma_i, [1,2,0]) / tf.cast(npts_i - 1, tf.float32)) )
+			R_noise = L_i @ tf.transpose(U_i, [0,2,1]) @ R_noise @ U_i @ tf.transpose(L_i, [0,2,1])
+
+			#take inverse of R_noise to get our weighting matrix
+			W = tf.linalg.pinv(R_noise)
+
+			U_iT = tf.transpose(U_i, [0,2,1])
+			LUT = L_i @ U_iT
+
+			# use LUT to remove rows of H corresponding to overly extended directions
+			H_z = LUT @ H
+
+			HTWH = tf.math.reduce_sum(tf.matmul(tf.matmul(tf.transpose(H_z, [0,2,1]), W), H_z), axis = 0) #was this (which works)
+			HTW = tf.matmul(tf.transpose(H_z, [0,2,1]), W)
+
+			L2, lam, U2 = self.check_condition(HTWH)
+
+			# create alternate corrdinate system to align with axis of scan 1 distributions
+			z = tf.squeeze(tf.matmul(LUT, y_i[:,:,None]))
+			z0 = tf.squeeze(tf.matmul(LUT, y0_i[:,:,None]))	
+			dz = z - z0
+			dz = dz[:,:,None] #need to add an extra dimension to dz to get the math to work out
+
+			dx = tf.squeeze(tf.matmul( tf.matmul(tf.linalg.pinv(L2 @ lam @ tf.transpose(U2)) @ L2 @ tf.transpose(U2) , HTW ), dz))
+			dx = tf.math.reduce_sum(dx, axis = 0)
+			# print("\n dx \n", dx)
+
+			self.X += dx
+
+			#get output covariance matrix
+			Q = tf.linalg.pinv(HTWH)
+			# print("\n Q \n", Q)
+
+			stds = tf.math.sqrt(tf.abs(Q))
+			print("stds: \n", tf.linalg.tensor_diag_part(stds))
+
+		if self.draw == True:
+			# self.draw_ell(y_i, sigma_i, pc = 2, alpha = 0.5)
+			self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
+			print("\n L2 \n", L2)
+			print("\n lam \n", lam)
+			print("\n U2 \n", U2)
+
+
 
 
 	def get_U_and_L(self, sigma1, cells):
@@ -162,7 +236,9 @@ class ICET():
 		# print("r_grid", r_grid)
 		cell_width = tf.experimental.numpy.diff(r_grid)
 		# print("cell_width", cell_width)
-		thresholds = (tf.gather(cell_width, shell)**2)/32
+		# thresholds = (tf.gather(cell_width, shell)**2)/32
+		thresholds = (tf.gather(cell_width, shell)**2)/64
+
 		#tile to so that each threshold is repeated 3 times (for each axis)
 		thresholds = tf.reshape(tf.transpose(tf.reshape(tf.tile(thresholds[:,None], [3,1]), [3,-1])), [-1,3])[:,None]
 		# print("thresholds", thresholds)
@@ -187,9 +263,7 @@ class ICET():
 			transformed into the frame of the distribution ellipsoids via U  """
 
 		for i in range(tf.shape(y0)[0]):
-
 			ends =  L[i] @ tf.transpose(U[i])
-
 			arrow_len = 0.5
 			arr1 = shapes.Arrow(y0[i].numpy(), (y0[i] + arrow_len * ends[0,:]).numpy(), c = 'red')
 			self.disp.append(arr1)
@@ -198,6 +272,65 @@ class ICET():
 			arr3 = shapes.Arrow(y0[i].numpy(), (y0[i] + arrow_len * ends[2,:]).numpy(), c = 'blue')
 			self.disp.append(arr3)
 
+	def check_condition(self, HTWH):
+		"""verifies that HTWH is invertable and if not, 
+			reduces dimensions to make inversion possible
+
+			L2 = identity matrix which keeps non-extended axis of solution
+			lam = diagonal eigenvalue matrix
+			U2 = rotation matrix to transform for L2 pruning 
+			"""
+
+		cutoff = 1e4 #1e5 #TODO-> experiment with this to get a good value
+
+		#do eigendecomposition
+		eigenval, eigenvec = tf.linalg.eig(HTWH)
+		eigenval = tf.math.real(eigenval)
+		eigenvec = tf.math.real(eigenvec)
+
+		# print("\n eigenvals \n", eigenval)
+		# print("\n eigenvec \n", eigenvec)
+		# print("\n eigenvec.T \n", tf.transpose(eigenvec))
+
+		#sort eigenvals by size -default sorts small to big
+		# small2big = tf.sort(eigenval)
+		# print("\n sorted \n", small2big)
+
+		#test if condition number is bigger than cutoff
+		condition = eigenval[-1] / eigenval[0]
+		# print("\n condition \n", tf.experimental.numpy.log10(abs(condition)))
+		# print("\n condition \n", condition.numpy())
+
+
+		everyaxis = tf.cast(tf.linspace(0,5,6), dtype=tf.int32)
+		remainingaxis = everyaxis
+		i = tf.Variable([0],dtype = tf.int32) #count var
+		#loop until condition number is small enough to make matrix invertable
+		while abs(condition) > cutoff:
+
+			condition = eigenval[-1] / tf.gather(eigenval, i)
+			# print("condition", tf.experimental.numpy.log10(abs(condition)).numpy())
+
+			if abs(condition) > cutoff:
+				i.assign_add(tf.Variable([1],dtype = tf.int32))
+				remainingaxis = everyaxis[i.numpy()[0]:]
+
+		#create identity matrix truncated to only have the remaining axis
+		L2 = tf.gather(tf.eye(6), remainingaxis)
+
+		# #alternate strategy- zero out instead of keeping axis truncated
+		# while tf.shape(L2)[0] < 6:
+		# 	L2 = tf.concat((tf.zeros([1,6]), L2), axis = 0)
+
+		# print("\n L2 \n", L2)
+
+		U2 = eigenvec
+		# print("\n U2 \n", U2)
+
+		lam = tf.eye(6)*eigenval
+		# print("\n lam \n", lam)
+
+		return(L2, lam, U2)
 
 
 	def draw_ell(self, mu, sigma, pc = 1, alpha = 1):
