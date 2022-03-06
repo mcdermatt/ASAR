@@ -64,6 +64,9 @@ class ICET():
 		# print("U: \n", U)
 		# print("L: \n", L)
 
+		y0 = mu1_enough
+		self.visualize_L(y0, U, L)
+
 		# for z in enough1:
 		# 	temp = tf.gather(self.cloud1_tensor, inside1[z]).numpy()
 		# 	self.disp.append(Points(temp, c = 'green', r = 6))
@@ -108,9 +111,9 @@ class ICET():
 		corr = tf.sets.intersection(enough1[None,:], enough2[None,:]).values
 		# print("corr indices", corr)
 
-		self.draw_correspondences(mu1, mu2, corr)
-		self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = 1)
-		self.draw_ell(mu2_enough, sigma2_enough, pc = 2, alpha = 1)
+		# self.draw_correspondences(mu1, mu2, corr)
+		self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = 0.5)
+		# self.draw_ell(mu2_enough, sigma2_enough, pc = 2, alpha = 1)
 		# self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
 		# self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
 		self.draw_car()
@@ -159,15 +162,43 @@ class ICET():
 		# print("r_grid", r_grid)
 		cell_width = tf.experimental.numpy.diff(r_grid)
 		# print("cell_width", cell_width)
-		thresholds = (tf.gather(cell_width, shell)**2)/16
+		thresholds = (tf.gather(cell_width, shell)**2)/32
+		#tile to so that each threshold is repeated 3 times (for each axis)
+		thresholds = tf.reshape(tf.transpose(tf.reshape(tf.tile(thresholds[:,None], [3,1]), [3,-1])), [-1,3])[:,None]
 		# print("thresholds", thresholds)
 
-		# test = tf.math.greater(rotated, thresholds)
-		# print(test)
+		greater_than_thresh = tf.math.greater(rotated, thresholds)
+		# print(greater_than_thresh)
+		ext_idx = tf.math.reduce_any(greater_than_thresh, axis = 1)
+		compact = tf.where(tf.math.reduce_any(tf.reshape(ext_idx, (-1,1)), axis = 1) == False)
+		compact =  tf.cast(compact, tf.int32)
+		data = tf.ones((tf.shape(compact)[0],3))
+		I = tf.tile(tf.eye(3), (tf.shape(U)[0], 1))
 
-		L = None #temp
+		mask = tf.scatter_nd(indices = compact, updates = data, shape = tf.shape(I))
+
+		L = mask * I
+		L = tf.reshape(L, (tf.shape(L)[0]//3,3,3))
 
 		return(U,L)
+
+	def visualize_L(self, y0, U, L):
+		""" for each voxel center, mu, this func draws untruncated axis via L 
+			transformed into the frame of the distribution ellipsoids via U  """
+
+		for i in range(tf.shape(y0)[0]):
+
+			ends =  L[i] @ tf.transpose(U[i])
+
+			arrow_len = 0.5
+			arr1 = shapes.Arrow(y0[i].numpy(), (y0[i] + arrow_len * ends[0,:]).numpy(), c = 'red')
+			self.disp.append(arr1)
+			arr2 = shapes.Arrow(y0[i].numpy(), (y0[i] + arrow_len * ends[1,:]).numpy(), c = 'green')
+			self.disp.append(arr2)
+			arr3 = shapes.Arrow(y0[i].numpy(), (y0[i] + arrow_len * ends[2,:]).numpy(), c = 'blue')
+			self.disp.append(arr3)
+
+
 
 	def draw_ell(self, mu, sigma, pc = 1, alpha = 1):
 		"""draw distribution ellipses given mu and sigma tensors"""
