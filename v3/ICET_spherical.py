@@ -8,6 +8,7 @@ import tensorflow_probability as tfp
 from utils import R2Euler, Ell, jacobian_tf, R_tf
 
 #TODO:
+	# DEBUG: script is crashing if I don't remove the ground plane 
 	# take stuff out of __init__, begin working on main loop
 	# figure out why <get_occupied()> always includes cell 0 at the end
 	# why are some arrows from visualize_L() not perfectly aligned with distribution axis??
@@ -75,6 +76,19 @@ class ICET():
 		# self.draw_cell(z)
 		#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+		#______________________________________________________________
+		#DEBUG: why is cell 1 getting drawn when it shouldn't be????!!!
+
+		#		semms like it happens when points in cloud have too low of a z coordinate
+
+		o = self.get_occupied()
+		# print("\n occupied: \n", o)
+
+		# self.get_points_inside(self.cloud1_tensor_spherical, )
+
+		#______________________________________________________________
+
+
 		self.main(niter = self.niter, x0 = x0)
 
 		if self.draw == True:
@@ -106,8 +120,9 @@ class ICET():
 		# 	self.disp.append(Points(temp, c = 'green', r = 6))
 		#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-		# U, L = self.get_U_and_L(sigma1_enough, tf.gather(o, enough1))
-		U, L = self.get_U_and_L(sigma1, o)
+		# print("sigma1 \n", sigma1)
+		U, L = self.get_U_and_L(sigma1_enough, tf.gather(o, enough1))
+		# U, L = self.get_U_and_L(sigma1, o)
 		# print("U: \n", U)
 		# print("L: \n", L)
 		if self.draw:
@@ -116,7 +131,7 @@ class ICET():
 			self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
 
 		for i in range(niter):
-			print("estimated solution vector X: \n", self.X)
+			print("\n estimated solution vector X: \n", self.X)
 
 			#transform cartesian point cloud 2 by estimated solution vector X
 			t = self.X[:3]
@@ -145,6 +160,7 @@ class ICET():
 			y0_i = tf.gather(mu1, corr)
 			sigma0_i = tf.gather(sigma1, corr)
 			npts0_i = tf.gather(npts1, corr)
+			# print(sigma1)
 
 			y_i = tf.gather(mu2, corr)
 			sigma_i = tf.gather(sigma2, corr)
@@ -190,20 +206,20 @@ class ICET():
 			self.X += dx
 
 			#get output covariance matrix
-			Q = tf.linalg.pinv(HTWH)
+			self.Q = tf.linalg.pinv(HTWH)
 			# print("\n Q \n", Q)
 
-			stds = tf.math.sqrt(tf.abs(Q))
-		print("stds: \n", tf.linalg.tensor_diag_part(stds))
+			self.pred_stds = tf.linalg.tensor_diag_part(tf.math.sqrt(tf.abs(self.Q)))
+		print("pred_stds: \n", self.pred_stds)
 
 		if self.draw == True:
 			self.draw_ell(y_i, sigma_i, pc = 2, alpha = 1)
 			self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
-			self.draw_cloud(self.cloud2_tensor_OG.numpy(), pc = 3) #draw in differnt color
+			# self.draw_cloud(self.cloud2_tensor_OG.numpy(), pc = 3) #draw in differnt color
 			
-			# print("\n L2 \n", L2)
-			# print("\n lam \n", lam)
-			# print("\n U2 \n", U2)
+			print("\n L2 \n", L2)
+			print("\n lam \n", lam)
+			print("\n U2 \n", U2)
 
 
 
@@ -251,7 +267,8 @@ class ICET():
 
 		greater_than_thresh = tf.math.greater(rotated, thresholds)
 		# print(greater_than_thresh)
-		ext_idx = tf.math.reduce_any(greater_than_thresh, axis = 1)
+		ext_idx = tf.math.reduce_any(greater_than_thresh, axis = 1) #was this
+		# ext_idx = tf.math.reduce_any(greater_than_thresh, axis = 2) #test
 		compact = tf.where(tf.math.reduce_any(tf.reshape(ext_idx, (-1,1)), axis = 1) == False)
 		compact =  tf.cast(compact, tf.int32)
 		data = tf.ones((tf.shape(compact)[0],3))
@@ -269,13 +286,23 @@ class ICET():
 			transformed into the frame of the distribution ellipsoids via U  """
 
 		for i in range(tf.shape(y0)[0]):
+
 			ends =  L[i] @ tf.transpose(U[i])
+
 			arrow_len = 0.5
 			arr1 = shapes.Arrow(y0[i].numpy(), (y0[i] + arrow_len * ends[0,:]).numpy(), c = 'red')
 			self.disp.append(arr1)
+			arr1 = shapes.Arrow(y0[i].numpy(), (y0[i] - arrow_len * ends[0,:]).numpy(), c = 'red')
+			self.disp.append(arr1)
+
 			arr2 = shapes.Arrow(y0[i].numpy(), (y0[i] + arrow_len * ends[1,:]).numpy(), c = 'green')
 			self.disp.append(arr2)
+			arr2 = shapes.Arrow(y0[i].numpy(), (y0[i] - arrow_len * ends[1,:]).numpy(), c = 'green')
+			self.disp.append(arr2)
+			
 			arr3 = shapes.Arrow(y0[i].numpy(), (y0[i] + arrow_len * ends[2,:]).numpy(), c = 'blue')
+			self.disp.append(arr3)
+			arr3 = shapes.Arrow(y0[i].numpy(), (y0[i] - arrow_len * ends[2,:]).numpy(), c = 'blue')
 			self.disp.append(arr3)
 
 	def check_condition(self, HTWH):
@@ -420,8 +447,8 @@ class ICET():
 		zz = tf.math.reduce_sum(tf.math.square(zpos - mu[:,2][:,None] ), axis = 1)/npts
 
 		xy = tf.math.reduce_sum( (xpos - mu[:,0][:,None])*(ypos - mu[:,1][:,None]), axis = 1)/npts
-		xz = tf.math.reduce_sum( (xpos - mu[:,0][:,None])*(zpos - mu[:,2][:,None]), axis = 1)/npts
-		yz = tf.math.reduce_sum( (ypos - mu[:,1][:,None])*(zpos - mu[:,2][:,None]), axis = 1)/npts
+		xz = -tf.math.reduce_sum( (xpos - mu[:,0][:,None])*(zpos - mu[:,2][:,None]), axis = 1)/npts
+		yz = -tf.math.reduce_sum( (ypos - mu[:,1][:,None])*(zpos - mu[:,2][:,None]), axis = 1)/npts
 
 
 		sigma = tf.Variable([xx, xy, xz,
