@@ -29,14 +29,14 @@ c2 = velo2[:,:3]
 # c1 = np.random.randn(5000,3)*tf.constant([0.6,0.06,0.6]) + tf.constant([0.,4.,0.])
 # c1 = np.random.randn(1000,3)*3
 
-c1 = np.random.randn(10000,3)*tf.constant([0.6,0.02,0.3]) + tf.constant([0.,4.,.0])
+# c1 = np.random.randn(10000,3)*tf.constant([0.6,0.02,0.3]) + tf.constant([0.,4.,.0])
 
 
 # c2 = c1 - np.array([0.1, 0.3, 0.0])
 
-c2 = np.array([0.1, 0.3, 0.0]) + np.random.randn(10000,3)*tf.constant([0.6,0.02,0.3]) + tf.constant([0.,4.,.0])
+# c2 = np.array([0.1, 0.3, 0.0]) + np.random.randn(10000,3)*tf.constant([0.6,0.02,0.3]) + tf.constant([0.,4.,.0])
 
-it = ICET(cloud1 = c1, cloud2 = c2, fid = 30, niter = 5, draw = True)
+it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 5, draw = True)
 
 # print("\n predicted solution error covariance: \n", it.pred_stds)
 
