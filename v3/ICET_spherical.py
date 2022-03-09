@@ -8,13 +8,18 @@ import tensorflow_probability as tfp
 from utils import R2Euler, Ell, jacobian_tf, R_tf
 
 #TODO:
-	# DEBUG: script is crashing if I don't remove the ground plane 
-	# take stuff out of __init__, begin working on main loop
-	# figure out why <get_occupied()> always includes cell 0 at the end
-	# why are some arrows from visualize_L() not perfectly aligned with distribution axis??
-	# for voxles that have an insufficient number of points, sweep through the corresponding spike until we find one with enough points
-	# try stretching out voxels at steep angles
-	# make easy way to turn visualization off to improve runtime
+	#P1:
+		# try stretching out voxels at steep angles
+		#	adjust pruning theshold to be a func of face width not side length 
+		#	 -> currently is not working with long and skinny cells
+
+	#P2:
+		# figure out why <get_occupied()> always includes cell 0 at the end
+		# why are some arrows from visualize_L() not perfectly aligned with distribution axis??
+		# force top elevation bin to always be ambiguous? - not super pressing rn...
+		# Normalize minimum number of points per cell by radial distance from ego
+		# for voxles that have an insufficient number of points, sweep through the corresponding spike until we find one with enough points
+
 
 class ICET():
 
@@ -70,18 +75,19 @@ class ICET():
 		# # print(tf.shape(mu1))
 		# #------------------------------------------------------------
 
-		#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-		#draw 2 shells (for debug)
-		# z = tf.cast(tf.linspace(0, (self.fid_phi-1)*self.fid_theta*3 - 1, (self.fid_phi-1)*self.fid_theta*3), tf.int32)
+		# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		# ## draw n shells (for debug)
+		# n_shell = 2
+		# z = tf.cast(tf.linspace(0, (self.fid_phi-1)*self.fid_theta*n_shell - 1, (self.fid_phi-1)*self.fid_theta*n_shell), tf.int32)
 		# self.draw_cell(z)
-		#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 		#______________________________________________________________
 		#DEBUG: why is cell 1 getting drawn when it shouldn't be????!!!
 
 		#		semms like it happens when points in cloud have too low of a z coordinate
 
-		o = self.get_occupied()
+		# o = self.get_occupied()
 		# print("\n occupied: \n", o)
 
 		# self.get_points_inside(self.cloud1_tensor_spherical, )
@@ -217,9 +223,9 @@ class ICET():
 			self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
 			# self.draw_cloud(self.cloud2_tensor_OG.numpy(), pc = 3) #draw in differnt color
 			
-			print("\n L2 \n", L2)
-			print("\n lam \n", lam)
-			print("\n U2 \n", U2)
+			# print("\n L2 \n", L2)
+			# print("\n lam \n", lam)
+			# print("\n U2 \n", U2)
 
 
 
@@ -314,7 +320,7 @@ class ICET():
 			U2 = rotation matrix to transform for L2 pruning 
 			"""
 
-		cutoff = 1e6 #1e5 #TODO-> experiment with this to get a good value
+		cutoff = 1e7 #1e5 #TODO-> experiment with this to get a good value
 
 		#do eigendecomposition
 		eigenval, eigenvec = tf.linalg.eig(HTWH)
@@ -643,7 +649,8 @@ class ICET():
 	def grid_spherical(self, draw = False):
 		""" constructs grid in spherical coordinates """
 
-		self.fid_r = self.fid  #num radial division
+		self.fid_r = self.fid  #waaayyy too many but keeping this for now
+		# self.fid_r = 10 #causes bugs
 		self.fid_theta = self.fid  #number of subdivisions in horizontal directin
 		self.fid_phi = self.fid_theta//6 #number of subdivision in vertical direction + 1
 
@@ -664,13 +671,49 @@ class ICET():
 		r_last = self.min_cell_distance #radis of line from observer to previous shell
 		temp = np.ones([tf.shape(ansc)[0], 1])*self.min_cell_distance
 		for i in range(1,self.fid_r):
-			r_new = r_last*(1 + (np.arctan(2*np.pi/self.fid_theta)))
+			r_new = r_last*(1 + (np.arctan(2*np.pi/self.fid_theta))) #(cubic)
+			# r_new = (r_last*(1 + (np.arctan(2*np.pi/self.fid_theta)))- 3)* 1.25 + 3 #(stretched)
 			temp[(i*nshell):((i+1)*nshell+1),0] = r_new
 			r_last = r_new
 		ansa = tf.convert_to_tensor(temp, tf.float32)
 
 		self.grid = tf.cast(tf.squeeze(tf.transpose(tf.Variable([ansa,ansb,ansc]))), tf.float32)
 		# print(self.grid)
+
+		# #test- double grid distance for bottom ring in each shell ~~~~~~~~~~
+		#doing this messes with how we find points inside each cell
+
+		#using only TF (bad)
+		# # print("lowest vertical angs", phimin )
+		# indices = tf.where(self.grid[:,2] == phimin )
+		# # print("indices", indices)
+		# updates = tf.ones(tf.shape(indices))
+		# # print("updates", tf.shape(updates))
+		# # shape = tf.cast(tf.shape(self.grid[:,2]), tf.int64)
+		# shape = tf.cast(tf.constant([self.fid_theta*self.fid_r*self.fid_phi, 1]), tf.int64)
+		# # print("shape", shape)
+
+		# mask = tf.scatter_nd(indices, updates, shape)
+		# # print(mask)
+		# # print(tf.shape(mask))
+		# # print(tf.shape(self.grid))
+
+
+		# mask = tf.concat((mask, tf.zeros([tf.shape(mask)[0], 2])), 1)
+		# # mask = mask + tf.ones(tf.shape(mask))
+		# print(mask)
+		# # self.grid = self.grid + mask
+
+		### using np ------
+		# gnp = self.grid.numpy()
+		# # print("gnp", gnp)
+		# idx = np.where(gnp[:,2] <= phimin + 2*np.pi/self.fid_theta)
+		# # print(idx)
+		# gnp[idx,0] = 2*gnp[idx,0]-3 
+
+		# self.grid = tf.convert_to_tensor(gnp)
+
+		# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 		if draw == True:
 			gp = self.s2c(self.grid.numpy())

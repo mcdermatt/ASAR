@@ -4,8 +4,8 @@ clear all
 close all
 
 %import stl
-FileName = 'virtual_scenes/scene1.stl'; %easy scan with house 
-% FileName = 'virtual_scenes/scene2.stl'; %more difficult scan
+% FileName = 'virtual_scenes/scene1.stl'; %easy scan with house 
+FileName = 'virtual_scenes/scene2.stl'; %more difficult scan
 OpenFile = stlread(FileName);
 
 %get vertices, faces, and normals from stl
@@ -23,38 +23,49 @@ sensor = monostaticLidarSensor(SensorIndex);
 
 % set parameters of virtual lidar unit to match velodyne VLP-16
 sensor.UpdateRate = 10;
-sensor.ElevationLimits = [-15, 15];
+sensor.ElevationLimits = [-22, 2]; %[-24.8, 2];
+sensor.RangeAccuracy = 0.01;
+sensor.AzimuthResolution = 0.2; %0.08;
+sensor.ElevationResolution = 0.4;
+% sensor.MaxRange = 50;
+
 
 % Create a tracking scenario. Add an ego platform and a target platform.
 scenario = trackingScenario;
 ego = platform(scenario, 'Position', [0, 0, 1.72]);
 % ego.Position = [0, 0, 1.72];
-target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[10 -3 0],'Velocity',[5 0 0]));
+target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[10 0 0],'Velocity',[5 0 0]));
 
 target.Mesh = mesh;
 target.Dimensions.Length = 100; 
 target.Dimensions.Width = 100;
-% target.Dimensions.Height = 12;
-target.Dimensions.Height = 32;
+target.Dimensions.Height = 5;
+% target.Dimensions.Height = 32;
 
 show(target.Mesh)
 
 % Obtain the mesh of the target viewed from the ego platform after advancing the scenario one step forward.
 advance(scenario);
 tgtmeshes = targetMeshes(ego);
-
 % Use the created sensor to generate point clouds from the obtained target mesh.
 time = scenario.SimulationTime;
-[ptCloud, config, clusters] = sensor(tgtmeshes, time);
+[ptCloud1, config, clusters] = sensor(tgtmeshes, time);
+
+%repeat for 2nd scan
+advance(scenario);
+tgtmeshes = targetMeshes(ego);
+time = scenario.SimulationTime;
+[ptCloud2, config, clusters] = sensor(tgtmeshes, time);
 
 figure()
-% hold on
 axis equal
-plot3(ptCloud(:,1),ptCloud(:,2),ptCloud(:,3),'o')
+plot3(ptCloud1(:,1),ptCloud1(:,2),ptCloud1(:,3),'.')
+hold on
+plot3(ptCloud2(:,1),ptCloud2(:,2),ptCloud2(:,3),'.')
 
 %remove all NaNs
-ptCloud = rmmissing(ptCloud);
-% ptCloud = cast(ptCloud, single);
+ptCloud1 = rmmissing(ptCloud1);
+ptCloud2 = rmmissing(ptCloud2);
 
-writematrix(ptCloud, "scene1_scan1.txt", 'Delimiter', 'tab')
-% csvwrite("scene1_scan1.csv", ptCloud)
+writematrix(ptCloud1, "scene1_scan1.txt", 'Delimiter', 'tab')
+writematrix(ptCloud2, "scene1_scan2.txt", 'Delimiter', 'tab')

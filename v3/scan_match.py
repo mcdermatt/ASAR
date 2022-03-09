@@ -26,20 +26,19 @@ from ICET_spherical import ICET
 
 ## load custom point cloud geneated in matlab------------------------------------------
 c1 = np.loadtxt("scene1_scan1.txt", dtype = float)
-# c2 = c1 + np.array([2.0, 0.2, 0])
-c2 = c1 + np.array([0.1, 0., 0.])
-
-# c1 = c1[c1[:,2] > -1.5] #ignore ground plane
-# c2 = c2[c2[:,2] > -1.5] #ignore ground plane
+c2 = np.loadtxt("scene1_scan2.txt", dtype = float)
+# c1 = c1[c1[:,2] > -1.55] #ignore ground plane
+# c2 = c2[c2[:,2] > -1.55] #ignore ground plane
 ## ------------------------------------------------------------------------------------
 
-#single distinct cluster---------------------------------------------------------------
+# #single distinct cluster---------------------------------------------------------------
 # c1 = np.random.randn(3000,3)*tf.constant([0.3,0.04,0.3]) + tf.constant([0.,4.,0.])
-# c2 = np.random.randn(3000,3)*tf.constant([0.3,0.04,0.3]) + tf.constant([0.,4.,0.]) - np.array([0.1, 0.3, 0.0])
-# c2 = c1 - np.array([0.1, 0.3, 0.0])
-# -------------------------------------------------------------------------------------
+# c2 = np.random.randn(3000,3)*tf.constant([0.3,0.04,0.3]) + tf.constant([0.,4.,0.]) - np.array([0.1, 0.1, 0.0])
+# # c2 = c1 - np.array([0.1, 0.3, 0.0])
+# # -------------------------------------------------------------------------------------
 
 it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 5, draw = True)
+# it = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 5, draw = True, x0 = it.X)
 
 # print("\n predicted solution error covariance: \n", it.pred_stds)
 
