@@ -314,7 +314,7 @@ class ICET():
 			U2 = rotation matrix to transform for L2 pruning 
 			"""
 
-		cutoff = 1e5 #1e5 #TODO-> experiment with this to get a good value
+		cutoff = 1e6 #1e5 #TODO-> experiment with this to get a good value
 
 		#do eigendecomposition
 		eigenval, eigenvec = tf.linalg.eig(HTWH)
