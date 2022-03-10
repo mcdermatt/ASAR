@@ -16,9 +16,12 @@ from utils import R2Euler, Ell, jacobian_tf, R_tf
 	#P2:
 		# figure out why <get_occupied()> always includes cell 0 at the end
 		# why are some arrows from visualize_L() not perfectly aligned with distribution axis??
-		# force top elevation bin to always be ambiguous? - not super pressing rn...
 		# Normalize minimum number of points per cell by radial distance from ego
 		# for voxles that have an insufficient number of points, sweep through the corresponding spike until we find one with enough points
+
+	#P3
+		# force top elevation bin to always be ambiguous? - not super pressing rn...
+
 
 
 class ICET():
@@ -77,23 +80,14 @@ class ICET():
 
 		# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 		# ## draw n shells (for debug)
-		# n_shell = 2
+		# n_shell = 1
 		# z = tf.cast(tf.linspace(0, (self.fid_phi-1)*self.fid_theta*n_shell - 1, (self.fid_phi-1)*self.fid_theta*n_shell), tf.int32)
 		# self.draw_cell(z)
+
+		testcells = tf.cast( tf.linspace(0, 100, 5), tf.int32)
+		self.draw_cell(testcells)
+
 		# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-		#______________________________________________________________
-		#DEBUG: why is cell 1 getting drawn when it shouldn't be????!!!
-
-		#		semms like it happens when points in cloud have too low of a z coordinate
-
-		# o = self.get_occupied()
-		# print("\n occupied: \n", o)
-
-		# self.get_points_inside(self.cloud1_tensor_spherical, )
-
-		#______________________________________________________________
-
 
 		self.main(niter = self.niter, x0 = x0)
 
@@ -478,23 +472,25 @@ class ICET():
 		phimax = 5*np.pi/8 
 		# print(self.grid)
 
+		edges_phi = tf.linspace(phimin, phimax, self.fid_phi) #was this for regular cells
+		# edges_phi, _ = tf.unique(self.grid[:,2])
+		bins_phi = tfp.stats.find_bins(cloud[:,2], edges_phi)
+
 		edges_r, _ = tf.unique(self.grid[:,0])
-		bins_r = tfp.stats.find_bins(cloud[:,0], edges_r)
+		bins_r = tfp.stats.find_bins(cloud[:,0], edges_r) #works for regular voxels only 
+
+		#temporarily half the radius measurement of every point with a phi value that puts it in the lower n "brim" bins to keep indexing working
+		# temp_r = cloud[:,0]*(1 - (cloud[:,2]//edges_phi[-2])/2)
+		# bins_r = tfp.stats.find_bins(temp_r, edges_r) #test for extended radius brim voxels
 		
 		edges_theta = tf.linspace(thetamin, thetamax, self.fid_theta + 1)
 		# edges_theta, _ = tf.unique(self.grid[:,1])
 		bins_theta = tfp.stats.find_bins(cloud[:,1], edges_theta)
 		# print("edges_theta", edges_theta)
-		# print("bins_theta", bins_theta)
-
-		edges_phi = tf.linspace(phimin, phimax, self.fid_phi)
-		# edges_phi, _ = tf.unique(self.grid[:,2])
-		bins_phi = tfp.stats.find_bins(cloud[:,2], edges_phi)		
+		# print("bins_theta", bins_theta)		
 
 		#cell index for every point in cloud
-		cell_idx = tf.cast( bins_theta*(self.fid_phi-1) + bins_phi + bins_r*self.fid_theta*(self.fid_phi-1), tf.int32) #was this pre 3/5 (incorrect??)
-
-
+		cell_idx = tf.cast( bins_theta*(self.fid_phi-1) + bins_phi + bins_r*self.fid_theta*(self.fid_phi-1), tf.int32) #works for regular cells
 
 		# print("cell index for each point", cell_idx)
 
@@ -705,14 +701,22 @@ class ICET():
 		# # self.grid = self.grid + mask
 
 		### using np ------
+		# n_ground_cells = 3
+		# eps = 1e-4 #small value to give bin a discrete size
+
 		# gnp = self.grid.numpy()
-		# # print("gnp", gnp)
-		# idx = np.where(gnp[:,2] <= phimin + 2*np.pi/self.fid_theta)
+		# idx_bottom_two = np.where(gnp[:,2] >= c[-n_ground_cells].numpy())
 		# # print(idx)
-		# gnp[idx,0] = 2*gnp[idx,0]-3 
+		# #expand radius of bottom two rings rows 
+		# gnp[idx_bottom_two,0] = 2*gnp[idx_bottom_two,0]-3 
+
+		# #set elevation angle of ring above bottom to be the same as below to avoid sloped voxels
+		# idx_next_up = np.where(gnp[:,2] == c[-(n_ground_cells + 1)].numpy()) #wrong
+		# # print(c) #grid of phi
+		# # print(idx_next_up)
+		# gnp[idx_next_up, 2] = gnp[np.where(gnp[:,2] == c[-n_ground_cells].numpy()), 2] + eps
 
 		# self.grid = tf.convert_to_tensor(gnp)
-
 		# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 		if draw == True:

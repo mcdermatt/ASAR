@@ -37,7 +37,7 @@ c2 = np.loadtxt("scene1_scan2.txt", dtype = float)
 # # c2 = c1 - np.array([0.1, 0.3, 0.0])
 # # -------------------------------------------------------------------------------------
 
-it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 5, draw = True)
+it = ICET(cloud1 = c1, cloud2 = c2, fid = 30, niter = 1, draw = True)
 # it = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 5, draw = True, x0 = it.X)
 
 # print("\n predicted solution error covariance: \n", it.pred_stds)
