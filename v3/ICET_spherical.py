@@ -12,6 +12,7 @@ from utils import R2Euler, Ell, jacobian_tf, R_tf
 		# try stretching out voxels at steep angles
 		#	adjust pruning theshold to be a func of face width not side length 
 		#	 -> currently is not working with long and skinny cells
+		# make differentially thick cells on BOTTOM of brim to not mess up spacing
 
 	#P2:
 		# figure out why <get_occupied()> always includes cell 0 at the end
@@ -84,8 +85,9 @@ class ICET():
 		# z = tf.cast(tf.linspace(0, (self.fid_phi-1)*self.fid_theta*n_shell - 1, (self.fid_phi-1)*self.fid_theta*n_shell), tf.int32)
 		# self.draw_cell(z)
 
-		testcells = tf.cast( tf.linspace(0, 100, 5), tf.int32)
-		self.draw_cell(testcells)
+		#draw some random cells
+		# testcells = tf.cast( tf.linspace(0, 1000, 31), tf.int32)
+		# self.draw_cell(testcells)
 
 		# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -121,14 +123,14 @@ class ICET():
 		#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 		# print("sigma1 \n", sigma1)
-		U, L = self.get_U_and_L(sigma1_enough, tf.gather(o, enough1))
+		U, L = self.get_U_and_L(sigma1_enough, mu1_enough, tf.gather(o, enough1))
 		# U, L = self.get_U_and_L(sigma1, o)
 		# print("U: \n", U)
 		# print("L: \n", L)
 		if self.draw:
 			self.visualize_L(mu1_enough, U, L)
-			self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = 1)
-			self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
+			self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = 0.5)
+			# self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
 
 		for i in range(niter):
 			print("\n estimated solution vector X: \n", self.X)
@@ -213,8 +215,8 @@ class ICET():
 		print("pred_stds: \n", self.pred_stds)
 
 		if self.draw == True:
-			self.draw_ell(y_i, sigma_i, pc = 2, alpha = 1)
-			self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
+			self.draw_ell(y_i, sigma_i, pc = 2, alpha = 0.5)
+			# self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
 			# self.draw_cloud(self.cloud2_tensor_OG.numpy(), pc = 3) #draw in differnt color
 			
 			# print("\n L2 \n", L2)
@@ -224,15 +226,17 @@ class ICET():
 
 
 
-	def get_U_and_L(self, sigma1, cells):
+	def get_U_and_L(self, sigma1, mu1, cells, method = 0):
 		""" 	sigma1 = sigmas from the first scan
 				cells = tensor containing the indices of each scan
+				
+				method == 0: old method simiar to 3D-ICET
+				method == 1: New "unsceneted KF" strategy
 
 				U = rotation matrix for each voxel to transform scan 2 distribution
 				 into frame of corresponding to ellipsoid axis in keyframe
 			    L = matrix to prune extended directions in each voxel (from keyframe)
-		
-				# starting out by constructing this similar to 3D-ICET, eventually the plan is to try Jason's unscented KF strategy"""
+			    """
 
 		eigenval, eigenvec = tf.linalg.eig(sigma1)
 		U = tf.math.real(eigenvec)
@@ -243,41 +247,67 @@ class ICET():
 							   zeros, tf.math.real(eigenval)[:,1], zeros,
 							   zeros, zeros, tf.math.real(eigenval)[:,2]])
 
-		axislen = tf.reshape(tf.transpose(axislen), (tf.shape(axislen)[1], 3, 3))
+		axislen = tf.reshape(tf.transpose(axislen), (tf.shape(axislen)[1], 3, 3)) #variance not std...?
 		# print("\n axislen \n", axislen)
 
 		# get projections of axis length in each direction
 		rotated = tf.abs(tf.matmul(U,axislen))
 		# print("rotated", rotated)
 
-		#need information on the cell index to be able to perform truncation 
-		#	-> (cells further from vehicle will require larger distribution length thresholds)
-		shell = cells//(self.fid_theta*(self.fid_phi - 1))
-		# print("shell", shell)
-		r_grid, _ = tf.unique(self.grid[:,0])
-		# print("r_grid", r_grid)
-		cell_width = tf.experimental.numpy.diff(r_grid)
-		# print("cell_width", cell_width)
-		# thresholds = (tf.gather(cell_width, shell)**2)/32
-		thresholds = (tf.gather(cell_width, shell)**2)/64
+		#_______________________________________________________________________________
+		# if method == 1:
+		axislen_actual = 2*tf.math.sqrt(axislen)
+		# print(axislen_actual)
+		rotated_actual = tf.abs(tf.matmul(U,axislen_actual))
+		print("rotated_actual", rotated_actual)
+	
+		#get points at the ends of each distribution ellipse
+		# print("mu1", mu1)
+		mu_repeated = tf.tile(mu1, [3,1])
+		mu_repeated = tf.reshape(tf.transpose(mu_repeated), [3,3,-1])
+		mu_repeated = tf.transpose(mu_repeated, [2,1,0])
+		mu_repeated = tf.reshape(mu_repeated, [-1,3, 3])
+		print("mu_repeated", mu_repeated)
 
-		#tile to so that each threshold is repeated 3 times (for each axis)
-		thresholds = tf.reshape(tf.transpose(tf.reshape(tf.tile(thresholds[:,None], [3,1]), [3,-1])), [-1,3])[:,None]
-		# print("thresholds", thresholds)
+		P = mu_repeated + rotated_actual
+		P = tf.reshape(P, [-1, 3])
+		print(P)
 
-		greater_than_thresh = tf.math.greater(rotated, thresholds)
-		# print(greater_than_thresh)
-		ext_idx = tf.math.reduce_any(greater_than_thresh, axis = 1) #was this
-		# ext_idx = tf.math.reduce_any(greater_than_thresh, axis = 2) #test
-		compact = tf.where(tf.math.reduce_any(tf.reshape(ext_idx, (-1,1)), axis = 1) == False)
-		compact =  tf.cast(compact, tf.int32)
-		data = tf.ones((tf.shape(compact)[0],3))
-		I = tf.tile(tf.eye(3), (tf.shape(U)[0], 1))
+		#draw tempoary marking at boundaries of each distributione ellipse
+		self.disp.append(Points(P.numpy(), 'g', r = 10))
 
-		mask = tf.scatter_nd(indices = compact, updates = data, shape = tf.shape(I))
+		#_______________________________________________________________________________
 
-		L = mask * I
-		L = tf.reshape(L, (tf.shape(L)[0]//3,3,3))
+
+		if method == 0:
+			#need information on the cell index to be able to perform truncation 
+			#	-> (cells further from vehicle will require larger distribution length thresholds)
+			shell = cells//(self.fid_theta*(self.fid_phi - 1))
+			# print("shell", shell)
+			r_grid, _ = tf.unique(self.grid[:,0])
+			# print("r_grid", r_grid)
+			cell_width = tf.experimental.numpy.diff(r_grid)
+			# print("cell_width", cell_width)
+			# thresholds = (tf.gather(cell_width, shell)**2)/32
+			thresholds = (tf.gather(cell_width, shell)**2)/64
+
+			#tile to so that each threshold is repeated 3 times (for each axis)
+			thresholds = tf.reshape(tf.transpose(tf.reshape(tf.tile(thresholds[:,None], [3,1]), [3,-1])), [-1,3])[:,None]
+			# print("thresholds", thresholds)
+
+			greater_than_thresh = tf.math.greater(rotated, thresholds)
+			# print(greater_than_thresh)
+			ext_idx = tf.math.reduce_any(greater_than_thresh, axis = 1) #was this
+			# ext_idx = tf.math.reduce_any(greater_than_thresh, axis = 2) #test
+			compact = tf.where(tf.math.reduce_any(tf.reshape(ext_idx, (-1,1)), axis = 1) == False)
+			compact =  tf.cast(compact, tf.int32)
+			data = tf.ones((tf.shape(compact)[0],3))
+			I = tf.tile(tf.eye(3), (tf.shape(U)[0], 1))
+
+			mask = tf.scatter_nd(indices = compact, updates = data, shape = tf.shape(I))
+
+			L = mask * I
+			L = tf.reshape(L, (tf.shape(L)[0]//3,3,3))
 
 		return(U,L)
 
@@ -476,12 +506,15 @@ class ICET():
 		# edges_phi, _ = tf.unique(self.grid[:,2])
 		bins_phi = tfp.stats.find_bins(cloud[:,2], edges_phi)
 
-		edges_r, _ = tf.unique(self.grid[:,0])
-		bins_r = tfp.stats.find_bins(cloud[:,0], edges_r) #works for regular voxels only 
+		#works for regular voxels only
+		edges_r, _ = tf.unique(self.grid[:,0]) 
+		bins_r = tfp.stats.find_bins(cloud[:,0], edges_r) 
 
+		#test for extended radius brim voxels
 		#temporarily half the radius measurement of every point with a phi value that puts it in the lower n "brim" bins to keep indexing working
 		# temp_r = cloud[:,0]*(1 - (cloud[:,2]//edges_phi[-2])/2)
-		# bins_r = tfp.stats.find_bins(temp_r, edges_r) #test for extended radius brim voxels
+		# edges_r, _ = tf.unique(self.grid[:,0])
+		# bins_r = tfp.stats.find_bins(temp_r, edges_r) 
 		
 		edges_theta = tf.linspace(thetamin, thetamax, self.fid_theta + 1)
 		# edges_theta, _ = tf.unique(self.grid[:,1])
@@ -679,7 +712,7 @@ class ICET():
 		# #test- double grid distance for bottom ring in each shell ~~~~~~~~~~
 		#doing this messes with how we find points inside each cell
 
-		#using only TF (bad)
+		#using only TF (unnecessarily difficult)
 		# # print("lowest vertical angs", phimin )
 		# indices = tf.where(self.grid[:,2] == phimin )
 		# # print("indices", indices)
@@ -700,21 +733,24 @@ class ICET():
 		# print(mask)
 		# # self.grid = self.grid + mask
 
-		### using np ------
+		### using np (sligthly slower but fine for prototype) ------
 		# n_ground_cells = 3
 		# eps = 1e-4 #small value to give bin a discrete size
 
 		# gnp = self.grid.numpy()
-		# idx_bottom_two = np.where(gnp[:,2] >= c[-n_ground_cells].numpy())
+		# idx_bottom = np.where(gnp[:,2] >= c[-n_ground_cells].numpy())
 		# # print(idx)
 		# #expand radius of bottom two rings rows 
-		# gnp[idx_bottom_two,0] = 2*gnp[idx_bottom_two,0]-3 
+		# gnp[idx_bottom,0] = 2*gnp[idx_bottom,0]-3 
 
 		# #set elevation angle of ring above bottom to be the same as below to avoid sloped voxels
-		# idx_next_up = np.where(gnp[:,2] == c[-(n_ground_cells + 1)].numpy()) #wrong
+		# # idx_next_up = np.where(gnp[:,2] == c[-(n_ground_cells + 1)].numpy())
+		# # gnp[idx_next_up, 2] = gnp[np.where(gnp[:,2] == c[-n_ground_cells].numpy()), 2] + eps
 		# # print(c) #grid of phi
 		# # print(idx_next_up)
-		# gnp[idx_next_up, 2] = gnp[np.where(gnp[:,2] == c[-n_ground_cells].numpy()), 2] + eps
+
+		# #raise elevation of "ground cells" by 1 to remove slope
+		# # gnp[idx_bottom, 2] = gnp[np.asarray(idx_bottom) - 1, 2] + eps
 
 		# self.grid = tf.convert_to_tensor(gnp)
 		# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
