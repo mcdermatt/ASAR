@@ -27,8 +27,13 @@ from ICET_spherical import ICET
 ## load custom point cloud geneated in matlab------------------------------------------
 c1 = np.loadtxt("scene1_scan1.txt", dtype = float)
 c2 = np.loadtxt("scene1_scan2.txt", dtype = float)
-# c1 = c1[c1[:,2] > -1.55] #ignore ground plane
-# c2 = c2[c2[:,2] > -1.55] #ignore ground plane
+c1 = c1[c1[:,2] > -1.55] #ignore ground plane
+c2 = c2[c2[:,2] > -1.55] #ignore ground plane
+
+#add noise (if not generated when point clouds were created)
+c1 += 0.03*np.random.randn(np.shape(c1)[0], 3)
+c2 += 0.03*np.random.randn(np.shape(c2)[0], 3)
+
 ## ------------------------------------------------------------------------------------
 
 # #single distinct cluster---------------------------------------------------------------
@@ -37,7 +42,7 @@ c2 = np.loadtxt("scene1_scan2.txt", dtype = float)
 # # c2 = c1 - np.array([0.1, 0.3, 0.0])
 # # -------------------------------------------------------------------------------------
 
-it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 4, draw = True)
+it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 10, draw = True)
 # it = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 5, draw = True, x0 = it.X)
 
 # print("\n predicted solution error covariance: \n", it.pred_stds)

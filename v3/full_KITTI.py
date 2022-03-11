@@ -9,7 +9,7 @@ import tensorflow_probability as tfp
 from ICET_spherical import ICET
 
 
-num_frames = 150
+num_frames = 25
 
 basedir = 'C:/kitti/'
 date = '2011_09_26'
@@ -32,8 +32,8 @@ for i in range(num_frames):
 	c1 = c1[c1[:,2] > -1.5] #ignore ground plane
 	c2 = c2[c2[:,2] > -1.5] #ignore ground plane
 
-	it = ICET(cloud1 = c1, cloud2 = c2, fid = 30, niter = 5, draw = False)
-	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 5, draw = False, x0 = it.X)
+	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 3, draw = False)
+	# it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 3, draw = False, x0 = it.X)
 
 	# velo1 = dataset.get_velo(i) # Each scan is a Nx4 array of [x,y,z,reflectance]
 	# c1 = velo1[:,:3]
@@ -53,6 +53,6 @@ for i in range(num_frames):
 	print("\n solution from ICET \n", ICET_estimates[i])
 	print("\n solution from GPS/INS \n", OXTS_baseline[i])
 
-np.savetxt("ICET_pred_stds.txt", ICET_pred_stds)
-np.savetxt("ICET_estimates.txt", ICET_estimates)
-np.savetxt("OXTS_baseline.txt", OXTS_baseline)
+np.savetxt("ICET_pred_stds_v2.txt", ICET_pred_stds)
+np.savetxt("ICET_estimates_v2.txt", ICET_estimates)
+np.savetxt("OXTS_baseline_v2.txt", OXTS_baseline)

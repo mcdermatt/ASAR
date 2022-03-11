@@ -24,7 +24,7 @@ sensor = monostaticLidarSensor(SensorIndex);
 % set parameters of virtual lidar unit to match velodyne VLP-16
 sensor.UpdateRate = 10;
 sensor.ElevationLimits = [-22, 2]; %[-24.8, 2];
-sensor.RangeAccuracy = 0.01;
+sensor.RangeAccuracy = 0.0001; %0.03; %0.01;
 sensor.AzimuthResolution = 0.2; %0.08;
 sensor.ElevationResolution = 0.4;
 % sensor.MaxRange = 50;
@@ -34,7 +34,8 @@ sensor.ElevationResolution = 0.4;
 scenario = trackingScenario;
 ego = platform(scenario, 'Position', [0, 0, 1.72]);
 % ego.Position = [0, 0, 1.72];
-target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[10 0 0],'Velocity',[5 0 0]));
+% target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[10 0 0],'Velocity',[5 0 0])); %no rotation
+target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[10 0 0],'Velocity',[5 0 0], 'AngularVelocity', [0, 0, 0.35])); %with rotatation
 
 target.Mesh = mesh;
 target.Dimensions.Length = 100; 
