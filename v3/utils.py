@@ -17,16 +17,24 @@ def R2Euler(mat):
 
 def R_tf(angs):
     """generates rotation matrix using euler angles
-    angs = tf.constant(phi, theta, psi) (aka rot about (x,y,z))"""
+    angs = tf.constant(phi, theta, psi) (aka rot about (x,y,z))
+            can be single set of angles or batch for multiple cells
+    """
 
-    phi = angs[0]
-    theta = angs[1]
-    psi = angs[2]
+    if len(tf.shape(angs)) == 1:
+        angs = angs[None,:]
+
+    phi = angs[:,0]
+    theta = angs[:,1]
+    psi = angs[:,2]
 
     mat = tf.Variable([[cos(theta)*cos(psi), sin(psi)*cos(phi) + sin(phi)*sin(theta)*cos(psi), sin(phi)*sin(psi) - sin(theta)*cos(phi)*cos(psi)],
                        [-sin(psi)*cos(theta), cos(phi)*cos(psi) - sin(phi)*sin(theta)*sin(psi), sin(phi)*cos(psi) + sin(theta)*sin(psi)*cos(phi)],
                        [sin(theta), -sin(phi)*cos(theta), cos(phi)*cos(theta)]
                         ])
+
+    mat = tf.transpose(mat, [2, 0, 1])
+    mat = tf.squeeze(mat)
     return mat
 
 def jacobian_tf(p_point, angs):

@@ -27,8 +27,8 @@ from ICET_spherical import ICET
 ## load custom point cloud geneated in matlab------------------------------------------
 c1 = np.loadtxt("scene1_scan1.txt", dtype = float)
 c2 = np.loadtxt("scene1_scan2.txt", dtype = float)
-c1 = c1[c1[:,2] > -1.55] #ignore ground plane
-c2 = c2[c2[:,2] > -1.55] #ignore ground plane
+# c1 = c1[c1[:,2] > -1.55] #ignore ground plane
+# c2 = c2[c2[:,2] > -1.55] #ignore ground plane
 ## ------------------------------------------------------------------------------------
 
 # #single distinct cluster---------------------------------------------------------------

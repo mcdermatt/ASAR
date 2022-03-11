@@ -9,12 +9,13 @@ from utils import R2Euler, Ell, jacobian_tf, R_tf
 
 #TODO:
 	#P1:
+		# Modify <get_U_and_L()> to do UKF method of extended axis checking
+
+	#P2:
 		# try stretching out voxels at steep angles
 		#	adjust pruning theshold to be a func of face width not side length 
 		#	 -> currently is not working with long and skinny cells
-		# make differentially thick cells on BOTTOM of brim to not mess up spacing
-
-	#P2:
+		# make differentially thick cells on BOTTOM of brim to not mess up spacing		
 		# figure out why <get_occupied()> always includes cell 0 at the end
 		# why are some arrows from visualize_L() not perfectly aligned with distribution axis??
 		# Normalize minimum number of points per cell by radial distance from ego
@@ -123,14 +124,14 @@ class ICET():
 		#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 		# print("sigma1 \n", sigma1)
-		U, L = self.get_U_and_L(sigma1_enough, mu1_enough, tf.gather(o, enough1))
+		U, L = self.get_U_and_L(sigma1_enough, mu1_enough, tf.gather(o, enough1), method = 1)
 		# U, L = self.get_U_and_L(sigma1, o)
 		# print("U: \n", U)
 		# print("L: \n", L)
 		if self.draw:
 			self.visualize_L(mu1_enough, U, L)
 			self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = 0.5)
-			# self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
+			self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
 
 		for i in range(niter):
 			print("\n estimated solution vector X: \n", self.X)
@@ -214,9 +215,10 @@ class ICET():
 			self.pred_stds = tf.linalg.tensor_diag_part(tf.math.sqrt(tf.abs(self.Q)))
 		print("pred_stds: \n", self.pred_stds)
 
+		#draw PC2
 		if self.draw == True:
 			self.draw_ell(y_i, sigma_i, pc = 2, alpha = 0.5)
-			# self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
+			self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
 			# self.draw_cloud(self.cloud2_tensor_OG.numpy(), pc = 3) #draw in differnt color
 			
 			# print("\n L2 \n", L2)
@@ -250,36 +252,76 @@ class ICET():
 		axislen = tf.reshape(tf.transpose(axislen), (tf.shape(axislen)[1], 3, 3)) #variance not std...?
 		# print("\n axislen \n", axislen)
 
-		# get projections of axis length in each direction
-		rotated = tf.abs(tf.matmul(U,axislen))
-		# print("rotated", rotated)
+		#new method (UKF-type strategy)
+		#_______________________________________________________________________________
+		if method == 1:
+			# get projections of axis length in each direction
+			rotated = tf.matmul(axislen, tf.transpose(U, [0, 2, 1])) #new
+
+			axislen_actual = 2*tf.math.sqrt(axislen)
+			# print(axislen_actual)
+			rotated_actual = tf.matmul(axislen_actual, tf.transpose(U, [0, 2, 1]))
+			# print("rotated_actual", rotated_actual)
+		
+			#get points at the ends of each distribution ellipse
+			# print("mu1", mu1)
+			mu_repeated = tf.tile(mu1, [3,1])
+			mu_repeated = tf.reshape(tf.transpose(mu_repeated), [3,3,-1])
+			mu_repeated = tf.transpose(mu_repeated, [2,1,0])
+			mu_repeated = tf.reshape(mu_repeated, [-1,3, 3])
+			# print("mu_repeated", mu_repeated)
+
+			P1 = mu_repeated + rotated_actual
+			P1 = tf.reshape(P1, [-1, 3])
+			P2 = mu_repeated - rotated_actual
+			P2 = tf.reshape(P2, [-1, 3])
+
+			#draw tempoary marking at boundaries of each distribution ellipse
+			# self.disp.append(Points(P1.numpy(), 'g', r = 10))
+			# self.disp.append(Points(P2.numpy(), 'g', r = 10))
+
+			#find out which points in P SHOULD be inside each cell
+			insideP_ideal, nptsP_ideal = self.get_points_inside(self.c2s(tf.reshape(mu_repeated, [-1,3])), cells[:,None])
+			insideP_ideal = insideP_ideal.to_tensor()
+			# print("insideP_ideal", insideP_ideal)
+
+			#find which points in P are actually inside which cell in <cells>
+			insideP1_actual, nptsP1_actual = self.get_points_inside(self.c2s(P1), cells[:, None])
+			insideP1_actual = insideP1_actual.to_tensor()
+			# print("insideP1_actual", insideP1_actual)
+			insideP2_actual, nptsP2_actual = self.get_points_inside(self.c2s(P2), cells[:, None])
+			insideP2_actual = insideP2_actual.to_tensor()
+			# print("insideP2_actual", insideP2_actual)
+
+			#compare the points inside each cell to how many there are supposed to be
+			#	(any mismatch signifies an overly extended direction)
+			bofa1 = tf.sets.intersection(insideP_ideal, insideP1_actual).values
+			# print("\n bofa1", bofa1)
+			bofa2 = tf.sets.intersection(insideP_ideal, insideP2_actual).values
+			# print("\n bofa2", bofa2)
+
+			#combine both the positive and negative axis directions
+			deez = tf.cast(tf.sets.intersection(bofa1[None, :], bofa2[None, :]).values[:,None], tf.int32)
+			# print("unambiguous indices", deez)
+
+			data = tf.ones((tf.shape(deez)[0],3))
+			I = tf.tile(tf.eye(3), (tf.shape(U)[0], 1))
+
+			mask = tf.scatter_nd(indices = deez, updates = data, shape = tf.shape(I))
+
+			L = mask * I
+			L = tf.reshape(L, (tf.shape(L)[0]//3,3,3))
 
 		#_______________________________________________________________________________
-		# if method == 1:
-		axislen_actual = 2*tf.math.sqrt(axislen)
-		# print(axislen_actual)
-		rotated_actual = tf.abs(tf.matmul(U,axislen_actual))
-		print("rotated_actual", rotated_actual)
-	
-		#get points at the ends of each distribution ellipse
-		# print("mu1", mu1)
-		mu_repeated = tf.tile(mu1, [3,1])
-		mu_repeated = tf.reshape(tf.transpose(mu_repeated), [3,3,-1])
-		mu_repeated = tf.transpose(mu_repeated, [2,1,0])
-		mu_repeated = tf.reshape(mu_repeated, [-1,3, 3])
-		print("mu_repeated", mu_repeated)
-
-		P = mu_repeated + rotated_actual
-		P = tf.reshape(P, [-1, 3])
-		print(P)
-
-		#draw tempoary marking at boundaries of each distributione ellipse
-		self.disp.append(Points(P.numpy(), 'g', r = 10))
-
-		#_______________________________________________________________________________
 
 
+		#old method - just consider principal axis length
 		if method == 0:
+
+			# get projections of axis length in each direction
+			rotated = tf.abs(tf.matmul(U,axislen)) #was this pre 3/10
+			# print("rotated", rotated)
+
 			#need information on the cell index to be able to perform truncation 
 			#	-> (cells further from vehicle will require larger distribution length thresholds)
 			shell = cells//(self.fid_theta*(self.fid_phi - 1))
@@ -301,6 +343,7 @@ class ICET():
 			# ext_idx = tf.math.reduce_any(greater_than_thresh, axis = 2) #test
 			compact = tf.where(tf.math.reduce_any(tf.reshape(ext_idx, (-1,1)), axis = 1) == False)
 			compact =  tf.cast(compact, tf.int32)
+			# print("compact", compact)
 			data = tf.ones((tf.shape(compact)[0],3))
 			I = tf.tile(tf.eye(3), (tf.shape(U)[0], 1))
 
