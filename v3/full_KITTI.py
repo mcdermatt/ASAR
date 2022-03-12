@@ -9,7 +9,7 @@ import tensorflow_probability as tfp
 from ICET_spherical import ICET
 
 
-num_frames = 25
+num_frames = 150
 
 basedir = 'C:/kitti/'
 date = '2011_09_26'
@@ -20,6 +20,8 @@ dataset = pykitti.raw(basedir, date, drive)
 ICET_estimates = np.zeros([num_frames, 6])
 OXTS_baseline = np.zeros([num_frames, 6])
 ICET_pred_stds = np.zeros([num_frames, 6])
+
+intial_guess = tf.constant([0., 0., 0., 0., 0., 0.])
 
 for i in range(num_frames):
 
@@ -32,18 +34,22 @@ for i in range(num_frames):
 	c1 = c1[c1[:,2] > -1.5] #ignore ground plane
 	c2 = c2[c2[:,2] > -1.5] #ignore ground plane
 
-	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 3, draw = False)
-	# it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 3, draw = False, x0 = it.X)
+	it = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 10, draw = False) #, x0 = intial_guess)
+	# it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 8, draw = False, x0 = it.X)
 
 	# velo1 = dataset.get_velo(i) # Each scan is a Nx4 array of [x,y,z,reflectance]
 	# c1 = velo1[:,:3]
 	# velo2 = dataset.get_velo(i+1) # Each scan is a Nx4 array of [x,y,z,reflectance]
 	# c2 = velo2[:,:3]
-	it = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 5, draw = False, x0 = it.X)
+	# it = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 5, draw = False, x0 = it.X)
+
+	print("it.X \n", it.X)
 
 
 	ICET_estimates[i] = it.X
 	ICET_pred_stds[i] = it.pred_stds
+
+	intial_guess = it.X
 
 	poses0 = dataset.oxts[i] 
 	poses1 = dataset.oxts[i+1]

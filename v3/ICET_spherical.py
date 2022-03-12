@@ -31,7 +31,7 @@ class ICET():
 	def __init__(self, cloud1, cloud2, fid = 30, niter = 5, draw = True, x0 = tf.constant([0.0, 0.0, 0., 0., 0., 0.])):
 
 		self.min_cell_distance = 3 #begin closest spherical voxel here
-		self.min_num_pts = 30 #ignore "occupied" cells with fewer than this number of pts
+		self.min_num_pts = 30 #10 #ignore "occupied" cells with fewer than this number of pts
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
 		self.niter = niter
@@ -258,6 +258,7 @@ class ICET():
 			# get projections of axis length in each direction
 			rotated = tf.matmul(axislen, tf.transpose(U, [0, 2, 1])) #new
 
+			#QUESTION: should I scale this up if we use stretched voxels?
 			axislen_actual = 2*tf.math.sqrt(axislen)
 			# print(axislen_actual)
 			rotated_actual = tf.matmul(axislen_actual, tf.transpose(U, [0, 2, 1]))
@@ -287,10 +288,11 @@ class ICET():
 
 			#find which points in P are actually inside which cell in <cells>
 			insideP1_actual, nptsP1_actual = self.get_points_inside(self.c2s(P1), cells[:, None])
-			insideP1_actual = insideP1_actual.to_tensor()
+			# print(insideP1_actual)
+			insideP1_actual = insideP1_actual.to_tensor(shape = tf.shape(insideP_ideal)) #force to be same size as insideP_ideal
 			# print("insideP1_actual", insideP1_actual)
 			insideP2_actual, nptsP2_actual = self.get_points_inside(self.c2s(P2), cells[:, None])
-			insideP2_actual = insideP2_actual.to_tensor()
+			insideP2_actual = insideP2_actual.to_tensor(shape = tf.shape(insideP_ideal))
 			# print("insideP2_actual", insideP2_actual)
 
 			#compare the points inside each cell to how many there are supposed to be
@@ -549,16 +551,29 @@ class ICET():
 		# edges_phi, _ = tf.unique(self.grid[:,2])
 		bins_phi = tfp.stats.find_bins(cloud[:,2], edges_phi)
 
-		#works for regular voxels only
+		#works for regular voxels only--------------------------
 		edges_r, _ = tf.unique(self.grid[:,0]) 
 		bins_r = tfp.stats.find_bins(cloud[:,0], edges_r) 
+		#-------------------------------------------------------
 
-		#test for extended radius brim voxels
-		#temporarily half the radius measurement of every point with a phi value that puts it in the lower n "brim" bins to keep indexing working
-		# temp_r = cloud[:,0]*(1 - (cloud[:,2]//edges_phi[-2])/2)
-		# edges_r, _ = tf.unique(self.grid[:,0])
+
+		#for extended radius brim voxels------------------------
+
+		# #TODO - need to modify the code for "get_occupied()"
+
+		# #temporarily half the radius measurement of every point with a phi value that puts it in the lower n "brim" bins to keep indexing working
+		# temp_r = cloud[:,0]*(1 - (cloud[:,2]//edges_phi[-3])/2)
+		# # print(temp_r[:,None])
+		# # print(cloud[:,1:])
+		# test = tf.concat((temp_r[:,None], cloud[:,1:]), axis = 1)
+		# # print(test)
+		# # print(edges_phi[-3])
+		# # print((cloud[:,2]//edges_phi[-3]))
+		# self.disp.append(Points(self.s2c(test).numpy(), c = 'green', r = 5 ))
+		# edges_r, _ = tf.unique(self.grid_simple[:,0])
 		# bins_r = tfp.stats.find_bins(temp_r, edges_r) 
-		
+		#-------------------------------------------------------
+
 		edges_theta = tf.linspace(thetamin, thetamax, self.fid_theta + 1)
 		# edges_theta, _ = tf.unique(self.grid[:,1])
 		bins_theta = tfp.stats.find_bins(cloud[:,1], edges_theta)
@@ -777,6 +792,7 @@ class ICET():
 		# # self.grid = self.grid + mask
 
 		### using np (sligthly slower but fine for prototype) ------
+		# self.grid_simple = self.grid #save copy of grid that doesn't have new radial spacing for bottom ring
 		# n_ground_cells = 3
 		# eps = 1e-4 #small value to give bin a discrete size
 
