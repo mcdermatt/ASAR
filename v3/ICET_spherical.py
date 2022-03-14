@@ -9,21 +9,17 @@ from utils import R2Euler, Ell, jacobian_tf, R_tf
 
 #TODO:
 	#P1:
-		# Modify <get_U_and_L()> to do UKF method of extended axis checking
+		# get top hat voxelization working
+				# make differentially thick cells on BOTTOM of brim to not mess up spacing??
+		# visualize jason's specific density grouping criteria
 
 	#P2:
-		# try stretching out voxels at steep angles
-		#	adjust pruning theshold to be a func of face width not side length 
-		#	 -> currently is not working with long and skinny cells
-		# make differentially thick cells on BOTTOM of brim to not mess up spacing		
-		# figure out why <get_occupied()> always includes cell 0 at the end
-		# why are some arrows from visualize_L() not perfectly aligned with distribution axis??
-		# Normalize minimum number of points per cell by radial distance from ego
-		# for voxles that have an insufficient number of points, sweep through the corresponding spike until we find one with enough points
+		# figure out why <get_occupied()> always includes cell 0 at the end - it's because there are points outside reachable space
+		# Normalize minimum number of points per cell by radial distance from ego-vehicle
 
 	#P3
 		# force top elevation bin to always be ambiguous? - not super pressing rn...
-
+		# for voxles that have an insufficient number of points, sweep through the corresponding spike until we find one with enough points
 
 
 class ICET():
@@ -477,7 +473,7 @@ class ICET():
 			a = shapes.Arrow(mu2[i].numpy(), mu1[i].numpy(), c = "black")
 			self.disp.append(a)
 
-	def get_corners(self, cells):
+	def get_corners(self, cells, tophat = 0):
 		""" returns  spherical coordinates of coners of each input cell 
 			cells = tensor containing cell indices """
 
@@ -486,14 +482,26 @@ class ICET():
 		fix =  (self.fid_phi*self.fid_theta)*((((cells)%per_shell) + (self.fid_phi-1) )//per_shell)
 		n = cells + cells//(self.fid_phi - 1)
 
-		p1 = tf.gather(self.grid, n)
-		p2 = tf.gather(self.grid, n+self.fid_phi - fix)
-		p3 = tf.gather(self.grid, n + self.fid_theta*self.fid_phi)
-		p4 = tf.gather(self.grid, n + self.fid_phi + (self.fid_theta*self.fid_phi) - fix)
-		p5 = tf.gather(self.grid, n + 1)
-		p6 = tf.gather(self.grid, n+self.fid_phi +1 - fix)
-		p7 = tf.gather(self.grid, n + (self.fid_theta*self.fid_phi) + 1)
-		p8 = tf.gather(self.grid, n + self.fid_phi + (self.fid_theta*self.fid_phi) +1 - fix)
+		if tophat == 1:
+			g = self.grid_tophat
+		else:
+			g = self.grid
+
+		p1 = tf.gather(g, n)
+		p2 = tf.gather(g, n+self.fid_phi - fix)
+		p3 = tf.gather(g, n + self.fid_theta*self.fid_phi)
+		p4 = tf.gather(g, n + self.fid_phi + (self.fid_theta*self.fid_phi) - fix)
+		p5 = tf.gather(g, n + 1)
+		p6 = tf.gather(g, n+self.fid_phi +1 - fix)
+		p7 = tf.gather(g, n + (self.fid_theta*self.fid_phi) + 1)
+		p8 = tf.gather(g, n + self.fid_phi + (self.fid_theta*self.fid_phi) +1 - fix)
+
+		#NEW test 3/13 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		# #for bottom ring in each shell, expand the radius of each cell
+		# temp = p1[:,0] + tf.cast( (self.fid_phi-1 - cells%(self.fid_phi-1))//(self.fid_phi-1), tf.float32)
+		# p1 = tf.concat((temp[:,None], p1[:,1:]), axis = 1)
+
+		#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 		out = tf.transpose(tf.Variable([p1, p2, p3, p4, p5, p6, p7, p8]), [1, 0, 2])
 
@@ -556,13 +564,12 @@ class ICET():
 		bins_r = tfp.stats.find_bins(cloud[:,0], edges_r) 
 		#-------------------------------------------------------
 
-
 		#for extended radius brim voxels------------------------
 
-		# #TODO - need to modify the code for "get_occupied()"
+		# # #TODO - need to modify the code for "get_occupied()"
 
-		# #temporarily half the radius measurement of every point with a phi value that puts it in the lower n "brim" bins to keep indexing working
-		# temp_r = cloud[:,0]*(1 - (cloud[:,2]//edges_phi[-3])/2)
+		# # #temporarily half the radius measurement of every point with a phi value that puts it in the lower n "brim" bins to keep indexing working
+		# temp_r = (cloud[:,0] - 3)*(1 - (cloud[:,2]//edges_phi[-3])/2) + 3
 		# # print(temp_r[:,None])
 		# # print(cloud[:,1:])
 		# test = tf.concat((temp_r[:,None], cloud[:,1:]), axis = 1)
@@ -570,7 +577,7 @@ class ICET():
 		# # print(edges_phi[-3])
 		# # print((cloud[:,2]//edges_phi[-3]))
 		# self.disp.append(Points(self.s2c(test).numpy(), c = 'green', r = 5 ))
-		# edges_r, _ = tf.unique(self.grid_simple[:,0])
+		# edges_r, _ = tf.unique(self.grid[:,0])
 		# bins_r = tfp.stats.find_bins(temp_r, edges_r) 
 		#-------------------------------------------------------
 
@@ -609,7 +616,7 @@ class ICET():
 		return(pts_in_c, numPtsPerCell)
 
 
-	def get_occupied(self):
+	def get_occupied(self, tophat = 0):
 		""" returns idx of all voxels that occupy the line of sight closest to the observer """
 
 		st = time.time()
@@ -621,11 +628,17 @@ class ICET():
 		phimin =  3*np.pi/8
 		phimax = 5*np.pi/8 
 
-		edges_theta = tf.linspace(thetamin, thetamax, self.fid_theta + 1)
-		bins_theta = tfp.stats.find_bins(self.cloud1_tensor_spherical[:,1], edges_theta)
-		# print(bins_theta)
 		edges_phi = tf.linspace(phimin, phimax, self.fid_phi)
-		bins_phi = tfp.stats.find_bins(self.cloud1_tensor_spherical[:,2], edges_phi)
+		edges_theta = tf.linspace(thetamin, thetamax, self.fid_theta + 1)
+
+		cloud = self.cloud1_tensor_spherical
+		if tophat == 1:
+			temp_r = (cloud[:,0] - 3)*(1 - (cloud[:,2]//edges_phi[-3])/2) + 3
+			cloud = tf.concat((temp_r[:,None], cloud[:,1:]), axis = 1)
+
+		bins_theta = tfp.stats.find_bins(cloud[:,1], edges_theta)
+		# print(bins_theta)
+		bins_phi = tfp.stats.find_bins(cloud[:,2], edges_phi)
 		# print(bins_phi)
 
 		#combine bins_theta and bins_phi to get spike bins
@@ -633,6 +646,9 @@ class ICET():
 		# print(tf.unique(bins_spike))
 		# print("bins_spike", bins_spike)
 		# self.draw_cell(tf.cast(bins_spike, tf.int32))
+
+		#save which spike each point is in to ICET object for further analysis
+		self.bins_spike = bins_spike
 
 		#find min point in each occupied spike
 		occupied_spikes, idxs = tf.unique(bins_spike)
@@ -644,7 +660,7 @@ class ICET():
 		rag = tf.RaggedTensor.from_value_rowids(temp[:,1], temp[:,0])
 		# print(rag)
 
-		idx_by_rag = tf.gather(self.cloud1_tensor_spherical[:,0], rag)
+		idx_by_rag = tf.gather(cloud[:,0], rag)
 		# print(idx_by_rag)
 
 		min_per_spike = tf.math.reduce_min(idx_by_rag, axis = 1)
@@ -665,10 +681,7 @@ class ICET():
 		return(occupied_cells)
 		#-----------------------------------------------------------------------------------------
 
-
-
 		# #attempt #1: directly find which bins points are in (inefficient)-----------------------
-
 		# #get spherical coordinates of all of the corners of the cells in the innermost shell
 		# # shell_cells = tf.constant([1,300]) #debug
 		# shell_cells = tf.cast(tf.linspace(0, (self.fid_theta-1)*(self.fid_phi - 1) - 1, tf.cast((self.fid_theta-1)*(self.fid_phi - 1), tf.int32)), tf.int32)
@@ -693,7 +706,6 @@ class ICET():
 		# 					])
 		# inside = tf.transpose(inside, [1,2,0])
 		# # print(inside)
-
 		# combined = tf.math.reduce_all(inside, axis = 2)
 		# # print(combined)
 		# #--------------------------------------------------------------------------------------
@@ -792,26 +804,26 @@ class ICET():
 		# # self.grid = self.grid + mask
 
 		### using np (sligthly slower but fine for prototype) ------
-		# self.grid_simple = self.grid #save copy of grid that doesn't have new radial spacing for bottom ring
-		# n_ground_cells = 3
-		# eps = 1e-4 #small value to give bin a discrete size
+		# self.grid_simple = self.grid #save copy of grid with thee new radial spacing for bottom ring
+		n_ground_cells = 3
+		eps = 1e-4 #small value to give bin a discrete size
 
-		# gnp = self.grid.numpy()
-		# idx_bottom = np.where(gnp[:,2] >= c[-n_ground_cells].numpy())
-		# # print(idx)
-		# #expand radius of bottom two rings rows 
-		# gnp[idx_bottom,0] = 2*gnp[idx_bottom,0]-3 
+		gnp = self.grid.numpy()
+		idx_bottom = np.where(gnp[:,2] >= c[-n_ground_cells].numpy())
+		# print(idx)
+		#expand radius of bottom two rings rows 
+		gnp[idx_bottom,0] = 2*gnp[idx_bottom,0]-3 
 
-		# #set elevation angle of ring above bottom to be the same as below to avoid sloped voxels
-		# # idx_next_up = np.where(gnp[:,2] == c[-(n_ground_cells + 1)].numpy())
-		# # gnp[idx_next_up, 2] = gnp[np.where(gnp[:,2] == c[-n_ground_cells].numpy()), 2] + eps
-		# # print(c) #grid of phi
-		# # print(idx_next_up)
+		#set elevation angle of ring above bottom to be the same as below to avoid sloped voxels
+		# idx_next_up = np.where(gnp[:,2] == c[-(n_ground_cells + 1)].numpy())
+		# gnp[idx_next_up, 2] = gnp[np.where(gnp[:,2] == c[-n_ground_cells].numpy()), 2] + eps
+		# print(c) #grid of phi
+		# print(idx_next_up)
 
-		# #raise elevation of "ground cells" by 1 to remove slope
-		# # gnp[idx_bottom, 2] = gnp[np.asarray(idx_bottom) - 1, 2] + eps
+		#raise elevation of "ground cells" by 1 to remove slope
+		# gnp[idx_bottom, 2] = gnp[np.asarray(idx_bottom) - 1, 2] + eps
 
-		# self.grid = tf.convert_to_tensor(gnp)
+		self.grid_tophat = tf.convert_to_tensor(gnp)
 		# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 		if draw == True:
