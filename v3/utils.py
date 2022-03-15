@@ -3,6 +3,69 @@ import tensorflow as tf
 from vedo import *
 import vtk
 
+def get_cluster(rads, thresh = 0.1, mnp = 50):
+    """ Identifies radial bounds which contain the first cluster in a spike 
+            that is closest to the ego-vehicle 
+        
+        rads = tensor containing radii of points in each spike
+        thresh = must be this close to nearest neighbor to be considered part of a cluster
+        mnp = minimum number of points a cluster must contain to be considered
+            """
+
+    #fix dimensions
+    if len(tf.shape(rads)) < 2:
+        rads = rads[:,None]
+
+    #replace all zeros in rads (result of converting ragged -> standard tensor) with some arbitrarily large value
+    mask = tf.cast(tf.math.equal(rads, 0), tf.float32)*1000
+    rads = rads + mask
+
+    #sort in ascending order for each column in tensor
+    top_k = tf.math.top_k(tf.transpose(rads), k = tf.shape(rads)[0])
+    # print("\n top_k \n", top_k[1])
+    rads = tf.transpose(tf.gather(tf.transpose(rads), top_k[1], batch_dims = 1))
+    rads = tf.reverse(rads, axis = tf.constant([0]))
+    # print("rads \n", rads)
+
+    # calculate the forward difference between neighboring points
+    z = tf.zeros([1, tf.shape(rads)[1].numpy()])
+    shifted = tf.concat((rads[1:], z), axis = 0)
+    diff = shifted - rads
+    # print("\n diff \n", diff)
+
+    # #find where difference jumps
+    jumps = tf.where(diff > thresh)
+    # print("\n jumps \n", jumps) #[idx of jump, which spike is jumping]
+
+    #find where the first large cluster occurs in each spike
+    #   using numpy here because we're not working with the full dataset and 
+    #   it's easier if we use in place operations
+    bounds = np.zeros([tf.shape(rads)[1].numpy(), 2])
+    for i in range(tf.shape(rads)[1].numpy()):
+
+        #get the indices of jumps for the ith spike
+        jumps_i = tf.gather(jumps, tf.where(jumps[:,1] == i))[:,0].numpy()
+        jumps_i = np.append(np.zeros([1,2], dtype = np.int32), jumps_i, axis = 0)#need to add zeros to the beginning
+    
+        # print("jumps_i", i, " \n", jumps_i)  
+
+        last = 0
+        count = 1
+        while True:
+            #check and see if this jump contains a sufficient number of points
+            if jumps_i[count ,0] - last > mnp:
+                # print(last, count)
+                bounds[i, 0] = rads[jumps_i[count - 1, 0] + 1, i]
+                bounds[i, 1] = rads[jumps_i[count, 0], i]
+                break 
+            last = jumps_i[count, 0]
+            count += 1
+
+    bounds = tf.convert_to_tensor(bounds)
+
+    return(bounds)
+
+
 def R2Euler(mat):
 	"""determines euler angles from euler rotation matrix"""
 

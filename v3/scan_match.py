@@ -8,20 +8,20 @@ from tensorflow.math import sin, cos, tan
 import tensorflow_probability as tfp
 from ICET_spherical import ICET
 
-## init KITTI dataset -----------------------------------------------------------------
-# basedir = 'C:/kitti/'
-# date = '2011_09_26'
-# drive = '0005'
-# idx = 75
-# frame_range = range(150, 151, 1)
-# dataset = pykitti.raw(basedir, date, drive)
-# velo1 = dataset.get_velo(idx) # Each scan is a Nx4 array of [x,y,z,reflectance]
-# c1 = velo1[:,:3]
-# c1 = c1[c1[:,2] > -1.5] #ignore ground plane
-# velo2 = dataset.get_velo(idx+1) # Each scan is a Nx4 array of [x,y,z,reflectance]
-# c2 = velo2[:,:3]
-# c2 = c2[c2[:,2] > -1.5] #ignore ground plane
-## ------------------------------------------------------------------------------------
+# init KITTI dataset -----------------------------------------------------------------
+basedir = 'C:/kitti/'
+date = '2011_09_26'
+drive = '0005'
+idx = 75
+frame_range = range(150, 151, 1)
+dataset = pykitti.raw(basedir, date, drive)
+velo1 = dataset.get_velo(idx) # Each scan is a Nx4 array of [x,y,z,reflectance]
+c1 = velo1[:,:3]
+c1 = c1[c1[:,2] > -1.5] #ignore ground plane
+velo2 = dataset.get_velo(idx+1) # Each scan is a Nx4 array of [x,y,z,reflectance]
+c2 = velo2[:,:3]
+c2 = c2[c2[:,2] > -1.5] #ignore ground plane
+# ------------------------------------------------------------------------------------
 
 
 # # load custom point cloud geneated in matlab------------------------------------------
@@ -36,14 +36,14 @@ from ICET_spherical import ICET
 
 # # ------------------------------------------------------------------------------------
 
-# #single distinct cluster---------------------------------------------------------------
-c1 = np.random.randn(3000,3)*tf.constant([0.3,0.04,0.3]) + tf.constant([0.,8.,0.])
-c2 = np.random.randn(3000,3)*tf.constant([0.3,0.04,0.3]) + tf.constant([0.,8.,0.]) - np.array([0.1, 0.1, 0.0])
-# # c2 = c1 - np.array([0.1, 0.3, 0.0])
-# # -------------------------------------------------------------------------------------
+# # #single distinct cluster---------------------------------------------------------------
+# c1 = np.random.randn(3000,3)*tf.constant([0.3,0.04,0.3]) + tf.constant([0.,8.,0.])
+# c2 = np.random.randn(3000,3)*tf.constant([0.3,0.04,0.3]) + tf.constant([0.,8.,0.]) - np.array([0.1, 0.1, 0.0])
+# # # c2 = c1 - np.array([0.1, 0.3, 0.0])
+# # # -------------------------------------------------------------------------------------
 
-it = ICET(cloud1 = c1, cloud2 = c2, fid = 30, niter = 1, draw = True)
-# it = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 10, draw = True)
+# it = ICET(cloud1 = c1, cloud2 = c2, fid = 30, niter = 1, draw = True)
+it = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 10, draw = True)
 # it = ICET(cloud1 = c1, cloud2 = c2, fid = 90, niter = 10, draw = True)
 
 # print("\n predicted solution error covariance: \n", it.pred_stds)
