@@ -106,7 +106,6 @@ class ICET():
 		self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
 		self.draw_car()
 
-
 		# get boundaries containing useful clusters of points from first scan~~
 				#bin points by spike
 		thetamin = -np.pi
@@ -166,11 +165,12 @@ class ICET():
 		mu1_enough = tf.gather(mu1, enough1)
 		sigma1_enough = tf.gather(sigma1, enough1)
 
-		self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = 1)
+		self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = 0.5)
 
 		#standard U and L not going to work with new grouping strategy
-		# U, L = self.get_U_and_L(sigma1, mu1, tf.gather(o, enough1), method = 1)
+		U, L = self.get_U_and_L_cluster(sigma1_enough, mu1_enough, occupied_spikes, bounds)
 
+		self.visualize_L(mu1_enough, U, L)
 
 
 		# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -338,6 +338,78 @@ class ICET():
 		pts_in_cluster = tf.RaggedTensor.from_value_rowids(pts_in_cluster[:,1], pts_in_cluster[:,0])
 
 		return(pts_in_cluster, numPtsPerCluster)
+
+	def get_U_and_L_cluster(self, sigma1, mu1, occupied_spikes, bounds):
+		""" get U and L when using cluster point grouping """ 
+
+
+		eigenval, eigenvec = tf.linalg.eig(sigma1)
+		U = tf.math.real(eigenvec)
+
+		#need to create [N,3,3] diagonal matrices for axislens
+		zeros = tf.zeros([tf.shape(tf.math.real(eigenval))[0]])
+		axislen = tf.Variable([tf.math.real(eigenval)[:,0], zeros, zeros,
+							   zeros, tf.math.real(eigenval)[:,1], zeros,
+							   zeros, zeros, tf.math.real(eigenval)[:,2]])
+
+		axislen = tf.reshape(tf.transpose(axislen), (tf.shape(axislen)[1], 3, 3)) #variance not std...?
+
+		# get projections of axis length in each direction
+		rotated = tf.matmul(axislen, tf.transpose(U, [0, 2, 1])) #new
+
+		#QUESTION: should I scale this up if we use stretched voxels?
+		axislen_actual = 2*tf.math.sqrt(axislen)
+		# print(axislen_actual)
+		rotated_actual = tf.matmul(axislen_actual, tf.transpose(U, [0, 2, 1]))
+		# print("rotated_actual", rotated_actual)
+	
+		#get points at the ends of each distribution ellipse
+		# print("mu1", mu1)
+		mu_repeated = tf.tile(mu1, [3,1])
+		mu_repeated = tf.reshape(tf.transpose(mu_repeated), [3,3,-1])
+		mu_repeated = tf.transpose(mu_repeated, [2,1,0])
+		mu_repeated = tf.reshape(mu_repeated, [-1,3, 3])
+		# print("mu_repeated", mu_repeated)
+
+		P1 = mu_repeated + rotated_actual
+		P1 = tf.reshape(P1, [-1, 3])
+		P2 = mu_repeated - rotated_actual
+		P2 = tf.reshape(P2, [-1, 3])
+
+		#Assumes mu is always going to be inside the corresponding cell (should almost always be the case, if not, its going to fail anyways)
+		insideP_ideal, nptsP_ideal = self.get_points_in_cluster(self.c2s(tf.reshape(mu_repeated, [-1,3])), occupied_spikes, bounds)
+		insideP_ideal = insideP_ideal.to_tensor()
+		# print("insideP_ideal", insideP_ideal)
+
+
+		#find which points in P are actually inside which cell in <cells>
+		insideP1_actual, nptsP1_actual = self.get_points_in_cluster(self.c2s(P1), occupied_spikes, bounds)
+		# print(insideP1_actual)
+		insideP1_actual = insideP1_actual.to_tensor(shape = tf.shape(insideP_ideal)) #force to be same size as insideP_ideal
+		# print("insideP1_actual", insideP1_actual)
+		insideP2_actual, nptsP2_actual = self.get_points_in_cluster(self.c2s(P2), occupied_spikes, bounds)
+		insideP2_actual = insideP2_actual.to_tensor(shape = tf.shape(insideP_ideal))
+
+		#compare the points inside each cell to how many there are supposed to be
+		#	(any mismatch signifies an overly extended direction)
+		bofa1 = tf.sets.intersection(insideP_ideal, insideP1_actual).values
+		# print("\n bofa1", bofa1)
+		bofa2 = tf.sets.intersection(insideP_ideal, insideP2_actual).values
+		# print("\n bofa2", bofa2)
+
+		#combine both the positive and negative axis directions
+		deez = tf.cast(tf.sets.intersection(bofa1[None, :], bofa2[None, :]).values[:,None], tf.int32)
+		# print("unambiguous indices", deez)
+
+		data = tf.ones((tf.shape(deez)[0],3))
+		I = tf.tile(tf.eye(3), (tf.shape(U)[0], 1))
+
+		mask = tf.scatter_nd(indices = deez, updates = data, shape = tf.shape(I))
+
+		L = mask * I
+		L = tf.reshape(L, (tf.shape(L)[0]//3,3,3))
+
+		return(U, L)
 
 			
 	def get_U_and_L(self, sigma1, mu1, cells, method = 0):
