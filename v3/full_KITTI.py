@@ -34,7 +34,7 @@ for i in range(num_frames):
 	c1 = c1[c1[:,2] > -1.5] #ignore ground plane
 	c2 = c2[c2[:,2] > -1.5] #ignore ground plane
 
-	it = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 10, draw = False) #, x0 = intial_guess)
+	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 8, draw = False, group = 1) #, x0 = intial_guess)
 	# it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 8, draw = False, x0 = it.X)
 
 	# velo1 = dataset.get_velo(i) # Each scan is a Nx4 array of [x,y,z,reflectance]
@@ -59,6 +59,6 @@ for i in range(num_frames):
 	print("\n solution from ICET \n", ICET_estimates[i])
 	print("\n solution from GPS/INS \n", OXTS_baseline[i])
 
-np.savetxt("ICET_pred_stds_v2.txt", ICET_pred_stds)
-np.savetxt("ICET_estimates_v2.txt", ICET_estimates)
-np.savetxt("OXTS_baseline_v2.txt", OXTS_baseline)
+np.savetxt("ICET_pred_stds_v3.txt", ICET_pred_stds)
+np.savetxt("ICET_estimates_v3.txt", ICET_estimates)
+np.savetxt("OXTS_baseline_v3.txt", OXTS_baseline)

@@ -9,9 +9,7 @@ from utils import R2Euler, Ell, jacobian_tf, R_tf, get_cluster
 
 #TODO:
 	#P1:
-		# get top hat voxelization working
-				# make differentially thick cells on BOTTOM of brim to not mess up spacing??
-		# visualize jason's specific density grouping criteria
+		#TODO: re-write get_U_and_L to work with clusters 
 
 	#P2:
 		# figure out why <get_occupied()> always includes cell 0 at the end - it's because there are points outside reachable space
@@ -24,9 +22,9 @@ from utils import R2Euler, Ell, jacobian_tf, R_tf, get_cluster
 
 class ICET():
 
-	def __init__(self, cloud1, cloud2, fid = 30, niter = 5, draw = True, x0 = tf.constant([0.0, 0.0, 0., 0., 0., 0.])):
+	def __init__(self, cloud1, cloud2, fid = 30, niter = 5, draw = True, x0 = tf.constant([0.0, 0.0, 0., 0., 0., 0.]), group = 2):
 
-		self.min_cell_distance = 3 #begin closest spherical voxel here
+		self.min_cell_distance = 5 #3 #begin closest spherical voxel here
 		self.min_num_pts = 30 #10 #ignore "occupied" cells with fewer than this number of pts
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
@@ -88,28 +86,107 @@ class ICET():
 
 		# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-		self.main(niter = self.niter, x0 = x0)
+		if group == 1:
+			#perform algorith old way using the radial voxel strategy
+			self.main_1(niter = self.niter, x0 = x0)
+
+		if group == 2:
+			#perform algorithm new way with radial clustering (no bins)
+			self.main_2(niter = self.niter, x0 = x0)
 
 		if self.draw == True:
 			# self.disp.append(addons.LegendBox(self.disp))
 			self.plt.show(self.disp, "Spherical ICET")
 
-	def main(self, niter, x0):
-		""" main loop """
+	def main_2(self, niter, x0):
+		""" Main loop using new radial clustering strategy """
+
+		self.X = x0
+
+		self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
+		self.draw_car()
+
+
+		# get boundaries containing useful clusters of points from first scan~~
+				#bin points by spike
+		thetamin = -np.pi
+		thetamax = np.pi #-  2*np.pi/self.fid_theta
+		phimin =  3*np.pi/8
+		phimax = 5*np.pi/8 
+
+		edges_phi = tf.linspace(phimin, phimax, self.fid_phi)
+		edges_theta = tf.linspace(thetamin, thetamax, self.fid_theta + 1)
+
+		cloud = self.cloud1_tensor_spherical
+		
+		bins_theta = tfp.stats.find_bins(cloud[:,1], edges_theta)
+		bins_phi = tfp.stats.find_bins(cloud[:,2], edges_phi)
+
+		#combine bins_theta and bins_phi to get spike bins
+		bins_spike = tf.cast(bins_theta*(self.fid_phi-1) + bins_phi, tf.int32)
+
+		#save which spike each point is in to ICET object for further analysis
+		self.bins_spike = bins_spike
+
+		#find min point in each occupied spike
+		occupied_spikes, idxs = tf.unique(bins_spike)
+		temp =  tf.where(bins_spike == occupied_spikes[:,None]) #TODO- there has to be a better way to do this... 
+		rag = tf.RaggedTensor.from_value_rowids(temp[:,1], temp[:,0])
+		idx_by_rag = tf.gather(cloud[:,0], rag)
+
+
+		rads = tf.transpose(idx_by_rag.to_tensor())
+		bounds = get_cluster(rads)
+		corn = self.get_corners_cluster(occupied_spikes, bounds)
+		# print("occupied_spikes \n", occupied_spikes)
+		self.draw_cell(corn)
+		pts_in_cluster, numPtsPerCluster = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes, bounds)
+		
+		# draw identified points inside useful clusters
+		for n in range(tf.shape(pts_in_cluster.to_tensor())[0]):
+			temp = tf.gather(self.cloud1_tensor, pts_in_cluster[n]).numpy()	
+			self.disp.append(Points(temp, c = 'green', r = 5))
+
+		# #DEBUG: ____________________________________________________________
+		# ## idk how, but all of the garbage points (points from spikse with no good clusters) are being placed in their own cluster??
+
+		# print("\n bounds \n", bounds)
+		# print("numPtsPerCluster", numPtsPerCluster)
+
+		# temp = tf.gather(self.cloud1_tensor, pts_in_cluster[-1]).numpy()	
+		# self.disp.append(Points(temp, c = 'green', r = 5))
+		# #seems like the cause of this is not deleting points outside the observation cone of the vehicle
+		# #___________________________________________________________________
+
+
+		#fit gaussian
+		mu1, sigma1 = self.fit_gaussian(self.cloud1_tensor, pts_in_cluster, tf.cast(numPtsPerCluster, tf.float32))
+
+		enough1 = tf.where(numPtsPerCluster > self.min_num_pts)[:,0]
+		mu1_enough = tf.gather(mu1, enough1)
+		sigma1_enough = tf.gather(sigma1, enough1)
+
+		self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = 1)
+
+		#standard U and L not going to work with new grouping strategy
+		# U, L = self.get_U_and_L(sigma1, mu1, tf.gather(o, enough1), method = 1)
+
+
+
+		# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+	def main_1(self, niter, x0):
+		""" main loop using old strategy of radial voxels"""
 
 		self.X = x0
 
 		o = self.get_occupied()
 		# print("occupied = ", o)
 		if self.draw:
-			# corn_o = self.get_corners(o)
-			# self.draw_cell(corn_o)
+			corn_o = self.get_corners(o)
+			self.draw_cell(corn_o)
 			self.draw_car()
-
-		#for new clustering strategy ----------------------------------
-
-		#--------------------------------------------------------------
-
 
 		inside1, npts1 = self.get_points_inside(self.cloud1_tensor_spherical,o[:,None])		
 		mu1, sigma1 = self.fit_gaussian(self.cloud1_tensor, inside1, tf.cast(npts1, tf.float32))
@@ -130,7 +207,7 @@ class ICET():
 		# print("U: \n", U)
 		# print("L: \n", L)
 		if self.draw:
-			# self.visualize_L(mu1_enough, U, L)
+			self.visualize_L(mu1_enough, U, L)
 			self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = 0.5)
 			self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
 
@@ -233,24 +310,23 @@ class ICET():
 			occupied_spikes = tensor containing idx of spikes corresponding to bounds
 			bounds = tensor containing min and max radius for each occupied spike
 
+			#TODO: this is SUPER inefficient rn- 
+
 		"""
 
 		thetamin = -np.pi
 		thetamax = np.pi #-  2*np.pi/self.fid_theta
 		phimin =  3*np.pi/8
 		phimax = 5*np.pi/8 
-		# print(self.grid)
 
 		edges_phi = tf.linspace(phimin, phimax, self.fid_phi) #was this for regular cells
-		# edges_phi, _ = tf.unique(self.grid[:,2])
 		bins_phi = tfp.stats.find_bins(cloud[:,2], edges_phi)
 
 		edges_theta = tf.linspace(thetamin, thetamax, self.fid_theta + 1)
-		# edges_theta, _ = tf.unique(self.grid[:,1])
 		bins_theta = tfp.stats.find_bins(cloud[:,1], edges_theta)
 
-
 		spike_idx = tf.cast(bins_theta*(self.fid_phi-1) + bins_phi, tf.int32)
+
 
 		#get idx of spike for each applicable point
 		cond1 = spike_idx == occupied_spikes[:,None] #match spike IDs
@@ -258,11 +334,7 @@ class ICET():
 		cond3 = cloud[:,0] > tf.cast(bounds[:,0][:,None], tf.float32) #further than min bound
 
 		pts_in_cluster = tf.where(tf.math.reduce_all(tf.Variable([cond1, cond2, cond3]), axis = 0))
-
 		numPtsPerCluster = tf.math.bincount(tf.cast(pts_in_cluster[:,0], tf.int32))
-
-		# print("\n points in cluster \n", pts_in_cluster)
-
 		pts_in_cluster = tf.RaggedTensor.from_value_rowids(pts_in_cluster[:,1], pts_in_cluster[:,0])
 
 		return(pts_in_cluster, numPtsPerCluster)
@@ -524,7 +596,7 @@ class ICET():
 		#spike IDs are the same as as cell IDs for the innermost shell of self.grid
 		# 		so we can use that to get the theta and phi components
 		corn = self.get_corners(occupied_spikes).numpy()
-		print("corn temp\n", np.shape(corn))
+		# print("corn temp\n", np.shape(corn))
 
 		#replace rad in grid with bounds
 		corn[:,0,0] = bounds[:,0].numpy()
@@ -728,21 +800,6 @@ class ICET():
 
 		idx_by_rag = tf.gather(cloud[:,0], rag)
 		# print(idx_by_rag)
-
-		#NEW~~
-		#TODO: stop being an animal and move this out of "get_occupied", this is a horrible way to do things
-		rads = tf.transpose(idx_by_rag.to_tensor())
-		bounds = get_cluster(rads)
-		corn = self.get_corners_cluster(occupied_spikes, bounds)
-		# print("occupied_spikes \n", occupied_spikes)
-		self.draw_cell(corn)
-		pts_in_cluster, numPtsPerCluster = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes, bounds)
-		
-		#temp- draw identified points
-		temp = tf.gather(self.cloud1_tensor, pts_in_cluster[0]).numpy()	
-		self.disp.append(Points(temp, c = 'green', r = 5))
-
-		#~~~~~
 
 		min_per_spike = tf.math.reduce_min(idx_by_rag, axis = 1)
 		# print("min_per_spike:", min_per_spike)
