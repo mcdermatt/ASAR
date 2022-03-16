@@ -8,11 +8,13 @@ from tensorflow.math import sin, cos, tan
 import tensorflow_probability as tfp
 from ICET_spherical import ICET
 
+#problem at 114??
+
 # init KITTI dataset -----------------------------------------------------------------
 basedir = 'C:/kitti/'
 date = '2011_09_26'
 drive = '0005'
-idx = 75
+idx = 70
 frame_range = range(150, 151, 1)
 dataset = pykitti.raw(basedir, date, drive)
 velo1 = dataset.get_velo(idx) # Each scan is a Nx4 array of [x,y,z,reflectance]
@@ -42,8 +44,8 @@ c2 = c2[c2[:,2] > -1.5] #ignore ground plane
 # # # c2 = c1 - np.array([0.1, 0.3, 0.0])
 # # # -------------------------------------------------------------------------------------
 
-# it = ICET(cloud1 = c1, cloud2 = c2, fid = 30, niter = 1, draw = True)
-it = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 10, draw = True)
+it = ICET(cloud1 = c1, cloud2 = c2, fid = 30, niter = 1, draw = True)
+# it = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 10, draw = True)
 # it = ICET(cloud1 = c1, cloud2 = c2, fid = 90, niter = 10, draw = True)
 
 # print("\n predicted solution error covariance: \n", it.pred_stds)

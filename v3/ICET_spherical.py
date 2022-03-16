@@ -5,7 +5,7 @@ import time
 import tensorflow as tf
 from tensorflow.math import sin, cos, tan
 import tensorflow_probability as tfp
-from utils import R2Euler, Ell, jacobian_tf, R_tf
+from utils import R2Euler, Ell, jacobian_tf, R_tf, get_cluster
 
 #TODO:
 	#P1:
@@ -102,8 +102,13 @@ class ICET():
 		o = self.get_occupied()
 		# print("occupied = ", o)
 		if self.draw:
-			self.draw_cell(o)
+			# corn_o = self.get_corners(o)
+			# self.draw_cell(corn_o)
 			self.draw_car()
+
+		#for new clustering strategy ----------------------------------
+
+		#--------------------------------------------------------------
 
 
 		inside1, npts1 = self.get_points_inside(self.cloud1_tensor_spherical,o[:,None])		
@@ -125,7 +130,7 @@ class ICET():
 		# print("U: \n", U)
 		# print("L: \n", L)
 		if self.draw:
-			self.visualize_L(mu1_enough, U, L)
+			# self.visualize_L(mu1_enough, U, L)
 			self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = 0.5)
 			self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
 
@@ -221,9 +226,48 @@ class ICET():
 			# print("\n lam \n", lam)
 			# print("\n U2 \n", U2)
 
+	def get_points_in_cluster(self, cloud, occupied_spikes, bounds):
+		""" returns ragged tensor containing the indices of points in <cloud> in each cluster 
+		
+			cloud = point cloud tensor
+			occupied_spikes = tensor containing idx of spikes corresponding to bounds
+			bounds = tensor containing min and max radius for each occupied spike
+
+		"""
+
+		thetamin = -np.pi
+		thetamax = np.pi #-  2*np.pi/self.fid_theta
+		phimin =  3*np.pi/8
+		phimax = 5*np.pi/8 
+		# print(self.grid)
+
+		edges_phi = tf.linspace(phimin, phimax, self.fid_phi) #was this for regular cells
+		# edges_phi, _ = tf.unique(self.grid[:,2])
+		bins_phi = tfp.stats.find_bins(cloud[:,2], edges_phi)
+
+		edges_theta = tf.linspace(thetamin, thetamax, self.fid_theta + 1)
+		# edges_theta, _ = tf.unique(self.grid[:,1])
+		bins_theta = tfp.stats.find_bins(cloud[:,1], edges_theta)
 
 
+		spike_idx = tf.cast(bins_theta*(self.fid_phi-1) + bins_phi, tf.int32)
 
+		#get idx of spike for each applicable point
+		cond1 = spike_idx == occupied_spikes[:,None] #match spike IDs
+		cond2 = cloud[:,0] < tf.cast(bounds[:,1][:,None], tf.float32) #closer than max bound
+		cond3 = cloud[:,0] > tf.cast(bounds[:,0][:,None], tf.float32) #further than min bound
+
+		pts_in_cluster = tf.where(tf.math.reduce_all(tf.Variable([cond1, cond2, cond3]), axis = 0))
+
+		numPtsPerCluster = tf.math.bincount(tf.cast(pts_in_cluster[:,0], tf.int32))
+
+		# print("\n points in cluster \n", pts_in_cluster)
+
+		pts_in_cluster = tf.RaggedTensor.from_value_rowids(pts_in_cluster[:,1], pts_in_cluster[:,0])
+
+		return(pts_in_cluster, numPtsPerCluster)
+
+			
 	def get_U_and_L(self, sigma1, mu1, cells, method = 0):
 		""" 	sigma1 = sigmas from the first scan
 				cells = tensor containing the indices of each scan
@@ -473,6 +517,28 @@ class ICET():
 			a = shapes.Arrow(mu2[i].numpy(), mu1[i].numpy(), c = "black")
 			self.disp.append(a)
 
+
+	def get_corners_cluster(self, occupied_spikes, bounds):
+		""" get 8 corners of region bounded by spike IDs and radial bounds """
+
+		#spike IDs are the same as as cell IDs for the innermost shell of self.grid
+		# 		so we can use that to get the theta and phi components
+		corn = self.get_corners(occupied_spikes).numpy()
+		print("corn temp\n", np.shape(corn))
+
+		#replace rad in grid with bounds
+		corn[:,0,0] = bounds[:,0].numpy()
+		corn[:,1,0] = bounds[:,0].numpy()
+		corn[:,2,0] = bounds[:,1].numpy()
+		corn[:,3,0] = bounds[:,1].numpy()
+		corn[:,4,0] = bounds[:,0].numpy()
+		corn[:,5,0] = bounds[:,0].numpy()
+		corn[:,6,0] = bounds[:,1].numpy()
+		corn[:,7,0] = bounds[:,1].numpy()
+
+		return(corn)
+
+
 	def get_corners(self, cells, tophat = 0):
 		""" returns  spherical coordinates of coners of each input cell 
 			cells = tensor containing cell indices """
@@ -663,6 +729,21 @@ class ICET():
 		idx_by_rag = tf.gather(cloud[:,0], rag)
 		# print(idx_by_rag)
 
+		#NEW~~
+		#TODO: stop being an animal and move this out of "get_occupied", this is a horrible way to do things
+		rads = tf.transpose(idx_by_rag.to_tensor())
+		bounds = get_cluster(rads)
+		corn = self.get_corners_cluster(occupied_spikes, bounds)
+		# print("occupied_spikes \n", occupied_spikes)
+		self.draw_cell(corn)
+		pts_in_cluster, numPtsPerCluster = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes, bounds)
+		
+		#temp- draw identified points
+		temp = tf.gather(self.cloud1_tensor, pts_in_cluster[0]).numpy()	
+		self.disp.append(Points(temp, c = 'green', r = 5))
+
+		#~~~~~
+
 		min_per_spike = tf.math.reduce_min(idx_by_rag, axis = 1)
 		# print("min_per_spike:", min_per_spike)
 
@@ -679,42 +760,12 @@ class ICET():
 
 		# print("took", time.time() - st, "s to find occupied cells")
 		return(occupied_cells)
-		#-----------------------------------------------------------------------------------------
-
-		# #attempt #1: directly find which bins points are in (inefficient)-----------------------
-		# #get spherical coordinates of all of the corners of the cells in the innermost shell
-		# # shell_cells = tf.constant([1,300]) #debug
-		# shell_cells = tf.cast(tf.linspace(0, (self.fid_theta-1)*(self.fid_phi - 1) - 1, tf.cast((self.fid_theta-1)*(self.fid_phi - 1), tf.int32)), tf.int32)
-
-		# corn = self.get_corners(shell_cells)
-		# # print(corn)
-		# rmin = corn[:,0,0][:,None]
-		# thetamin = corn[:,0,1][:,None]
-		# thetamax = corn[:,3,1][:,None]
-		# phimin = corn[:,0,2][:,None]
-		# phimax = corn[:,4,2][:,None]
-
-		# # #for debug: draw all corners of cells in shell ----------------
-		# # for i in range(tf.shape(shell_cells)[0]):
-		# # 	pts = self.s2c(corn[i])
-		# # 	self.disp.append(Points(pts.numpy(), c = 'red', r =10))
-		# # #--------------------------------------------------------------
-
-		# inside = tf.Variable([tf.greater(self.cloud1_tensor_spherical[:,0], rmin),
-		# 					tf.less(self.cloud1_tensor_spherical[:,1], thetamax),
-		# 					tf.greater(self.cloud1_tensor_spherical[:,1], thetamin)
-		# 					])
-		# inside = tf.transpose(inside, [1,2,0])
-		# # print(inside)
-		# combined = tf.math.reduce_all(inside, axis = 2)
-		# # print(combined)
-		# #--------------------------------------------------------------------------------------
 
 
-	def draw_cell(self, idx):
-		""" draws cell provided by idx tensor"""
+	def draw_cell(self, corners):
+		""" draws cell provided by corners tensor"""
 
-		corners = self.get_corners(idx)
+		# corners = self.get_corners(idx)
 		# print(corners)
 
 		for i in range(tf.shape(corners)[0]):

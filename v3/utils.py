@@ -58,8 +58,14 @@ def get_cluster(rads, thresh = 0.1, mnp = 50):
                 bounds[i, 0] = rads[jumps_i[count - 1, 0] + 1, i]
                 bounds[i, 1] = rads[jumps_i[count, 0], i]
                 break 
+
             last = jumps_i[count, 0]
             count += 1
+
+            #if no useful clusters appear
+            if count == tf.shape(jumps_i)[0]:
+                bounds[i, :] = 0
+                break
 
     bounds = tf.convert_to_tensor(bounds)
 
