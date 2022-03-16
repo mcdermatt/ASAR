@@ -9,7 +9,7 @@ import tensorflow_probability as tfp
 from ICET_spherical import ICET
 
 
-num_frames = 150
+num_frames = 10
 
 basedir = 'C:/kitti/'
 date = '2011_09_26'
@@ -31,11 +31,15 @@ for i in range(num_frames):
 	c1 = velo1[:,:3]
 	velo2 = dataset.get_velo(i+1) # Each scan is a Nx4 array of [x,y,z,reflectance]
 	c2 = velo2[:,:3]
-	c1 = c1[c1[:,2] > -1.5] #ignore ground plane
-	c2 = c2[c2[:,2] > -1.5] #ignore ground plane
+	# c1 = c1[c1[:,2] > -1.5] #ignore ground plane
+	# c2 = c2[c2[:,2] > -1.5] #ignore ground plane
+	c1 = c1[c1[:,2] > -2.] #ignore reflections
+	c2 = c2[c2[:,2] > -2.] #ignore reflections
 
-	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 8, draw = False, group = 1) #, x0 = intial_guess)
-	# it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 8, draw = False, x0 = it.X)
+	it = ICET(cloud1 = c1, cloud2 = c2, fid = 30, niter = 5, draw = False, group = 2) #, x0 = intial_guess)
+	it = ICET(cloud1 = c1, cloud2 = c2, fid = 100, niter = 5, draw = False, group = 2, x0 = it.X)
+	it = ICET(cloud1 = c1, cloud2 = c2, fid = 150, niter = 5, draw = False, group = 2, x0 = it.X)
+
 
 	# velo1 = dataset.get_velo(i) # Each scan is a Nx4 array of [x,y,z,reflectance]
 	# c1 = velo1[:,:3]

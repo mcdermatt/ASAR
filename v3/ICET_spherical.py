@@ -9,7 +9,7 @@ from utils import R2Euler, Ell, jacobian_tf, R_tf, get_cluster
 
 #TODO:
 	#P1:
-		#TODO: re-write get_U_and_L to work with clusters 
+		#remove points too close to scan in cloud 2
 
 	#P2:
 		# figure out why <get_occupied()> always includes cell 0 at the end - it's because there are points outside reachable space
@@ -103,10 +103,7 @@ class ICET():
 
 		self.X = x0
 
-		self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
-		self.draw_car()
-
-		# get boundaries containing useful clusters of points from first scan~~
+		# get boundaries containing useful clusters of points from first scan
 				#bin points by spike
 		thetamin = -np.pi
 		thetamax = np.pi #-  2*np.pi/self.fid_theta
@@ -138,19 +135,14 @@ class ICET():
 		bounds = get_cluster(rads)
 		corn = self.get_corners_cluster(occupied_spikes, bounds)
 		# print("occupied_spikes \n", occupied_spikes)
-		self.draw_cell(corn)
-		pts_in_cluster, numPtsPerCluster = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes, bounds)
-		
-		# draw identified points inside useful clusters
-		for n in range(tf.shape(pts_in_cluster.to_tensor())[0]):
-			temp = tf.gather(self.cloud1_tensor, pts_in_cluster[n]).numpy()	
-			self.disp.append(Points(temp, c = 'green', r = 5))
+		pts_in_cluster, npts1 = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes, bounds)
+	
 
 		# #DEBUG: ____________________________________________________________
 		# ## idk how, but all of the garbage points (points from spikse with no good clusters) are being placed in their own cluster??
 
 		# print("\n bounds \n", bounds)
-		# print("numPtsPerCluster", numPtsPerCluster)
+		# print("npts1", npts1)
 
 		# temp = tf.gather(self.cloud1_tensor, pts_in_cluster[-1]).numpy()	
 		# self.disp.append(Points(temp, c = 'green', r = 5))
@@ -159,21 +151,118 @@ class ICET():
 
 
 		#fit gaussian
-		mu1, sigma1 = self.fit_gaussian(self.cloud1_tensor, pts_in_cluster, tf.cast(numPtsPerCluster, tf.float32))
+		mu1, sigma1 = self.fit_gaussian(self.cloud1_tensor, pts_in_cluster, tf.cast(npts1, tf.float32))
 
-		enough1 = tf.where(numPtsPerCluster > self.min_num_pts)[:,0]
+		enough1 = tf.where(npts1 > self.min_num_pts)[:,0]
 		mu1_enough = tf.gather(mu1, enough1)
 		sigma1_enough = tf.gather(sigma1, enough1)
-
-		self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = 0.5)
 
 		#standard U and L not going to work with new grouping strategy
 		U, L = self.get_U_and_L_cluster(sigma1_enough, mu1_enough, occupied_spikes, bounds)
 
-		self.visualize_L(mu1_enough, U, L)
+
+		if self.draw:
+			self.visualize_L(mu1_enough, U, L)
+			self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = 1)
+			self.draw_cell(corn)
+			self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
+			self.draw_car()
+			# draw identified points inside useful clusters
+			# for n in range(tf.shape(pts_in_cluster.to_tensor())[0]):
+			# 	temp = tf.gather(self.cloud1_tensor, pts_in_cluster[n]).numpy()	
+			# 	self.disp.append(Points(temp, c = 'green', r = 5))
+
+		for i in range(niter):
+			
+			print("\n estimated solution vector X: \n", self.X)
+
+			#transform cartesian point cloud 2 by estimated solution vector X
+			t = self.X[:3]
+			rot = R_tf(-self.X[3:])
+			self.cloud2_tensor = tf.matmul((self.cloud2_tensor_OG + t), tf.transpose(rot)) 
+
+			#convert back to spherical coordinates
+			self.cloud2_tensor_spherical = tf.cast(self.c2s(self.cloud2_tensor), tf.float32)
+
+			#TODO: remove points in transformed scan 2 spherical that are now too close to the ego vehicle
 
 
-		# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+			#find points from scan 2 that fall inside clusters
+			inside2, npts2 = self.get_points_in_cluster(self.cloud2_tensor_spherical, occupied_spikes, bounds)
+
+			#fit gaussians distributions to each of these groups of points 		
+			mu2, sigma2 = self.fit_gaussian(self.cloud2_tensor, inside2, tf.cast(npts2, tf.float32))
+			enough2 = tf.where(npts2 > self.min_num_pts)[:,0]
+			mu2_enough = tf.gather(mu2, enough2)
+
+			#get correspondences
+			corr = tf.sets.intersection(enough1[None,:], enough2[None,:]).values
+
+			y0_i = tf.gather(mu1, corr)
+			sigma0_i = tf.gather(sigma1, corr)
+			npts0_i = tf.gather(npts1, corr)
+			# print(sigma1)
+
+			y_i = tf.gather(mu2, corr)
+			sigma_i = tf.gather(sigma2, corr)
+			npts_i = tf.gather(npts2, corr)
+
+			U_i = tf.gather(U, corr)
+			L_i = tf.gather(L, corr)
+
+			#get matrix containing partial derivatives for each voxel mean
+			H = jacobian_tf(tf.transpose(y_i), self.X[3:]) # shape = [num of corr * 3, 6]
+			H = tf.reshape(H, (tf.shape(H)[0]//3,3,6)) # -> need shape [#corr//3, 3, 6]
+			# print("H \n", H)
+
+			#construct sensor noise covariance matrix
+			R_noise = (tf.transpose(tf.transpose(sigma0_i, [1,2,0]) / tf.cast(npts0_i - 1, tf.float32)) + 
+						tf.transpose(tf.transpose(sigma_i, [1,2,0]) / tf.cast(npts_i - 1, tf.float32)) )
+			R_noise = L_i @ tf.transpose(U_i, [0,2,1]) @ R_noise @ U_i @ tf.transpose(L_i, [0,2,1])
+
+			#take inverse of R_noise to get our weighting matrix
+			W = tf.linalg.pinv(R_noise)
+
+			U_iT = tf.transpose(U_i, [0,2,1])
+			LUT = L_i @ U_iT
+
+			# use LUT to remove rows of H corresponding to overly extended directions
+			H_z = LUT @ H
+
+			HTWH = tf.math.reduce_sum(tf.matmul(tf.matmul(tf.transpose(H_z, [0,2,1]), W), H_z), axis = 0) #was this (which works)
+			HTW = tf.matmul(tf.transpose(H_z, [0,2,1]), W)
+
+			L2, lam, U2 = self.check_condition(HTWH)
+
+			# create alternate corrdinate system to align with axis of scan 1 distributions
+			z = tf.squeeze(tf.matmul(LUT, y_i[:,:,None]))
+			z0 = tf.squeeze(tf.matmul(LUT, y0_i[:,:,None]))	
+			dz = z - z0
+			dz = dz[:,:,None] #need to add an extra dimension to dz to get the math to work out
+
+			dx = tf.squeeze(tf.matmul( tf.matmul(tf.linalg.pinv(L2 @ lam @ tf.transpose(U2)) @ L2 @ tf.transpose(U2) , HTW ), dz))
+			dx = tf.math.reduce_sum(dx, axis = 0)
+			# print("\n dx \n", dx)
+
+			self.X += dx
+
+			#get output covariance matrix
+			self.Q = tf.linalg.pinv(HTWH)
+			# print("\n Q \n", Q)
+
+			self.pred_stds = tf.linalg.tensor_diag_part(tf.math.sqrt(tf.abs(self.Q)))
+		print("pred_stds: \n", self.pred_stds)
+
+		#draw PC2
+		if self.draw == True:
+			self.draw_ell(y_i, sigma_i, pc = 2, alpha = 1)
+			self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
+			# self.draw_cloud(self.cloud2_tensor_OG.numpy(), pc = 3) #draw in differnt color
+			# draw identified points from scan 2 inside useful clusters
+			# for n in range(tf.shape(inside2.to_tensor())[0]):
+			# 	temp = tf.gather(self.cloud2_tensor, inside2[n]).numpy()	
+			# 	self.disp.append(Points(temp, c = 'green', r = 5))
 
 
 	def main_1(self, niter, x0):
@@ -221,6 +310,11 @@ class ICET():
 
 			#convert back to spherical coordinates
 			self.cloud2_tensor_spherical = tf.cast(self.c2s(self.cloud2_tensor), tf.float32)
+
+			#remove points from cloud 2 that are too close to vehicle
+			not_too_close2 = tf.where(self.cloud2_tensor_spherical[:,0] > self.min_cell_distance)[:,0]
+			self.cloud2_tensor_spherical = tf.gather(self.cloud2_tensor_spherical, not_too_close2)
+			self.cloud2_tensor = tf.gather(self.cloud2_tensor, not_too_close2)
 
 			#find points from scan 2 that fall inside occupied voxels
 			inside2, npts2 = self.get_points_inside(self.cloud2_tensor_spherical, o[:,None])
@@ -357,8 +451,8 @@ class ICET():
 		# get projections of axis length in each direction
 		rotated = tf.matmul(axislen, tf.transpose(U, [0, 2, 1])) #new
 
-		#QUESTION: should I scale this up if we use stretched voxels?
-		axislen_actual = 2*tf.math.sqrt(axislen)
+		# axislen_actual = 2*tf.math.sqrt(axislen) #was this
+		axislen_actual = 3*tf.math.sqrt(axislen) #test
 		# print(axislen_actual)
 		rotated_actual = tf.matmul(axislen_actual, tf.transpose(U, [0, 2, 1]))
 		# print("rotated_actual", rotated_actual)

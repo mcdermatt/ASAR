@@ -14,17 +14,17 @@ from ICET_spherical import ICET
 basedir = 'C:/kitti/'
 date = '2011_09_26'
 drive = '0005'
-idx = 10
+idx = 100
 frame_range = range(150, 151, 1)
 dataset = pykitti.raw(basedir, date, drive)
 velo1 = dataset.get_velo(idx) # Each scan is a Nx4 array of [x,y,z,reflectance]
 c1 = velo1[:,:3]
 velo2 = dataset.get_velo(idx+1) # Each scan is a Nx4 array of [x,y,z,reflectance]
 c2 = velo2[:,:3]
-# c1 = c1[c1[:,2] > -1.5] #ignore ground plane
-# c2 = c2[c2[:,2] > -1.5] #ignore ground plane
-c1 = c1[c1[:,2] > -2.] #ignore reflections
-c2 = c2[c2[:,2] > -2.] #ignore reflections
+c1 = c1[c1[:,2] > -1.5] #ignore ground plane
+c2 = c2[c2[:,2] > -1.5] #ignore ground plane
+# c1 = c1[c1[:,2] > -2.] #ignore reflections
+# c2 = c2[c2[:,2] > -2.] #ignore reflections
 # ------------------------------------------------------------------------------------
 
 
@@ -46,7 +46,7 @@ c2 = c2[c2[:,2] > -2.] #ignore reflections
 # # # c2 = c1 - np.array([0.1, 0.3, 0.0])
 # # # -------------------------------------------------------------------------------------
 
-it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 1, draw = True, group = 2)
+it = ICET(cloud1 = c1, cloud2 = c2, fid = 100, niter = 15, draw = True, group = 2)
 # it = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 10, draw = True, group = 1)
 # it = ICET(cloud1 = c1, cloud2 = c2, fid = 90, niter = 10, draw = True)
 

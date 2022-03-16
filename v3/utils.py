@@ -52,6 +52,13 @@ def get_cluster(rads, thresh = 0.2, mnp = 50):
         last = 0
         count = 1
         while True:
+
+            #degbug
+            # print(tf.shape(jumps_i))
+            if tf.shape(jumps_i)[0] < 2:
+                bounds[i,:] = 0
+                break
+
             #check and see if this jump contains a sufficient number of points
             if jumps_i[count ,0] - last > mnp:
                 # print(last, count)
