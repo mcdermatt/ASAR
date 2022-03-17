@@ -9,7 +9,7 @@ import tensorflow_probability as tfp
 from ICET_spherical import ICET
 
 
-num_frames = 10
+num_frames = 20
 
 basedir = 'C:/kitti/'
 date = '2011_09_26'
@@ -36,19 +36,9 @@ for i in range(num_frames):
 	c1 = c1[c1[:,2] > -2.] #ignore reflections
 	c2 = c2[c2[:,2] > -2.] #ignore reflections
 
-	it = ICET(cloud1 = c1, cloud2 = c2, fid = 30, niter = 5, draw = False, group = 2) #, x0 = intial_guess)
-	it = ICET(cloud1 = c1, cloud2 = c2, fid = 100, niter = 5, draw = False, group = 2, x0 = it.X)
+	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 8, draw = False, group = 2) #, x0 = intial_guess)
+	it = ICET(cloud1 = c1, cloud2 = c2, fid = 100, niter = 8, draw = False, group = 2, x0 = it.X)
 	it = ICET(cloud1 = c1, cloud2 = c2, fid = 150, niter = 5, draw = False, group = 2, x0 = it.X)
-
-
-	# velo1 = dataset.get_velo(i) # Each scan is a Nx4 array of [x,y,z,reflectance]
-	# c1 = velo1[:,:3]
-	# velo2 = dataset.get_velo(i+1) # Each scan is a Nx4 array of [x,y,z,reflectance]
-	# c2 = velo2[:,:3]
-	# it = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 5, draw = False, x0 = it.X)
-
-	print("it.X \n", it.X)
-
 
 	ICET_estimates[i] = it.X
 	ICET_pred_stds[i] = it.pred_stds
@@ -63,6 +53,9 @@ for i in range(num_frames):
 	print("\n solution from ICET \n", ICET_estimates[i])
 	print("\n solution from GPS/INS \n", OXTS_baseline[i])
 
-np.savetxt("ICET_pred_stds_v3.txt", ICET_pred_stds)
-np.savetxt("ICET_estimates_v3.txt", ICET_estimates)
-np.savetxt("OXTS_baseline_v3.txt", OXTS_baseline)
+np.savetxt("ICET_pred_stds_v4.txt", ICET_pred_stds)
+np.savetxt("ICET_estimates_v4.txt", ICET_estimates)
+np.savetxt("OXTS_baseline_v4.txt", OXTS_baseline)
+
+#v3 - using new clustering 30-100-150, 
+#v4 - swaped order of rotate-translate

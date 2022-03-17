@@ -34,8 +34,8 @@ sensor.ElevationResolution = 0.4;
 scenario = trackingScenario;
 ego = platform(scenario, 'Position', [0, 0, 1.72]);
 % ego.Position = [0, 0, 1.72];
-% target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[10 0 0],'Velocity',[5 0 0])); %no rotation
-target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[10 0 0],'Velocity',[5 0 0], 'AngularVelocity', [0, 0, 0.35])); %with rotatation
+target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[10 0 0],'Velocity',[5 0 0])); %no rotation
+% target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[10 0 0],'Velocity',[5 0 0], 'AngularVelocity', [0, 0, 0.35])); %with rotatation
 
 target.Mesh = mesh;
 target.Dimensions.Length = 100; 
