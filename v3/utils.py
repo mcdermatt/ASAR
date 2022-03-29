@@ -12,6 +12,8 @@ def get_cluster(rads, thresh = 0.2, mnp = 50):
         mnp = minimum number of points a cluster must contain to be considered
             """
 
+    max_buffer = 0.5
+
     #fix dimensions
     if len(tf.shape(rads)) < 2:
         rads = rads[:,None]
@@ -19,6 +21,7 @@ def get_cluster(rads, thresh = 0.2, mnp = 50):
     #replace all zeros in rads (result of converting ragged -> standard tensor) with some arbitrarily large value
     mask = tf.cast(tf.math.equal(rads, 0), tf.float32)*1000
     rads = rads + mask
+    # print(rads)
 
     #sort in ascending order for each column in tensor
     top_k = tf.math.top_k(tf.transpose(rads), k = tf.shape(rads)[0])
@@ -62,8 +65,22 @@ def get_cluster(rads, thresh = 0.2, mnp = 50):
             #check and see if this jump contains a sufficient number of points
             if jumps_i[count ,0] - last > mnp:
                 # print(last, count)
-                bounds[i, 0] = rads[jumps_i[count - 1, 0] + 1, i]
-                bounds[i, 1] = rads[jumps_i[count, 0], i]
+
+                #set bounds at edges of cluster
+                # bounds[i, 0] = rads[jumps_i[count - 1, 0] + 1, i]
+                # bounds[i, 1] = rads[jumps_i[count, 0], i] 
+
+                #extend cluster bounds halfway to next point
+                buffer_dist1 = (rads[jumps_i[count - 1, 0] + 1, i] - rads[jumps_i[count - 1, 0], i]) / 2
+                if buffer_dist1 > max_buffer:
+                    buffer_dist1 = max_buffer
+                bounds[i, 0] =  rads[jumps_i[count - 1, 0] + 1, i] - buffer_dist1
+
+                buffer_dist2 = (rads[jumps_i[count, 0] + 1, i] - rads[jumps_i[count, 0], i]) / 2
+                if buffer_dist2 > max_buffer:
+                    buffer_dist2 = max_buffer
+                bounds[i, 1] =  rads[jumps_i[count, 0], i] + buffer_dist2
+                
                 break 
 
             last = jumps_i[count, 0]

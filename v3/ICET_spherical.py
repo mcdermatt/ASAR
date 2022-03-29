@@ -9,7 +9,7 @@ from utils import R2Euler, Ell, jacobian_tf, R_tf, get_cluster
 
 #TODO:
 	#P1:
-		#remove points too close to scan in cloud 2
+		# Visualize cells that produce irregular transformation estimates
 
 	#P2:
 		# figure out why <get_occupied()> always includes cell 0 at the end - it's because there are points outside reachable space
@@ -179,8 +179,8 @@ class ICET():
 			#transform cartesian point cloud 2 by estimated solution vector X
 			t = self.X[:3]
 			rot = R_tf(-self.X[3:])
-			# self.cloud2_tensor = tf.matmul((self.cloud2_tensor_OG + t), tf.transpose(rot)) #was this
-			self.cloud2_tensor = tf.matmul((self.cloud2_tensor_OG), tf.transpose(rot)) + t   #rotate then translate
+			self.cloud2_tensor = tf.matmul((self.cloud2_tensor_OG + t), tf.transpose(rot)) #was this
+			# self.cloud2_tensor = tf.matmul((self.cloud2_tensor_OG), tf.transpose(rot)) + t   #rotate then translate
 
 
 			#convert back to spherical coordinates
@@ -244,6 +244,35 @@ class ICET():
 			dz = dz[:,:,None] #need to add an extra dimension to dz to get the math to work out
 
 			dx = tf.squeeze(tf.matmul( tf.matmul(tf.linalg.pinv(L2 @ lam @ tf.transpose(U2)) @ L2 @ tf.transpose(U2) , HTW ), dz))
+
+			#------------------------------------------------------------------------------------------------
+			#DEBUG - FIND CELLS THAT INTRODUCE THE MOST ERROR
+
+			self.H = H
+			self.H_z = H_z			
+			self.dx_i = dx #this is still weighted
+			self.W = W
+
+			mu = tf.math.reduce_mean(self.dx_i[:,0])
+			print("mean", mu)
+			sigma = tf.math.reduce_std(self.dx_i[:,0])
+			print("standard deviation", sigma)
+			bad_idx = tf.where( tf.math.abs(self.dx_i[:,0]) > mu + 3*sigma )[:,0]
+			print("bad idx", bad_idx)
+			# print(tf.gather(it.dx_i[:,0], bad_idx))
+
+			bounds_bad = tf.gather(bounds, bad_idx)
+
+			#TODO: bad_idx is referencing used cells, (not overall cells!!)
+
+			bad_idx_corn = self.get_corners_cluster(bad_idx, bounds_bad)
+
+			self.draw_cell(bad_idx_corn, bad = True)
+
+			#------------------------------------------------------------------------------------------------
+
+
+
 			dx = tf.math.reduce_sum(dx, axis = 0)
 			# print("\n dx \n", dx)
 
@@ -260,7 +289,7 @@ class ICET():
 		if self.draw == True:
 			self.draw_ell(y_i, sigma_i, pc = 2, alpha = 1)
 			self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
-			self.draw_cloud(self.cloud2_tensor_OG.numpy(), pc = 3) #draw in differnt color
+			# self.draw_cloud(self.cloud2_tensor_OG.numpy(), pc = 3) #draw in differnt color
 			# draw identified points from scan 2 inside useful clusters
 			# for n in range(tf.shape(inside2.to_tensor())[0]):
 			# 	temp = tf.gather(self.cloud2_tensor, inside2[n]).numpy()	
@@ -308,8 +337,8 @@ class ICET():
 			#transform cartesian point cloud 2 by estimated solution vector X
 			t = self.X[:3]
 			rot = R_tf(-self.X[3:])
-			# self.cloud2_tensor = tf.matmul((self.cloud2_tensor_OG + t), tf.transpose(rot)) #translate, then rotate
-			self.cloud2_tensor = tf.matmul((self.cloud2_tensor_OG), tf.transpose(rot)) + t   #rotate then translate
+			self.cloud2_tensor = tf.matmul((self.cloud2_tensor_OG + t), tf.transpose(rot)) #translate, then rotate
+			# self.cloud2_tensor = tf.matmul((self.cloud2_tensor_OG), tf.transpose(rot)) + t   #rotate then translate
 
 			#convert back to spherical coordinates
 			self.cloud2_tensor_spherical = tf.cast(self.c2s(self.cloud2_tensor), tf.float32)
@@ -988,39 +1017,73 @@ class ICET():
 		return(occupied_cells)
 
 
-	def draw_cell(self, corners):
+	def draw_cell(self, corners, bad = False):
 		""" draws cell provided by corners tensor"""
 
 		# corners = self.get_corners(idx)
 		# print(corners)
 
-		for i in range(tf.shape(corners)[0]):
+		if bad == False:
+			for i in range(tf.shape(corners)[0]):
+				p1, p2, p3, p4, p5, p6, p7, p8 = self.s2c(corners[i]).numpy()
 
-			p1, p2, p3, p4, p5, p6, p7, p8 = self.s2c(corners[i]).numpy()
-			arc1 = shapes.Arc(center = [0,0,0], point1 = p1, point2 = p2, c = 'red')	
-			# arc1 = shapes.Line(p1, p2, c = 'red', lw = 1) #debug		
-			self.disp.append(arc1)
-			arc2 = shapes.Arc(center = [0,0,0], point1 = p3, point2 = p4, c = 'red')
-			# arc2 = shapes.Line(p3, p4, c = 'red', lw = 1) #debug
-			self.disp.append(arc2)
-			line1 = shapes.Line(p1, p3, c = 'red', lw = 1)
-			self.disp.append(line1)
-			line2 = shapes.Line(p2, p4, c = 'red', lw = 1) #problem here
-			self.disp.append(line2)
+				arc1 = shapes.Arc(center = [0,0,0], point1 = p1, point2 = p2, c = 'red')	
+				# arc1 = shapes.Line(p1, p2, c = 'red', lw = 1) #debug		
+				self.disp.append(arc1)
+				arc2 = shapes.Arc(center = [0,0,0], point1 = p3, point2 = p4, c = 'red')
+				# arc2 = shapes.Line(p3, p4, c = 'red', lw = 1) #debug
+				self.disp.append(arc2)
+				line1 = shapes.Line(p1, p3, c = 'red', lw = 1)
+				self.disp.append(line1)
+				line2 = shapes.Line(p2, p4, c = 'red', lw = 1) #problem here
+				self.disp.append(line2)
 
-			arc3 = shapes.Arc(center = [0,0,0], point1 = p5, point2 = p6, c = 'red')			
-			self.disp.append(arc3)
-			arc4 = shapes.Arc(center = [0,0,0], point1 = p7, point2 = p8, c = 'red')
-			self.disp.append(arc4)
-			line3 = shapes.Line(p5, p7, c = 'red', lw = 1)
-			self.disp.append(line3)
-			line4 = shapes.Line(p6, p8, c = 'red', lw = 1)
-			self.disp.append(line4)
+				arc3 = shapes.Arc(center = [0,0,0], point1 = p5, point2 = p6, c = 'red')			
+				self.disp.append(arc3)
+				arc4 = shapes.Arc(center = [0,0,0], point1 = p7, point2 = p8, c = 'red')
+				self.disp.append(arc4)
+				line3 = shapes.Line(p5, p7, c = 'red', lw = 1)
+				self.disp.append(line3)
+				line4 = shapes.Line(p6, p8, c = 'red', lw = 1)
+				self.disp.append(line4)
 
-			self.disp.append(shapes.Line(p1,p5,c = 'red', lw = 1))
-			self.disp.append(shapes.Line(p2,p6,c = 'red', lw = 1))
-			self.disp.append(shapes.Line(p3,p7,c = 'red', lw = 1))
-			self.disp.append(shapes.Line(p4,p8,c = 'red', lw = 1))
+				self.disp.append(shapes.Line(p1,p5,c = 'red', lw = 1))
+				self.disp.append(shapes.Line(p2,p6,c = 'red', lw = 1))
+				self.disp.append(shapes.Line(p3,p7,c = 'red', lw = 1))
+				self.disp.append(shapes.Line(p4,p8,c = 'red', lw = 1))
+
+		if bad == True:
+			for i in range(tf.shape(corners)[0]):
+				p1, p2, p3, p4, p5, p6, p7, p8 = self.s2c(corners[i]).numpy()
+
+
+				arc1 = shapes.Arc(center = [0,0,0], point1 = p1, point2 = p2, c = 'yellow')	
+				arc1.lineWidth(5)
+				self.disp.append(arc1)
+				arc2 = shapes.Arc(center = [0,0,0], point1 = p3, point2 = p4, c = 'yellow')
+				arc2.lineWidth(5)
+				self.disp.append(arc2)
+				line1 = shapes.Line(p1, p3, c = 'yellow', lw = 5)
+				self.disp.append(line1)
+				line2 = shapes.Line(p2, p4, c = 'yellow', lw = 5) #problem here
+				self.disp.append(line2)
+
+				arc3 = shapes.Arc(center = [0,0,0], point1 = p5, point2 = p6, c = 'yellow')
+				arc3.lineWidth(5)			
+				self.disp.append(arc3)
+				arc4 = shapes.Arc(center = [0,0,0], point1 = p7, point2 = p8, c = 'yellow')
+				arc4.lineWidth(5)
+				self.disp.append(arc4)
+				line3 = shapes.Line(p5, p7, c = 'yellow', lw = 5)
+				self.disp.append(line3)
+				line4 = shapes.Line(p6, p8, c = 'yellow', lw = 5)
+				self.disp.append(line4)
+
+				self.disp.append(shapes.Line(p1,p5,c = 'yellow', lw = 5))
+				self.disp.append(shapes.Line(p2,p6,c = 'yellow', lw = 5))
+				self.disp.append(shapes.Line(p3,p7,c = 'yellow', lw = 5))
+				self.disp.append(shapes.Line(p4,p8,c = 'yellow', lw = 5))
+
 
 	def grid_spherical(self, draw = False):
 		""" constructs grid in spherical coordinates """
