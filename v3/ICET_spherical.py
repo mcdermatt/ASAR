@@ -162,9 +162,9 @@ class ICET():
 
 
 		if self.draw:
-			self.visualize_L(mu1_enough, U, L)
-			self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = 1)
-			self.draw_cell(corn)
+			# self.visualize_L(mu1_enough, U, L)
+			# self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = 1)
+			# self.draw_cell(corn)
 			self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
 			self.draw_car()
 			# draw identified points inside useful clusters
@@ -182,12 +182,8 @@ class ICET():
 			self.cloud2_tensor = tf.matmul((self.cloud2_tensor_OG + t), tf.transpose(rot)) #was this
 			# self.cloud2_tensor = tf.matmul((self.cloud2_tensor_OG), tf.transpose(rot)) + t   #rotate then translate
 
-
 			#convert back to spherical coordinates
 			self.cloud2_tensor_spherical = tf.cast(self.c2s(self.cloud2_tensor), tf.float32)
-
-			#TODO: remove points in transformed scan 2 spherical that are now too close to the ego vehicle
-
 
 
 			#find points from scan 2 that fall inside clusters
@@ -200,6 +196,8 @@ class ICET():
 
 			#get correspondences
 			corr = tf.sets.intersection(enough1[None,:], enough2[None,:]).values
+			# print("corr \n", corr)
+			# print("\n occupied_spikes \n", occupied_spikes)
 
 			y0_i = tf.gather(mu1, corr)
 			sigma0_i = tf.gather(sigma1, corr)
@@ -252,23 +250,21 @@ class ICET():
 			self.H_z = H_z			
 			self.dx_i = dx #this is still weighted
 			self.W = W
+			self.residuals = y_i - y0_i
 
-			mu = tf.math.reduce_mean(self.dx_i[:,0])
-			print("mean", mu)
-			sigma = tf.math.reduce_std(self.dx_i[:,0])
-			print("standard deviation", sigma)
-			bad_idx = tf.where( tf.math.abs(self.dx_i[:,0]) > mu + 3*sigma )[:,0]
-			print("bad idx", bad_idx)
+			metric = self.residuals[:,0]
+			# metric = self.dx_i[:,0]
+
+			mu = tf.math.reduce_mean(metric)
+			# print("mean", mu)
+			sigma = tf.math.reduce_std(metric)
+			# print("standard deviation", sigma)
+			bad_idx = tf.where( tf.math.abs(metric) > mu + 3*sigma )[:,0]
+			# print("bad idx", bad_idx)
 			# print(tf.gather(it.dx_i[:,0], bad_idx))
 
-			bounds_bad = tf.gather(bounds, bad_idx)
-
-			#TODO: bad_idx is referencing used cells, (not overall cells!!)
-
-			bad_idx_corn = self.get_corners_cluster(bad_idx, bounds_bad)
-
-			self.draw_cell(bad_idx_corn, bad = True)
-
+			bounds_bad = tf.gather(bounds, tf.gather(corr, bad_idx))
+			bad_idx_corn = self.get_corners_cluster(tf.gather(occupied_spikes, tf.gather(corr, bad_idx)), bounds_bad)
 			#------------------------------------------------------------------------------------------------
 
 
@@ -283,12 +279,15 @@ class ICET():
 			# print("\n Q \n", Q)
 
 			self.pred_stds = tf.linalg.tensor_diag_part(tf.math.sqrt(tf.abs(self.Q)))
+
 		print("pred_stds: \n", self.pred_stds)
 
+		self.draw_cell(bad_idx_corn, bad = True) #for debug
+
 		#draw PC2
-		if self.draw == True:
-			self.draw_ell(y_i, sigma_i, pc = 2, alpha = 1)
-			self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
+		# if self.draw == True:
+		# 	self.draw_ell(y_i, sigma_i, pc = 2, alpha = 1)
+		# 	self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
 			# self.draw_cloud(self.cloud2_tensor_OG.numpy(), pc = 3) #draw in differnt color
 			# draw identified points from scan 2 inside useful clusters
 			# for n in range(tf.shape(inside2.to_tensor())[0]):
@@ -1055,34 +1054,34 @@ class ICET():
 		if bad == True:
 			for i in range(tf.shape(corners)[0]):
 				p1, p2, p3, p4, p5, p6, p7, p8 = self.s2c(corners[i]).numpy()
-
+				thicc = 3
 
 				arc1 = shapes.Arc(center = [0,0,0], point1 = p1, point2 = p2, c = 'yellow')	
-				arc1.lineWidth(5)
+				arc1.lineWidth(thicc)
 				self.disp.append(arc1)
 				arc2 = shapes.Arc(center = [0,0,0], point1 = p3, point2 = p4, c = 'yellow')
-				arc2.lineWidth(5)
+				arc2.lineWidth(thicc)
 				self.disp.append(arc2)
-				line1 = shapes.Line(p1, p3, c = 'yellow', lw = 5)
+				line1 = shapes.Line(p1, p3, c = 'yellow', lw = thicc)
 				self.disp.append(line1)
-				line2 = shapes.Line(p2, p4, c = 'yellow', lw = 5) #problem here
+				line2 = shapes.Line(p2, p4, c = 'yellow', lw = thicc) #problem here
 				self.disp.append(line2)
 
 				arc3 = shapes.Arc(center = [0,0,0], point1 = p5, point2 = p6, c = 'yellow')
-				arc3.lineWidth(5)			
+				arc3.lineWidth(thicc)			
 				self.disp.append(arc3)
 				arc4 = shapes.Arc(center = [0,0,0], point1 = p7, point2 = p8, c = 'yellow')
-				arc4.lineWidth(5)
+				arc4.lineWidth(thicc)
 				self.disp.append(arc4)
-				line3 = shapes.Line(p5, p7, c = 'yellow', lw = 5)
+				line3 = shapes.Line(p5, p7, c = 'yellow', lw = thicc)
 				self.disp.append(line3)
-				line4 = shapes.Line(p6, p8, c = 'yellow', lw = 5)
+				line4 = shapes.Line(p6, p8, c = 'yellow', lw = thicc)
 				self.disp.append(line4)
 
-				self.disp.append(shapes.Line(p1,p5,c = 'yellow', lw = 5))
-				self.disp.append(shapes.Line(p2,p6,c = 'yellow', lw = 5))
-				self.disp.append(shapes.Line(p3,p7,c = 'yellow', lw = 5))
-				self.disp.append(shapes.Line(p4,p8,c = 'yellow', lw = 5))
+				self.disp.append(shapes.Line(p1,p5,c = 'yellow', lw = thicc))
+				self.disp.append(shapes.Line(p2,p6,c = 'yellow', lw = thicc))
+				self.disp.append(shapes.Line(p3,p7,c = 'yellow', lw = thicc))
+				self.disp.append(shapes.Line(p4,p8,c = 'yellow', lw = thicc))
 
 
 	def grid_spherical(self, draw = False):
