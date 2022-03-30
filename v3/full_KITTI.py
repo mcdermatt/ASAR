@@ -36,11 +36,11 @@ for i in range(num_frames):
 	c1 = c1[c1[:,2] > -2.] #ignore reflections
 	c2 = c2[c2[:,2] > -2.] #ignore reflections
 
-	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 15, draw = False, group = 2) #, x0 = intial_guess)
-	it = ICET(cloud1 = c1, cloud2 = c2, fid = 100, niter = 15, draw = False, group = 2, x0 = it.X)
+	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 20, draw = False, group = 2) #, x0 = intial_guess)
+	# it = ICET(cloud1 = c1, cloud2 = c2, fid = 100, niter = 15, draw = False, group = 2, x0 = it.X)
 	# it = ICET(cloud1 = c1, cloud2 = c2, fid = 150, niter = 5, draw = False, group = 2, x0 = it.X)
 
-	ICET_estimates[i] = it.X
+	ICET_estimates[i] = it.X #* (dataset.timestamps[i+1] - dataset.timestamps[i]).microseconds/(10e5)/0.1
 	ICET_pred_stds[i] = it.pred_stds
 
 	intial_guess = it.X
@@ -48,6 +48,7 @@ for i in range(num_frames):
 	poses0 = dataset.oxts[i] 
 	poses1 = dataset.oxts[i+1]
 	dt = 0.1
+	# dt = (dataset.timestamps[i+1] - dataset.timestamps[i]).microseconds/(10e5)
 	OXTS_baseline[i] = np.array([[poses1.packet.vf*dt, poses1.packet.vl*dt, poses1.packet.vu*dt, -poses1.packet.wf*dt, -poses1.packet.wl*dt, -poses1.packet.wu*dt]]) #test
 
 	print("\n solution from ICET \n", ICET_estimates[i])
@@ -58,4 +59,4 @@ np.savetxt("ICET_estimates_v4.txt", ICET_estimates)
 np.savetxt("OXTS_baseline_v4.txt", OXTS_baseline)
 
 #v3 - using new clustering 30-100-150, 
-#v4 - swaped order of rotate-translate
+#v4 - with moving objects removed 

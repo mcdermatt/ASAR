@@ -71,12 +71,14 @@ def get_cluster(rads, thresh = 0.2, mnp = 50):
                 # bounds[i, 1] = rads[jumps_i[count, 0], i] 
 
                 #extend cluster bounds halfway to next point
-                buffer_dist1 = (rads[jumps_i[count - 1, 0] + 1, i] - rads[jumps_i[count - 1, 0], i]) / 2
-                if buffer_dist1 > max_buffer:
+                buffer_dist1 = (rads[jumps_i[count - 1, 0] , i] - rads[jumps_i[count - 1, 0] - 1, i]) / 2
+                # print("b1", buffer_dist1)
+                if abs(buffer_dist1) > max_buffer:
                     buffer_dist1 = max_buffer
                 bounds[i, 0] =  rads[jumps_i[count - 1, 0] + 1, i] - buffer_dist1
 
                 buffer_dist2 = (rads[jumps_i[count, 0] + 1, i] - rads[jumps_i[count, 0], i]) / 2
+                # print("b2", buffer_dist2)
                 if buffer_dist2 > max_buffer:
                     buffer_dist2 = max_buffer
                 bounds[i, 1] =  rads[jumps_i[count, 0], i] + buffer_dist2

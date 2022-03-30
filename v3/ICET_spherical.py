@@ -9,7 +9,8 @@ from utils import R2Euler, Ell, jacobian_tf, R_tf, get_cluster
 
 #TODO:
 	#P1:
-		# Visualize cells that produce irregular transformation estimates
+		# remove outlier difference cells from contributing to soln
+		#	make before and after otputs and compare histograms
 
 	#P2:
 		# figure out why <get_occupied()> always includes cell 0 at the end - it's because there are points outside reachable space
@@ -24,7 +25,7 @@ class ICET():
 
 	def __init__(self, cloud1, cloud2, fid = 30, niter = 5, draw = True, x0 = tf.constant([0.0, 0.0, 0., 0., 0., 0.]), group = 2):
 
-		self.min_cell_distance = 5 #3 #begin closest spherical voxel here
+		self.min_cell_distance = 2 #5 #3 #begin closest spherical voxel here
 		self.min_num_pts = 10 #30 #ignore "occupied" cells with fewer than this number of pts
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
@@ -33,7 +34,7 @@ class ICET():
 		#convert cloud1 to tesnsor
 		self.cloud1_tensor = tf.cast(tf.convert_to_tensor(cloud1), tf.float32)
 		self.cloud2_tensor = tf.cast(tf.convert_to_tensor(cloud2), tf.float32)
-		self.cloud2_tensor_OG = tf.cast(tf.convert_to_tensor(cloud2), tf.float32) #TODO- try and avoid repeating this...
+		# self.cloud2_tensor_OG = tf.cast(tf.convert_to_tensor(cloud2), tf.float32) #TODO- try and avoid repeating this...
 
 		if self.draw == True:
 			self.plt = Plotter(N = 1, axes = 4, bg = (1, 1, 1), interactive = True) #axis = 4
@@ -50,7 +51,8 @@ class ICET():
 		not_too_close2 = tf.where(self.cloud2_tensor_spherical[:,0] > self.min_cell_distance)[:,0]
 		self.cloud2_tensor_spherical = tf.gather(self.cloud2_tensor_spherical, not_too_close2)
 		self.cloud2_tensor = tf.gather(self.cloud2_tensor, not_too_close2)
-		
+		self.cloud2_tensor_OG = tf.gather(self.cloud2_tensor, not_too_close2) #better to remove too close points from OG
+
 		self.grid_spherical( draw = False )
 
 		# #-----------------------------------------------------------
@@ -98,7 +100,7 @@ class ICET():
 			# self.disp.append(addons.LegendBox(self.disp))
 			self.plt.show(self.disp, "Spherical ICET")
 
-	def main_2(self, niter, x0):
+	def main_2(self, niter, x0, remove_moving = True):
 		""" Main loop using new radial clustering strategy """
 
 		self.X = x0
@@ -108,7 +110,7 @@ class ICET():
 		thetamin = -np.pi
 		thetamax = np.pi #-  2*np.pi/self.fid_theta
 		phimin =  3*np.pi/8
-		phimax = 5*np.pi/8 
+		phimax = 7*np.pi/8 #5*np.pi/8 
 
 		edges_phi = tf.linspace(phimin, phimax, self.fid_phi)
 		edges_theta = tf.linspace(thetamin, thetamax, self.fid_theta + 1)
@@ -157,14 +159,14 @@ class ICET():
 		mu1_enough = tf.gather(mu1, enough1)
 		sigma1_enough = tf.gather(sigma1, enough1)
 
-		#standard U and L not going to work with new grouping strategy
+		#standard U and L method does not work with new grouping strategy
 		U, L = self.get_U_and_L_cluster(sigma1_enough, mu1_enough, occupied_spikes, bounds)
 
 
 		if self.draw:
-			# self.visualize_L(mu1_enough, U, L)
-			# self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = 1)
-			# self.draw_cell(corn)
+			self.visualize_L(mu1_enough, U, L)
+			self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = 1)
+			self.draw_cell(corn)
 			self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
 			self.draw_car()
 			# draw identified points inside useful clusters
@@ -174,6 +176,8 @@ class ICET():
 
 		for i in range(niter):
 			
+			#TODO- make sure we are calculating moving outliers on the FULL residuals (not the previously ignored set)
+
 			print("\n estimated solution vector X: \n", self.X)
 
 			#transform cartesian point cloud 2 by estimated solution vector X
@@ -188,6 +192,8 @@ class ICET():
 
 			#find points from scan 2 that fall inside clusters
 			inside2, npts2 = self.get_points_in_cluster(self.cloud2_tensor_spherical, occupied_spikes, bounds)
+			# print("inside2", inside2)
+			# print("npts2", npts2)
 
 			#fit gaussians distributions to each of these groups of points 		
 			mu2, sigma2 = self.fit_gaussian(self.cloud2_tensor, inside2, tf.cast(npts2, tf.float32))
@@ -198,6 +204,51 @@ class ICET():
 			corr = tf.sets.intersection(enough1[None,:], enough2[None,:]).values
 			# print("corr \n", corr)
 			# print("\n occupied_spikes \n", occupied_spikes)
+			corr_full = tf.sets.intersection(enough1[None,:], enough2[None,:]).values
+
+
+			#----------------------------------------------
+			if remove_moving:  
+				if i > 5: #TODO: tune this to optimal value
+					print("---identified moving objects---")
+					#------------------------------------------------------------------------------------------------
+					#DEBUG - FIND CELLS THAT INTRODUCE THE MOST ERROR
+					self.H = H
+					self.H_z = H_z			
+					self.dx_i = dx
+					self.W = W
+					self.residuals = y_i_full - y0_i_full
+
+					metric = self.residuals[:,0]
+					# metric = self.dx_i[:,0]
+
+					mu = tf.math.reduce_mean(metric)
+					# print("mean", mu)
+					sigma = tf.math.reduce_std(metric)
+					# print("standard deviation", sigma)
+					bad_idx = tf.where( tf.math.abs(metric) > mu + 2*sigma )[:,0]
+					# print("corr \n", corr)
+					# print("bad idx", bad_idx)
+					# print(tf.gather(it.dx_i[:,0], bad_idx))
+
+					bounds_bad = tf.gather(bounds, tf.gather(corr, bad_idx))
+					bad_idx_corn = self.get_corners_cluster(tf.gather(occupied_spikes, tf.gather(corr, bad_idx)), bounds_bad)
+					#------------------------------------------------------------------------------------------------
+
+					ignore_these = tf.gather(corr, bad_idx)
+					corr = tf.sets.difference(corr[None, :], ignore_these[None, :]).values
+
+					#draw to confirm correct points are being ignored
+					bounds_good = tf.gather(bounds, corr)
+					# print("bounds_good", bounds_good)
+					# print("corr", corr)
+
+					good_pts_rag, _ = self.get_points_in_cluster(self.cloud1_tensor_spherical, tf.gather(occupied_spikes, corr), bounds_good)
+
+			#----------------------------------------------
+
+			y0_i_full = tf.gather(mu1, corr_full)
+			y_i_full = tf.gather(mu2, corr_full)
 
 			y0_i = tf.gather(mu1, corr)
 			sigma0_i = tf.gather(sigma1, corr)
@@ -241,33 +292,7 @@ class ICET():
 			dz = z - z0
 			dz = dz[:,:,None] #need to add an extra dimension to dz to get the math to work out
 
-			dx = tf.squeeze(tf.matmul( tf.matmul(tf.linalg.pinv(L2 @ lam @ tf.transpose(U2)) @ L2 @ tf.transpose(U2) , HTW ), dz))
-
-			#------------------------------------------------------------------------------------------------
-			#DEBUG - FIND CELLS THAT INTRODUCE THE MOST ERROR
-
-			self.H = H
-			self.H_z = H_z			
-			self.dx_i = dx #this is still weighted
-			self.W = W
-			self.residuals = y_i - y0_i
-
-			metric = self.residuals[:,0]
-			# metric = self.dx_i[:,0]
-
-			mu = tf.math.reduce_mean(metric)
-			# print("mean", mu)
-			sigma = tf.math.reduce_std(metric)
-			# print("standard deviation", sigma)
-			bad_idx = tf.where( tf.math.abs(metric) > mu + 3*sigma )[:,0]
-			# print("bad idx", bad_idx)
-			# print(tf.gather(it.dx_i[:,0], bad_idx))
-
-			bounds_bad = tf.gather(bounds, tf.gather(corr, bad_idx))
-			bad_idx_corn = self.get_corners_cluster(tf.gather(occupied_spikes, tf.gather(corr, bad_idx)), bounds_bad)
-			#------------------------------------------------------------------------------------------------
-
-
+			dx = tf.squeeze(tf.matmul( tf.matmul(tf.linalg.pinv(L2 @ lam @ tf.transpose(U2)) @ L2 @ tf.transpose(U2) , HTW ), dz))	
 
 			dx = tf.math.reduce_sum(dx, axis = 0)
 			# print("\n dx \n", dx)
@@ -282,17 +307,19 @@ class ICET():
 
 		print("pred_stds: \n", self.pred_stds)
 
-		self.draw_cell(bad_idx_corn, bad = True) #for debug
-
 		#draw PC2
-		# if self.draw == True:
-		# 	self.draw_ell(y_i, sigma_i, pc = 2, alpha = 1)
-		# 	self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
+		if self.draw == True:
+			self.draw_cell(bad_idx_corn, bad = True) #for debug
+			self.draw_ell(y_i, sigma_i, pc = 2, alpha = 1)
+			self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
 			# self.draw_cloud(self.cloud2_tensor_OG.numpy(), pc = 3) #draw in differnt color
 			# draw identified points from scan 2 inside useful clusters
 			# for n in range(tf.shape(inside2.to_tensor())[0]):
 			# 	temp = tf.gather(self.cloud2_tensor, inside2[n]).numpy()	
 			# 	self.disp.append(Points(temp, c = 'green', r = 5))
+			# for z in range(good_pts_rag.bounding_shape()[0]):
+			# 	temp = tf.gather(self.cloud1_tensor, good_pts_rag[z]).numpy()
+			# 	self.disp.append(Points(temp, c = 'green', r = 6))
 
 
 	def main_1(self, niter, x0):
@@ -442,7 +469,8 @@ class ICET():
 		thetamin = -np.pi
 		thetamax = np.pi #-  2*np.pi/self.fid_theta
 		phimin =  3*np.pi/8
-		phimax = 5*np.pi/8 
+		# phimax = 5*np.pi/8 
+		phimax = 7*np.pi/8
 
 		edges_phi = tf.linspace(phimin, phimax, self.fid_phi) #was this for regular cells
 		bins_phi = tfp.stats.find_bins(cloud[:,2], edges_phi)
@@ -1090,12 +1118,14 @@ class ICET():
 		self.fid_r = self.fid  #waaayyy too many but keeping this for now
 		# self.fid_r = 10 #causes bugs
 		self.fid_theta = self.fid  #number of subdivisions in horizontal directin
-		self.fid_phi = self.fid_theta//6 #number of subdivision in vertical direction + 1
+		# self.fid_phi = self.fid_theta//6 #number of subdivision in vertical direction + 1
+		self.fid_phi = self.fid_theta // 3
 
 		thetamin = -np.pi 
 		thetamax = np.pi - 2*np.pi/self.fid_theta
 		phimin =  3*np.pi/8
-		phimax = 5*np.pi/8 
+		# phimax = 5*np.pi/8 
+		phimax = 7*np.pi/8
 
 		a = tf.cast(tf.linspace(0,self.fid_r-1, self.fid_r)[:,None], tf.float32)
 		b = tf.linspace(thetamin, thetamax, self.fid_theta)[:,None]
