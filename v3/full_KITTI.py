@@ -33,8 +33,8 @@ for i in range(num_frames):
 	c2 = velo2[:,:3]
 	# c1 = c1[c1[:,2] > -1.5] #ignore ground plane
 	# c2 = c2[c2[:,2] > -1.5] #ignore ground plane
-	c1 = c1[c1[:,2] > -2.] #ignore reflections
-	c2 = c2[c2[:,2] > -2.] #ignore reflections
+	# c1 = c1[c1[:,2] > -2.] #ignore reflections
+	# c2 = c2[c2[:,2] > -2.] #ignore reflections
 
 	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 20, draw = False, group = 2) #, x0 = intial_guess)
 	# it = ICET(cloud1 = c1, cloud2 = c2, fid = 100, niter = 15, draw = False, group = 2, x0 = it.X)
@@ -54,9 +54,10 @@ for i in range(num_frames):
 	print("\n solution from ICET \n", ICET_estimates[i])
 	print("\n solution from GPS/INS \n", OXTS_baseline[i])
 
-np.savetxt("ICET_pred_stds_v4.txt", ICET_pred_stds)
-np.savetxt("ICET_estimates_v4.txt", ICET_estimates)
-np.savetxt("OXTS_baseline_v4.txt", OXTS_baseline)
+np.savetxt("ICET_pred_stds_v6.txt", ICET_pred_stds)
+np.savetxt("ICET_estimates_v6.txt", ICET_estimates)
+np.savetxt("OXTS_baseline_v6.txt", OXTS_baseline)
 
 #v3 - using new clustering 30-100-150, 
-#v4 - with moving objects removed 
+#v4 - with moving objects removed {50}, with ground plane, sigma thresh = 2
+#v5 - same as above, no ground plane

@@ -11,6 +11,10 @@ from utils import R2Euler, Ell, jacobian_tf, R_tf, get_cluster
 	#P1:
 		# remove outlier difference cells from contributing to soln
 		#	make before and after otputs and compare histograms
+		# QUESTION- When looking for outlier differences in "converged" cells should I be weighting
+		#			errors by distance from ego-vehicle?
+
+		# instead of assuming gaussian fit for residuals, just bin errrors and only try to fit soln estimate to mode bin???
 
 	#P2:
 		# figure out why <get_occupied()> always includes cell 0 at the end - it's because there are points outside reachable space
@@ -26,7 +30,7 @@ class ICET():
 	def __init__(self, cloud1, cloud2, fid = 30, niter = 5, draw = True, x0 = tf.constant([0.0, 0.0, 0., 0., 0., 0.]), group = 2):
 
 		self.min_cell_distance = 2 #5 #3 #begin closest spherical voxel here
-		self.min_num_pts = 10 #30 #ignore "occupied" cells with fewer than this number of pts
+		self.min_num_pts = 30 #10 #ignore "occupied" cells with fewer than this number of pts
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
 		self.niter = niter
@@ -209,24 +213,25 @@ class ICET():
 
 			#----------------------------------------------
 			if remove_moving:  
-				if i > 5: #TODO: tune this to optimal value
-					print("---identified moving objects---")
+				if i > 10: #TODO: tune this to optimal value
+					print("\n ---identified moving objects---")
 					#------------------------------------------------------------------------------------------------
 					#DEBUG - FIND CELLS THAT INTRODUCE THE MOST ERROR
 					self.H = H
 					self.H_z = H_z			
 					self.dx_i = dx
 					self.W = W
-					self.residuals = y_i_full - y0_i_full
+					self.residuals_full = y_i_full - y0_i_full
+					self.residuals = y_i - y0_i #not needed??
 
-					metric = self.residuals[:,0]
+					metric = self.residuals_full[:,0]
 					# metric = self.dx_i[:,0]
 
 					mu = tf.math.reduce_mean(metric)
 					# print("mean", mu)
 					sigma = tf.math.reduce_std(metric)
 					# print("standard deviation", sigma)
-					bad_idx = tf.where( tf.math.abs(metric) > mu + 2*sigma )[:,0]
+					bad_idx = tf.where( tf.math.abs(metric) > mu + 0.25*sigma )[:,0]
 					# print("corr \n", corr)
 					# print("bad idx", bad_idx)
 					# print(tf.gather(it.dx_i[:,0], bad_idx))
@@ -317,9 +322,10 @@ class ICET():
 			# for n in range(tf.shape(inside2.to_tensor())[0]):
 			# 	temp = tf.gather(self.cloud2_tensor, inside2[n]).numpy()	
 			# 	self.disp.append(Points(temp, c = 'green', r = 5))
-			# for z in range(good_pts_rag.bounding_shape()[0]):
-			# 	temp = tf.gather(self.cloud1_tensor, good_pts_rag[z]).numpy()
-			# 	self.disp.append(Points(temp, c = 'green', r = 6))
+			for z in range(good_pts_rag.bounding_shape()[0]):
+				temp = tf.gather(self.cloud1_tensor, good_pts_rag[z]).numpy()
+				self.disp.append(Points(temp, c = 'green', r = 6))
+			self.draw_correspondences(mu1, mu2, corr)
 
 
 	def main_1(self, niter, x0):

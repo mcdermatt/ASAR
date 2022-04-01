@@ -14,8 +14,17 @@ from utils import R_tf
 # init KITTI dataset -----------------------------------------------------------------
 basedir = 'C:/kitti/'
 date = '2011_09_26'
+
+# urban dataset used in 3D-ICET paper 
 drive = '0005'
-idx = 56
+idx = 1
+
+#alternate dataset with fewer moving objects?
+# drive = '0009'
+# idx = 245
+# drive = '0093'
+# idx = 220
+
 frame_range = range(150, 151, 1)
 dataset = pykitti.raw(basedir, date, drive)
 velo1 = dataset.get_velo(idx) # Each scan is a Nx4 array of [x,y,z,reflectance]
@@ -24,8 +33,8 @@ velo2 = dataset.get_velo(idx+1) # Each scan is a Nx4 array of [x,y,z,reflectance
 c2 = velo2[:,:3]
 # c1 = c1[c1[:,2] > -1.5] #ignore ground plane
 # c2 = c2[c2[:,2] > -1.5] #ignore ground plane
-c1 = c1[c1[:,2] > -2.] #ignore reflections
-c2 = c2[c2[:,2] > -2.] #ignore reflections
+# c1 = c1[c1[:,2] > -2.] #ignore reflections
+# c2 = c2[c2[:,2] > -2.] #ignore reflections
 # ------------------------------------------------------------------------------------
 
 
@@ -53,7 +62,7 @@ c2 = c2[c2[:,2] > -2.] #ignore reflections
 # # # -------------------------------------------------------------------------------------
 
 it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 20, draw = True, group = 2)
-# it = ICET(cloud1 = c1, cloud2 = c2, fid = 100, niter = 10, draw = True, group = 2, x0 = it.X)
+# it = ICET(cloud1 = c1, cloud2 = c2, fid = 100, niter = 20, draw = True, group = 2, x0 = it.X)
 # it = ICET(cloud1 = c1, cloud2 = c2, fid = 90, niter = 10, draw = True)
 
 # print("\n predicted solution error covariance: \n", it.pred_stds)
