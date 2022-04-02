@@ -17,7 +17,7 @@ date = '2011_09_26'
 
 # urban dataset used in 3D-ICET paper 
 drive = '0005'
-idx = 1
+idx = 114
 
 #alternate dataset with fewer moving objects?
 # drive = '0009'
@@ -35,6 +35,9 @@ c2 = velo2[:,:3]
 # c2 = c2[c2[:,2] > -1.5] #ignore ground plane
 # c1 = c1[c1[:,2] > -2.] #ignore reflections
 # c2 = c2[c2[:,2] > -2.] #ignore reflections
+
+#load previously processed cloud 1
+c1 = np.loadtxt("cloud1_good.txt")
 # ------------------------------------------------------------------------------------
 
 

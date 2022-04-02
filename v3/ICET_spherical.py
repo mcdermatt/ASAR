@@ -16,6 +16,8 @@ from utils import R2Euler, Ell, jacobian_tf, R_tf, get_cluster
 
 		# instead of assuming gaussian fit for residuals, just bin errrors and only try to fit soln estimate to mode bin???
 
+		# try to just save the not occluded, not moving points (found after i == 10) and do a fit with those...
+
 	#P2:
 		# figure out why <get_occupied()> always includes cell 0 at the end - it's because there are points outside reachable space
 		# Normalize minimum number of points per cell by radial distance from ego-vehicle
@@ -215,8 +217,7 @@ class ICET():
 			if remove_moving:  
 				if i > 10: #TODO: tune this to optimal value
 					print("\n ---identified moving objects---")
-					#------------------------------------------------------------------------------------------------
-					#DEBUG - FIND CELLS THAT INTRODUCE THE MOST ERROR
+					#FIND CELLS THAT INTRODUCE THE MOST ERROR
 					self.H = H
 					self.H_z = H_z			
 					self.dx_i = dx
@@ -225,23 +226,35 @@ class ICET():
 					self.residuals = y_i - y0_i #not needed??
 
 					metric = self.residuals_full[:,0]
-					# metric = self.dx_i[:,0]
+					# metric = self.residuals_full[:,1]
 
+					
+					# #------------------------------------------------------------------------------------------------
+					# #Using binned mode oulier exclusion
+					# nbins = 30
+					# edges = tf.linspace(-1.,1.,nbins)
+					# bins_soln = tfp.stats.find_bins(self.residuals_full[:,0], edges)
+					# bad_idx = tf.where(bins_soln != (nbins//2 - 1))[:,0]
+					# #------------------------------------------------------------------------------------------------
+
+					#------------------------------------------------------------------------------------------------
+					#Using Gaussian n-sigma outlier exclusion
 					mu = tf.math.reduce_mean(metric)
 					# print("mean", mu)
 					sigma = tf.math.reduce_std(metric)
 					# print("standard deviation", sigma)
-					bad_idx = tf.where( tf.math.abs(metric) > mu + 0.25*sigma )[:,0]
+					bad_idx = tf.where( tf.math.abs(metric) > mu + 5*sigma )[:,0]
 					# print("corr \n", corr)
 					# print("bad idx", bad_idx)
 					# print(tf.gather(it.dx_i[:,0], bad_idx))
+					#------------------------------------------------------------------------------------------------
 
 					bounds_bad = tf.gather(bounds, tf.gather(corr, bad_idx))
 					bad_idx_corn = self.get_corners_cluster(tf.gather(occupied_spikes, tf.gather(corr, bad_idx)), bounds_bad)
-					#------------------------------------------------------------------------------------------------
 
 					ignore_these = tf.gather(corr, bad_idx)
 					corr = tf.sets.difference(corr[None, :], ignore_these[None, :]).values
+					
 
 					#draw to confirm correct points are being ignored
 					bounds_good = tf.gather(bounds, corr)
@@ -322,9 +335,17 @@ class ICET():
 			# for n in range(tf.shape(inside2.to_tensor())[0]):
 			# 	temp = tf.gather(self.cloud2_tensor, inside2[n]).numpy()	
 			# 	self.disp.append(Points(temp, c = 'green', r = 5))
+			to_save = np.zeros([1,3])
 			for z in range(good_pts_rag.bounding_shape()[0]):
 				temp = tf.gather(self.cloud1_tensor, good_pts_rag[z]).numpy()
-				self.disp.append(Points(temp, c = 'green', r = 6))
+				# self.disp.append(Points(temp, c = 'green', r = 6))
+
+				#for debug: save good points from scan 1 to file ---
+				# to_save 
+				# print(tf.shape(temp))
+				to_save = np.append(to_save, temp, axis = 0)
+			# np.savetxt("cloud1_good.txt", to_save)
+
 			self.draw_correspondences(mu1, mu2, corr)
 
 
