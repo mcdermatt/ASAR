@@ -18,6 +18,8 @@ from utils import R2Euler, Ell, jacobian_tf, R_tf, get_cluster
 
 		# try to just save the not occluded, not moving points (found after i == 10) and do a fit with those...
 
+		# 
+
 	#P2:
 		# figure out why <get_occupied()> always includes cell 0 at the end - it's because there are points outside reachable space
 		# Normalize minimum number of points per cell by radial distance from ego-vehicle
@@ -29,13 +31,14 @@ from utils import R2Euler, Ell, jacobian_tf, R_tf, get_cluster
 
 class ICET():
 
-	def __init__(self, cloud1, cloud2, fid = 30, niter = 5, draw = True, x0 = tf.constant([0.0, 0.0, 0., 0., 0., 0.]), group = 2):
+	def __init__(self, cloud1, cloud2, fid = 30, niter = 5, draw = True, x0 = tf.constant([0.0, 0.0, 0., 0., 0., 0.]), group = 2, RM = True):
 
 		self.min_cell_distance = 2 #5 #3 #begin closest spherical voxel here
 		self.min_num_pts = 30 #10 #ignore "occupied" cells with fewer than this number of pts
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
 		self.niter = niter
+		self.alpha = 1#0.5 #controls alpha values when displaying ellipses
 
 		#convert cloud1 to tesnsor
 		self.cloud1_tensor = tf.cast(tf.convert_to_tensor(cloud1), tf.float32)
@@ -60,6 +63,8 @@ class ICET():
 		self.cloud2_tensor_OG = tf.gather(self.cloud2_tensor, not_too_close2) #better to remove too close points from OG
 
 		self.grid_spherical( draw = False )
+
+		self.cloud1_static = None #placeholder for returning inlier points after moving point exclusion routine
 
 		# #-----------------------------------------------------------
 		# #debug - draw points within a single occupied cell  
@@ -100,7 +105,7 @@ class ICET():
 
 		if group == 2:
 			#perform algorithm new way with radial clustering (no bins)
-			self.main_2(niter = self.niter, x0 = x0)
+			self.main_2(niter = self.niter, x0 = x0, remove_moving = RM)
 
 		if self.draw == True:
 			# self.disp.append(addons.LegendBox(self.disp))
@@ -171,7 +176,7 @@ class ICET():
 
 		if self.draw:
 			self.visualize_L(mu1_enough, U, L)
-			self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = 1)
+			self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
 			self.draw_cell(corn)
 			self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
 			self.draw_car()
@@ -243,7 +248,7 @@ class ICET():
 					# print("mean", mu)
 					sigma = tf.math.reduce_std(metric)
 					# print("standard deviation", sigma)
-					bad_idx = tf.where( tf.math.abs(metric) > mu + 5*sigma )[:,0]
+					bad_idx = tf.where( tf.math.abs(metric) > mu + 1*sigma )[:,0]
 					# print("corr \n", corr)
 					# print("bad idx", bad_idx)
 					# print(tf.gather(it.dx_i[:,0], bad_idx))
@@ -327,26 +332,41 @@ class ICET():
 
 		#draw PC2
 		if self.draw == True:
-			self.draw_cell(bad_idx_corn, bad = True) #for debug
-			self.draw_ell(y_i, sigma_i, pc = 2, alpha = 1)
+			if remove_moving:
+				self.draw_cell(bad_idx_corn, bad = True) #for debug
+			self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
 			self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
 			# self.draw_cloud(self.cloud2_tensor_OG.numpy(), pc = 3) #draw in differnt color
 			# draw identified points from scan 2 inside useful clusters
 			# for n in range(tf.shape(inside2.to_tensor())[0]):
 			# 	temp = tf.gather(self.cloud2_tensor, inside2[n]).numpy()	
 			# 	self.disp.append(Points(temp, c = 'green', r = 5))
+			self.draw_correspondences(mu1, mu2, corr)
+
+		if remove_moving:
 			to_save = np.zeros([1,3])
 			for z in range(good_pts_rag.bounding_shape()[0]):
 				temp = tf.gather(self.cloud1_tensor, good_pts_rag[z]).numpy()
-				# self.disp.append(Points(temp, c = 'green', r = 6))
+				if self.draw == True:
+					self.disp.append(Points(temp, c = 'green', r = 6))
 
 				#for debug: save good points from scan 1 to file ---
 				# to_save 
 				# print(tf.shape(temp))
 				to_save = np.append(to_save, temp, axis = 0)
-			# np.savetxt("cloud1_good.txt", to_save)
+				# np.savetxt("cloud1_good.txt", to_save)
 
-			self.draw_correspondences(mu1, mu2, corr)
+			self.cloud1_static = to_save
+
+			# #get rid of points too close to ego-vehicle in cloud1_static------------------------
+			# #	doing this to minmize negative effects of perspective shift
+			# cloud1_static_tensor = tf.cast(tf.convert_to_tensor(self.cloud1_static), tf.float32)
+			# cloud1_static_tensor_spherical = tf.cast(self.c2s(cloud1_static_tensor), tf.float32)
+
+			# not_too_close1 = tf.where(cloud1_static_tensor_spherical[:,0] > 6)[:,0]
+			# self.cloud1_static = tf.gather(cloud1_static_tensor, not_too_close1).numpy()
+			# #-----------------------------------------------------------------------------------
+
 
 
 	def main_1(self, niter, x0):

@@ -7,9 +7,10 @@ import tensorflow as tf
 from tensorflow.math import sin, cos, tan
 import tensorflow_probability as tfp
 from ICET_spherical import ICET
+from metpy.calc import lat_lon_grid_deltas
 
 
-num_frames = 150
+num_frames = 20
 
 basedir = 'C:/kitti/'
 date = '2011_09_26'
@@ -36,28 +37,73 @@ for i in range(num_frames):
 	# c1 = c1[c1[:,2] > -2.] #ignore reflections
 	# c2 = c2[c2[:,2] > -2.] #ignore reflections
 
-	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 20, draw = False, group = 2) #, x0 = intial_guess)
-	# it = ICET(cloud1 = c1, cloud2 = c2, fid = 100, niter = 15, draw = False, group = 2, x0 = it.X)
-	# it = ICET(cloud1 = c1, cloud2 = c2, fid = 150, niter = 5, draw = False, group = 2, x0 = it.X)
+	# it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 20, draw = False, group = 2) #, x0 = intial_guess)
 
-	ICET_estimates[i] = it.X #* (dataset.timestamps[i+1] - dataset.timestamps[i]).microseconds/(10e5)/0.1
-	ICET_pred_stds[i] = it.pred_stds
+	#-------------------------------------------------------------------------------------------------
+	#run once to get rough estimate and remove outlier points
+	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 20, draw = False, group = 2, RM = True)
 
-	intial_guess = it.X
+	#run again to re-converge with outliers removed
+	it = ICET(cloud1 = it.cloud1_static, cloud2 = c2, fid = 50, x0 = it.X, niter = 10, draw = False, group = 2, RM = False)
+	#-------------------------------------------------------------------------------------------------
 
+	# ICET_estimates[i] = it.X #* (dataset.timestamps[i+1] - dataset.timestamps[i]).microseconds/(10e5)/0.1
+	# ICET_pred_stds[i] = it.pred_stds
+
+	# intial_guess = it.X
+
+	# -------------------------------
 	poses0 = dataset.oxts[i] 
 	poses1 = dataset.oxts[i+1]
 	dt = 0.1
 	# dt = (dataset.timestamps[i+1] - dataset.timestamps[i]).microseconds/(10e5)
 	OXTS_baseline[i] = np.array([[poses1.packet.vf*dt, poses1.packet.vl*dt, poses1.packet.vu*dt, -poses1.packet.wf*dt, -poses1.packet.wl*dt, -poses1.packet.wu*dt]]) #test
+	# -------------------------------
+
+
+	# #-------------------------------
+	# #get transformations in frame of OXTS GPS/INS sensor
+	# poses0 = dataset.oxts[i] #<- ID of 1st scan
+	# poses1 = dataset.oxts[i+1] #<- ID of 2nd scan
+	# lat0 = poses0.packet.lat
+	# lon0 = poses0.packet.lon
+	# alt0 = poses0.packet.alt
+	# lat1 = poses1.packet.lat
+	# lon1 = poses1.packet.lon
+	# alt1 = poses1.packet.alt
+
+	# #these are "pint" objects which hold on to units
+	# dx_oxts, dy_oxts = lat_lon_grid_deltas(np.array([lon0,lon1]), np.array([lat0, lat1]))
+	# # print(dx_oxts, dy_oxts) 
+	# dx_oxts = dx_oxts[0,0].magnitude
+	# dy_oxts = dy_oxts[0,0].magnitude
+	# dz_oxts = (alt0-alt1)
+	# droll_oxts = (poses0.packet.roll - poses1.packet.roll)
+	# dpitch_oxts = (poses0.packet.pitch - poses1.packet.pitch)
+	# dyaw_oxts = (poses0.packet.yaw - poses1.packet.yaw)
+
+	# #get rotation matrix to bring things into frame of lidar unit
+	# # rot = poses0.T_w_imu[:3,:3] #ignore reflectance componenet
+	# rot = poses1.T_w_imu[:3,:3] #trying this
+
+	# dxyz_oxts = np.array([[dx_oxts, dy_oxts, dz_oxts]])
+	# dxyz_lidar = dxyz_oxts.dot(rot)
+
+	# dt = (dataset.timestamps[i+1] - dataset.timestamps[i]).microseconds/(10e5)
+
+	# # using lat/ lon deltas
+	# OXTS_baseline[i] = np.array([[dxyz_lidar[0,0], dxyz_lidar[0,1], dxyz_lidar[0,2], droll_oxts, dpitch_oxts, dyaw_oxts]])/dt*0.1
+	# #-------------------------------
+
 
 	print("\n solution from ICET \n", ICET_estimates[i])
 	print("\n solution from GPS/INS \n", OXTS_baseline[i])
 
-np.savetxt("ICET_pred_stds_v6.txt", ICET_pred_stds)
-np.savetxt("ICET_estimates_v6.txt", ICET_estimates)
-np.savetxt("OXTS_baseline_v6.txt", OXTS_baseline)
+np.savetxt("ICET_pred_stds_v7.txt", ICET_pred_stds)
+np.savetxt("ICET_estimates_v7.txt", ICET_estimates)
+np.savetxt("OXTS_baseline_v7.txt", OXTS_baseline)
 
 #v3 - using new clustering 30-100-150, 
 #v4 - with moving objects removed {50}, with ground plane, sigma thresh = 2
 #v5 - same as above, no ground plane
+#v6 - running ICET twice, 2nd time around ignoring all points in scan 2 inside moving voxels, NO GROUND PLANE

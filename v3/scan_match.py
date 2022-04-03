@@ -17,7 +17,7 @@ date = '2011_09_26'
 
 # urban dataset used in 3D-ICET paper 
 drive = '0005'
-idx = 114
+idx = 138
 
 #alternate dataset with fewer moving objects?
 # drive = '0009'
@@ -37,7 +37,7 @@ c2 = velo2[:,:3]
 # c2 = c2[c2[:,2] > -2.] #ignore reflections
 
 #load previously processed cloud 1
-c1 = np.loadtxt("cloud1_good.txt")
+# c1 = np.loadtxt("cloud1_good.txt")
 # ------------------------------------------------------------------------------------
 
 
@@ -64,7 +64,14 @@ c1 = np.loadtxt("cloud1_good.txt")
 # # # c2 = c1 - np.array([0.1, 0.3, 0.0])
 # # # -------------------------------------------------------------------------------------
 
-it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 20, draw = True, group = 2)
+#run once to get rough estimate and remove outlier points
+it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 20, draw = False, group = 2, RM = True)
+
+#run again to re-converge with outliers removed
+# cloud1 = it.cloud1_static
+# cloud1 = cloud1[cloud1[:,2] > -1.5 ] #remove ground plane 2nd time around
+it = ICET(cloud1 = it.cloud1_static, cloud2 = c2, fid = 50, x0 = it.X, niter = 10, draw = True, group = 2, RM = False)
+
 # it = ICET(cloud1 = c1, cloud2 = c2, fid = 100, niter = 20, draw = True, group = 2, x0 = it.X)
 # it = ICET(cloud1 = c1, cloud2 = c2, fid = 90, niter = 10, draw = True)
 
