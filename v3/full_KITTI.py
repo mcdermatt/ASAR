@@ -10,7 +10,7 @@ from ICET_spherical import ICET
 from metpy.calc import lat_lon_grid_deltas
 
 
-num_frames = 20
+num_frames = 150
 
 basedir = 'C:/kitti/'
 date = '2011_09_26'
@@ -41,13 +41,14 @@ for i in range(num_frames):
 
 	#-------------------------------------------------------------------------------------------------
 	#run once to get rough estimate and remove outlier points
-	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 20, draw = False, group = 2, RM = True)
+	it = ICET(cloud1 = c1, cloud2 = c2, fid = 100, niter = 20, draw = False, group = 2, RM = True)
+	ICET_pred_stds[i] = it.pred_stds
 
 	#run again to re-converge with outliers removed
-	it = ICET(cloud1 = it.cloud1_static, cloud2 = c2, fid = 50, x0 = it.X, niter = 10, draw = False, group = 2, RM = False)
+	it = ICET(cloud1 = it.cloud1_static, cloud2 = c2, fid = 100, niter = 20, draw = False, group = 2, RM = False)
 	#-------------------------------------------------------------------------------------------------
 
-	# ICET_estimates[i] = it.X #* (dataset.timestamps[i+1] - dataset.timestamps[i]).microseconds/(10e5)/0.1
+	ICET_estimates[i] = it.X #* (dataset.timestamps[i+1] - dataset.timestamps[i]).microseconds/(10e5)/0.1
 	# ICET_pred_stds[i] = it.pred_stds
 
 	# intial_guess = it.X
@@ -99,11 +100,12 @@ for i in range(num_frames):
 	print("\n solution from ICET \n", ICET_estimates[i])
 	print("\n solution from GPS/INS \n", OXTS_baseline[i])
 
-np.savetxt("ICET_pred_stds_v7.txt", ICET_pred_stds)
-np.savetxt("ICET_estimates_v7.txt", ICET_estimates)
-np.savetxt("OXTS_baseline_v7.txt", OXTS_baseline)
+np.savetxt("ICET_pred_stds_v8.txt", ICET_pred_stds)
+np.savetxt("ICET_estimates_v8.txt", ICET_estimates)
+np.savetxt("OXTS_baseline_v8.txt", OXTS_baseline)
 
 #v3 - using new clustering 30-100-150, 
 #v4 - with moving objects removed {50}, with ground plane, sigma thresh = 2
 #v5 - same as above, no ground plane
 #v6 - running ICET twice, 2nd time around ignoring all points in scan 2 inside moving voxels, NO GROUND PLANE
+#v7 - running twice again, with gp, fid = 100, sigma x,y = 2

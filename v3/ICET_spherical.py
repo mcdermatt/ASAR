@@ -18,8 +18,8 @@ from utils import R2Euler, Ell, jacobian_tf, R_tf, get_cluster
 
 		# try to just save the not occluded, not moving points (found after i == 10) and do a fit with those...
 
-		# 
-
+		# don't consider residuals between cells that have information excluded in the useful direction
+		
 	#P2:
 		# figure out why <get_occupied()> always includes cell 0 at the end - it's because there are points outside reachable space
 		# Normalize minimum number of points per cell by radial distance from ego-vehicle
@@ -38,7 +38,7 @@ class ICET():
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
 		self.niter = niter
-		self.alpha = 1#0.5 #controls alpha values when displaying ellipses
+		self.alpha = 0.5 #controls alpha values when displaying ellipses
 
 		#convert cloud1 to tesnsor
 		self.cloud1_tensor = tf.cast(tf.convert_to_tensor(cloud1), tf.float32)
@@ -175,9 +175,9 @@ class ICET():
 
 
 		if self.draw:
-			self.visualize_L(mu1_enough, U, L)
-			self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
-			self.draw_cell(corn)
+			# self.visualize_L(mu1_enough, U, L)
+			# self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
+			# self.draw_cell(corn)
 			self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
 			self.draw_car()
 			# draw identified points inside useful clusters
@@ -230,25 +230,42 @@ class ICET():
 					self.residuals_full = y_i_full - y0_i_full
 					self.residuals = y_i - y0_i #not needed??
 
-					metric = self.residuals_full[:,0]
-					# metric = self.residuals_full[:,1]
+					metric1 = self.residuals_full[:,0]
+					metric2 = self.residuals_full[:,1]
 
 					
 					# #------------------------------------------------------------------------------------------------
 					# #Using binned mode oulier exclusion
 					# nbins = 30
-					# edges = tf.linspace(-1.,1.,nbins)
+					# edges = tf.linspace(-0.75, 0.75, nbins)
 					# bins_soln = tfp.stats.find_bins(self.residuals_full[:,0], edges)
-					# bad_idx = tf.where(bins_soln != (nbins//2 - 1))[:,0]
+					# bad_idx = tf.where(bins_soln != (nbins//2 - 1))[:,0][None, :]
+
+					# bins_soln2 = tfp.stats.find_bins(self.residuals_full[:,1], edges)
+					# bad_idx2 = tf.where(bins_soln2 != (nbins//2 - 1))[:,0][None, :]
+					# bad_idx = tf.sets.union(bad_idx, bad_idx2).values
 					# #------------------------------------------------------------------------------------------------
 
 					#------------------------------------------------------------------------------------------------
 					#Using Gaussian n-sigma outlier exclusion
-					mu = tf.math.reduce_mean(metric)
-					# print("mean", mu)
-					sigma = tf.math.reduce_std(metric)
-					# print("standard deviation", sigma)
-					bad_idx = tf.where( tf.math.abs(metric) > mu + 1*sigma )[:,0]
+					mu_x = tf.math.reduce_mean(metric1)
+					sigma_x = tf.math.reduce_std(metric1)
+					
+					# #just x------------
+					# bad_idx = tf.where( tf.math.abs(metric1) > mu_x + 2*sigma_x )[:, 0]
+					# #------------------
+
+					#x and y---------
+					bad_idx = tf.where( tf.math.abs(metric1) > mu_x + 1.5*sigma_x )[:,0][None, :]
+					# print(" \n bad_idx1", bad_idx)
+
+					mu_y = tf.math.reduce_mean(metric2)
+					sigma_y = tf.math.reduce_std(metric2)
+					bad_idx2 = tf.where( tf.math.abs(metric2) > mu_y + 	1.5*sigma_y )[:,0][None, :]
+					# print("\n bad_idx2", bad_idx2)
+					bad_idx = tf.sets.union(bad_idx, bad_idx2).values
+					#-----------------
+
 					# print("corr \n", corr)
 					# print("bad idx", bad_idx)
 					# print(tf.gather(it.dx_i[:,0], bad_idx))
@@ -334,14 +351,16 @@ class ICET():
 		if self.draw == True:
 			if remove_moving:
 				self.draw_cell(bad_idx_corn, bad = True) #for debug
-			self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
+			# self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
 			self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
-			# self.draw_cloud(self.cloud2_tensor_OG.numpy(), pc = 3) #draw in differnt color
+			# self.draw_cloud(self.cloud2_tensor_OG.numpy(), pc = 3) #draw OG cloud in differnt color
 			# draw identified points from scan 2 inside useful clusters
 			# for n in range(tf.shape(inside2.to_tensor())[0]):
 			# 	temp = tf.gather(self.cloud2_tensor, inside2[n]).numpy()	
 			# 	self.disp.append(Points(temp, c = 'green', r = 5))
 			self.draw_correspondences(mu1, mu2, corr)
+			# self.visualize_L(tf.gather(mu1, corr), U_i, L_i)
+
 
 		if remove_moving:
 			to_save = np.zeros([1,3])
