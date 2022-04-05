@@ -97,15 +97,18 @@ for i in range(num_frames):
 	# #-------------------------------
 
 
-	print("\n solution from ICET \n", ICET_estimates[i])
+	# print("\n solution from ICET \n", ICET_estimates[i])
 	print("\n solution from GPS/INS \n", OXTS_baseline[i])
 
-np.savetxt("ICET_pred_stds_v8.txt", ICET_pred_stds)
-np.savetxt("ICET_estimates_v8.txt", ICET_estimates)
-np.savetxt("OXTS_baseline_v8.txt", OXTS_baseline)
+np.savetxt("ICET_pred_stds_v9.txt", ICET_pred_stds)
+np.savetxt("ICET_estimates_v9.txt", ICET_estimates)
+np.savetxt("OXTS_baseline_v9.txt", OXTS_baseline)
+
+# np.savetxt("OXTS_baseline_gps.txt", OXTS_baseline)
 
 #v3 - using new clustering 30-100-150, 
 #v4 - with moving objects removed {50}, with ground plane, sigma thresh = 2
 #v5 - same as above, no ground plane
 #v6 - running ICET twice, 2nd time around ignoring all points in scan 2 inside moving voxels, NO GROUND PLANE
 #v7 - running twice again, with gp, fid = 100, sigma x,y = 2
+#v8 - x, y and vertical rotation exclusion- improved results with yaw (almost where we need to be!), not good enough yet

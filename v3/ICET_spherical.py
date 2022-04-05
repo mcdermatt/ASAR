@@ -9,6 +9,10 @@ from utils import R2Euler, Ell, jacobian_tf, R_tf, get_cluster
 
 #TODO:
 	#P1:
+
+		# remove correspondences with mismatched rotation about the vertical axis
+		#		these will be the cells that show the most apparent perspective shift??
+
 		# remove outlier difference cells from contributing to soln
 		#	make before and after otputs and compare histograms
 		# QUESTION- When looking for outlier differences in "converged" cells should I be weighting
@@ -38,7 +42,7 @@ class ICET():
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
 		self.niter = niter
-		self.alpha = 0.5 #controls alpha values when displaying ellipses
+		self.alpha = 1 #0.5 #controls alpha values when displaying ellipses
 
 		#convert cloud1 to tesnsor
 		self.cloud1_tensor = tf.cast(tf.convert_to_tensor(cloud1), tf.float32)
@@ -176,7 +180,7 @@ class ICET():
 
 		if self.draw:
 			# self.visualize_L(mu1_enough, U, L)
-			# self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
+			self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
 			# self.draw_cell(corn)
 			self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
 			self.draw_car()
@@ -223,19 +227,39 @@ class ICET():
 				if i > 10: #TODO: tune this to optimal value
 					print("\n ---identified moving objects---")
 					#FIND CELLS THAT INTRODUCE THE MOST ERROR
-					self.H = H
-					self.H_z = H_z			
-					self.dx_i = dx
-					self.W = W
+					# self.H = H
+					# self.H_z = H_z			
+					# self.dx_i = dx
+					# self.W = W
+					# self.mu1_enough = mu1_enough
+					# self.mu2_enough = mu2_enough
+					
 					self.residuals_full = y_i_full - y0_i_full
 					self.residuals = y_i - y0_i #not needed??
 
 					metric1 = self.residuals_full[:,0]
 					metric2 = self.residuals_full[:,1]
 
+					# #------------------------------------------------------------------------------------------------
+					# Compare rotation about the vertical axis between each distribution correspondance
+					s1 = tf.transpose(tf.gather(sigma1, corr), [1, 2, 0])
+					s2 = tf.transpose(tf.gather(sigma2, corr), [1, 2, 0])
+
+					self.angs1 = R2Euler(s1)[2,:]
+					self.angs2 = R2Euler(s2)[2,:]
+
+					self.res = self.angs1 - self.angs2
+
+					mean = np.mean(self.res)
+					std = np.std(self.res)
+
+					# bad_idx = tf.where(np.abs(self.res) > mean + 1*std )[:, 0]
+					# bad_idx = tf.where(np.abs(self.res) > 0.1)[:, 0]
+					bad_idx_rot = tf.where(np.abs(self.res) > 0.2)[:, 0]
+					# #------------------------------------------------------------------------------------------------
 					
 					# #------------------------------------------------------------------------------------------------
-					# #Using binned mode oulier exclusion
+					# #Using binned mode oulier exclusion (get rid of everything outside of some range close to 0)
 					# nbins = 30
 					# edges = tf.linspace(-0.75, 0.75, nbins)
 					# bins_soln = tfp.stats.find_bins(self.residuals_full[:,0], edges)
@@ -256,14 +280,19 @@ class ICET():
 					# #------------------
 
 					#x and y---------
-					bad_idx = tf.where( tf.math.abs(metric1) > mu_x + 1.5*sigma_x )[:,0][None, :]
+					bad_idx = tf.where( tf.math.abs(metric1) > mu_x + 2*sigma_x )[:,0][None, :]
 					# print(" \n bad_idx1", bad_idx)
 
 					mu_y = tf.math.reduce_mean(metric2)
 					sigma_y = tf.math.reduce_std(metric2)
-					bad_idx2 = tf.where( tf.math.abs(metric2) > mu_y + 	1.5*sigma_y )[:,0][None, :]
+					bad_idx2 = tf.where( tf.math.abs(metric2) > mu_y + 	2*sigma_y )[:,0][None, :]
 					# print("\n bad_idx2", bad_idx2)
 					bad_idx = tf.sets.union(bad_idx, bad_idx2).values
+
+					#if using rotation too
+					# self.bad_idx = bad_idx
+					# self.bad_idx_rot = bad_idx_rot
+					bad_idx = tf.sets.union(bad_idx[None, :], bad_idx_rot[None, :]).values 
 					#-----------------
 
 					# print("corr \n", corr)
@@ -351,7 +380,7 @@ class ICET():
 		if self.draw == True:
 			if remove_moving:
 				self.draw_cell(bad_idx_corn, bad = True) #for debug
-			# self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
+			self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
 			self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
 			# self.draw_cloud(self.cloud2_tensor_OG.numpy(), pc = 3) #draw OG cloud in differnt color
 			# draw identified points from scan 2 inside useful clusters
@@ -366,8 +395,10 @@ class ICET():
 			to_save = np.zeros([1,3])
 			for z in range(good_pts_rag.bounding_shape()[0]):
 				temp = tf.gather(self.cloud1_tensor, good_pts_rag[z]).numpy()
-				if self.draw == True:
-					self.disp.append(Points(temp, c = 'green', r = 6))
+				#draw good points from scan 1-------------
+				# if self.draw == True:
+				# 	self.disp.append(Points(temp, c = 'green', r = 6))
+				#-----------------------------------------
 
 				#for debug: save good points from scan 1 to file ---
 				# to_save 
