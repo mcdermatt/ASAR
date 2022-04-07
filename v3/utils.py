@@ -12,7 +12,7 @@ def get_cluster(rads, thresh = 0.2, mnp = 50):
         mnp = minimum number of points a cluster must contain to be considered
             """
 
-    max_buffer = 0.5
+    max_buffer = 0.7 #0.5
 
     #fix dimensions
     if len(tf.shape(rads)) < 2:

@@ -198,8 +198,8 @@ class ICET():
 			#transform cartesian point cloud 2 by estimated solution vector X
 			t = self.X[:3]
 			rot = R_tf(-self.X[3:])
-			self.cloud2_tensor = tf.matmul((self.cloud2_tensor_OG + t), tf.transpose(rot)) #was this
-			# self.cloud2_tensor = tf.matmul((self.cloud2_tensor_OG), tf.transpose(rot)) + t   #rotate then translate
+			# self.cloud2_tensor = tf.matmul((self.cloud2_tensor_OG + t), tf.transpose(rot)) #was this
+			self.cloud2_tensor = tf.matmul((self.cloud2_tensor_OG), tf.transpose(rot)) + t   #rotate then translate
 
 			#convert back to spherical coordinates
 			self.cloud2_tensor_spherical = tf.cast(self.c2s(self.cloud2_tensor), tf.float32)
@@ -271,7 +271,7 @@ class ICET():
 					# #------------------------------------------------------------------------------------------------
 
 					#------------------------------------------------------------------------------------------------
-					#Using Gaussian n-sigma outlier exclusion
+					#Using Gaussian n-sigma outlier exclusion on translation
 					mu_x = tf.math.reduce_mean(metric1)
 					sigma_x = tf.math.reduce_std(metric1)
 					
@@ -375,6 +375,7 @@ class ICET():
 			self.pred_stds = tf.linalg.tensor_diag_part(tf.math.sqrt(tf.abs(self.Q)))
 
 		print("pred_stds: \n", self.pred_stds)
+		# print(" L2: \n", L2)		
 
 		#draw PC2
 		if self.draw == True:
@@ -1327,7 +1328,7 @@ class ICET():
 		if pc == 3:
 			color = [0.5, 0.8, 0.5]
 		
-		c = Points(points, c = color, r = 4)
+		c = Points(points, c = color, r = 4) #r = 4
 		self.disp.append(c)
 
 	def draw_car(self):

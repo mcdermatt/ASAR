@@ -4,8 +4,12 @@ clear all
 close all
 
 %import stl
-FileName = 'virtual_scenes/scene1.stl'; %easy scan with house 
+% FileName = 'virtual_scenes/scene1.stl'; %easy scan with house 
 % FileName = 'virtual_scenes/scene2.stl'; %more difficult scan
+% FileName = 'virtual_scenes/scene3.stl'; % rectangles w/ occlusion
+% FileName = 'virtual_scenes/scene4.stl'; % cylinders w/ occlusion
+% FileName = 'virtual_scenes/scene5.stl'; % rectangles w/0 occlusion
+FileName = 'virtual_scenes/scene6.stl'; % cylinders w/0 occlusion
 OpenFile = stlread(FileName);
 
 %get vertices, faces, and normals from stl
@@ -34,8 +38,8 @@ sensor.ElevationResolution = 0.4;
 scenario = trackingScenario;
 ego = platform(scenario, 'Position', [0, 0, 1.72]);
 % ego.Position = [0, 0, 1.72];
-% target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[10 0 0],'Velocity',[5 0 0])); %no rotation
-target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[10 0 0],'Velocity',[5 0 0], 'AngularVelocity', [0, 0, 0.1])); %with rotatation
+target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[10 0 0],'Velocity',[5 0 0])); %no rotation
+% target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[10 0 0],'Velocity',[5 0 0], 'AngularVelocity', [0, 0, 0.1])); %with rotatation
 
 target.Mesh = mesh;
 target.Dimensions.Length = 100; 
@@ -64,9 +68,9 @@ plot3(ptCloud1(:,1),ptCloud1(:,2),ptCloud1(:,3),'.')
 hold on
 plot3(ptCloud2(:,1),ptCloud2(:,2),ptCloud2(:,3),'.')
 
-%remove all NaNs
+%remove all NaNss
 ptCloud1 = rmmissing(ptCloud1);
 ptCloud2 = rmmissing(ptCloud2);
 
-writematrix(ptCloud1, "scene1_scan1.txt", 'Delimiter', 'tab')
-writematrix(ptCloud2, "scene1_scan2.txt", 'Delimiter', 'tab')
+writematrix(ptCloud1, "scene4_scan1.txt", 'Delimiter', 'tab')
+writematrix(ptCloud2, "scene4_scan2.txt", 'Delimiter', 'tab')
