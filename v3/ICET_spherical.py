@@ -42,7 +42,7 @@ class ICET():
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
 		self.niter = niter
-		self.alpha = 1 #0.5 #controls alpha values when displaying ellipses
+		self.alpha = 0.5 #controls alpha values when displaying ellipses
 
 		#convert cloud1 to tesnsor
 		self.cloud1_tensor = tf.cast(tf.convert_to_tensor(cloud1), tf.float32)
@@ -179,7 +179,7 @@ class ICET():
 
 
 		if self.draw:
-			# self.visualize_L(mu1_enough, U, L)
+			self.visualize_L(mu1_enough, U, L)
 			self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
 			# self.draw_cell(corn)
 			self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
