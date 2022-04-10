@@ -5,11 +5,12 @@ close all
 
 %import stl
 % FileName = 'virtual_scenes/scene1.stl'; %easy scan with house 
-FileName = 'virtual_scenes/scene2.stl'; %more difficult scan
+% FileName = 'virtual_scenes/scene2.stl'; %more difficult scan
 % FileName = 'virtual_scenes/scene3.stl'; % rectangles w/ occlusion
 % FileName = 'virtual_scenes/scene4.stl'; % cylinders w/ occlusion
 % FileName = 'virtual_scenes/scene5.stl'; % rectangles w/0 occlusion
 % FileName = 'virtual_scenes/scene6.stl'; % cylinders w/0 occlusion
+FileName = 'virtual_scenes/scene7.stl'; % skinny cylinders w/0 occlusion
 OpenFile = stlread(FileName);
 
 %get vertices, faces, and normals from stl
@@ -38,7 +39,7 @@ sensor.ElevationResolution = 0.4;
 scenario = trackingScenario;
 ego = platform(scenario, 'Position', [0, 0, 1.72]);
 % ego.Position = [0, 0, 1.72];
-target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[10 0 0],'Velocity',[15 0 0])); %no rotation
+target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[10 0 0],'Velocity',[5 0 0])); %no rotation
 % target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[10 0 0],'Velocity',[5 0 0], 'AngularVelocity', [0, 0, 0.1])); %with rotatation
 
 target.Mesh = mesh;

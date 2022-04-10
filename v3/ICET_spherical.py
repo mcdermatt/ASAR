@@ -375,7 +375,7 @@ class ICET():
 			self.pred_stds = tf.linalg.tensor_diag_part(tf.math.sqrt(tf.abs(self.Q)))
 
 		print("pred_stds: \n", self.pred_stds)
-		# print(" L2: \n", L2)		
+		print(" L2: \n", L2)		
 
 		#draw PC2
 		if self.draw == True:
