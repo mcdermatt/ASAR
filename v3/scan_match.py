@@ -43,42 +43,47 @@ from utils import R_tf
 # # c1 = np.loadtxt("cloud1_good.txt")
 # # ------------------------------------------------------------------------------------
 
-#TIERS forest dataset -----------------------------------------------------------------
+# #TIERS forest dataset -----------------------------------------------------------------
 
-filename1 = 'C:/TIERS/rawPointClouds/scan0.txt'
-filename2 = 'C:/TIERS/rawPointClouds/scan1.txt'
+# filename1 = 'C:/TIERS/rawPointClouds/scan0.txt'
+# filename2 = 'C:/TIERS/rawPointClouds/scan1.txt'
 
-c1 = np.loadtxt(filename1, dtype = float)
-c2 = np.loadtxt(filename2, dtype = float)
+# c1 = np.loadtxt(filename1, dtype = float)
+# c2 = np.loadtxt(filename2, dtype = float)
 
-# #---------------------------------------------------------------------------------------
+# # #---------------------------------------------------------------------------------------
 
-# #CODD (colaborative driving dataset)----------------------------------------------------
-# import h5py
+#CODD (colaborative driving dataset)----------------------------------------------------
+import h5py
 
-# # filename = 'C:/CODD/data/m1v7p7s769.hdf5' #straight line urban(?)
-# # filename = 'C:/CODD/data/m5v10p6s31.hdf5' #turn on country road
+# filename = 'C:/CODD/data/m1v7p7s769.hdf5' #straight line urban(?)
+# filename = 'C:/CODD/data/m5v10p6s31.hdf5' #turn on country road
 # filename = 'C:/CODD/data/m2v7p3s333.hdf5'
+filename = 'C:/CODD/data/m10v11p6s30.hdf5' #wide road, palm trees, and traffic
 
 
-# vidx = 0 #vehicle index
-# idx = 2 #frame idx
+vidx = 0 #vehicle index
+idx = 61 #frame idx
 
 
-# with h5py.File(filename, 'r') as hf:
-# #     pcls = hf['point_cloud'][:]
-#     #[frames, vehicles, points_per_cloud, 4]
-#     pcls = hf['point_cloud'][:, vidx ,: , :3]
-#     #[frames, points_per_cloud, rgb]
+with h5py.File(filename, 'r') as hf:
+#     pcls = hf['point_cloud'][:]
+    #[frames, vehicles, points_per_cloud, 4]
+    pcls = hf['point_cloud'][:, vidx ,: , :3]
+    #[frames, points_per_cloud, rgb]
     
-# #     pose = hf['lidar_pose'][:]
-#     #[frames, vehicles, (x,y,z, rotx, roty, rotz)]
-#     pose = hf['lidar_pose'][:, vidx, :]
+#     pose = hf['lidar_pose'][:]
+    #[frames, vehicles, (x,y,z, rotx, roty, rotz)]
+    pose = hf['lidar_pose'][:, vidx, :]
 
-# c1 = pcls[idx]
-# c2 = pcls[idx+1]
+c1 = pcls[idx]
+c2 = pcls[idx+1]
 
-# #---------------------------------------------------------------------------------------
+c1 += 0.01*np.random.randn(np.shape(c1)[0], 3)
+c2 += 0.01*np.random.randn(np.shape(c2)[0], 3)
+
+
+#---------------------------------------------------------------------------------------
 
 
 # # load custom point cloud geneated in matlab------------------------------------------
@@ -111,7 +116,7 @@ c2 = np.loadtxt(filename2, dtype = float)
 
 #run once to get rough estimate and remove outlier points
 # x0 = tf.constant([0.6018, 0.00556, -0.015, 0.0016, 0.0006, -0.01378]) #138
-it = ICET(cloud1 = c1, cloud2 = c2, fid = 30, niter = 20, draw = True, group = 2, RM = False)
+it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 20, draw = True, group = 2, RM = True)
 
 #run again to re-converge with outliers removed
 # cloud1 = it.cloud1_static
