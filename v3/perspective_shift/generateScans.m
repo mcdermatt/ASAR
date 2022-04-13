@@ -8,7 +8,7 @@ close all
 
 nSamples = 25;
 nObjects = 16; %defined in Inventor file
-epochs = 30;
+epochs = 1000;
 
 sam1_cum = [];
 sam2_cum = [];
@@ -19,16 +19,22 @@ for e = 1:epochs
     e
 
     %import stl
-    FileName = 'training_data/simple_ring1.stl';
+    roll = rand();
+    if roll < 0.5
+        FileName = 'training_data/simple_ring1.stl';
+    else
+        FileName = 'training_data/simple_ring2.stl';
+    end
     OpenFile = stlread(FileName);
     
     %get vertices, faces, and normals from stl
     vertices = OpenFile.Points;
     faces = OpenFile.ConnectivityList;
     
-    vel = [10*randn() 10*randn() 0.1*randn()];
+    vel = [5*randn() 5*randn() 5*randn()];
     pos = [0 0 0];
     rot = 2*(ceil(16*rand(1)))/16*pi;
+    scale = 100 + 20*randn();
     
     %generate extended object mesh
     mesh = extendedObjectMesh(vertices,faces);
@@ -42,7 +48,7 @@ for e = 1:epochs
     % set parameters of virtual lidar unit to match velodyne VLP-16
     sensor.UpdateRate = 10;
     sensor.ElevationLimits = [-22, 2]; %[-24.8, 2];
-    sensor.RangeAccuracy = 0.03; %0.03; %0.01;
+    sensor.RangeAccuracy = 0.01; %0.03; %0.01;
     sensor.AzimuthResolution = 0.2; %0.08;
     sensor.ElevationResolution = 0.4;
     % sensor.MaxRange = 50;
@@ -56,9 +62,8 @@ for e = 1:epochs
     % target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[10 0 0],'Velocity',[5 0 0], 'AngularVelocity', [0, 0, 0.1])); %with rotatation
     
     target.Mesh = mesh;
-    target.Dimensions.Length = 100; 
-    target.Dimensions.Width = 100;
-    % target.Dimensions.Height = 5; %difficult scan
+    target.Dimensions.Length = scale; 
+    target.Dimensions.Width = scale;
     target.Dimensions.Height = 18;
     
 %     show(target.Mesh)
