@@ -6,13 +6,17 @@
 clear all 
 close all
 
-nSamples = 25;
+nSamples = 50;
 nObjects = 16; %defined in Inventor file
-epochs = 1000;
+epochs = 10000;
 
-sam1_cum = [];
-sam2_cum = [];
-truth_cum = [];
+% sam1_cum = [];
+% sam2_cum = [];
+% truth_cum = [];
+
+sam1_cum = zeros(epochs*nObjects*nSamples, 3);
+sam2_cum = zeros(epochs*nObjects*nSamples, 3);
+truth_cum = zeros(nObjects*epochs, 3);
 
 for e = 1:epochs
 
@@ -20,10 +24,13 @@ for e = 1:epochs
 
     %import stl
     roll = rand();
-    if roll < 0.5
+    if roll < 1/3
         FileName = 'training_data/simple_ring1.stl';
-    else
+    end
+    if roll < 2/3 & roll > 1/3
         FileName = 'training_data/simple_ring2.stl';
+    else
+        FileName = 'training_data/simple_ring3.stl';
     end
     OpenFile = stlread(FileName);
     
@@ -31,7 +38,7 @@ for e = 1:epochs
     vertices = OpenFile.Points;
     faces = OpenFile.ConnectivityList;
     
-    vel = [5*randn() 5*randn() 5*randn()];
+    vel = [5*randn() 5*randn() 0.01*randn()];
     pos = [0 0 0];
     rot = 2*(ceil(16*rand(1)))/16*pi;
     scale = 100 + 20*randn();
@@ -108,24 +115,35 @@ for e = 1:epochs
         sam1 = object1_full(uint16(ceil(size(object1_full, 1)*rand(nSamples,1))), :);
         sam2 = object2_full(uint16(ceil(size(object2_full, 1)*rand(nSamples,1))), :);
     
-        truth_cum = [truth_cum; vel];
-    
-        sam1_cum = [sam1_cum; sam1];
-        sam2_cum = [sam2_cum; sam2];
-    
+%         truth_cum = [truth_cum; vel];
+%         sam1_cum = [sam1_cum; sam1];
+%         sam2_cum = [sam2_cum; sam2];
+
+        sam1_cum( (e-1)*nObjects*nSamples + (i-1)*nSamples + 1 : (e-1)*nObjects*nSamples + i*nSamples, : ) = sam1;
+        sam2_cum( (e-1)*nObjects*nSamples + (i-1)*nSamples + 1 : (e-1)*nObjects*nSamples + i*nSamples, : ) = sam2;
+%         sam2_cum( (e-1)*nObjects + (i-1)*nSamples + 1 :(e-1)*nObjects + i*nSamples, : ) = sam2;
+
     end
+    truth_cum((e-1)*nObjects + 1 :(e)*nObjects,:) = ones(nObjects,3).*vel;
 
 end
 
-% figure()
-% hold on
+figure()
+hold on
 % scatter3(sam1_cum(:,1), sam1_cum(:,2), sam1_cum(:,3))
 % scatter3(sam2_cum(:,1), sam2_cum(:,2), sam2_cum(:,3))
 
 
 % scatter3(object1_full(:,1), object1_full(:,2), object1_full(:,3))
-% scatter3(sam1(:,1), sam1(:,2), sam1(:,3))
+scatter3(sam1(:,1), sam1(:,2), sam1(:,3))
+scatter3(sam2(:,1), sam2(:,2), sam2(:,3))
 
-writematrix(sam1_cum, "training_data/scan1.txt", 'Delimiter', 'tab')
-writematrix(sam2_cum, "training_data/scan2.txt", 'Delimiter', 'tab')
-writematrix(truth_cum, "training_data/ground_truth.txt", 'Delimiter', 'tab')
+%for smaller datasets (keep in git repo)
+% writematrix(sam1_cum, "training_data/scan1.txt", 'Delimiter', 'tab')
+% writematrix(sam2_cum, "training_data/scan2.txt", 'Delimiter', 'tab')
+% writematrix(truth_cum, "training_data/ground_truth.txt", 'Delimiter', 'tab')
+
+%for larger datasets (don't save with git)
+writematrix(sam1_cum, "C:/Users/Derm/Desktop/big/pshift/scan1.txt", 'Delimiter', 'tab')
+writematrix(sam2_cum, "C:/Users/Derm/Desktop/big/pshift/scan2.txt", 'Delimiter', 'tab')
+writematrix(truth_cum, "C:/Users/Derm/Desktop/big/pshift/ground_truth.txt", 'Delimiter', 'tab')
