@@ -72,12 +72,21 @@ def Net(**kwargs):
     ''' Simple feedforward network
     '''
 
-    insize = 100 #50
+    #DO MAX POOLING FOR insize//2 since we are looking at two seperate point clouds!!!!!
+
+    insize = 50 #100
 
     inputs = keras.Input(shape=(insize, 3)) 
 
+    #try to force random shuffle of input data within each batch
+    # why is this killing everything?????
+    # X = tf.transpose(inputs, [1,0,2])
+    # X = tf.random.shuffle(X)
+    # X = tf.transpose(X, [1,0,2])
+    # X = keras.layers.BatchNormalization()(X)
+
     X = keras.layers.BatchNormalization()(inputs)
-    X = keras.layers.Dense(units = 64, activation = 'relu')(X)
+    X = keras.layers.Dense(units = 128, activation = 'relu')(X)
 
     #test - seems like dropout layers are only huring performance here...
     # X = tf.keras.layers.Dropout(0.2)(X)
@@ -85,17 +94,22 @@ def Net(**kwargs):
     X = keras.layers.BatchNormalization()(X)
     X = keras.layers.Dense(units = 64, activation = 'relu')(X)
 
+    # currently works the best
     X = tf.keras.layers.Reshape((insize, 8, 8))(X)
-    X = tf.keras.layers.MaxPooling2D(pool_size = (10,2), strides = None, padding = 'same')(X)
-    # X = tf.keras.layers.AveragePooling2D(pool_size = (10,10), strides = None, padding = 'same')(X)
-    ## X = tf.keras.layers.MaxPooling2D(pool_size=(2, 2), strides=None, padding="valid", data_format=None, **kwargs)(X)
+    X = tf.keras.layers.MaxPooling2D(pool_size = (25,1), strides = None, padding = 'same')(X)
+  	
 
-    # X = tf.keras.layers.Reshape((25, 4, 4, 4))(X)
-    # X = keras.layers.MaxPool3D(pool_size = (25,2,2), padding = 'same')(X)
+    #works but not as well
+    # X = tf.transpose(X, [0,2,1])
+    # X = keras.layers.MaxPool1D(pool_size = 256)(X)
 
-
-    # X = keras.layers.AveragePooling1D(pool_size = 2, strides = None, padding = 'same')(X)
-    # X = keras.layers.Conv1D(filters = 9, kernel_size = 3, padding = 'same')(X)
+    #conv layers show no improvement
+    # X = keras.layers.Conv1D(filters = 8, kernel_size = 3, padding = 'same')(X)
+    # X = keras.layers.BatchNormalization()(X)
+    # X = keras.layers.Dense(units = 64, activation = 'relu')(X)
+    # X = keras.layers.BatchNormalization()(X)
+    # X = keras.layers.Conv1D(filters = 8, kernel_size = 3, padding = 'same')(X)
+    # X = keras.layers.BatchNormalization()(X)
 
     X = keras.layers.Flatten()(X)    
 

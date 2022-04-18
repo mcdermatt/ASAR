@@ -6,7 +6,7 @@
 clear all 
 close all
 
-nSamples = 50;
+nSamples = 25; %50
 nObjects = 16; %defined in Inventor file
 epochs = 10000;
 
@@ -24,13 +24,17 @@ for e = 1:epochs
 
     %import stl
     roll = rand();
-    if roll < 1/3
+    if roll < 1/4
         FileName = 'training_data/simple_ring1.stl';
     end
-    if roll < 2/3 & roll > 1/3
+    if roll < 1/2 & roll > 1/4
         FileName = 'training_data/simple_ring2.stl';
-    else
+    end
+    if roll < 3/4 & roll > 1/2
         FileName = 'training_data/simple_ring3.stl';
+    end
+    if roll > 3/4
+        FileName = 'training_data/simple_ring4.stl';
     end
     OpenFile = stlread(FileName);
     
