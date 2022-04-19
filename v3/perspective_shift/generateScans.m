@@ -1,14 +1,14 @@
 %script for simulating lidar scans of input base stl scene (generated using
 %autodesk inventor)
 
-%TODO: how much training data do we need??
+%USES RING FILES WITH MULTIPLE OBJECTS
 
 clear all 
 close all
 
 nSamples = 25; %50
 nObjects = 16; %defined in Inventor file
-epochs = 10000;
+epochs = 1000;
 
 % sam1_cum = [];
 % sam2_cum = [];
@@ -24,18 +24,23 @@ for e = 1:epochs
 
     %import stl
     roll = rand();
-    if roll < 1/4
+    if roll < 1/5
         FileName = 'training_data/simple_ring1.stl';
     end
-    if roll < 1/2 & roll > 1/4
+    if roll < 2/5 & roll > 1/5
         FileName = 'training_data/simple_ring2.stl';
     end
-    if roll < 3/4 & roll > 1/2
+    if roll < 3/5 & roll > 2/5
         FileName = 'training_data/simple_ring3.stl';
     end
-    if roll > 3/4
+    if roll > 3/5 & roll < 4/5
         FileName = 'training_data/simple_ring4.stl';
     end
+
+%     %special case: objects close to vehicle
+%     if roll > 4/5
+%         FileName = 'training_data/simple_ring5.stl';
+%     end
     OpenFile = stlread(FileName);
     
     %get vertices, faces, and normals from stl
@@ -92,11 +97,7 @@ for e = 1:epochs
     time = scenario.SimulationTime;
     [ptCloud2, config, clusters] = sensor(tgtmeshes, time);
     
-%     figure()
-%     axis equal
-%     plot3(ptCloud1(:,1),ptCloud1(:,2),ptCloud1(:,3),'.')
-%     hold on
-%     plot3(ptCloud2(:,1),ptCloud2(:,2),ptCloud2(:,3),'.')
+%     figur-ptCloud2(:,1),ptCloud2(:,2),ptCloud2(:,3),'.')
     
     %remove all NaNss
     ptCloud1 = rmmissing(ptCloud1);
@@ -143,11 +144,11 @@ scatter3(sam1(:,1), sam1(:,2), sam1(:,3))
 scatter3(sam2(:,1), sam2(:,2), sam2(:,3))
 
 %for smaller datasets (keep in git repo)
-% writematrix(sam1_cum, "training_data/scan1.txt", 'Delimiter', 'tab')
-% writematrix(sam2_cum, "training_data/scan2.txt", 'Delimiter', 'tab')
-% writematrix(truth_cum, "training_data/ground_truth.txt", 'Delimiter', 'tab')
+writematrix(sam1_cum, "training_data/scan1.txt", 'Delimiter', 'tab')
+writematrix(sam2_cum, "training_data/scan2.txt", 'Delimiter', 'tab')
+writematrix(truth_cum, "training_data/ground_truth.txt", 'Delimiter', 'tab')
 
 %for larger datasets (don't save with git)
-writematrix(sam1_cum, "C:/Users/Derm/Desktop/big/pshift/scan1.txt", 'Delimiter', 'tab')
-writematrix(sam2_cum, "C:/Users/Derm/Desktop/big/pshift/scan2.txt", 'Delimiter', 'tab')
-writematrix(truth_cum, "C:/Users/Derm/Desktop/big/pshift/ground_truth.txt", 'Delimiter', 'tab')
+% writematrix(sam1_cum, "C:/Users/Derm/Desktop/big/pshift/scan1_50k.txt", 'Delimiter', 'tab')
+% writematrix(sam2_cum, "C:/Users/Derm/Desktop/big/pshift/scan2_50k.txt", 'Delimiter', 'tab')
+% writematrix(truth_cum, "C:/Users/Derm/Desktop/big/pshift/ground_truth_50k.txt", 'Delimiter', 'tab')

@@ -92,29 +92,46 @@ def Net(**kwargs):
     # X = tf.keras.layers.Dropout(0.2)(X)
 
     X = keras.layers.BatchNormalization()(X)
+    X = keras.layers.Dense(units = 256, activation = 'relu')(X)
+
+    # 2D Max Pooling -------------------------------------------------------------------
+    # X = tf.keras.layers.Reshape((insize, 8, 8))(X)
+    # X = tf.keras.layers.MaxPooling2D(pool_size = (25,1), strides = None, padding = 'same')(X)
+    #test
+    # X = tf.keras.layers.Conv2D( filters = 16, kernel_size = (2)  )(X)
+
+    #----------------------------------------------------------------------------------
+
+
+    # 1D Max Pooling ------------------------------------------------------------------
+    X = keras.layers.MaxPool1D(pool_size = 25)(X)
+
+    X = tf.transpose(X, [0, 2, 1]) #test - I think this is needed to perform conv on correct axis
+
+    #conv layers help 1d a lot
+    X = keras.layers.Conv1D(filters = 32, kernel_size = 3, padding = 'same')(X)
+    X = keras.layers.BatchNormalization()(X)
     X = keras.layers.Dense(units = 64, activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
 
-    # currently works the best
-    X = tf.keras.layers.Reshape((insize, 8, 8))(X)
-    X = tf.keras.layers.MaxPooling2D(pool_size = (25,1), strides = None, padding = 'same')(X)
-  	
+    # #test repeat
+    X = keras.layers.Conv1D(filters = 32, kernel_size = 5, padding = 'same')(X)
+    X = keras.layers.BatchNormalization()(X)
+    X = keras.layers.Dense(units = 64, activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
 
-    #works but not as well
-    # X = tf.transpose(X, [0,2,1])
-    # X = keras.layers.MaxPool1D(pool_size = 256)(X)
 
-    #conv layers show no improvement
-    # X = keras.layers.Conv1D(filters = 8, kernel_size = 3, padding = 'same')(X)
-    # X = keras.layers.BatchNormalization()(X)
-    # X = keras.layers.Dense(units = 64, activation = 'relu')(X)
-    # X = keras.layers.BatchNormalization()(X)
-    # X = keras.layers.Conv1D(filters = 8, kernel_size = 3, padding = 'same')(X)
-    # X = keras.layers.BatchNormalization()(X)
+    X = keras.layers.Conv1D(filters = 32, kernel_size = 8, strides = 3, padding = 'same')(X)
+    X = keras.layers.BatchNormalization()(X)
+    X = keras.layers.Dense(units = 64, activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+
+    #----------------------------------------------------------------------------------
 
     X = keras.layers.Flatten()(X)    
 
-    X = keras.layers.Dense(units = 64, activation = 'relu')(X)
-    X = keras.layers.BatchNormalization()(X)
+    # X = keras.layers.Dense(units = 64, activation = 'relu')(X)
+    # X = keras.layers.BatchNormalization()(X)
 
     X = keras.layers.Dense(units = 64, activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
