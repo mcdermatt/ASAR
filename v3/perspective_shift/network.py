@@ -140,7 +140,9 @@ def Net(**kwargs):
     output = keras.layers.Dense(units=3, activation = 'tanh')(X)
 
     #rescale output
-    output = output*tf.constant([15., 15., 0.03])
+    # output = output*tf.constant([15., 15., 0.03]) #was this for simple models
+    output = output*tf.constant([30., 30., 3.]) #increased vel using real cars
+
 
     model = tf.keras.Model(inputs,output)
 
