@@ -6,8 +6,8 @@
 clear all 
 close all
 
-nSamples = 1000; %50
-epochs = 1;
+nSamples = 25; %50
+epochs = 10000;
 
 % sam1_cum = [];
 % sam2_cum = [];
@@ -18,39 +18,52 @@ sam2_cum = zeros(epochs*nSamples, 3);
 truth_cum = zeros(epochs, 3);
 
 for e = 1:epochs
-
     e
 
     %import stl
-    roll = rand();
-%     if roll < 1/2
-%         FileName = 'training_data/simple_object1.stl';
-%     end
-%     if roll < 2/2 & roll > 1/2
-%         FileName = 'training_data/simple_object2.stl';
-%     end
-%     if roll < 3/5 & roll > 2/5
-%         FileName = 'training_data/simple_ring3.stl';
-%     end
-%     if roll > 3/5 & roll < 4/5
-%         FileName = 'training_data/simple_ring4.stl';
-%     end
-
-%     FileName = 'training_data/simple_object2.stl';
-%     scale = [30, 30, 10];
-    
-    if roll < 0.5
+    roll = floor(6*rand());
+%     roll = 5;
+    if roll == 0
+        FileName = 'training_data/simple_object1.stl';
+    %     scale = [2, 2, 10];
+          scale = [0.2+2*rand(), 0.2+2*rand(), 1+5*rand()];
+        rot_corr = [90, 0, 90];
+        mindist = 3.5;
+    end
+    if roll == 1
+        FileName = 'training_data/simple_object2.stl';
+    % %     scale = [.2, 0.5, 3];
+          scale = [0.1+2*rand(), 0.1+2*rand(), 1+5*rand()];
+        rot_corr = [90, 0, 90];
+        mindist = 4;
+    end
+    if roll == 2
         FileName = 'training_data/car1.stl';
         scale = [4.23, 1.79, 1.82];
-        rot_corr = [90, 0, 90]; %corrective rotation to ori
-    else
+        rot_corr = [90, 0, 90]; %corrective rotation to orient model wheels down
+        mindist = 4;
+    end
+    if roll == 3
         FileName = 'training_data/car2.stl';
         scale = [4.7, 2.09, 1.45];
+        rot_corr = [90, 0, 0];
+        mindist = 5;
+    end
+    if roll == 4
+        FileName = 'training_data/bus1.stl';
+        scale = [12.2, 2.23, 3.5];
+        rot_corr = [90, 0, 90];
+        mindist = 8;
+    end
+    if roll == 5
+        FileName = 'training_data/simple_object3.stl'; %cylinder
+        rad = 0.1 + 0.5*rand();
+        scale = [rad, rad, 10];
+%         scale = [0.5, 0.5, 10]
+        rot_corr = [90, 0, 90];
+        mindist = 1;
     end
 
-    FileName = 'training_data/bus1.stl';
-    scale = [12.2, 2.23, 1.45];
-    rot_corr = [90, 0, 90];
 
     OpenFile = stlread(FileName);
     
@@ -59,31 +72,24 @@ for e = 1:epochs
     faces = OpenFile.ConnectivityList;
     
     vel = [10*randn() 10*randn() 1*randn()];
-%     pos = [1*randn() 1*randn 0];
-%     rot = 2*(ceil(16*rand(1)))/16*pi;
-%     scale = 100 + 20*randn();
     rot = rad2deg(2*pi*rand());
-%     scale = 20 + 2*randn();
 
-    %sample random  initial position, but NOT INSIDE CAR
+    %sample random  initial position, but NOT INSIDE OBJECT
     too_close = true;
     while too_close
-        pos = [5*randn(), 5*randn, 0];    
-        if sqrt(pos(1)^2 + pos(2)^2) > 8
-            too_close = false;
+        pos = [3*randn(), 3*randn, 0];    
+        if sqrt(pos(1)^2 + pos(2)^2) > mindist
+            if sqrt((pos(1) + vel(1)*0.1 )^2 + (pos(2) + vel(2)*0.1 )^2) > mindist
+                too_close = false;
+            end
         end
     end
 
+%     pos = [2, 1, 0];
+%     vel = [0, -10, 0];
 
-    %generate extended object mesh
-    mesh = extendedObjectMesh(vertices,faces);
-    %rotate mesh to correct orientation
-%     mesh = rotate(mesh, [rad2deg(rot), 0, 90]); %simple shapes
-    if roll < 0.5
-        mesh = rotate(mesh, [90, 0, 90]); %element
-    else
-        mesh = rotate(mesh, [90, 0, 0]); %tesla
-    end
+    mesh = extendedObjectMesh(vertices,faces);     %generate extended object mesh
+    mesh = rotate(mesh, rot_corr);     %rotate mesh to correct orientation (provided by each mesh)
 
     %init lidar unit
     SensorIndex = 1;
@@ -91,10 +97,10 @@ for e = 1:epochs
     
     % set parameters of virtual lidar unit to match velodyne VLP-16
     sensor.UpdateRate = 10;
-    sensor.ElevationLimits = [-22, 2]; %[-24.8, 2];
-    sensor.RangeAccuracy = 0.01; %0.03; %0.01;
-    sensor.AzimuthResolution = 0.2; %0.08;
-    sensor.ElevationResolution = 0.4;
+    sensor.ElevationLimits = [-50, 20];  %[-22, 2]; 
+    sensor.RangeAccuracy = 0.0001; % was 0.01, now adding noise at end;
+    sensor.AzimuthResolution = 1.0; %0.2;
+    sensor.ElevationResolution = 0.8; %0.4;
     sensor.MaxRange = 50;
     
     
@@ -113,7 +119,7 @@ for e = 1:epochs
     target.Dimensions.Height = scale(3);
 %     target.pose();
 
-    show(target.Mesh)
+%     show(target.Mesh)
     
     % Obtain the mesh of the target viewed from the ego platform after advancing the scenario one step forward.
     advance(scenario);
@@ -194,8 +200,16 @@ for i = 1:4
     truth_cum = [truth_cum; rot_truth];
 end
 
+%last step, add gaussian noise to all range estimates
+sam1_cum = sam1_cum + 0.01*randn(size(sam1_cum));
+sam2_cum = sam2_cum + 0.01*randn(size(sam2_cum));
 
-%for smaller datasets (keep in git repo)
+% %for smaller datasets (keep in git repo)
 % writematrix(sam1_cum, "training_data/scan1.txt", 'Delimiter', 'tab')
 % writematrix(sam2_cum, "training_data/scan2.txt", 'Delimiter', 'tab')
 % writematrix(truth_cum, "training_data/ground_truth.txt", 'Delimiter', 'tab')
+
+%for larger datasets (don't save with git)
+writematrix(sam1_cum, "C:/Users/Derm/Desktop/big/pshift/scan1_10k.txt", 'Delimiter', 'tab')
+writematrix(sam2_cum, "C:/Users/Derm/Desktop/big/pshift/scan2_10k.txt", 'Delimiter', 'tab')
+writematrix(truth_cum, "C:/Users/Derm/Desktop/big/pshift/ground_truth_10k.txt", 'Delimiter', 'tab')

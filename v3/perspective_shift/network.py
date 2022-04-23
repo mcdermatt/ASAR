@@ -3,6 +3,103 @@ import tensorflow.keras as keras
 from tensorflow.keras import layers
 import numpy as np
 
+def PCRnet(**kwargs):
+
+    ''' Another attempt at permutation invariance, this time using PCRnet architecture '''
+
+    insize = 50 #100
+    #init shared fully connected and conv layers
+    ff1 = keras.layers.Dense(128, activation = "relu")
+    ff2 = keras.layers.Dense(256, activation = "relu")
+
+    conv1 = keras.layers.Conv1D(filters = 32, kernel_size = 8, padding = 'same')
+    conv2 = keras.layers.Conv1D(filters = 32, kernel_size = 5, padding = 'same')
+    ff3 = keras.layers.Dense(64, activation = "relu")
+    ff4 = keras.layers.Dense(64, activation = "relu")
+
+
+	#get input    
+    inputs = keras.Input(shape=(insize, 3)) 
+
+    #split into two "MLPs", one for each set of input sample points
+    X1 = inputs[:,:25]
+    X1 = keras.layers.BatchNormalization()(X1)
+    X2 = inputs[:,25:]
+    X2 = keras.layers.BatchNormalization()(X2)
+
+    #apply siamese feedforward layers---------------
+    X1 = ff1(X1)
+    X1 = keras.layers.BatchNormalization()(X1)
+    X2 = ff1(X2)
+    X2 = keras.layers.BatchNormalization()(X2)
+
+    X1 = ff2(X1)
+    X1 = keras.layers.BatchNormalization()(X1)
+    X2 = ff2(X2)
+    X2 = keras.layers.BatchNormalization()(X2)
+
+    # X1 = ff3(X1)
+    # X1 = keras.layers.BatchNormalization()(X1)
+    # X2 = ff3(X2)
+    # X2 = keras.layers.BatchNormalization()(X2)
+    #------------------------------------------------
+
+    #apply symmetric functions (MaxPool1D) to each tower to remove any permutation invariance
+    X1 = keras.layers.MaxPool1D(pool_size = 25)(X1)
+    X2 = keras.layers.MaxPool1D(pool_size = 25)(X2)
+
+    #reshape and perform 1D conv on each feature representation
+    X1 = tf.transpose(X1, [0, 2, 1])
+    X2 = tf.transpose(X2, [0, 2, 1])
+
+    X1 = conv1(X1)
+    X1 = keras.layers.BatchNormalization()(X1)
+    X1 = ff3(X1)
+    X1 = keras.layers.BatchNormalization()(X1)
+
+    X2 = conv1(X2)
+    X2 = keras.layers.BatchNormalization()(X2)
+    X2 = ff3(X2)
+    X2 = keras.layers.BatchNormalization()(X2)
+
+    X1 = conv2(X1)
+    X1 = keras.layers.BatchNormalization()(X1)
+    X1 = ff4(X1)
+    X1 = keras.layers.BatchNormalization()(X1)
+
+    X2 = conv2(X2)
+    X2 = keras.layers.BatchNormalization()(X2)
+    X2 = ff4(X2)
+    X2 = keras.layers.BatchNormalization()(X2)
+
+
+    #Flatten and concatenate
+    X1 = keras.layers.Flatten()(X1)
+    X2 = keras.layers.Flatten()(X2)
+    X = keras.layers.Concatenate(axis=1)([X1, X2])
+
+    # more fully connected layers to perform the matching operation on encoded data -------
+    # X = keras.layers.Dense(256, activation = 'relu')(X)
+    # X = keras.layers.BatchNormalization()(X)
+    X = keras.layers.Dense(64, activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+    X = keras.layers.Dense(64, activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+
+    #--------------------------------------------------------------------------------------    
+
+
+    output = keras.layers.Dense(3, activation = 'tanh')(X)
+
+
+    #rescale output
+    output = output*tf.constant([15., 15., 0.03]) #was this for simple models
+    # output = output*tf.constant([30., 30., 3.]) #increased vel using real cars
+
+    model = tf.keras.Model(inputs,output)
+
+    return model
+
 def permNet(**kwargs):
     ''' Test nework for attempting permutation invariant input'''
 
@@ -71,7 +168,6 @@ def Net(**kwargs):
 
     ''' Simple feedforward network
     '''
-
     #DO MAX POOLING FOR insize//2 since we are looking at two seperate point clouds!!!!!
 
     insize = 50 #100
@@ -140,8 +236,8 @@ def Net(**kwargs):
     output = keras.layers.Dense(units=3, activation = 'tanh')(X)
 
     #rescale output
-    # output = output*tf.constant([15., 15., 0.03]) #was this for simple models
-    output = output*tf.constant([30., 30., 3.]) #increased vel using real cars
+    output = output*tf.constant([15., 15., 0.03]) #was this for simple models
+    # output = output*tf.constant([30., 30., 3.]) #increased vel using real cars
 
 
     model = tf.keras.Model(inputs,output)
@@ -157,16 +253,16 @@ def PointNet(*kwargs):
 
     X = tnet(inputs, 3)
     X = conv_bn(X, 32)
-    X = conv_bn(X, 32)
+    # X = conv_bn(X, 32)
     X = tnet(X, 32)
     X = conv_bn(X, 32)
-    X = conv_bn(X, 64)
-    X = conv_bn(X, 512)
+    # X = conv_bn(X, 64)
+    # X = conv_bn(X, 512)
     X = layers.GlobalMaxPooling1D()(X)
-    X = dense_bn(X, 256)
-    X = layers.Dropout(0.3)(X) #0.3
+    # X = dense_bn(X, 256)
+    # X = layers.Dropout(0.3)(X) #0.3
     X = dense_bn(X, 128)
-    X = layers.Dropout(0.3)(X) #0.3
+    # X = layers.Dropout(0.3)(X) #0.3
 
 
     #scale output to match scale of motion in data

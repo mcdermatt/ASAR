@@ -8,7 +8,7 @@ close all
 
 nSamples = 25; %50
 nObjects = 16; %defined in Inventor file
-epochs = 1;
+epochs = 1000;
 
 % sam1_cum = [];
 % sam2_cum = [];
@@ -27,13 +27,13 @@ for e = 1:epochs
     if roll < 1/5
         FileName = 'training_data/simple_ring1.stl';
     end
-    if roll < 2/5 & roll > 1/5
+    if roll < 2/4 & roll > 1/4
         FileName = 'training_data/simple_ring2.stl';
     end
-    if roll < 3/5 & roll > 2/5
+    if roll < 3/4 & roll > 2/4
         FileName = 'training_data/simple_ring3.stl';
     end
-    if roll > 3/5 & roll < 4/5
+    if roll > 3/4 % & roll < 4/5
         FileName = 'training_data/simple_ring4.stl';
     end
 
@@ -144,9 +144,9 @@ scatter3(sam1(:,1), sam1(:,2), sam1(:,3))
 scatter3(sam2(:,1), sam2(:,2), sam2(:,3))
 
 %for smaller datasets (keep in git repo)
-% writematrix(sam1_cum, "training_data/scan1.txt", 'Delimiter', 'tab')
-% writematrix(sam2_cum, "training_data/scan2.txt", 'Delimiter', 'tab')
-% writematrix(truth_cum, "training_data/ground_truth.txt", 'Delimiter', 'tab')
+writematrix(sam1_cum, "training_data/scan1.txt", 'Delimiter', 'tab')
+writematrix(sam2_cum, "training_data/scan2.txt", 'Delimiter', 'tab')
+writematrix(truth_cum, "training_data/ground_truth.txt", 'Delimiter', 'tab')
 
 %for larger datasets (don't save with git)
 % writematrix(sam1_cum, "C:/Users/Derm/Desktop/big/pshift/scan1_50k.txt", 'Delimiter', 'tab')
