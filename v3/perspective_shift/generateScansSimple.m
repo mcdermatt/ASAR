@@ -3,11 +3,15 @@
 
 %USES INDIVIDUAL OBJECT FILES
 
+%TODO - augment translation by moving PC's generally closer to the correct
+% solution - this mimics how the iterative implementation will help solve
+% We want to make the basin of attraction as regular as possible
+
 clear all 
 close all
 
-nSamples = 100; %50
-epochs = 1;
+nSamples = 25; %100;
+epochs = 5000;
 
 % sam1_cum = [];
 % sam2_cum = [];
@@ -21,12 +25,12 @@ for e = 1:epochs
     e
 
     %import stl
-%     roll = floor(6*rand());
-    roll = 3; %all cylinders 
+    roll = floor(6*rand());
+%     roll = 5; %all cylinders 
     if roll == 0
         FileName = 'training_data/simple_object1.stl';
     %     scale = [2, 2, 10];
-          scale = [0.1+2*rand(), 0.1+2*rand(), 1+5*rand()];
+          scale = [0.3+2*rand(), 0.3+2*rand(), 1+5*rand()];
         rot_corr = [90, 0, 90];
         mindist = 3.5;
     end
@@ -57,8 +61,8 @@ for e = 1:epochs
     end
     if roll == 5
         FileName = 'training_data/simple_object3.stl'; %cylinder
-        rad = 0.1 + 0.5*rand();
-        scale = [rad, rad, 10];
+        dia = 0.1 + 1.5*rand();
+        scale = [dia, dia, 10];
 %         scale = [0.5, 0.5, 10]
         rot_corr = [90, 0, 90];
         mindist = 1;
@@ -119,7 +123,7 @@ for e = 1:epochs
     target.Dimensions.Height = scale(3);
 %     target.pose();
 
-    show(target.Mesh)
+%     show(target.Mesh)
     
     % Obtain the mesh of the target viewed from the ego platform after advancing the scenario one step forward.
     advance(scenario);
@@ -168,8 +172,13 @@ scatter3(sam2(:,1), sam2(:,2), sam2(:,3))
 %augment data by translating scan 2 (remember to adjust solution vector
 %accordingly) -------------------------------------------------------------
 sam1_cum = [sam1_cum; sam1_cum];
-temp = randn(size(truth_cum)); % single random translation vector
-truth_cum = [truth_cum; truth_cum + temp];
+% temp = 5*randn(size(truth_cum)); % single random translation vector
+% temp = -rand(size(truth_cum)).*truth_cum; %translate some fraction of truth translation vec back to registration
+% temp = (-1.0+ 0.2*rand(size(truth_cum))).*truth_cum*0.1; %translate most of the way to correct soln
+temp = (-1.0+ 0.1*randn(size(truth_cum))).*truth_cum*0.1; %translate to correct solution +/- some small error
+
+truth_cum = [truth_cum; truth_cum + 10*temp];
+moved_sam2 = sam2_cum + repelem(temp, nSamples ,1);
 sam2_cum = [sam2_cum; sam2_cum + repelem(temp, nSamples ,1)]; %need to tile temp 25 times
 %-------------------------------------------------------------------------
 
@@ -206,6 +215,14 @@ sam2_cum = sam2_cum + 0.01*randn(size(sam2_cum));
 % writematrix(truth_cum, "training_data/ground_truth.txt", 'Delimiter', 'tab')
 
 %for larger datasets (don't save with git)
-% writematrix(sam1_cum, "C:/Users/Derm/Desktop/big/pshift/scan1_10k.txt", 'Delimiter', 'tab')
-% writematrix(sam2_cum, "C:/Users/Derm/Desktop/big/pshift/scan2_10k.txt", 'Delimiter', 'tab')
-% writematrix(truth_cum, "C:/Users/Derm/Desktop/big/pshift/ground_truth_10k.txt", 'Delimiter', 'tab')
+writematrix(sam1_cum, "C:/Users/Derm/Desktop/big/pshift/scan1_10k.txt", 'Delimiter', 'tab')
+writematrix(sam2_cum, "C:/Users/Derm/Desktop/big/pshift/scan2_10k.txt", 'Delimiter', 'tab')
+writematrix(truth_cum, "C:/Users/Derm/Desktop/big/pshift/ground_truth_10k.txt", 'Delimiter', 'tab')
+
+
+% %for debug
+% figure()
+% hold on
+% scatter3(sam1(:,1), sam1(:,2), sam1(:,3))
+% scatter3(sam2(:,1), sam2(:,2), sam2(:,3))
+% scatter3(moved_sam2(:,1), moved_sam2(:,2), moved_sam2(:,3))

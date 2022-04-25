@@ -3,17 +3,20 @@ import tensorflow.keras as keras
 from tensorflow.keras import layers
 import numpy as np
 
+#TODO: figure out whats going on with conv1D not adjusting output shape
+
 def PCRnet(**kwargs):
 
     ''' Another attempt at permutation invariance, this time using PCRnet architecture '''
 
-    insize = 50 #100
+    insize =  50 #200 
     #init shared fully connected and conv layers
-    ff1 = keras.layers.Dense(128, activation = "relu")
-    ff2 = keras.layers.Dense(256, activation = "relu")
+    ff1 = keras.layers.Dense(256, activation = "relu")
+    ff2 = keras.layers.Dense(512, activation = "relu")
+    # ff22 = keras.layers.Dense(2048, activation = "relu")
 
-    conv1 = keras.layers.Conv1D(filters = 32, kernel_size = 8, padding = 'same')
-    conv2 = keras.layers.Conv1D(filters = 32, kernel_size = 5, padding = 'same')
+    conv1 = keras.layers.Conv1D(filters = 32, kernel_size = 3) #, padding = 'same')
+    conv2 = keras.layers.Conv1D(filters = 32, kernel_size = 8, strides = 4) #, padding = 'same')
     ff3 = keras.layers.Dense(64, activation = "relu")
     ff4 = keras.layers.Dense(64, activation = "relu")
 
@@ -22,33 +25,67 @@ def PCRnet(**kwargs):
     inputs = keras.Input(shape=(insize, 3)) 
 
     #split into two "MLPs", one for each set of input sample points
-    X1 = inputs[:,:25]
+    X1 = inputs[:,:(insize//2)]
     X1 = keras.layers.BatchNormalization()(X1)
-    X2 = inputs[:,25:]
+    X2 = inputs[:,(insize//2):]
     X2 = keras.layers.BatchNormalization()(X2)
 
-    #apply siamese feedforward layers---------------
+    #apply siamese feedforward layers-----------------------------------------
     X1 = ff1(X1)
     X1 = keras.layers.BatchNormalization()(X1)
+    # X2 = layers.Dropout(0.2)(X2) #0.3
+
     X2 = ff1(X2)
     X2 = keras.layers.BatchNormalization()(X2)
+    # X2 = layers.Dropout(0.2)(X2) #0.3
 
     X1 = ff2(X1)
     X1 = keras.layers.BatchNormalization()(X1)
     X2 = ff2(X2)
     X2 = keras.layers.BatchNormalization()(X2)
 
+    # X1 = ff22(X1)
+    # X1 = keras.layers.BatchNormalization()(X1)
+    # X2 = ff22(X2)
+    # X2 = keras.layers.BatchNormalization()(X2)
+    #-------------------------------------------------------------------------
+
+    # #apply symmetric functions (MaxPool1D) to each tower to remove any permutation invariance ----------
+    X1 = keras.layers.MaxPool1D(pool_size = (insize//2))(X1)
+    X2 = keras.layers.MaxPool1D(pool_size = (insize//2))(X2)
+    # #---------------------------------------------------------------------------------------------------
+
+    # # 3D conv on each feature representation----------------------------------
+    # #reshape to true 3d data representation
+    # X1 = keras.layers.Reshape([8, 8, 8, 1])(X1) 
+    # X2 = keras.layers.Reshape([8, 8, 8, 1])(X2) 
+
+    # X1 = keras.layers.Conv3D(filters = 32, kernel_size = 2, strides = (1,1,1), padding = 'valid')(X1)
+    # X1 = keras.layers.BatchNormalization()(X1)
     # X1 = ff3(X1)
     # X1 = keras.layers.BatchNormalization()(X1)
+
+    # X2 = keras.layers.Conv3D(filters = 32, kernel_size = 2, strides = (1,1,1), padding = 'valid')(X2)
+    # X2 = keras.layers.BatchNormalization()(X2)
     # X2 = ff3(X2)
     # X2 = keras.layers.BatchNormalization()(X2)
-    #------------------------------------------------
 
-    #apply symmetric functions (MaxPool1D) to each tower to remove any permutation invariance
-    X1 = keras.layers.MaxPool1D(pool_size = 25)(X1)
-    X2 = keras.layers.MaxPool1D(pool_size = 25)(X2)
 
-    #reshape and perform 1D conv on each feature representation
+    # X1 = keras.layers.Conv3D(filters = 32, kernel_size = 3, strides = (1,1,1), padding = 'valid')(X1)
+    # X1 = keras.layers.BatchNormalization()(X1)
+    # X1 = ff4(X1)
+    # X1 = keras.layers.BatchNormalization()(X1)
+
+    # X2 = keras.layers.Conv3D(filters = 32, kernel_size = 3, strides = (1,1,1), padding = 'valid')(X2)
+    # X2 = keras.layers.BatchNormalization()(X2)
+    # X2 = ff4(X2)
+    # X2 = keras.layers.BatchNormalization()(X2)
+
+
+    # #-------------------------------------------------------------------------
+
+
+    #reshape and perform 1D conv on each feature representation---------------
     X1 = tf.transpose(X1, [0, 2, 1])
     X2 = tf.transpose(X2, [0, 2, 1])
 
@@ -71,20 +108,22 @@ def PCRnet(**kwargs):
     X2 = keras.layers.BatchNormalization()(X2)
     X2 = ff4(X2)
     X2 = keras.layers.BatchNormalization()(X2)
+    #-------------------------------------------------------------------------
 
-
-    #Flatten and concatenate
+    #Flatten and concatenate -------------------------------------------------
     X1 = keras.layers.Flatten()(X1)
     X2 = keras.layers.Flatten()(X2)
     X = keras.layers.Concatenate(axis=1)([X1, X2])
 
     # more fully connected layers to perform the matching operation on encoded data -------
-    # X = keras.layers.Dense(256, activation = 'relu')(X)
+    # X = keras.layers.Dense(512, activation = 'relu')(X)
     # X = keras.layers.BatchNormalization()(X)
-    X = keras.layers.Dense(64, activation = 'relu')(X)
+    X = keras.layers.Dense(128, activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
     X = keras.layers.Dense(64, activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
+    # X = layers.Dropout(0.2)(X) #0.3
+
 
     #--------------------------------------------------------------------------------------    
 
@@ -93,8 +132,8 @@ def PCRnet(**kwargs):
 
 
     #rescale output
-    output = output*tf.constant([15., 15., 0.03]) #was this for simple models
-    # output = output*tf.constant([30., 30., 3.]) #increased vel using real cars
+    # output = output*tf.constant([15., 15., 0.03]) #was this for simple prism models
+    output = output*tf.constant([30., 30., 3.]) #increased vel and using more realistic 3d shapes (cars, busses, etc)
 
     model = tf.keras.Model(inputs,output)
 
@@ -170,7 +209,7 @@ def Net(**kwargs):
     '''
     #DO MAX POOLING FOR insize//2 since we are looking at two seperate point clouds!!!!!
 
-    insize = 50 #100
+    insize = 50 # 200 #50
 
     inputs = keras.Input(shape=(insize, 3)) 
 
@@ -182,10 +221,12 @@ def Net(**kwargs):
     # X = keras.layers.BatchNormalization()(X)
 
     X = keras.layers.BatchNormalization()(inputs)
-    X = keras.layers.Dense(units = 128, activation = 'relu')(X)
+    X = keras.layers.Dense(units = 64, activation = 'relu')(X)
 
-    #test - seems like dropout layers are only huring performance here...
-    # X = tf.keras.layers.Dropout(0.2)(X)
+    # new ~~
+    X = keras.layers.BatchNormalization()(X)
+    X = keras.layers.Dense(units = 128, activation = 'relu')(X)
+    # ~~~~~~
 
     X = keras.layers.BatchNormalization()(X)
     X = keras.layers.Dense(units = 256, activation = 'relu')(X)
@@ -205,19 +246,19 @@ def Net(**kwargs):
     X = tf.transpose(X, [0, 2, 1]) #test - I think this is needed to perform conv on correct axis
 
     #conv layers help 1d a lot
-    X = keras.layers.Conv1D(filters = 32, kernel_size = 3, padding = 'same')(X)
+    X = keras.layers.Conv1D(filters = 32, kernel_size = 3, padding = 'valid')(X)
     X = keras.layers.BatchNormalization()(X)
     X = keras.layers.Dense(units = 64, activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
 
     # #test repeat
-    X = keras.layers.Conv1D(filters = 32, kernel_size = 5, padding = 'same')(X)
+    X = keras.layers.Conv1D(filters = 32, kernel_size = 5, padding = 'valid')(X)
     X = keras.layers.BatchNormalization()(X)
     X = keras.layers.Dense(units = 64, activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
 
 
-    X = keras.layers.Conv1D(filters = 32, kernel_size = 8, strides = 3, padding = 'same')(X)
+    X = keras.layers.Conv1D(filters = 32, kernel_size = 8, strides = 3, padding = 'valid')(X)
     X = keras.layers.BatchNormalization()(X)
     X = keras.layers.Dense(units = 64, activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
@@ -236,8 +277,8 @@ def Net(**kwargs):
     output = keras.layers.Dense(units=3, activation = 'tanh')(X)
 
     #rescale output
-    output = output*tf.constant([15., 15., 0.03]) #was this for simple models
-    # output = output*tf.constant([30., 30., 3.]) #increased vel using real cars
+    # output = output*tf.constant([15., 15., 0.03]) #was this for simple models
+    output = output*tf.constant([30., 30., 3.]) #increased vel using real cars
 
 
     model = tf.keras.Model(inputs,output)
