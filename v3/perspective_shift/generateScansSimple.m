@@ -10,8 +10,8 @@
 clear all 
 close all
 
-nSamples = 25; %100;
-epochs = 5000;
+nSamples = 25; %25;
+epochs = 100;
 
 % sam1_cum = [];
 % sam2_cum = [];
@@ -27,6 +27,7 @@ for e = 1:epochs
     %import stl
     roll = floor(6*rand());
 %     roll = 5; %all cylinders 
+%     roll = 3;
     if roll == 0
         FileName = 'training_data/simple_object1.stl';
     %     scale = [2, 2, 10];
@@ -169,56 +170,60 @@ hold on
 scatter3(sam1(:,1), sam1(:,2), sam1(:,3))
 scatter3(sam2(:,1), sam2(:,2), sam2(:,3))
 
-%augment data by translating scan 2 (remember to adjust solution vector
-%accordingly) -------------------------------------------------------------
-sam1_cum = [sam1_cum; sam1_cum];
-% temp = 5*randn(size(truth_cum)); % single random translation vector
-% temp = -rand(size(truth_cum)).*truth_cum; %translate some fraction of truth translation vec back to registration
-% temp = (-1.0+ 0.2*rand(size(truth_cum))).*truth_cum*0.1; %translate most of the way to correct soln
-temp = (-1.0+ 0.1*randn(size(truth_cum))).*truth_cum*0.1; %translate to correct solution +/- some small error
-
-truth_cum = [truth_cum; truth_cum + 10*temp];
-moved_sam2 = sam2_cum + repelem(temp, nSamples ,1);
-sam2_cum = [sam2_cum; sam2_cum + repelem(temp, nSamples ,1)]; %need to tile temp 25 times
-%-------------------------------------------------------------------------
-
-%augment data 2^4 times by rotating about vertical axis
-for i = 1:4
-    r = eul2rotm([randn()*360, 0, 0]);
-    old1 = reshape(transpose(sam1_cum), [1, 3, size(sam1_cum, 1)]);
-    rot1 = pagemtimes(old1, r);
-    rot1 = transpose(reshape(rot1, [3, size(sam1_cum, 1)]));
-    
-    old2 = reshape(transpose(sam2_cum), [1, 3, size(sam2_cum, 1)]);
-    rot2 = pagemtimes(old2, r);
-    rot2 = transpose(reshape(rot2, [3, size(sam2_cum, 1)]));
-    
-    % scatter3(rot1(:,1), rot1(:,2), rot1(:,3))
-    % scatter3(rot2(:,1), rot2(:,2), rot2(:,3))
-    truth_old = reshape(transpose(truth_cum), 1, 3, size(truth_cum, 1));
-    rot_truth = pagemtimes(truth_old, r);
-    rot_truth = transpose(reshape(rot_truth, [3, size(truth_cum, 1)]));
-    
-    %append rotated stuff to OG
-    sam1_cum = [sam1_cum; rot1];
-    sam2_cum = [sam2_cum; rot2];
-    truth_cum = [truth_cum; rot_truth];
-end
+% %augment data by translating scan 2 (remember to adjust solution vector
+% %accordingly) -------------------------------------------------------------
+% sam1_cum = [sam1_cum; sam1_cum];
+% % temp = 5*randn(size(truth_cum)); % single random translation vector
+% % temp = -rand(size(truth_cum)).*truth_cum; %translate some fraction of truth translation vec back to registration
+% % temp = (-1.0+ 0.2*rand(size(truth_cum))).*truth_cum*0.1; %translate most of the way to correct soln
+% temp = (-1.0+ 0.1*randn(size(truth_cum))).*truth_cum*0.1; %translate to correct solution +/- some small error
+% 
+% truth_cum = [truth_cum; truth_cum + 10*temp];
+% moved_sam2 = sam2_cum + repelem(temp, nSamples ,1);
+% sam2_cum = [sam2_cum; sam2_cum + repelem(temp, nSamples ,1)]; %need to tile temp 25 times
+% %-------------------------------------------------------------------------
+% 
+% %augment data 2^4 times by rotating about vertical axis
+% for i = 1:4
+%     r = eul2rotm([randn()*360, 0, 0]);
+%     old1 = reshape(transpose(sam1_cum), [1, 3, size(sam1_cum, 1)]);
+%     rot1 = pagemtimes(old1, r);
+%     rot1 = transpose(reshape(rot1, [3, size(sam1_cum, 1)]));
+%     
+%     old2 = reshape(transpose(sam2_cum), [1, 3, size(sam2_cum, 1)]);
+%     rot2 = pagemtimes(old2, r);
+%     rot2 = transpose(reshape(rot2, [3, size(sam2_cum, 1)]));
+%     
+%     % scatter3(rot1(:,1), rot1(:,2), rot1(:,3))
+%     % scatter3(rot2(:,1), rot2(:,2), rot2(:,3))
+%     truth_old = reshape(transpose(truth_cum), 1, 3, size(truth_cum, 1));
+%     rot_truth = pagemtimes(truth_old, r);
+%     rot_truth = transpose(reshape(rot_truth, [3, size(truth_cum, 1)]));
+%     
+%     %append rotated stuff to OG
+%     sam1_cum = [sam1_cum; rot1];
+%     sam2_cum = [sam2_cum; rot2];
+%     truth_cum = [truth_cum; rot_truth];
+% end
 
 %last step, add gaussian noise to all range estimates
 sam1_cum = sam1_cum + 0.01*randn(size(sam1_cum));
 sam2_cum = sam2_cum + 0.01*randn(size(sam2_cum));
 
 % %for smaller datasets (keep in git repo)
-% writematrix(sam1_cum, "training_data/scan1.txt", 'Delimiter', 'tab')
-% writematrix(sam2_cum, "training_data/scan2.txt", 'Delimiter', 'tab')
-% writematrix(truth_cum, "training_data/ground_truth.txt", 'Delimiter', 'tab')
+writematrix(sam1_cum, "training_data/scan1.txt", 'Delimiter', 'tab')
+writematrix(sam2_cum, "training_data/scan2.txt", 'Delimiter', 'tab')
+writematrix(truth_cum, "training_data/ground_truth.txt", 'Delimiter', 'tab')
 
 %for larger datasets (don't save with git)
-writematrix(sam1_cum, "C:/Users/Derm/Desktop/big/pshift/scan1_10k.txt", 'Delimiter', 'tab')
-writematrix(sam2_cum, "C:/Users/Derm/Desktop/big/pshift/scan2_10k.txt", 'Delimiter', 'tab')
-writematrix(truth_cum, "C:/Users/Derm/Desktop/big/pshift/ground_truth_10k.txt", 'Delimiter', 'tab')
+% writematrix(sam1_cum, "C:/Users/Derm/Desktop/big/pshift/scan1_10k.txt", 'Delimiter', 'tab')
+% writematrix(sam2_cum, "C:/Users/Derm/Desktop/big/pshift/scan2_10k.txt", 'Delimiter', 'tab')
+% writematrix(truth_cum, "C:/Users/Derm/Desktop/big/pshift/ground_truth_10k.txt", 'Delimiter', 'tab')
 
+%test scene for viz
+% writematrix(sam1_cum, "training_data/car_demo_scan1.txt", 'Delimiter', 'tab')
+% writematrix(sam2_cum, "training_data/car_demo_scan2.txt", 'Delimiter', 'tab')
+% writematrix(truth_cum, "training_data/car_demo_ground_truth.txt", 'Delimiter', 'tab')
 
 % %for debug
 % figure()
