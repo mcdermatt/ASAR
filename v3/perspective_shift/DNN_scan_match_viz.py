@@ -8,7 +8,7 @@ import time
 #NOTE: MAKE SURE PROPER CONDA ENV IS ACTIVATED TO RUN THIS!!!
 
 #init vedo and scene
-plt = Plotter(N = 1, axes = 4, bg = (1, 1, 1), interactive = True) #axis = 4
+plt = Plotter(N = 1, axes = 1, bg = (1, 1, 1), interactive = True) #axis = 4
 disp = []
 
 #load model
@@ -22,12 +22,13 @@ points_per_sample = 25 #num pts per scan - defined in MatLab script
 d1 = np.loadtxt('training_data/scan1.txt')
 d2 = np.loadtxt('training_data/scan2.txt')
 gt = np.loadtxt('training_data/ground_truth.txt')
+true_pos1 = np.loadtxt('training_data/true_pos1.txt')
 scan1 = tf.reshape(tf.convert_to_tensor(d1), [-1, points_per_sample, 3])
 scan2 = tf.reshape(tf.convert_to_tensor(d2), [-1, points_per_sample, 3])
 gt = tf.convert_to_tensor(gt)
 
 #split data into training and validation sets
-tsplit = 0.05 #this fraction goes into training
+tsplit = 0.0 #this fraction goes into training
 ntrain = int(tsplit*tf.shape(scan1)[0].numpy())
 x_train = tf.concat((scan1[:ntrain], scan2[:ntrain]), axis = 1)
 x_test = tf.concat((scan1[ntrain:], scan2[ntrain:]), axis = 1)
@@ -36,7 +37,7 @@ y_test = gt[ntrain:]
 # print(tf.shape(x_train))
 
 #appy model to points
-n = 7 #sample number (from x_test)
+n = 18 #sample number (from x_test)
 # print(tf.shape(x_test))
 
 c1 = np.array([x_test[n,:points_per_sample,0].numpy(), x_test[n,:points_per_sample,1].numpy(), x_test[n,:points_per_sample,2].numpy()])
@@ -59,6 +60,14 @@ disp.append(Points(c1_new, c = 'red', r = 10))
 print("\n estimated solution: \n :", correction)
 print("\n correct solution: \n :", y_test[n]*0.1)
 print("\n error: \n :", y_test[n]*0.1 - correction, "meters")
+
+
+#display mesh for reference
+fname = 'training_data/dummy.stl'
+ped = Mesh(fname).c("gray").rotate(90, axis = (1,0,0)).rotate(-90, axis = (0,0,1))
+ped.pos(true_pos1[n,0], true_pos1[n,1], -1.72 + true_pos1[n,2])
+
+disp.append(ped)
 
 #draw and close
 plt.show(disp, "DNN registration test")

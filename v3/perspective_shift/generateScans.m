@@ -8,7 +8,7 @@ close all
 
 nSamples = 25; %50
 nObjects = 16; %defined in Inventor file
-epochs = 1000;
+epochs = 100;
 
 % sam1_cum = [];
 % sam2_cum = [];

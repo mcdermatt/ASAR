@@ -16,6 +16,7 @@ epochs = 100;
 % sam1_cum = [];
 % sam2_cum = [];
 % truth_cum = [];
+true_pos1 = [];
 
 sam1_cum = zeros(epochs*nSamples, 3);
 sam2_cum = zeros(epochs*nSamples, 3);
@@ -28,6 +29,9 @@ for e = 1:epochs
     roll = floor(6*rand());
 %     roll = 5; %all cylinders 
 %     roll = 3;
+%     roll = 6; %taxi
+%     roll = 7; %vw bus
+    roll = 8; %dummy
     if roll == 0
         FileName = 'training_data/simple_object1.stl';
     %     scale = [2, 2, 10];
@@ -68,7 +72,27 @@ for e = 1:epochs
         rot_corr = [90, 0, 90];
         mindist = 1;
     end
+   
+    if roll == 6
+        FileName = 'training_data/Taxi.stl';
+        scale = [2, 5, 2];
+        rot_corr = [0, 0, 0];
+        mindist = 3;
+    end
 
+    if roll == 7
+        FileName = 'training_data/VW_Bus.stl'; 
+        scale = [2, 6, 2.5];
+        rot_corr = [0, 0, 0];
+        mindist = 3;
+    end
+
+    if roll == 8
+        FileName = 'training_data/dummy.stl'; 
+        scale = [0.6, 0.3, 2.0];
+        rot_corr = [0, 0, 90];
+        mindist = 4;
+    end
 
     OpenFile = stlread(FileName);
     
@@ -89,6 +113,10 @@ for e = 1:epochs
             end
         end
     end
+
+    pos = [4.0, 4.0, 0.01];
+
+    true_pos1 = [true_pos1; pos];
 
 %     pos = [2, 1, 0];
 %     vel = [0, -10, 0];
@@ -214,6 +242,8 @@ sam2_cum = sam2_cum + 0.01*randn(size(sam2_cum));
 writematrix(sam1_cum, "training_data/scan1.txt", 'Delimiter', 'tab')
 writematrix(sam2_cum, "training_data/scan2.txt", 'Delimiter', 'tab')
 writematrix(truth_cum, "training_data/ground_truth.txt", 'Delimiter', 'tab')
+writematrix(true_pos1, "training_data/true_pos1.txt", 'Delimiter', 'tab')
+
 
 %for larger datasets (don't save with git)
 % writematrix(sam1_cum, "C:/Users/Derm/Desktop/big/pshift/scan1_10k.txt", 'Delimiter', 'tab')
