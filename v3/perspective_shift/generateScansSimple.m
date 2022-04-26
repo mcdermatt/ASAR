@@ -11,7 +11,7 @@ clear all
 close all
 
 nSamples = 25; %25;
-epochs = 100;
+epochs = 5000;
 
 % sam1_cum = [];
 % sam2_cum = [];
@@ -26,12 +26,13 @@ for e = 1:epochs
     e
 
     %import stl
-    roll = floor(6*rand());
-%     roll = 5; %all cylinders 
-%     roll = 3;
+    roll = floor(9*rand());
+%     roll = 5; %cylinders 
+%     roll = 2; %honda element
+%     roll = 3; %tesla model 3
 %     roll = 6; %taxi
 %     roll = 7; %vw bus
-    roll = 8; %dummy
+%     roll = 8; %dummy
     if roll == 0
         FileName = 'training_data/simple_object1.stl';
     %     scale = [2, 2, 10];
@@ -75,7 +76,7 @@ for e = 1:epochs
    
     if roll == 6
         FileName = 'training_data/Taxi.stl';
-        scale = [2, 5, 2];
+        scale = [2, 5, 1.5];
         rot_corr = [0, 0, 0];
         mindist = 3;
     end
@@ -102,6 +103,8 @@ for e = 1:epochs
     
     vel = [10*randn() 10*randn() 1*randn()];
     rot = rad2deg(2*pi*rand());
+%     vel = [0, 0, 0];
+%     rot = 0;    %temp- just for demo dataset
 
     %sample random  initial position, but NOT INSIDE OBJECT
     too_close = true;
@@ -113,10 +116,14 @@ for e = 1:epochs
             end
         end
     end
+    
+    %test
+%     pos = [-1, 5.0, 0.01];
+%     vel = [10 2 0.1];
+%     pos(1) = pos(1) + 1.5;
+%     true_pos1 = [true_pos1; [pos(1), pos(2), pos(3), rot]];
 
-    pos = [4.0, 4.0, 0.01];
-
-    true_pos1 = [true_pos1; pos];
+%     true_pos1 = [true_pos1; [pos(1), pos(2), pos(3)]];
 
 %     pos = [2, 1, 0];
 %     vel = [0, -10, 0];
@@ -127,6 +134,7 @@ for e = 1:epochs
     %init lidar unit
     SensorIndex = 1;
     sensor = monostaticLidarSensor(SensorIndex);
+    sensor.MountingLocation = [0, 0, 0]; %AHHHHAHHHHAHHHH!!!! Why is this not default zero!!??!??!??!
     
     % set parameters of virtual lidar unit to match velodyne VLP-16
     sensor.UpdateRate = 10;
@@ -140,7 +148,6 @@ for e = 1:epochs
     % Create a tracking scenario. Add an ego platform and a target platform.
     scenario = trackingScenario;
     ego = platform(scenario, 'Position', [0, 0, 1.72]);
-    % ego.Position = [0, 0, 1.72];
     target = platform(scenario,'Trajectory',kinematicTrajectory('Position', pos,'Velocity', vel, 'Orientation', quat2rotm(eul2quat([rot, 0, 0])) )); %no rotation
     % target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[10 0 0],'Velocity',[5 0 0], 'AngularVelocity', [0, 0, 0.1])); %with rotatation
 %     rotation = eul2quat([rot, 0, 90]);
@@ -173,11 +180,11 @@ for e = 1:epochs
     ptCloud1 = rmmissing(ptCloud1);
     ptCloud2 = rmmissing(ptCloud2);
     
-    [azimuth1, elevation1, r1] = cart2sph(ptCloud1(:,1), ptCloud1(:,2), ptCloud1(:,3));
-    [azimuth2, elevation2, r2] = cart2sph(ptCloud2(:,1), ptCloud2(:,2), ptCloud2(:,3));
-    
-    %loop through distinct objects captured in frame
-    bins = -pi:(2*pi/16):pi;
+%     [azimuth1, elevation1, r1] = cart2sph(ptCloud1(:,1), ptCloud1(:,2), ptCloud1(:,3));
+%     [azimuth2, elevation2, r2] = cart2sph(ptCloud2(:,1), ptCloud2(:,2), ptCloud2(:,3));
+%     
+%     %loop through distinct objects captured in frame
+%     bins = -pi:(2*pi/16):pi;
     
     sam1 = ptCloud1(uint16(ceil(size(ptCloud1, 1)*rand(nSamples,1))), :);
     sam2 = ptCloud2(uint16(ceil(size(ptCloud2, 1)*rand(nSamples,1))), :);
@@ -198,57 +205,57 @@ hold on
 scatter3(sam1(:,1), sam1(:,2), sam1(:,3))
 scatter3(sam2(:,1), sam2(:,2), sam2(:,3))
 
-% %augment data by translating scan 2 (remember to adjust solution vector
-% %accordingly) -------------------------------------------------------------
-% sam1_cum = [sam1_cum; sam1_cum];
-% % temp = 5*randn(size(truth_cum)); % single random translation vector
-% % temp = -rand(size(truth_cum)).*truth_cum; %translate some fraction of truth translation vec back to registration
-% % temp = (-1.0+ 0.2*rand(size(truth_cum))).*truth_cum*0.1; %translate most of the way to correct soln
-% temp = (-1.0+ 0.1*randn(size(truth_cum))).*truth_cum*0.1; %translate to correct solution +/- some small error
-% 
-% truth_cum = [truth_cum; truth_cum + 10*temp];
-% moved_sam2 = sam2_cum + repelem(temp, nSamples ,1);
-% sam2_cum = [sam2_cum; sam2_cum + repelem(temp, nSamples ,1)]; %need to tile temp 25 times
-% %-------------------------------------------------------------------------
-% 
-% %augment data 2^4 times by rotating about vertical axis
-% for i = 1:4
-%     r = eul2rotm([randn()*360, 0, 0]);
-%     old1 = reshape(transpose(sam1_cum), [1, 3, size(sam1_cum, 1)]);
-%     rot1 = pagemtimes(old1, r);
-%     rot1 = transpose(reshape(rot1, [3, size(sam1_cum, 1)]));
-%     
-%     old2 = reshape(transpose(sam2_cum), [1, 3, size(sam2_cum, 1)]);
-%     rot2 = pagemtimes(old2, r);
-%     rot2 = transpose(reshape(rot2, [3, size(sam2_cum, 1)]));
-%     
-%     % scatter3(rot1(:,1), rot1(:,2), rot1(:,3))
-%     % scatter3(rot2(:,1), rot2(:,2), rot2(:,3))
-%     truth_old = reshape(transpose(truth_cum), 1, 3, size(truth_cum, 1));
-%     rot_truth = pagemtimes(truth_old, r);
-%     rot_truth = transpose(reshape(rot_truth, [3, size(truth_cum, 1)]));
-%     
-%     %append rotated stuff to OG
-%     sam1_cum = [sam1_cum; rot1];
-%     sam2_cum = [sam2_cum; rot2];
-%     truth_cum = [truth_cum; rot_truth];
-% end
+%augment data by translating scan 2 (remember to adjust solution vector
+%accordingly) -------------------------------------------------------------
+sam1_cum = [sam1_cum; sam1_cum];
+% temp = 5*randn(size(truth_cum)); % single random translation vector
+% temp = -rand(size(truth_cum)).*truth_cum; %translate some fraction of truth translation vec back to registration
+% temp = (-1.0+ 0.2*rand(size(truth_cum))).*truth_cum*0.1; %translate most of the way to correct soln
+temp = (-1.0+ 0.1*randn(size(truth_cum))).*truth_cum*0.1; %translate to correct solution +/- some small error
+
+truth_cum = [truth_cum; truth_cum + 10*temp];
+moved_sam2 = sam2_cum + repelem(temp, nSamples ,1);
+sam2_cum = [sam2_cum; sam2_cum + repelem(temp, nSamples ,1)]; %need to tile temp 25 times
+%-------------------------------------------------------------------------
+
+%augment data 2^4 times by rotating about vertical axis
+for i = 1:4
+    r = eul2rotm([randn()*360, 0, 0]);
+    old1 = reshape(transpose(sam1_cum), [1, 3, size(sam1_cum, 1)]);
+    rot1 = pagemtimes(old1, r);
+    rot1 = transpose(reshape(rot1, [3, size(sam1_cum, 1)]));
+    
+    old2 = reshape(transpose(sam2_cum), [1, 3, size(sam2_cum, 1)]);
+    rot2 = pagemtimes(old2, r);
+    rot2 = transpose(reshape(rot2, [3, size(sam2_cum, 1)]));
+    
+    % scatter3(rot1(:,1), rot1(:,2), rot1(:,3))
+    % scatter3(rot2(:,1), rot2(:,2), rot2(:,3))
+    truth_old = reshape(transpose(truth_cum), 1, 3, size(truth_cum, 1));
+    rot_truth = pagemtimes(truth_old, r);
+    rot_truth = transpose(reshape(rot_truth, [3, size(truth_cum, 1)]));
+    
+    %append rotated stuff to OG
+    sam1_cum = [sam1_cum; rot1];
+    sam2_cum = [sam2_cum; rot2];
+    truth_cum = [truth_cum; rot_truth];
+end
 
 %last step, add gaussian noise to all range estimates
-sam1_cum = sam1_cum + 0.01*randn(size(sam1_cum));
-sam2_cum = sam2_cum + 0.01*randn(size(sam2_cum));
-
-% %for smaller datasets (keep in git repo)
-writematrix(sam1_cum, "training_data/scan1.txt", 'Delimiter', 'tab')
-writematrix(sam2_cum, "training_data/scan2.txt", 'Delimiter', 'tab')
-writematrix(truth_cum, "training_data/ground_truth.txt", 'Delimiter', 'tab')
-writematrix(true_pos1, "training_data/true_pos1.txt", 'Delimiter', 'tab')
+% sam1_cum = sam1_cum + 0.01*randn(size(sam1_cum));
+% sam2_cum = sam2_cum + 0.01*randn(size(sam2_cum));
+ 
+% % %for smaller datasets (keep in git repo)
+% writematrix(sam1_cum, "training_data/scan1.txt", 'Delimiter', 'tab')
+% writematrix(sam2_cum, "training_data/scan2.txt", 'Delimiter', 'tab')
+% writematrix(truth_cum, "training_data/ground_truth.txt", 'Delimiter', 'tab')
+% % writematrix(true_pos1, "training_data/true_pos1.txt", 'Delimiter', 'tab')
 
 
 %for larger datasets (don't save with git)
-% writematrix(sam1_cum, "C:/Users/Derm/Desktop/big/pshift/scan1_10k.txt", 'Delimiter', 'tab')
-% writematrix(sam2_cum, "C:/Users/Derm/Desktop/big/pshift/scan2_10k.txt", 'Delimiter', 'tab')
-% writematrix(truth_cum, "C:/Users/Derm/Desktop/big/pshift/ground_truth_10k.txt", 'Delimiter', 'tab')
+writematrix(sam1_cum, "C:/Users/Derm/Desktop/big/pshift/scan1_10k.txt", 'Delimiter', 'tab')
+writematrix(sam2_cum, "C:/Users/Derm/Desktop/big/pshift/scan2_10k.txt", 'Delimiter', 'tab')
+writematrix(truth_cum, "C:/Users/Derm/Desktop/big/pshift/ground_truth_10k.txt", 'Delimiter', 'tab')
 
 %test scene for viz
 % writematrix(sam1_cum, "training_data/car_demo_scan1.txt", 'Delimiter', 'tab')
@@ -261,3 +268,11 @@ writematrix(true_pos1, "training_data/true_pos1.txt", 'Delimiter', 'tab')
 % scatter3(sam1(:,1), sam1(:,2), sam1(:,3))
 % scatter3(sam2(:,1), sam2(:,2), sam2(:,3))
 % scatter3(moved_sam2(:,1), moved_sam2(:,2), moved_sam2(:,3))
+
+%write scaled translated and rotated figure to new stl file for viz
+% TR = triangulation( target.Mesh.Faces, target.Mesh.Vertices);
+% stlwrite(TR, 'viz_model.stl')
+% writematrix(sam1_cum, "viz_scan1.txt", 'Delimiter', 'tab')
+% writematrix(sam2_cum, "viz_scan2.txt", 'Delimiter', 'tab')
+% writematrix(truth_cum, "viz_ground_truth.txt", 'Delimiter', 'tab')
+% writematrix(true_pos1, "viz_true_pos1.txt", 'Delimiter', 'tab')
