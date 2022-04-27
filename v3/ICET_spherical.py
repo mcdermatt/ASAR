@@ -36,21 +36,23 @@ from utils import R2Euler, Ell, jacobian_tf, R_tf, get_cluster
 
 class ICET():
 
-	def __init__(self, cloud1, cloud2, fid = 30, niter = 5, draw = True, x0 = tf.constant([0.0, 0.0, 0., 0., 0., 0.]), group = 2, RM = True):
+	def __init__(self, cloud1, cloud2, fid = 30, niter = 5, draw = True, 
+		x0 = tf.constant([0.0, 0.0, 0., 0., 0., 0.]), group = 2, RM = True, cheat = []):
 
 		self.min_cell_distance = 2 #5 #3 #begin closest spherical voxel here
 		self.min_num_pts = 25 #10 #ignore "occupied" cells with fewer than this number of pts
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
 		self.niter = niter
-		self.alpha = 0.5 #controls alpha values when displaying ellipses
+		self.alpha = 1.0 #controls alpha values when displaying ellipses
+		self.cheat = cheat
 
 		#convert cloud1 to tesnsor
 		self.cloud1_tensor = tf.cast(tf.convert_to_tensor(cloud1), tf.float32)
 		self.cloud2_tensor = tf.cast(tf.convert_to_tensor(cloud2), tf.float32)
 
 		if self.draw == True:
-			self.plt = Plotter(N = 1, axes = 4, bg = (1, 1, 1), interactive = True) #axis = 4
+			self.plt = Plotter(N = 1, axes = 1, bg = (1, 1, 1), interactive = True) #axis = 4
 			self.disp = []
 
 		#convert cloud to spherical coordinates
@@ -198,6 +200,12 @@ class ICET():
 			
 			#TODO- make sure we are calculating moving outliers on the FULL residuals (not the previously ignored set)
 
+			#Option to read in ground truth positions so we can use ICET to generate training data for DNN
+			#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+			if tf.shape(self.cheat)[0].numpy() > 0:
+				self.X = self.cheat
+				print("using state estimate form OXTS")
+			#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 			print("\n estimated solution vector X: \n", self.X)
 
 			#transform cartesian point cloud 2 by estimated solution vector X
@@ -251,23 +259,23 @@ class ICET():
 					metric1 = self.residuals_full[:,0]
 					metric2 = self.residuals_full[:,1]
 
-					# #------------------------------------------------------------------------------------------------
-					# Compare rotation about the vertical axis between each distribution correspondance
-					s1 = tf.transpose(tf.gather(sigma1, corr), [1, 2, 0])
-					s2 = tf.transpose(tf.gather(sigma2, corr), [1, 2, 0])
+					# # #------------------------------------------------------------------------------------------------
+					# # Compare rotation about the vertical axis between each distribution correspondance
+					# s1 = tf.transpose(tf.gather(sigma1, corr), [1, 2, 0])
+					# s2 = tf.transpose(tf.gather(sigma2, corr), [1, 2, 0])
 
-					self.angs1 = R2Euler(s1)[2,:]
-					self.angs2 = R2Euler(s2)[2,:]
+					# self.angs1 = R2Euler(s1)[2,:]
+					# self.angs2 = R2Euler(s2)[2,:]
 
-					self.res = self.angs1 - self.angs2
+					# self.res = self.angs1 - self.angs2
 
-					mean = np.mean(self.res)
-					std = np.std(self.res)
+					# mean = np.mean(self.res)
+					# std = np.std(self.res)
 
-					# bad_idx = tf.where(np.abs(self.res) > mean + 1*std )[:, 0]
-					# bad_idx = tf.where(np.abs(self.res) > 0.1)[:, 0]
-					bad_idx_rot = tf.where(np.abs(self.res) > 0.1)[:, 0]
-					# #------------------------------------------------------------------------------------------------
+					# # bad_idx = tf.where(np.abs(self.res) > mean + 1*std )[:, 0]
+					# # bad_idx = tf.where(np.abs(self.res) > 0.1)[:, 0]
+					# bad_idx_rot = tf.where(np.abs(self.res) > 0.1)[:, 0]
+					# # #------------------------------------------------------------------------------------------------
 					
 					# #------------------------------------------------------------------------------------------------
 					# #Using binned mode oulier exclusion (get rid of everything outside of some range close to 0)
@@ -303,7 +311,7 @@ class ICET():
 					#if using rotation too
 					# self.bad_idx = bad_idx
 					# self.bad_idx_rot = bad_idx_rot
-					bad_idx = tf.sets.union(bad_idx[None, :], bad_idx_rot[None, :]).values 
+					# bad_idx = tf.sets.union(bad_idx[None, :], bad_idx_rot[None, :]).values 
 					#-----------------
 
 					# print("corr \n", corr)
@@ -389,7 +397,7 @@ class ICET():
 			self.pred_stds = tf.linalg.tensor_diag_part(tf.math.sqrt(tf.abs(self.Q)))
 
 		print("pred_stds: \n", self.pred_stds)
-		print(" L2: \n", L2)		
+		# print(" L2: \n", L2)		
 
 		#draw PC2
 		if self.draw == True:
@@ -1167,20 +1175,22 @@ class ICET():
 			for i in range(tf.shape(corners)[0]):
 				p1, p2, p3, p4, p5, p6, p7, p8 = self.s2c(corners[i]).numpy()
 
-				arc1 = shapes.Arc(center = [0,0,0], point1 = p1, point2 = p2, c = 'red')	
-				# arc1 = shapes.Line(p1, p2, c = 'red', lw = 1) #debug		
+				# arc1 = shapes.Arc(center = [0,0,0], point1 = p1, point2 = p2, c = 'red')	
+				arc1 = shapes.Line(p1, p2, c = 'red', lw = 1) #debug		
 				self.disp.append(arc1)
-				arc2 = shapes.Arc(center = [0,0,0], point1 = p3, point2 = p4, c = 'red')
-				# arc2 = shapes.Line(p3, p4, c = 'red', lw = 1) #debug
+				# arc2 = shapes.Arc(center = [0,0,0], point1 = p3, point2 = p4, c = 'red')
+				arc2 = shapes.Line(p3, p4, c = 'red', lw = 1) #debug
 				self.disp.append(arc2)
 				line1 = shapes.Line(p1, p3, c = 'red', lw = 1)
 				self.disp.append(line1)
 				line2 = shapes.Line(p2, p4, c = 'red', lw = 1) #problem here
 				self.disp.append(line2)
 
-				arc3 = shapes.Arc(center = [0,0,0], point1 = p5, point2 = p6, c = 'red')			
+				# arc3 = shapes.Arc(center = [0,0,0], point1 = p5, point2 = p6, c = 'red')		
+				arc3 = shapes.Line(p5, p6, c = 'red', lw = 1) #debug
 				self.disp.append(arc3)
-				arc4 = shapes.Arc(center = [0,0,0], point1 = p7, point2 = p8, c = 'red')
+				# arc4 = shapes.Arc(center = [0,0,0], point1 = p7, point2 = p8, c = 'red')
+				arc4 = shapes.Line(p7, p8, c = 'red', lw = 1) #debug
 				self.disp.append(arc4)
 				line3 = shapes.Line(p5, p7, c = 'red', lw = 1)
 				self.disp.append(line3)
@@ -1197,22 +1207,26 @@ class ICET():
 				p1, p2, p3, p4, p5, p6, p7, p8 = self.s2c(corners[i]).numpy()
 				thicc = 3
 
-				arc1 = shapes.Arc(center = [0,0,0], point1 = p1, point2 = p2, c = 'yellow')	
-				arc1.lineWidth(thicc)
+				# arc1 = shapes.Arc(center = [0,0,0], point1 = p1, point2 = p2, c = 'yellow')	
+				# arc1.lineWidth(thicc)
+				arc1 = shapes.Line(p1, p2, c = 'yellow', lw = thicc) #debug
 				self.disp.append(arc1)
-				arc2 = shapes.Arc(center = [0,0,0], point1 = p3, point2 = p4, c = 'yellow')
-				arc2.lineWidth(thicc)
+				# arc2 = shapes.Arc(center = [0,0,0], point1 = p3, point2 = p4, c = 'yellow')
+				# arc2.lineWidth(thicc)
+				arc2 = shapes.Line(p3, p4, c = 'yellow', lw = thicc) #debug
 				self.disp.append(arc2)
 				line1 = shapes.Line(p1, p3, c = 'yellow', lw = thicc)
 				self.disp.append(line1)
 				line2 = shapes.Line(p2, p4, c = 'yellow', lw = thicc) #problem here
 				self.disp.append(line2)
 
-				arc3 = shapes.Arc(center = [0,0,0], point1 = p5, point2 = p6, c = 'yellow')
-				arc3.lineWidth(thicc)			
+				# arc3 = shapes.Arc(center = [0,0,0], point1 = p5, point2 = p6, c = 'yellow')
+				# arc3.lineWidth(thicc)
+				arc3 = shapes.Line(p5, p6, c = 'yellow', lw = thicc) #debug			
 				self.disp.append(arc3)
-				arc4 = shapes.Arc(center = [0,0,0], point1 = p7, point2 = p8, c = 'yellow')
-				arc4.lineWidth(thicc)
+				# arc4 = shapes.Arc(center = [0,0,0], point1 = p7, point2 = p8, c = 'yellow')
+				# arc4.lineWidth(thicc)
+				arc4 = shapes.Line(p7, p8, c = 'yellow', lw = thicc) #debug
 				self.disp.append(arc4)
 				line3 = shapes.Line(p5, p7, c = 'yellow', lw = thicc)
 				self.disp.append(line3)
@@ -1349,8 +1363,10 @@ class ICET():
 	def draw_car(self):
 		# (used for making presentation graphics)
 		fname = "C:/Users/Derm/honda.vtk"
-		car = Mesh(fname).c("gray").rotate(90, axis = (0,0,1)).addShadow(z=-1.85)
+		# car = Mesh(fname).c("gray").rotate(90, axis = (0,0,1)).addShadow(z=-1.85) #old vedo
+		car = Mesh(fname).c("gray").rotate(90, axis = (0,0,1))
 		car.pos(1.4,1,-1.72)
+		car.addShadow(plane = 'z', point = -1.85, c=(0.5, 0.5, 0.5))
 		# car.orientation(vector(0,np.pi/2,0)) 
 		self.disp.append(car)
 		#draw red sphere at location of sensor

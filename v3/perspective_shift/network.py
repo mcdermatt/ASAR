@@ -279,7 +279,8 @@ def Net(**kwargs):
 
     #rescale output
     # output = output*tf.constant([15., 15., 0.03]) #was this for simple models
-    output = output*tf.constant([30., 30., 3.]) #increased vel using real cars
+    # output = output*tf.constant([30., 30., 3.]) #increased vel using real cars
+    output = output*tf.constant([3., 3., 0.3]) #KITTI
 
 
     model = tf.keras.Model(inputs,output)

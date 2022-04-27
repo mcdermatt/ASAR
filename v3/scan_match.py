@@ -8,40 +8,45 @@ from tensorflow.math import sin, cos, tan
 import tensorflow_probability as tfp
 from ICET_spherical import ICET
 from utils import R_tf
+from metpy.calc import lat_lon_grid_deltas
 
-#problem at 114??
+# init KITTI dataset -----------------------------------------------------------------
+basedir = 'C:/kitti/'
+date = '2011_09_26'
 
-# # init KITTI dataset -----------------------------------------------------------------
-# basedir = 'C:/kitti/'
-# date = '2011_09_26'
+# urban dataset used in 3D-ICET paper 
+drive = '0005'
+idx = 0
 
-# # urban dataset used in 3D-ICET paper 
-# # drive = '0005'
-# # idx = 117
-
-# #test with aiodrive
+#test with aiodrive
 # drive = 'aiodrive'
 # idx = 1
 
-# #alternate dataset with fewer moving objects?
-# # drive = '0009'
-# # idx = 245
-# # drive = '0093'
-# # idx = 220
+#alternate dataset with fewer moving objects?
+# drive = '0009'
+# idx = 245
+# drive = '0093'
+# idx = 220
 
-# dataset = pykitti.raw(basedir, date, drive)
-# velo1 = dataset.get_velo(idx) # Each scan is a Nx4 array of [x,y,z,reflectance]
-# c1 = velo1[:,:3]
-# velo2 = dataset.get_velo(idx+1) # Each scan is a Nx4 array of [x,y,z,reflectance]
-# c2 = velo2[:,:3]
-# # c1 = c1[c1[:,2] > -1.5] #ignore ground plane
-# # c2 = c2[c2[:,2] > -1.5] #ignore ground plane
-# # c1 = c1[c1[:,2] > -2.] #ignore reflections
-# # c2 = c2[c2[:,2] > -2.] #ignore reflections
+dataset = pykitti.raw(basedir, date, drive)
+velo1 = dataset.get_velo(idx) # Each scan is a Nx4 array of [x,y,z,reflectance]
+c1 = velo1[:,:3]
+velo2 = dataset.get_velo(idx+1) # Each scan is a Nx4 array of [x,y,z,reflectance]
+c2 = velo2[:,:3]
+# c1 = c1[c1[:,2] > -1.5] #ignore ground plane
+# c2 = c2[c2[:,2] > -1.5] #ignore ground plane
+# c1 = c1[c1[:,2] > -2.] #ignore reflections
+# c2 = c2[c2[:,2] > -2.] #ignore reflections
 
-# #load previously processed cloud 1
-# # c1 = np.loadtxt("cloud1_good.txt")
-# # ------------------------------------------------------------------------------------
+#load previously processed cloud 1
+# c1 = np.loadtxt("cloud1_good.txt")
+
+poses0 = dataset.oxts[idx] #<- ID of 1st scan
+poses1 = dataset.oxts[idx+1] #<- ID of 2nd scan
+dt = 0.1037 #mean time between lidar samples
+OXTS_ground_truth = tf.constant([poses1.packet.vf*dt, -poses1.packet.vl*dt, poses1.packet.vu*dt, poses1.packet.wf*dt, poses1.packet.wl*dt, poses1.packet.wu*dt])
+
+# ------------------------------------------------------------------------------------
 
 # #TIERS forest dataset -----------------------------------------------------------------
 
@@ -53,37 +58,37 @@ from utils import R_tf
 
 # # #---------------------------------------------------------------------------------------
 
-#CODD (colaborative driving dataset)----------------------------------------------------
-import h5py
+# #CODD (colaborative driving dataset)----------------------------------------------------
+# import h5py
 
-# filename = 'C:/CODD/data/m1v7p7s769.hdf5' #straight line urban(?)
-# filename = 'C:/CODD/data/m5v10p6s31.hdf5' #turn on country road
-# filename = 'C:/CODD/data/m2v7p3s333.hdf5'
-filename = 'C:/CODD/data/m10v11p6s30.hdf5' #wide road, palm trees, and traffic
-
-
-vidx = 0 #vehicle index
-idx = 61 #frame idx
+# # filename = 'C:/CODD/data/m1v7p7s769.hdf5' #straight line urban(?)
+# # filename = 'C:/CODD/data/m5v10p6s31.hdf5' #turn on country road
+# # filename = 'C:/CODD/data/m2v7p3s333.hdf5'
+# filename = 'C:/CODD/data/m10v11p6s30.hdf5' #wide road, palm trees, and traffic
 
 
-with h5py.File(filename, 'r') as hf:
-#     pcls = hf['point_cloud'][:]
-    #[frames, vehicles, points_per_cloud, 4]
-    pcls = hf['point_cloud'][:, vidx ,: , :3]
-    #[frames, points_per_cloud, rgb]
+# vidx = 0 #vehicle index
+# idx = 61 #frame idx
+
+
+# with h5py.File(filename, 'r') as hf:
+# #     pcls = hf['point_cloud'][:]
+#     #[frames, vehicles, points_per_cloud, 4]
+#     pcls = hf['point_cloud'][:, vidx ,: , :3]
+#     #[frames, points_per_cloud, rgb]
     
-#     pose = hf['lidar_pose'][:]
-    #[frames, vehicles, (x,y,z, rotx, roty, rotz)]
-    pose = hf['lidar_pose'][:, vidx, :]
+# #     pose = hf['lidar_pose'][:]
+#     #[frames, vehicles, (x,y,z, rotx, roty, rotz)]
+#     pose = hf['lidar_pose'][:, vidx, :]
 
-c1 = pcls[idx]
-c2 = pcls[idx+1]
+# c1 = pcls[idx]
+# c2 = pcls[idx+1]
 
-c1 += 0.01*np.random.randn(np.shape(c1)[0], 3)
-c2 += 0.01*np.random.randn(np.shape(c2)[0], 3)
+# c1 += 0.01*np.random.randn(np.shape(c1)[0], 3)
+# c2 += 0.01*np.random.randn(np.shape(c2)[0], 3)
 
 
-#---------------------------------------------------------------------------------------
+# #---------------------------------------------------------------------------------------
 
 
 # # load custom point cloud geneated in matlab------------------------------------------
@@ -117,6 +122,7 @@ c2 += 0.01*np.random.randn(np.shape(c2)[0], 3)
 #run once to get rough estimate and remove outlier points
 # x0 = tf.constant([0.6018, 0.00556, -0.015, 0.0016, 0.0006, -0.01378]) #138
 it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 20, draw = True, group = 2, RM = True)
+# it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 20, draw = True, group = 2, RM = True, cheat = OXTS_ground_truth)
 
 #run again to re-converge with outliers removed
 # cloud1 = it.cloud1_static
