@@ -51,8 +51,8 @@ def PCRnet(**kwargs):
     #-------------------------------------------------------------------------
 
     # #apply symmetric functions (MaxPool1D) to each tower to remove any permutation invariance ----------
-    X1 = keras.layers.MaxPool1D(pool_size = (insize//2))(X1)
-    X2 = keras.layers.MaxPool1D(pool_size = (insize//2))(X2)
+    X1 = keras.layers.MaxPool1D(pool_size = (25))(X1)
+    X2 = keras.layers.MaxPool1D(pool_size = (25))(X2)
     # #---------------------------------------------------------------------------------------------------
 
     # # 3D conv on each feature representation----------------------------------
@@ -244,6 +244,7 @@ def Net(**kwargs):
     X = keras.layers.MaxPool1D(pool_size = 25)(X)
 
     X = tf.transpose(X, [0, 2, 1]) #test - I think this is needed to perform conv on correct axis
+    # X = keras.layers.Permute((2,1))(X) #also works
 
     #conv layers help 1d a lot
     X = keras.layers.Conv1D(filters = 32, kernel_size = 3, padding = 'valid')(X)

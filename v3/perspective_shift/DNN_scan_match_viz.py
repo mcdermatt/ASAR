@@ -5,7 +5,7 @@ import numpy as np
 import tensorflow as tf
 import time
 
-#NOTE: MAKE SURE PROPER CONDA ENV IS ACTIVATED TO RUN THIS!!!
+#NOTE: make sure tf23 conda env is actiated
 
 #init vedo and scene
 plt = Plotter(N = 1, axes = 1, bg = (1, 1, 1), interactive = True) #axis = 4

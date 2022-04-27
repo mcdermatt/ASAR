@@ -9,6 +9,7 @@ from utils import R2Euler, Ell, jacobian_tf, R_tf, get_cluster
 
 #TODO:
 	#P1:
+		#identify bottleneck in radial binning step
 
 		# remove correspondences with mismatched rotation about the vertical axis
 		#		these will be the cells that show the most apparent perspective shift??
@@ -38,7 +39,7 @@ class ICET():
 	def __init__(self, cloud1, cloud2, fid = 30, niter = 5, draw = True, x0 = tf.constant([0.0, 0.0, 0., 0., 0., 0.]), group = 2, RM = True):
 
 		self.min_cell_distance = 2 #5 #3 #begin closest spherical voxel here
-		self.min_num_pts = 10 #30 #ignore "occupied" cells with fewer than this number of pts
+		self.min_num_pts = 25 #10 #ignore "occupied" cells with fewer than this number of pts
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
 		self.niter = niter
@@ -47,7 +48,6 @@ class ICET():
 		#convert cloud1 to tesnsor
 		self.cloud1_tensor = tf.cast(tf.convert_to_tensor(cloud1), tf.float32)
 		self.cloud2_tensor = tf.cast(tf.convert_to_tensor(cloud2), tf.float32)
-		# self.cloud2_tensor_OG = tf.cast(tf.convert_to_tensor(cloud2), tf.float32) #TODO- try and avoid repeating this...
 
 		if self.draw == True:
 			self.plt = Plotter(N = 1, axes = 4, bg = (1, 1, 1), interactive = True) #axis = 4
@@ -154,6 +154,11 @@ class ICET():
 		# print("occupied_spikes \n", occupied_spikes)
 		pts_in_cluster, npts1 = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes, bounds)
 	
+		#temp			
+		self.inside1 = pts_in_cluster
+		self.npts1 = npts1
+
+
 
 		# #DEBUG: ____________________________________________________________
 		# ## idk how, but all of the garbage points (points from spikse with no good clusters) are being placed in their own cluster??
@@ -209,6 +214,12 @@ class ICET():
 			inside2, npts2 = self.get_points_in_cluster(self.cloud2_tensor_spherical, occupied_spikes, bounds)
 			# print("inside2", inside2)
 			# print("npts2", npts2)
+			# print("npts1", npts1)
+
+			#temp			
+			self.inside2 = inside2
+			self.npts2 = npts2
+
 
 			#fit gaussians distributions to each of these groups of points 		
 			mu2, sigma2 = self.fit_gaussian(self.cloud2_tensor, inside2, tf.cast(npts2, tf.float32))
@@ -323,6 +334,9 @@ class ICET():
 			sigma0_i = tf.gather(sigma1, corr)
 			npts0_i = tf.gather(npts1, corr)
 			# print(sigma1)
+
+			#temp
+			self.corr = corr
 
 			y_i = tf.gather(mu2, corr)
 			sigma_i = tf.gather(sigma2, corr)
@@ -578,6 +592,7 @@ class ICET():
 
 		spike_idx = tf.cast(bins_theta*(self.fid_phi-1) + bins_phi, tf.int32)
 
+		#TODO- bottleneck here, try using equation to ID spikes each point, then consider radial bins...
 
 		#get idx of spike for each applicable point
 		cond1 = spike_idx == occupied_spikes[:,None] #match spike IDs
@@ -671,7 +686,7 @@ class ICET():
 				method == 1: New "unsceneted KF" strategy
 
 				U = rotation matrix for each voxel to transform scan 2 distribution
-				 into frame of corresponding to ellipsoid axis in keyframe
+				 into frame corresponding to ellipsoid axis in keyframe
 			    L = matrix to prune extended directions in each voxel (from keyframe)
 			    """
 
