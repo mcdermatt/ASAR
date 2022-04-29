@@ -13,6 +13,7 @@ disp = []
 
 #load model
 model = tf.keras.models.load_model("Net.kmod")
+# model = tf.keras.models.load_model("KITTInet.kmod")
 
 #read in dense point cloud of car
 points_per_sample = 25 #num pts per scan - defined in MatLab script

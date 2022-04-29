@@ -9,14 +9,13 @@ from metpy.calc import lat_lon_grid_deltas
 
 
 numShifts = 5 #number of times to resample and translate each voxel each scan
-runLen = 10
+runLen = 100
 
 # init KITTI dataset
 basedir = 'C:/kitti/'
 date = '2011_09_26'
 drive = '0005'# urban dataset used in 3D-ICET paper 
 dataset = pykitti.raw(basedir, date, drive)
-
 
 for idx in range(runLen):
 	velo1 = dataset.get_velo(idx) # Each scan is a Nx4 array of [x,y,z,reflectance]
@@ -89,6 +88,12 @@ for idx in range(runLen):
 
 	print("got", tf.shape(enough2.to_tensor())[0].numpy()*numShifts, "training samples from scan", idx)
 
-np.savetxt('perspective_shift/training_data/ICET_KITTI_scan1.txt', scan1_cum)
-np.savetxt('perspective_shift/training_data/ICET_KITTI_scan2.txt', scan2_cum)
-np.savetxt('perspective_shift/training_data/ICET_KITTI_ground_truth.txt', rand_cum)
+#smol
+# np.savetxt('perspective_shift/training_data/ICET_KITTI_scan1.txt', scan1_cum)
+# np.savetxt('perspective_shift/training_data/ICET_KITTI_scan2.txt', scan2_cum)
+# np.savetxt('perspective_shift/training_data/ICET_KITTI_ground_truth.txt', rand_cum)
+
+#big
+np.savetxt('C:/Users/Derm/Desktop/big/pshift/ICET_KITTI_scan1.txt', scan1_cum)
+np.savetxt('C:/Users/Derm/Desktop/big/pshift/ICET_KITTI_scan2.txt', scan2_cum)
+np.savetxt('C:/Users/Derm/Desktop/big/pshift/ICET_KITTI_ground_truth.txt', rand_cum)

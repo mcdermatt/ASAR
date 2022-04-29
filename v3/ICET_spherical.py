@@ -240,7 +240,6 @@ class ICET():
 			# print("\n occupied_spikes \n", occupied_spikes)
 			corr_full = tf.sets.intersection(enough1[None,:], enough2[None,:]).values
 
-
 			#----------------------------------------------
 			if remove_moving:  
 				if i > 10: #TODO: tune this to optimal value
@@ -254,7 +253,6 @@ class ICET():
 					# self.mu2_enough = mu2_enough
 					
 					self.residuals_full = y_i_full - y0_i_full
-					self.residuals = y_i - y0_i #not needed??
 
 					metric1 = self.residuals_full[:,0]
 					metric2 = self.residuals_full[:,1]
@@ -343,12 +341,14 @@ class ICET():
 			npts0_i = tf.gather(npts1, corr)
 			# print(sigma1)
 
-			#temp
-			self.corr = corr
 
 			y_i = tf.gather(mu2, corr)
 			sigma_i = tf.gather(sigma2, corr)
 			npts_i = tf.gather(npts2, corr)
+
+			#hold on to inside ICET object so we can use these to compare results with DNN
+			self.corr = corr
+			self.residuals = y_i - y0_i
 
 			U_i = tf.gather(U, corr)
 			L_i = tf.gather(L, corr)
