@@ -33,8 +33,8 @@ velo1 = dataset.get_velo(idx) # Each scan is a Nx4 array of [x,y,z,reflectance]
 c1 = velo1[:,:3]
 velo2 = dataset.get_velo(idx+1) # Each scan is a Nx4 array of [x,y,z,reflectance]
 c2 = velo2[:,:3]
-# c1 = c1[c1[:,2] > -1.5] #ignore ground plane
-# c2 = c2[c2[:,2] > -1.5] #ignore ground plane
+c1 = c1[c1[:,2] > -1.5] #ignore ground plane
+c2 = c2[c2[:,2] > -1.5] #ignore ground plane
 # c1 = c1[c1[:,2] > -2.] #ignore reflections
 # c2 = c2[c2[:,2] > -2.] #ignore reflections
 
