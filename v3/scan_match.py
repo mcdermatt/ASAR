@@ -121,8 +121,8 @@ OXTS_ground_truth = tf.constant([poses1.packet.vf*dt, -poses1.packet.vl*dt, pose
 
 #run once to get rough estimate and remove outlier points
 # x0 = tf.constant([0.6018, 0.00556, -0.015, 0.0016, 0.0006, -0.01378]) #138
-# it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 20, draw = True, group = 2, RM = True)
-it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 20, draw = True, group = 2, RM = True, cheat = OXTS_ground_truth)
+it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 20, draw = True, group = 2, RM = True)
+# it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 20, draw = True, group = 2, RM = True, cheat = OXTS_ground_truth)
 
 #run again to re-converge with outliers removed
 # cloud1 = it.cloud1_static

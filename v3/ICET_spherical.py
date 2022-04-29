@@ -227,7 +227,7 @@ class ICET():
 			#temp			
 			self.inside2 = inside2
 			self.npts2 = npts2
-
+			self.enough1 = enough1
 
 			#fit gaussians distributions to each of these groups of points 		
 			mu2, sigma2 = self.fit_gaussian(self.cloud2_tensor, inside2, tf.cast(npts2, tf.float32))
@@ -341,17 +341,32 @@ class ICET():
 			npts0_i = tf.gather(npts1, corr)
 			# print(sigma1)
 
-
 			y_i = tf.gather(mu2, corr)
 			sigma_i = tf.gather(sigma2, corr)
 			npts_i = tf.gather(npts2, corr)
 
+			#was this, I think it's incorrect 
+			# U_i = tf.gather(U, corr)
+			# L_i = tf.gather(L, corr)
+			
+			#trying this instead (4/29)
+			#  1) get IDX of elements that are in both enough1 and corr
+			#  2) use this to index U and L to get U_i and L_i
+			both = tf.sets.intersection(enough1[None,:], corr[None,:]).values
+			ans = tf.where(enough1[:,None] == both)[:,0]			
+			U_i = tf.gather(U, ans)
+			L_i = tf.gather(L, ans)
+
+
+			#----------------------------------------------
 			#hold on to inside ICET object so we can use these to compare results with DNN
 			self.corr = corr
 			self.residuals = y_i - y0_i
+			self.U = U_i
+			self.L = L_i
 
-			U_i = tf.gather(U, corr)
-			L_i = tf.gather(L, corr)
+			#-----------------------------------------------
+
 
 			#get matrix containing partial derivatives for each voxel mean
 			H = jacobian_tf(tf.transpose(y_i), self.X[3:]) # shape = [num of corr * 3, 6]
