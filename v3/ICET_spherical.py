@@ -29,6 +29,8 @@ from utils import R2Euler, Ell, jacobian_tf, R_tf, get_cluster
 		# figure out why <get_occupied()> always includes cell 0 at the end - it's because there are points outside reachable space
 		# Normalize minimum number of points per cell by radial distance from ego-vehicle
 
+		#Try dynamically lowering DNN rejection threshold
+
 	#P3
 		# force top elevation bin to always be ambiguous? - not super pressing rn...
 		# for voxles that have an insufficient number of points, sweep through the corresponding spike until we find one with enough points
@@ -37,15 +39,23 @@ from utils import R2Euler, Ell, jacobian_tf, R_tf, get_cluster
 class ICET():
 
 	def __init__(self, cloud1, cloud2, fid = 30, niter = 5, draw = True, 
-		x0 = tf.constant([0.0, 0.0, 0., 0., 0., 0.]), group = 2, RM = True, cheat = []):
+		x0 = tf.constant([0.0, 0.0, 0., 0., 0., 0.]), group = 2, RM = True,
+		DNN_filter = False, cheat = []):
 
 		self.min_cell_distance = 2 #5 #3 #begin closest spherical voxel here
-		self.min_num_pts = 25 #10 #ignore "occupied" cells with fewer than this number of pts
+		self.min_num_pts = 50 #25 #10 #ignore "occupied" cells with fewer than this number of pts
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
 		self.niter = niter
-		self.alpha = 1.0 #controls alpha values when displaying ellipses
+		self.alpha = 0.5 #controls alpha values when displaying ellipses
 		self.cheat = cheat
+		self.DNN_filter = DNN_filter
+
+		#load dnn model
+		if self.DNN_filter:
+			self.model = tf.keras.models.load_model("perspective_shift/KITTInet.kmod")
+			# self.model = tf.keras.models.load_model("perspective_shift/NET.kmod")
+
 
 		#convert cloud1 to tesnsor
 		self.cloud1_tensor = tf.cast(tf.convert_to_tensor(cloud1), tf.float32)
@@ -151,16 +161,16 @@ class ICET():
 
 
 		rads = tf.transpose(idx_by_rag.to_tensor())
-		bounds = get_cluster(rads)
+		bounds = get_cluster(rads, mnp = self.min_num_pts)
 		corn = self.get_corners_cluster(occupied_spikes, bounds)
 		# print("occupied_spikes \n", occupied_spikes)
-		pts_in_cluster, npts1 = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes, bounds)
+		inside1, npts1 = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes, bounds)
 	
 		#temp			
-		self.inside1 = pts_in_cluster
+		self.inside1 = inside1
 		self.npts1 = npts1
-
-
+		self.bounds = bounds
+		self.occupied_spikes = occupied_spikes
 
 		# #DEBUG: ____________________________________________________________
 		# ## idk how, but all of the garbage points (points from spikse with no good clusters) are being placed in their own cluster??
@@ -168,14 +178,14 @@ class ICET():
 		# print("\n bounds \n", bounds)
 		# print("npts1", npts1)
 
-		# temp = tf.gather(self.cloud1_tensor, pts_in_cluster[-1]).numpy()	
+		# temp = tf.gather(self.cloud1_tensor, inside1[-1]).numpy()	
 		# self.disp.append(Points(temp, c = 'green', r = 5))
 		# #seems like the cause of this is not deleting points outside the observation cone of the vehicle
 		# #___________________________________________________________________
 
 
 		#fit gaussian
-		mu1, sigma1 = self.fit_gaussian(self.cloud1_tensor, pts_in_cluster, tf.cast(npts1, tf.float32))
+		mu1, sigma1 = self.fit_gaussian(self.cloud1_tensor, inside1, tf.cast(npts1, tf.float32))
 
 		enough1 = tf.where(npts1 > self.min_num_pts)[:,0]
 		mu1_enough = tf.gather(mu1, enough1)
@@ -186,28 +196,28 @@ class ICET():
 
 
 		if self.draw:
-			self.visualize_L(mu1_enough, U, L)
+			# self.visualize_L(mu1_enough, U, L)
 			self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
 			self.draw_cell(corn)
 			self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
 			self.draw_car()
 			# draw identified points inside useful clusters
-			# for n in range(tf.shape(pts_in_cluster.to_tensor())[0]):
-			# 	temp = tf.gather(self.cloud1_tensor, pts_in_cluster[n]).numpy()	
+			# for n in range(tf.shape(inside1.to_tensor())[0]):
+			# 	temp = tf.gather(self.cloud1_tensor, inside1[n]).numpy()	
 			# 	self.disp.append(Points(temp, c = 'green', r = 5))
 
 		for i in range(niter):
-			
 			#TODO- make sure we are calculating moving outliers on the FULL residuals (not the previously ignored set)
 
+			#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 			#Option to read in ground truth positions so we can use ICET to generate training data for DNN
-			#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 			if tf.shape(self.cheat)[0].numpy() > 0:
 				self.X = self.cheat
 				print("using state estimate form OXTS")
-			#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-			print("\n estimated solution vector X: \n", self.X)
+			#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+
+			print("\n estimated solution vector X: \n", self.X)
 			#transform cartesian point cloud 2 by estimated solution vector X
 			t = self.X[:3]
 			rot = R_tf(-self.X[3:])
@@ -318,18 +328,83 @@ class ICET():
 					#------------------------------------------------------------------------------------------------
 
 					bounds_bad = tf.gather(bounds, tf.gather(corr, bad_idx))
-					bad_idx_corn = self.get_corners_cluster(tf.gather(occupied_spikes, tf.gather(corr, bad_idx)), bounds_bad)
+					bad_idx_corn_moving = self.get_corners_cluster(tf.gather(occupied_spikes, tf.gather(corr, bad_idx)), bounds_bad)
 
 					ignore_these = tf.gather(corr, bad_idx)
 					corr = tf.sets.difference(corr[None, :], ignore_these[None, :]).values
 					
 
-					#draw to confirm correct points are being ignored
-					bounds_good = tf.gather(bounds, corr)
-					# print("bounds_good", bounds_good)
-					# print("corr", corr)
+					# #draw to confirm correct points are being ignored
+					# bounds_good = tf.gather(bounds, corr)
+					# good_pts_rag, _ = self.get_points_in_cluster(self.cloud1_tensor_spherical, tf.gather(occupied_spikes, corr), bounds_good)
+			#----------------------------------------------
 
-					good_pts_rag, _ = self.get_points_in_cluster(self.cloud1_tensor_spherical, tf.gather(occupied_spikes, corr), bounds_good)
+			#----------------------------------------------
+			#Use DNN to remove cells affected by persepective shift
+			if self.DNN_filter and i > 10:
+
+				#get indices of rag with >= 25 elements
+				ncells = tf.shape(corr)[0].numpy() #num of voxels with sufficent number of points
+				#Get ragged tensor containing all points from each scan inside each sufficient voxel
+				en1 = tf.gather(inside1, corr)
+				en2 = tf.gather(inside2, corr)
+
+				#init array to store indices
+				idx1 = np.zeros([ncells ,25])
+				idx2 = np.zeros([ncells ,25])
+
+				#loop through each element of ragged tensor
+				for i in range(ncells):
+				    idx1[i,:] = tf.random.shuffle(en1[i])[:25].numpy() #shuffle order and take first 25 elements
+				    idx2[i,:] = tf.random.shuffle(en2[i])[:25].numpy() #shuffle order and take first 25 elements
+
+				idx1 = tf.cast(tf.convert_to_tensor(idx1), tf.int32)
+				idx2 = tf.cast(tf.convert_to_tensor(idx2), tf.int32)
+
+				from1 = tf.gather(self.cloud1_tensor, idx1)
+				from2 = tf.gather(self.cloud2_tensor, idx2)
+
+				x_test = tf.concat((from1, from2), axis = 1)
+
+				dnnsoln = self.model.predict(x_test)
+				dnnsoln = tf.convert_to_tensor(dnnsoln)
+				# print(dnnsoln)
+
+				#-------------------------------------
+				#for debug:
+				#  we can pretend the dnn is perfect by setting dnn solution to 
+				#  zeros and feeding ground truth pos cheats in as initial conds
+				# dnnsoln = tf.zeros(tf.shape(dnnsoln)) 
+				#-------------------------------------
+
+				icetsoln = tf.gather(self.residuals, corr)
+
+				# print(enough1)
+				# print(self.corr)
+
+				both = tf.sets.intersection(enough1[None,:], corr[None,:]).values
+				ans = tf.where(enough1[:,None] == both)[:,0]
+
+				#test moving these here
+				U_i = tf.gather(U, ans)
+				L_i = tf.gather(L, ans)
+				LUT = tf.matmul(L_i, tf.transpose(U_i, [0,2,1]))
+
+				it_compact = tf.matmul(LUT, icetsoln[:,:,None])
+				dnn_compact = tf.matmul(LUT, dnnsoln[:,:,None])
+
+				#find where the largest difference in residuals are
+				thresh = 0.05
+				#be careful- not sure what this index corresponds to (may not be voxel ID)
+				bad_idx = tf.where(tf.math.abs(it_compact - dnn_compact) > thresh)[:,0]
+
+				#remove perspective shifts from corr
+				ignore_these_dnn = tf.gather(corr, bad_idx)
+				corr = tf.sets.difference(corr[None,:], ignore_these_dnn[None,:]).values
+
+				#prepare to draw bad cells
+				bounds_bad = tf.gather(self.bounds, tf.gather(corr, bad_idx))
+				bad_idx_corn_DNN = self.get_corners_cluster(tf.gather(self.occupied_spikes, tf.gather(corr, bad_idx)), bounds_bad)
 
 			#----------------------------------------------
 
@@ -349,14 +424,13 @@ class ICET():
 			# U_i = tf.gather(U, corr)
 			# L_i = tf.gather(L, corr)
 			
-			#trying this instead (4/29)
+			#trying this instead (4/29) - looks like this is working better...
 			#  1) get IDX of elements that are in both enough1 and corr
 			#  2) use this to index U and L to get U_i and L_i
 			both = tf.sets.intersection(enough1[None,:], corr[None,:]).values
 			ans = tf.where(enough1[:,None] == both)[:,0]			
 			U_i = tf.gather(U, ans)
 			L_i = tf.gather(L, ans)
-
 
 			#----------------------------------------------
 			#hold on to inside ICET object so we can use these to compare results with DNN
@@ -419,7 +493,9 @@ class ICET():
 		#draw PC2
 		if self.draw == True:
 			if remove_moving:
-				self.draw_cell(bad_idx_corn, bad = True) #for debug
+				self.draw_cell(bad_idx_corn_moving, bad = True) #for debug
+			if self.DNN_filter:
+				self.draw_cell(bad_idx_corn_DNN, bad = 2)
 			self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
 			self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
 			# self.draw_cloud(self.cloud2_tensor_OG.numpy(), pc = 3) #draw OG cloud in differnt color
@@ -427,35 +503,39 @@ class ICET():
 			# for n in range(tf.shape(inside2.to_tensor())[0]):
 			# 	temp = tf.gather(self.cloud2_tensor, inside2[n]).numpy()	
 			# 	self.disp.append(Points(temp, c = 'green', r = 5))
-			self.draw_correspondences(mu1, mu2, corr)
-			# self.visualize_L(tf.gather(mu1, corr), U_i, L_i)
+			# self.draw_correspondences(mu1, mu2, corr)
+			# self.visualize_L(tf.gather(mu1, corr), U_i, L_i) #not correct...
 
+			#FOR DEBUG: we should be looking at U_i, L_i anyways...
+			#   ans == indeces of enough1 that intersect with corr (aka combined enough1, enough2)
+			self.visualize_L(tf.gather(mu1_enough, ans), U_i, L_i)
 
-		if remove_moving:
-			to_save = np.zeros([1,3])
-			for z in range(good_pts_rag.bounding_shape()[0]):
-				temp = tf.gather(self.cloud1_tensor, good_pts_rag[z]).numpy()
-				#draw good points from scan 1-------------
-				# if self.draw == True:
-				# 	self.disp.append(Points(temp, c = 'green', r = 6))
-				#-----------------------------------------
+		#DEPRECATED
+		# if remove_moving:
+		# 	to_save = np.zeros([1,3])
+		# 	for z in range(good_pts_rag.bounding_shape()[0]):
+		# 		temp = tf.gather(self.cloud1_tensor, good_pts_rag[z]).numpy()
+		# 		#draw good points from scan 1-------------
+		# 		# if self.draw == True:
+		# 		# 	self.disp.append(Points(temp, c = 'green', r = 6))
+		# 		#-----------------------------------------
 
-				#for debug: save good points from scan 1 to file ---
-				# to_save 
-				# print(tf.shape(temp))
-				to_save = np.append(to_save, temp, axis = 0)
-				# np.savetxt("cloud1_good.txt", to_save)
+		# 		#for debug: save good points from scan 1 to file ---
+		# 		# to_save 
+		# 		# print(tf.shape(temp))
+		# 		to_save = np.append(to_save, temp, axis = 0)
+		# 		# np.savetxt("cloud1_good.txt", to_save)
 
-			self.cloud1_static = to_save
+		# 	self.cloud1_static = to_save
 
-			# #get rid of points too close to ego-vehicle in cloud1_static------------------------
-			# #	doing this to minmize negative effects of perspective shift
-			# cloud1_static_tensor = tf.cast(tf.convert_to_tensor(self.cloud1_static), tf.float32)
-			# cloud1_static_tensor_spherical = tf.cast(self.c2s(cloud1_static_tensor), tf.float32)
+		# 	# #get rid of points too close to ego-vehicle in cloud1_static------------------------
+		# 	# #	doing this to minmize negative effects of perspective shift
+		# 	# cloud1_static_tensor = tf.cast(tf.convert_to_tensor(self.cloud1_static), tf.float32)
+		# 	# cloud1_static_tensor_spherical = tf.cast(self.c2s(cloud1_static_tensor), tf.float32)
 
-			# not_too_close1 = tf.where(cloud1_static_tensor_spherical[:,0] > 6)[:,0]
-			# self.cloud1_static = tf.gather(cloud1_static_tensor, not_too_close1).numpy()
-			# #-----------------------------------------------------------------------------------
+		# 	# not_too_close1 = tf.where(cloud1_static_tensor_spherical[:,0] > 6)[:,0]
+		# 	# self.cloud1_static = tf.gather(cloud1_static_tensor, not_too_close1).numpy()
+		# 	# #-----------------------------------------------------------------------------------
 
 
 
@@ -624,11 +704,11 @@ class ICET():
 		cond2 = cloud[:,0] < tf.cast(bounds[:,1][:,None], tf.float32) #closer than max bound
 		cond3 = cloud[:,0] > tf.cast(bounds[:,0][:,None], tf.float32) #further than min bound
 
-		pts_in_cluster = tf.where(tf.math.reduce_all(tf.Variable([cond1, cond2, cond3]), axis = 0))
-		numPtsPerCluster = tf.math.bincount(tf.cast(pts_in_cluster[:,0], tf.int32))
-		pts_in_cluster = tf.RaggedTensor.from_value_rowids(pts_in_cluster[:,1], pts_in_cluster[:,0])
+		inside1 = tf.where(tf.math.reduce_all(tf.Variable([cond1, cond2, cond3]), axis = 0))
+		numPtsPerCluster = tf.math.bincount(tf.cast(inside1[:,0], tf.int32))
+		inside1 = tf.RaggedTensor.from_value_rowids(inside1[:,1], inside1[:,0])
 
-		return(pts_in_cluster, numPtsPerCluster)
+		return(inside1, numPtsPerCluster)
 
 	def get_U_and_L_cluster(self, sigma1, mu1, occupied_spikes, bounds):
 		""" get U and L when using cluster point grouping """ 
@@ -949,7 +1029,7 @@ class ICET():
 
 		# print("correspondences", corr)
 		for i in corr:
-			a = shapes.Arrow(mu2[i].numpy(), mu1[i].numpy(), c = "black")
+			a = shapes.Arrow(mu2[i].numpy(), mu1[i].numpy(), s = 0.01, c = "black")
 			self.disp.append(a)
 
 
@@ -1220,6 +1300,7 @@ class ICET():
 				self.disp.append(shapes.Line(p4,p8,c = 'red', lw = 1))
 
 		if bad == True:
+			#identified as containing moving objects
 			for i in range(tf.shape(corners)[0]):
 				p1, p2, p3, p4, p5, p6, p7, p8 = self.s2c(corners[i]).numpy()
 				thicc = 3
@@ -1254,6 +1335,43 @@ class ICET():
 				self.disp.append(shapes.Line(p2,p6,c = 'yellow', lw = thicc))
 				self.disp.append(shapes.Line(p3,p7,c = 'yellow', lw = thicc))
 				self.disp.append(shapes.Line(p4,p8,c = 'yellow', lw = thicc))
+
+		if bad == 2:
+			#identified as perspective shift
+			for i in range(tf.shape(corners)[0]):
+				p1, p2, p3, p4, p5, p6, p7, p8 = self.s2c(corners[i]).numpy()
+				thicc = 3
+
+				# arc1 = shapes.Arc(center = [0,0,0], point1 = p1, point2 = p2, c = 'yellow')	
+				# arc1.lineWidth(thicc)
+				arc1 = shapes.Line(p1, p2, c = 'purple', lw = thicc) #debug
+				self.disp.append(arc1)
+				# arc2 = shapes.Arc(center = [0,0,0], point1 = p3, point2 = p4, c = 'yellow')
+				# arc2.lineWidth(thicc)
+				arc2 = shapes.Line(p3, p4, c = 'purple', lw = thicc) #debug
+				self.disp.append(arc2)
+				line1 = shapes.Line(p1, p3, c = 'purple', lw = thicc)
+				self.disp.append(line1)
+				line2 = shapes.Line(p2, p4, c = 'purple', lw = thicc) #problem here
+				self.disp.append(line2)
+
+				# arc3 = shapes.Arc(center = [0,0,0], point1 = p5, point2 = p6, c = 'yellow')
+				# arc3.lineWidth(thicc)
+				arc3 = shapes.Line(p5, p6, c = 'purple', lw = thicc) #debug			
+				self.disp.append(arc3)
+				# arc4 = shapes.Arc(center = [0,0,0], point1 = p7, point2 = p8, c = 'yellow')
+				# arc4.lineWidth(thicc)
+				arc4 = shapes.Line(p7, p8, c = 'purple', lw = thicc) #debug
+				self.disp.append(arc4)
+				line3 = shapes.Line(p5, p7, c = 'purple', lw = thicc)
+				self.disp.append(line3)
+				line4 = shapes.Line(p6, p8, c = 'purple', lw = thicc)
+				self.disp.append(line4)
+
+				self.disp.append(shapes.Line(p1,p5,c = 'purple', lw = thicc))
+				self.disp.append(shapes.Line(p2,p6,c = 'purple', lw = thicc))
+				self.disp.append(shapes.Line(p3,p7,c = 'purple', lw = thicc))
+				self.disp.append(shapes.Line(p4,p8,c = 'purple', lw = thicc))
 
 
 	def grid_spherical(self, draw = False):
