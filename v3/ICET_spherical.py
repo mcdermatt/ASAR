@@ -252,8 +252,8 @@ class ICET():
 
 			#----------------------------------------------
 			if remove_moving:  
-				if i > 10: #TODO: tune this to optimal value
-					print("\n ---identified moving objects---")
+				if i >= 10: #TODO: tune this to optimal value
+					print("\n ---checking for moving objects---")
 					#FIND CELLS THAT INTRODUCE THE MOST ERROR
 					# self.H = H
 					# self.H_z = H_z			
@@ -341,8 +341,8 @@ class ICET():
 
 			#----------------------------------------------
 			#Use DNN to remove cells affected by persepective shift
-			if self.DNN_filter and i > 10:
-
+			if self.DNN_filter and i >= 10:
+				print("\n ---checking for perspective shift---")
 				#get indices of rag with >= 25 elements
 				ncells = tf.shape(corr)[0].numpy() #num of voxels with sufficent number of points
 				#Get ragged tensor containing all points from each scan inside each sufficient voxel
@@ -370,33 +370,53 @@ class ICET():
 				dnnsoln = tf.convert_to_tensor(dnnsoln)
 				# print(dnnsoln)
 
-				#-------------------------------------
-				#for debug:
+				#---------------------------------------------------------------
+				# for debug:
 				#  we can pretend the dnn is perfect by setting dnn solution to 
-				#  zeros and feeding ground truth pos cheats in as initial conds
+				#  zeros and feeding ground truth pos cheats in as initial conds:
 				# dnnsoln = tf.zeros(tf.shape(dnnsoln)) 
-				#-------------------------------------
+				#---------------------------------------------------------------
 
-				icetsoln = tf.gather(self.residuals, corr)
+				#was this - DEBUG: think it may be creating a chicken and egg problem
+				# icetsoln = tf.gather(self.residuals, corr)
+
+				#fix - just do m2 - mu1 
+				#temp lazy solution: just take mean of subset of 25 points fed into dnn from each pc, and get diff
+				icetsoln = tf.math.reduce_mean(from2, axis = 1) - tf.math.reduce_mean(from1, axis = 1) #signage shows we need 2-1
 
 				# print(enough1)
 				# print(self.corr)
 
 				both = tf.sets.intersection(enough1[None,:], corr[None,:]).values
 				ans = tf.where(enough1[:,None] == both)[:,0]
-
+				
 				#test moving these here
 				U_i = tf.gather(U, ans)
 				L_i = tf.gather(L, ans)
 				LUT = tf.matmul(L_i, tf.transpose(U_i, [0,2,1]))
+				# LUT = tf.matmul(L_i, U_i) #test
 
 				it_compact = tf.matmul(LUT, icetsoln[:,:,None])
+				it_compact_xyz = tf.matmul(U_i, it_compact)
 				dnn_compact = tf.matmul(LUT, dnnsoln[:,:,None])
+				dnn_compact_xyz = tf.matmul(U_i, dnn_compact)
+
+				# print(tf.shape(dnnsoln))
+				# print(tf.shape(dnn_compact))
+				# print(it_compact_xyz - dnn_compact_xyz)
+
+				#TODO: move this to the end so we don't repeat every iteration
+				# self.draw_DNN_soln(dnnsoln, tf.gather(mu1_enough, ans))
+				self.draw_DNN_soln(dnn_compact_xyz[:,:,0], it_compact_xyz[:,:,0], tf.gather(mu1_enough, ans))
 
 				#find where the largest difference in residuals are
-				thresh = 0.05
+				thresh = 0.1 #0.05
 				#be careful- not sure what this index corresponds to (may not be voxel ID)
-				bad_idx = tf.where(tf.math.abs(it_compact - dnn_compact) > thresh)[:,0]
+				# bad_idx = tf.where(tf.math.abs(it_compact - dnn_compact) > thresh)[:,0] #incorrect? (comparing xyz vs dist axis aligned...)
+				bad_idx = tf.where(tf.math.abs(it_compact_xyz - dnn_compact_xyz) > thresh)[:,0]
+				bad_idx = tf.unique(bad_idx)[0] #get rid of repeated indices
+
+				print("bad_idx", bad_idx)
 
 				#remove perspective shifts from corr
 				ignore_these_dnn = tf.gather(corr, bad_idx)
@@ -496,6 +516,7 @@ class ICET():
 				self.draw_cell(bad_idx_corn_moving, bad = True) #for debug
 			if self.DNN_filter:
 				self.draw_cell(bad_idx_corn_DNN, bad = 2)
+
 			self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
 			self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
 			# self.draw_cloud(self.cloud2_tensor_OG.numpy(), pc = 3) #draw OG cloud in differnt color
@@ -508,7 +529,7 @@ class ICET():
 
 			#FOR DEBUG: we should be looking at U_i, L_i anyways...
 			#   ans == indeces of enough1 that intersect with corr (aka combined enough1, enough2)
-			self.visualize_L(tf.gather(mu1_enough, ans), U_i, L_i)
+			# self.visualize_L(tf.gather(mu1_enough, ans), U_i, L_i)
 
 		#DEPRECATED
 		# if remove_moving:
@@ -934,6 +955,30 @@ class ICET():
 			self.disp.append(arr3)
 			arr3 = shapes.Arrow(y0[i].numpy(), (y0[i] - arrow_len * ends[2,:]).numpy(), c = 'blue')
 			self.disp.append(arr3)
+
+	def draw_DNN_soln(self, dnnsoln, itsoln, mu1):
+		""" For each qualifying voxel, draw the solution vector estimated by the scan registation DNN 
+
+			#dnnsoln = [n, 3] tensor with x, y, z translation estimates for each voxel
+			itsoln = [n, 3] tensor, used to debug places where ICET and DNN solns differ greatly, want
+							to make sure this works the same as our other perspective shift id technique
+			mu1 = distribution centers from scan1 (only where sufficient correspondences occur)
+			"""
+
+		for i in range(tf.shape(dnnsoln)[0].numpy()):
+			#normalize len of each arrow
+			# arrowlen = 1/(np.sqrt(dnnsoln[i,0].numpy()**2 + dnnsoln[i,1].numpy()**2 + dnnsoln[i,2].numpy()**2))
+			arrowlen = 1 #leave arrows proportional to residual distance
+			# A = Arrow2D(startPoint = mu1[i].numpy(), endPoint = mu1[i].numpy() + arrowlen*dnnsoln[i,:].numpy(), c = 'purple')
+			A = shapes.Arrow(mu1[i].numpy(), mu1[i].numpy() + arrowlen*dnnsoln[i,:].numpy(), c = 'purple')
+			self.disp.append(A)
+
+			#draw big dot if dnnsoln and itsoln disagree
+			if (abs((dnnsoln[i] - itsoln[i]).numpy()) > 0.1).any():
+				print(i)
+				dot = Points(np.array([[mu1[i,0].numpy(), mu1[i,1].numpy(), mu1[i,2].numpy()]]), c = "purple", r = 20)
+				self.disp.append(dot)
+
 
 	def check_condition(self, HTWH):
 		"""verifies that HTWH is invertable and if not, 
@@ -1504,7 +1549,14 @@ class ICET():
 		car.addShadow(plane = 'z', point = -1.85, c=(0.5, 0.5, 0.5))
 		# car.orientation(vector(0,np.pi/2,0)) 
 		self.disp.append(car)
-		#draw red sphere at location of sensor
-		self.disp.append(Points(np.array([[0,0,0]]), c = [0.9,0.9,0.5], r = 10))
+		#draw sphere at location of sensor
+		# self.disp.append(Points(np.array([[0,0,0]]), c = [0.9,0.9,0.5], r = 10))
+
+		fname = "C:/Users/Derm/lidar.stl"
+		velodyne = Mesh(fname).c("gray").rotate(90, axis = (1,0,0)).scale(0.001)
+		velodyne.rotate(180, axis = (0,1,0))
+		velodyne.pos(0,0,0.01)
+		velodyne.addShadow(plane = 'z', point = -0.08, c = (0.2, 0.2, 0.2))
+		self.disp.append(velodyne)
 
 		# print(car.rot)
