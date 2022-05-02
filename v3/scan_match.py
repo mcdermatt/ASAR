@@ -16,7 +16,7 @@ date = '2011_09_26'
 
 # urban dataset used in 3D-ICET paper 
 drive = '0005'
-idx = 0
+idx = 144
 
 #test with aiodrive
 # drive = 'aiodrive'
@@ -120,9 +120,19 @@ OXTS_ground_truth = tf.constant([poses1.packet.vf*dt, -poses1.packet.vl*dt, pose
 # # # -------------------------------------------------------------------------------------
 
 #run once to get rough estimate and remove outlier points
-# x0 = tf.constant([0.6018, 0.00556, -0.015, 0.0016, 0.0006, -0.01378]) #138
-it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 15, 
-	draw = True, group = 2, RM = False, DNN_filter = True) #, cheat = OXTS_ground_truth)
+# x0 = tf.convert_to_tensor(OXTS_ground_truth)
+it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 20, 
+	draw = True, group = 2, RM = True, DNN_filter = True) #, x0 = x0) #, cheat = OXTS_ground_truth)
+
+print("\n OXTS_ground_truth: \n", OXTS_ground_truth)
+
+ViewInteractiveWidget(it1.plt.window)
+
+# #run again with reduced point set
+# it2 = ICET(cloud1 = it1.cloud1_static, cloud2 = c2, fid = 50, niter = 15, 
+# 	draw = True, group = 2, RM = False, DNN_filter = False) 
+
+# ViewInteractiveWidget(it2.plt.window)
 
 # bad_idx = tf.constant([0, 3,  14,  15, 17,  18 , 24 , 32,  37,  39,  41,  43,  46,  47,  48,  50,  52,
 #   52,  57,  57,  58,  62,  63,  66 , 68,  69 , 72 , 74 , 78 , 83 , 84 , 90 , 92 , 99, 102,
@@ -133,10 +143,3 @@ it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 15,
 # it.draw_cell(bad_idx_corn, bad = 2)
 # it.plt.show(it.disp, "Spherical ICET")
 
-#run again to re-converge with outliers removed
-# cloud1 = it.cloud1_static
-# cloud1 = cloud1[cloud1[:,2] > -1.5 ] #remove ground plane 2nd time around
-# it = ICET(cloud1 = it.cloud1_static, cloud2 = c2, fid = 70, niter = 20, draw = True, group = 2, RM = False)
-# print("\n predicted solution error covariance: \n", it.pred_stds)
-
-ViewInteractiveWidget(it.plt.window)

@@ -198,7 +198,7 @@ class ICET():
 		if self.draw:
 			# self.visualize_L(mu1_enough, U, L)
 			self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
-			self.draw_cell(corn)
+			# self.draw_cell(corn)
 			self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
 			self.draw_car()
 			# draw identified points inside useful clusters
@@ -332,22 +332,20 @@ class ICET():
 
 					ignore_these = tf.gather(corr, bad_idx)
 					corr = tf.sets.difference(corr[None, :], ignore_these[None, :]).values
-					
-
-					# #draw to confirm correct points are being ignored
-					# bounds_good = tf.gather(bounds, corr)
-					# good_pts_rag, _ = self.get_points_in_cluster(self.cloud1_tensor_spherical, tf.gather(occupied_spikes, corr), bounds_good)
 			#----------------------------------------------
 
 			#----------------------------------------------
 			#Use DNN to remove cells affected by persepective shift
 			if self.DNN_filter and i >= 10:
+
+				#DEBUG (5/2)- replaced all references of <corr> to <corr_full>
+
 				print("\n ---checking for perspective shift---")
 				#get indices of rag with >= 25 elements
-				ncells = tf.shape(corr)[0].numpy() #num of voxels with sufficent number of points
+				ncells = tf.shape(corr_full)[0].numpy() #num of voxels with sufficent number of points
 				#Get ragged tensor containing all points from each scan inside each sufficient voxel
-				en1 = tf.gather(inside1, corr)
-				en2 = tf.gather(inside2, corr)
+				en1 = tf.gather(inside1, corr_full)
+				en2 = tf.gather(inside2, corr_full)
 
 				#init array to store indices
 				idx1 = np.zeros([ncells ,25])
@@ -379,22 +377,25 @@ class ICET():
 
 				#was this - DEBUG: think it may be creating a chicken and egg problem
 				# icetsoln = tf.gather(self.residuals, corr)
+				icetsoln = tf.math.reduce_mean(tf.gather(self.cloud1_tensor,en1), axis = 1) - tf.math.reduce_mean(tf.gather(self.cloud2_tensor,en2), axis = 1)
+				# print(icetsoln)
 
 				#fix - just do m2 - mu1 
 				#temp lazy solution: just take mean of subset of 25 points fed into dnn from each pc, and get diff
-				icetsoln = tf.math.reduce_mean(from2, axis = 1) - tf.math.reduce_mean(from1, axis = 1) #signage shows we need 2-1
+				# icetsoln = tf.math.reduce_mean(from2, axis = 1) - tf.math.reduce_mean(from1, axis = 1) #signage shows we need 2-1
+				# print("lazy", icetsoln)
 
 				# print(enough1)
 				# print(self.corr)
 
-				both = tf.sets.intersection(enough1[None,:], corr[None,:]).values
+				both = tf.sets.intersection(enough1[None,:], corr_full[None,:]).values
 				ans = tf.where(enough1[:,None] == both)[:,0]
 				
 				#test moving these here
 				U_i = tf.gather(U, ans)
 				L_i = tf.gather(L, ans)
-				LUT = tf.matmul(L_i, tf.transpose(U_i, [0,2,1]))
-				# LUT = tf.matmul(L_i, U_i) #test
+				# LUT = tf.matmul(L_i, tf.transpose(U_i, [0,2,1]))
+				LUT = tf.matmul(L_i, U_i) #test 5/2
 
 				it_compact = tf.matmul(LUT, icetsoln[:,:,None])
 				it_compact_xyz = tf.matmul(U_i, it_compact)
@@ -405,27 +406,23 @@ class ICET():
 				# print(tf.shape(dnn_compact))
 				# print(it_compact_xyz - dnn_compact_xyz)
 
-				#TODO: move this to the end so we don't repeat every iteration
-				# self.draw_DNN_soln(dnnsoln, tf.gather(mu1_enough, ans))
-				self.draw_DNN_soln(dnn_compact_xyz[:,:,0], it_compact_xyz[:,:,0], tf.gather(mu1_enough, ans))
-
 				#find where the largest difference in residuals are
-				thresh = 0.1 #0.05
+				thresh = 0.05 #0.05 #0.1
 				#be careful- not sure what this index corresponds to (may not be voxel ID)
 				# bad_idx = tf.where(tf.math.abs(it_compact - dnn_compact) > thresh)[:,0] #incorrect? (comparing xyz vs dist axis aligned...)
 				bad_idx = tf.where(tf.math.abs(it_compact_xyz - dnn_compact_xyz) > thresh)[:,0]
 				bad_idx = tf.unique(bad_idx)[0] #get rid of repeated indices
 
-				print("bad_idx", bad_idx)
+				# print("bad_idx", bad_idx)
+
+				#draw bad cells
+				bounds_bad = tf.gather(self.bounds, tf.gather(corr_full, bad_idx))
+				bad_idx_corn_DNN = self.get_corners_cluster(tf.gather(self.occupied_spikes, tf.gather(corr_full, bad_idx)), bounds_bad)
 
 				#remove perspective shifts from corr
-				ignore_these_dnn = tf.gather(corr, bad_idx)
-				corr = tf.sets.difference(corr[None,:], ignore_these_dnn[None,:]).values
-
-				#prepare to draw bad cells
-				bounds_bad = tf.gather(self.bounds, tf.gather(corr, bad_idx))
-				bad_idx_corn_DNN = self.get_corners_cluster(tf.gather(self.occupied_spikes, tf.gather(corr, bad_idx)), bounds_bad)
-
+				ignore_these_dnn = tf.gather(corr_full, bad_idx)
+				#TODO- there may be a bug here
+				corr = tf.sets.difference(corr[None,:], ignore_these_dnn[None,:]).values #was this
 			#----------------------------------------------
 
 			y0_i_full = tf.gather(mu1, corr_full)
@@ -440,11 +437,11 @@ class ICET():
 			sigma_i = tf.gather(sigma2, corr)
 			npts_i = tf.gather(npts2, corr)
 
-			#was this, I think it's incorrect 
+			#was this, incorrect
 			# U_i = tf.gather(U, corr)
 			# L_i = tf.gather(L, corr)
 			
-			#trying this instead (4/29) - looks like this is working better...
+			#need special indexing for U_i and L_i since they are derived from <mu1_enough>
 			#  1) get IDX of elements that are in both enough1 and corr
 			#  2) use this to index U and L to get U_i and L_i
 			both = tf.sets.intersection(enough1[None,:], corr[None,:]).values
@@ -469,16 +466,20 @@ class ICET():
 			H = tf.reshape(H, (tf.shape(H)[0]//3,3,6)) # -> need shape [#corr//3, 3, 6]
 			# print("H \n", H)
 
+			U_iT = tf.transpose(U_i, [0,2,1])
+			L_iT = tf.transpose(L_i, [0,2,1])
+
 			#construct sensor noise covariance matrix
 			R_noise = (tf.transpose(tf.transpose(sigma0_i, [1,2,0]) / tf.cast(npts0_i - 1, tf.float32)) + 
 						tf.transpose(tf.transpose(sigma_i, [1,2,0]) / tf.cast(npts_i - 1, tf.float32)) )
-			R_noise = L_i @ tf.transpose(U_i, [0,2,1]) @ R_noise @ U_i @ tf.transpose(L_i, [0,2,1])
+			R_noise = L_i @ tf.transpose(U_i, [0,2,1]) @ R_noise @ U_i @ tf.transpose(L_i, [0,2,1]) # was this
+			# R_noise = L_iT @ U_i @ R_noise @ U_iT @ L_i #test
 
 			#take inverse of R_noise to get our weighting matrix
 			W = tf.linalg.pinv(R_noise)
 
-			U_iT = tf.transpose(U_i, [0,2,1])
-			LUT = L_i @ U_iT
+			LUT = L_i @ U_iT #was this
+			# LUT = L_i @ U_i #test
 
 			# use LUT to remove rows of H corresponding to overly extended directions
 			H_z = LUT @ H
@@ -503,8 +504,6 @@ class ICET():
 
 			#get output covariance matrix
 			self.Q = tf.linalg.pinv(HTWH)
-			# print("\n Q \n", Q)
-
 			self.pred_stds = tf.linalg.tensor_diag_part(tf.math.sqrt(tf.abs(self.Q)))
 
 		print("pred_stds: \n", self.pred_stds)
@@ -529,25 +528,30 @@ class ICET():
 
 			#FOR DEBUG: we should be looking at U_i, L_i anyways...
 			#   ans == indeces of enough1 that intersect with corr (aka combined enough1, enough2)
-			# self.visualize_L(tf.gather(mu1_enough, ans), U_i, L_i)
+			self.visualize_L(tf.gather(mu1_enough, ans), U_i, L_i)
 
-		#DEPRECATED
-		# if remove_moving:
-		# 	to_save = np.zeros([1,3])
-		# 	for z in range(good_pts_rag.bounding_shape()[0]):
-		# 		temp = tf.gather(self.cloud1_tensor, good_pts_rag[z]).numpy()
-		# 		#draw good points from scan 1-------------
-		# 		# if self.draw == True:
-		# 		# 	self.disp.append(Points(temp, c = 'green', r = 6))
-		# 		#-----------------------------------------
+		#for debug ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		#to confirm correct points are being ignored
+		bounds_good = tf.gather(bounds, corr)
+		good_pts_rag, _ = self.get_points_in_cluster(self.cloud1_tensor_spherical, tf.gather(occupied_spikes, corr), bounds_good)
 
-		# 		#for debug: save good points from scan 1 to file ---
-		# 		# to_save 
-		# 		# print(tf.shape(temp))
-		# 		to_save = np.append(to_save, temp, axis = 0)
-		# 		# np.savetxt("cloud1_good.txt", to_save)
+		if remove_moving or self.DNN_filter:
+			to_save = np.zeros([1,3])
+			for z in range(good_pts_rag.bounding_shape()[0]):
+				temp = tf.gather(self.cloud1_tensor, good_pts_rag[z]).numpy()
+				#draw good points from scan 1-------------
+				# if self.draw == True:
+				# 	self.disp.append(Points(temp, c = 'green', r = 6))
+				#-----------------------------------------
 
-		# 	self.cloud1_static = to_save
+				#for debug: save good points from scan 1 to file ---
+				# to_save 
+				# print(tf.shape(temp))
+				to_save = np.append(to_save, temp, axis = 0)
+				# np.savetxt("cloud1_good.txt", to_save)
+
+			self.cloud1_static = to_save
+		# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 		# 	# #get rid of points too close to ego-vehicle in cloud1_static------------------------
 		# 	# #	doing this to minmize negative effects of perspective shift
@@ -736,7 +740,8 @@ class ICET():
 
 
 		eigenval, eigenvec = tf.linalg.eig(sigma1)
-		U = tf.math.real(eigenvec)
+		# U = tf.math.real(eigenvec) #was this
+		U = tf.transpose(tf.math.real(eigenvec), [0, 2, 1]) #test
 
 		#need to create [N,3,3] diagonal matrices for axislens
 		zeros = tf.zeros([tf.shape(tf.math.real(eigenval))[0]])
@@ -938,7 +943,9 @@ class ICET():
 
 		for i in range(tf.shape(y0)[0]):
 
-			ends =  L[i] @ tf.transpose(U[i])
+			# ends =  L[i] @ tf.transpose(U[i])
+			ends =  L[i] @ U[i]
+
 
 			arrow_len = 0.5
 			arr1 = shapes.Arrow(y0[i].numpy(), (y0[i] + arrow_len * ends[0,:]).numpy(), c = 'red')
