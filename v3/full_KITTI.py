@@ -32,8 +32,8 @@ for i in range(num_frames):
 	c1 = velo1[:,:3]
 	velo2 = dataset.get_velo(i+1) # Each scan is a Nx4 array of [x,y,z,reflectance]
 	c2 = velo2[:,:3]
-	# c1 = c1[c1[:,2] > -1.5] #ignore ground plane
-	# c2 = c2[c2[:,2] > -1.5] #ignore ground plane
+	c1 = c1[c1[:,2] > -1.5] #ignore ground plane
+	c2 = c2[c2[:,2] > -1.5] #ignore ground plane
 	# c1 = c1[c1[:,2] > -2.] #ignore reflections
 	# c2 = c2[c2[:,2] > -2.] #ignore reflections
 
@@ -41,11 +41,11 @@ for i in range(num_frames):
 
 	#-------------------------------------------------------------------------------------------------
 	#run once to get rough estimate and remove outlier points
-	it = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 20, draw = False, group = 2, RM = True)
+	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 20, draw = False, group = 2, RM = True, DNN_filter = True)
 	ICET_pred_stds[i] = it.pred_stds
 
 	#run again to re-converge with outliers removed
-	it = ICET(cloud1 = it.cloud1_static, cloud2 = c2, fid = 70, niter = 20, draw = False, group = 2, RM = False)
+	# it = ICET(cloud1 = it.cloud1_static, cloud2 = c2, fid = 70, niter = 20, draw = False, group = 2, RM = False)
 	#-------------------------------------------------------------------------------------------------
 
 	ICET_estimates[i] = it.X #* (dataset.timestamps[i+1] - dataset.timestamps[i]).microseconds/(10e5)/0.1
@@ -100,9 +100,9 @@ for i in range(num_frames):
 	# print("\n solution from ICET \n", ICET_estimates[i])
 	print("\n solution from GPS/INS \n", OXTS_baseline[i])
 
-np.savetxt("ICET_pred_stds_v10.txt", ICET_pred_stds)
-np.savetxt("ICET_estimates_v10.txt", ICET_estimates)
-np.savetxt("OXTS_baseline_v10.txt", OXTS_baseline)
+np.savetxt("ICET_pred_stds_v11.txt", ICET_pred_stds)
+np.savetxt("ICET_estimates_v11.txt", ICET_estimates)
+np.savetxt("OXTS_baseline_v11.txt", OXTS_baseline)
 
 # np.savetxt("OXTS_baseline_gps.txt", OXTS_baseline)
 

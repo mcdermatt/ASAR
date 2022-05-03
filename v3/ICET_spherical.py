@@ -123,6 +123,10 @@ class ICET():
 			#perform algorithm new way with radial clustering (no bins)
 			self.main_2(niter = self.niter, x0 = x0, remove_moving = RM)
 
+			#debug
+			# print("cloud 1 new", self.cloud1_static)
+			self.disp.append(Points(self.cloud1_static, c = 'green', r = 10))
+
 		if self.draw == True:
 			# self.disp.append(addons.LegendBox(self.disp))
 			self.plt.show(self.disp, "Spherical ICET")
@@ -198,8 +202,7 @@ class ICET():
 		if self.draw:
 			# self.visualize_L(mu1_enough, U, L)
 			self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
-			# self.draw_cell(corn)
-			self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
+			self.draw_cell(corn)
 			self.draw_car()
 			# draw identified points inside useful clusters
 			# for n in range(tf.shape(inside1.to_tensor())[0]):
@@ -307,12 +310,12 @@ class ICET():
 					# #------------------
 
 					#x and y---------
-					bad_idx = tf.where( tf.math.abs(metric1) > mu_x + 2*sigma_x )[:,0][None, :]
+					bad_idx = tf.where( tf.math.abs(metric1) > mu_x + 1*sigma_x )[:,0][None, :]
 					# print(" \n bad_idx1", bad_idx)
 
 					mu_y = tf.math.reduce_mean(metric2)
 					sigma_y = tf.math.reduce_std(metric2)
-					bad_idx2 = tf.where( tf.math.abs(metric2) > mu_y + 	2*sigma_y )[:,0][None, :]
+					bad_idx2 = tf.where( tf.math.abs(metric2) > mu_y + 	1*sigma_y )[:,0][None, :]
 					# print("\n bad_idx2", bad_idx2)
 					bad_idx = tf.sets.union(bad_idx, bad_idx2).values
 
@@ -325,6 +328,7 @@ class ICET():
 					# print("corr \n", corr)
 					# print("bad idx", bad_idx)
 					# print(tf.gather(it.dx_i[:,0], bad_idx))
+					# print(tf.gather(occupied_spikes, corr))
 					#------------------------------------------------------------------------------------------------
 
 					bounds_bad = tf.gather(bounds, tf.gather(corr, bad_idx))
@@ -425,6 +429,42 @@ class ICET():
 				corr = tf.sets.difference(corr[None,:], ignore_these_dnn[None,:]).values #was this
 			#----------------------------------------------
 
+			#for debug ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+			#to confirm correct points are being ignored
+			bounds_good = tf.gather(bounds, corr)
+			good_pts_rag, _ = self.get_points_in_cluster(self.cloud1_tensor_spherical, tf.gather(occupied_spikes, corr), bounds_good)
+
+			if remove_moving or self.DNN_filter:
+				if i >= 10:
+					to_save = np.zeros([1,3])
+					for z in range(good_pts_rag.bounding_shape()[0]):
+						temp = tf.gather(self.cloud1_tensor, good_pts_rag[z]).numpy()
+						#draw good points from scan 1-------------
+						# if self.draw == True:
+						# 	self.disp.append(Points(temp, c = 'green', r = 6))
+						#-----------------------------------------
+
+						#for debug: save good points from scan 1 to file ---
+						# to_save 
+						# print(tf.shape(temp))
+						to_save = np.append(to_save, temp, axis = 0)
+						# np.savetxt("cloud1_good.txt", to_save)
+
+					self.cloud1_static = to_save
+
+					#update cloud1 and dependencies (mu1, sigma1, etc.) to remove pts form scan1 in problematic regions
+					# self.cloud1_tensor = tf.cast(tf.convert_to_tensor(to_save), tf.float32)
+					# self.cloud1_tensor_spherical = tf.cast(self.c2s(self.cloud1_tensor), tf.float32)
+					# inside1, npts1 = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes, bounds)
+					# mu1, sigma1 = self.fit_gaussian(tf.cast(self.cloud1_tensor, tf.float32), inside1, tf.cast(npts1, tf.float32))
+					# enough1 = tf.where(npts1 > self.min_num_pts)[:,0]
+					# mu1_enough = tf.gather(mu1, enough1)
+					# sigma1_enough = tf.gather(sigma1, enough1)
+					# print("enough1", enough1)
+
+			# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
 			y0_i_full = tf.gather(mu1, corr_full)
 			y_i_full = tf.gather(mu2, corr_full)
 
@@ -517,41 +557,19 @@ class ICET():
 				self.draw_cell(bad_idx_corn_DNN, bad = 2)
 
 			self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
+			self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
 			self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
 			# self.draw_cloud(self.cloud2_tensor_OG.numpy(), pc = 3) #draw OG cloud in differnt color
 			# draw identified points from scan 2 inside useful clusters
 			# for n in range(tf.shape(inside2.to_tensor())[0]):
 			# 	temp = tf.gather(self.cloud2_tensor, inside2[n]).numpy()	
 			# 	self.disp.append(Points(temp, c = 'green', r = 5))
-			# self.draw_correspondences(mu1, mu2, corr)
+			self.draw_correspondences(mu1, mu2, corr)
 			# self.visualize_L(tf.gather(mu1, corr), U_i, L_i) #not correct...
 
 			#FOR DEBUG: we should be looking at U_i, L_i anyways...
 			#   ans == indeces of enough1 that intersect with corr (aka combined enough1, enough2)
 			self.visualize_L(tf.gather(mu1_enough, ans), U_i, L_i)
-
-		#for debug ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-		#to confirm correct points are being ignored
-		bounds_good = tf.gather(bounds, corr)
-		good_pts_rag, _ = self.get_points_in_cluster(self.cloud1_tensor_spherical, tf.gather(occupied_spikes, corr), bounds_good)
-
-		if remove_moving or self.DNN_filter:
-			to_save = np.zeros([1,3])
-			for z in range(good_pts_rag.bounding_shape()[0]):
-				temp = tf.gather(self.cloud1_tensor, good_pts_rag[z]).numpy()
-				#draw good points from scan 1-------------
-				# if self.draw == True:
-				# 	self.disp.append(Points(temp, c = 'green', r = 6))
-				#-----------------------------------------
-
-				#for debug: save good points from scan 1 to file ---
-				# to_save 
-				# print(tf.shape(temp))
-				to_save = np.append(to_save, temp, axis = 0)
-				# np.savetxt("cloud1_good.txt", to_save)
-
-			self.cloud1_static = to_save
-		# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 		# 	# #get rid of points too close to ego-vehicle in cloud1_static------------------------
 		# 	# #	doing this to minmize negative effects of perspective shift
