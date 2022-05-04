@@ -16,7 +16,7 @@ date = '2011_09_26'
 
 # urban dataset used in 3D-ICET paper 
 drive = '0005'
-idx = 110
+idx = 137
 
 #test with aiodrive
 # drive = 'aiodrive'
@@ -66,10 +66,8 @@ OXTS_ground_truth = tf.constant([poses1.packet.vf*dt, -poses1.packet.vl*dt, pose
 # # filename = 'C:/CODD/data/m2v7p3s333.hdf5'
 # filename = 'C:/CODD/data/m10v11p6s30.hdf5' #wide road, palm trees, and traffic
 
-
 # vidx = 0 #vehicle index
-# idx = 61 #frame idx
-
+# idx = 2 #61 #frame idx
 
 # with h5py.File(filename, 'r') as hf:
 # #     pcls = hf['point_cloud'][:]
@@ -86,8 +84,6 @@ OXTS_ground_truth = tf.constant([poses1.packet.vf*dt, -poses1.packet.vl*dt, pose
 
 # c1 += 0.01*np.random.randn(np.shape(c1)[0], 3)
 # c2 += 0.01*np.random.randn(np.shape(c2)[0], 3)
-
-
 # #---------------------------------------------------------------------------------------
 
 
@@ -121,7 +117,7 @@ OXTS_ground_truth = tf.constant([poses1.packet.vf*dt, -poses1.packet.vl*dt, pose
 
 #run once to get rough estimate and remove outlier points
 # x0 = tf.convert_to_tensor(OXTS_ground_truth)
-it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 20, 
+it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 15, 
 	draw = True, group = 2, RM = True, DNN_filter = True) #, x0 = x0) #, cheat = OXTS_ground_truth)
 
 print("\n OXTS_ground_truth: \n", OXTS_ground_truth)

@@ -43,7 +43,7 @@ class ICET():
 		DNN_filter = False, cheat = []):
 
 		self.min_cell_distance = 2 #5 #3 #begin closest spherical voxel here
-		self.min_num_pts = 50 #25 #10 #ignore "occupied" cells with fewer than this number of pts
+		self.min_num_pts = 25 #10 #ignore "occupied" cells with fewer than this number of pts
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
 		self.niter = niter
@@ -125,7 +125,7 @@ class ICET():
 
 			#debug
 			# print("cloud 1 new", self.cloud1_static)
-			self.disp.append(Points(self.cloud1_static, c = 'green', r = 10))
+			# self.disp.append(Points(self.cloud1_static, c = 'green', r = 5))
 
 		if self.draw == True:
 			# self.disp.append(addons.LegendBox(self.disp))
@@ -224,8 +224,8 @@ class ICET():
 			#transform cartesian point cloud 2 by estimated solution vector X
 			t = self.X[:3]
 			rot = R_tf(-self.X[3:])
-			# self.cloud2_tensor = tf.matmul((self.cloud2_tensor_OG + t), tf.transpose(rot)) #was this
-			self.cloud2_tensor = tf.matmul((self.cloud2_tensor_OG), tf.transpose(rot)) + t   #rotate then translate
+			self.cloud2_tensor = tf.matmul((self.cloud2_tensor_OG + t), tf.transpose(rot)) #was this
+			# self.cloud2_tensor = tf.matmul((self.cloud2_tensor_OG), tf.transpose(rot)) + t   #rotate then translate
 
 			#convert back to spherical coordinates
 			self.cloud2_tensor_spherical = tf.cast(self.c2s(self.cloud2_tensor), tf.float32)
@@ -310,12 +310,12 @@ class ICET():
 					# #------------------
 
 					#x and y---------
-					bad_idx = tf.where( tf.math.abs(metric1) > mu_x + 1*sigma_x )[:,0][None, :]
+					bad_idx = tf.where( tf.math.abs(metric1) > mu_x + 1.5*sigma_x )[:,0][None, :]
 					# print(" \n bad_idx1", bad_idx)
 
 					mu_y = tf.math.reduce_mean(metric2)
 					sigma_y = tf.math.reduce_std(metric2)
-					bad_idx2 = tf.where( tf.math.abs(metric2) > mu_y + 	1*sigma_y )[:,0][None, :]
+					bad_idx2 = tf.where( tf.math.abs(metric2) > mu_y + 	1.5*sigma_y )[:,0][None, :]
 					# print("\n bad_idx2", bad_idx2)
 					bad_idx = tf.sets.union(bad_idx, bad_idx2).values
 
@@ -368,8 +368,23 @@ class ICET():
 
 				x_test = tf.concat((from1, from2), axis = 1)
 
-				dnnsoln = self.model.predict(x_test)
-				dnnsoln = tf.convert_to_tensor(dnnsoln)
+				# #One shot~~~~~~~~~~~
+				# dnnsoln = self.model.predict(x_test)
+				# dnnsoln = tf.convert_to_tensor(dnnsoln)
+				# #~~~~~~~~~~~~~~~~~~~
+
+				#Iterative~~~~~~~~~~~~
+				correction = 0
+				niter = 7
+				inputs = x_test
+				for _ in range(niter):
+					correction += self.model.predict(inputs)
+					from1 = np.array([from1[:,:,0] + correction[:,0][:,None], from1[:,:,1] + correction[:,1][:,None], from1[:,:,2] + correction[:,2][:,None]])
+					from1 = np.transpose(from1, (1,2,0))
+					inputs = np.append(from1, from2, axis = 1)
+
+				dnnsoln = tf.convert_to_tensor(correction)
+				#~~~~~~~~~~~~~~~~~~~~
 				# print(dnnsoln)
 
 				#---------------------------------------------------------------
@@ -398,20 +413,26 @@ class ICET():
 				#test moving these here
 				U_i = tf.gather(U, ans)
 				L_i = tf.gather(L, ans)
+				#was this
 				# LUT = tf.matmul(L_i, tf.transpose(U_i, [0,2,1]))
-				LUT = tf.matmul(L_i, U_i) #test 5/2
+				# it_compact = tf.matmul(LUT, icetsoln[:,:,None])
+				# it_compact_xyz = tf.matmul(U_i, it_compact)
+				# dnn_compact = tf.matmul(LUT, dnnsoln[:,:,None])
+				# dnn_compact_xyz = tf.matmul(U_i, dnn_compact)
 
-				it_compact = tf.matmul(LUT, icetsoln[:,:,None])
-				it_compact_xyz = tf.matmul(U_i, it_compact)
-				dnn_compact = tf.matmul(LUT, dnnsoln[:,:,None])
-				dnn_compact_xyz = tf.matmul(U_i, dnn_compact)
+				#test 5/2
+				LU = tf.matmul(L_i, U_i) 
+				it_compact = tf.matmul(LU, icetsoln[:,:,None])
+				it_compact_xyz = tf.matmul(tf.transpose(U_i, [0,2,1]), it_compact)
+				dnn_compact = tf.matmul(LU, dnnsoln[:,:,None])
+				dnn_compact_xyz = tf.matmul(tf.transpose(U_i, [0,2,1]), dnn_compact)
 
 				# print(tf.shape(dnnsoln))
 				# print(tf.shape(dnn_compact))
 				# print(it_compact_xyz - dnn_compact_xyz)
 
 				#find where the largest difference in residuals are
-				thresh = 0.05 #0.05 #0.1
+				thresh = 0.08 #0.05 #0.1
 				#be careful- not sure what this index corresponds to (may not be voxel ID)
 				# bad_idx = tf.where(tf.math.abs(it_compact - dnn_compact) > thresh)[:,0] #incorrect? (comparing xyz vs dist axis aligned...)
 				bad_idx = tf.where(tf.math.abs(it_compact_xyz - dnn_compact_xyz) > thresh)[:,0]
@@ -427,6 +448,8 @@ class ICET():
 				ignore_these_dnn = tf.gather(corr_full, bad_idx)
 				#TODO- there may be a bug here
 				corr = tf.sets.difference(corr[None,:], ignore_these_dnn[None,:]).values #was this
+			
+				# self.draw_DNN_soln(dnn_compact_xyz[:,:,0], it_compact_xyz[:,:,0], tf.gather(mu1_enough, ans))
 			#----------------------------------------------
 
 			#for debug ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -512,8 +535,8 @@ class ICET():
 			#construct sensor noise covariance matrix
 			R_noise = (tf.transpose(tf.transpose(sigma0_i, [1,2,0]) / tf.cast(npts0_i - 1, tf.float32)) + 
 						tf.transpose(tf.transpose(sigma_i, [1,2,0]) / tf.cast(npts_i - 1, tf.float32)) )
-			R_noise = L_i @ tf.transpose(U_i, [0,2,1]) @ R_noise @ U_i @ tf.transpose(L_i, [0,2,1]) # was this
-			# R_noise = L_iT @ U_i @ R_noise @ U_iT @ L_i #test
+
+			R_noise = L_i @ tf.transpose(U_i, [0,2,1]) @ R_noise @ U_i @ tf.transpose(L_i, [0,2,1])
 
 			#take inverse of R_noise to get our weighting matrix
 			W = tf.linalg.pinv(R_noise)
@@ -992,17 +1015,17 @@ class ICET():
 
 		for i in range(tf.shape(dnnsoln)[0].numpy()):
 			#normalize len of each arrow
-			# arrowlen = 1/(np.sqrt(dnnsoln[i,0].numpy()**2 + dnnsoln[i,1].numpy()**2 + dnnsoln[i,2].numpy()**2))
-			arrowlen = 1 #leave arrows proportional to residual distance
+			arrowlen = 1/(np.sqrt(dnnsoln[i,0].numpy()**2 + dnnsoln[i,1].numpy()**2 + dnnsoln[i,2].numpy()**2))
+			# arrowlen = 1 #leave arrows proportional to residual distance
 			# A = Arrow2D(startPoint = mu1[i].numpy(), endPoint = mu1[i].numpy() + arrowlen*dnnsoln[i,:].numpy(), c = 'purple')
 			A = shapes.Arrow(mu1[i].numpy(), mu1[i].numpy() + arrowlen*dnnsoln[i,:].numpy(), c = 'purple')
 			self.disp.append(A)
 
-			#draw big dot if dnnsoln and itsoln disagree
-			if (abs((dnnsoln[i] - itsoln[i]).numpy()) > 0.1).any():
-				print(i)
-				dot = Points(np.array([[mu1[i,0].numpy(), mu1[i,1].numpy(), mu1[i,2].numpy()]]), c = "purple", r = 20)
-				self.disp.append(dot)
+			# #draw big dot if dnnsoln and itsoln disagree
+			# if (abs((dnnsoln[i] - itsoln[i]).numpy()) > 0.1).any():
+			# 	# print(i)
+			# 	dot = Points(np.array([[mu1[i,0].numpy(), mu1[i,1].numpy(), mu1[i,2].numpy()]]), c = "purple", r = 20)
+			# 	self.disp.append(dot)
 
 
 	def check_condition(self, HTWH):
@@ -1099,7 +1122,7 @@ class ICET():
 
 		# print("correspondences", corr)
 		for i in corr:
-			a = shapes.Arrow(mu2[i].numpy(), mu1[i].numpy(), s = 0.01, c = "black")
+			a = shapes.Arrow(mu2[i].numpy(), mu1[i].numpy(), c = "black") #s = 0.01 #for thick lines
 			self.disp.append(a)
 
 

@@ -41,7 +41,8 @@ for i in range(num_frames):
 
 	#-------------------------------------------------------------------------------------------------
 	#run once to get rough estimate and remove outlier points
-	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 20, draw = False, group = 2, RM = True, DNN_filter = True)
+	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 15, draw = False, group = 2, 
+		RM = True, DNN_filter = True, x0 = initial_guess)
 	ICET_pred_stds[i] = it.pred_stds
 
 	#run again to re-converge with outliers removed
@@ -51,7 +52,7 @@ for i in range(num_frames):
 	ICET_estimates[i] = it.X #* (dataset.timestamps[i+1] - dataset.timestamps[i]).microseconds/(10e5)/0.1
 	# ICET_pred_stds[i] = it.pred_stds
 
-	# intial_guess = it.X
+	intial_guess = it.X
 
 	# -------------------------------
 	poses0 = dataset.oxts[i] 
@@ -100,9 +101,9 @@ for i in range(num_frames):
 	# print("\n solution from ICET \n", ICET_estimates[i])
 	print("\n solution from GPS/INS \n", OXTS_baseline[i])
 
-np.savetxt("ICET_pred_stds_v11.txt", ICET_pred_stds)
-np.savetxt("ICET_estimates_v11.txt", ICET_estimates)
-np.savetxt("OXTS_baseline_v11.txt", OXTS_baseline)
+np.savetxt("ICET_pred_stds_v13.txt", ICET_pred_stds)
+np.savetxt("ICET_estimates_v13.txt", ICET_estimates)
+np.savetxt("OXTS_baseline_v13.txt", OXTS_baseline)
 
 # np.savetxt("OXTS_baseline_gps.txt", OXTS_baseline)
 
@@ -113,4 +114,6 @@ np.savetxt("OXTS_baseline_v11.txt", OXTS_baseline)
 #v7 - running twice again, with gp, fid = 100, sigma x,y = 2
 #v8 - x, y and vertical rotation exclusion- improved results with yaw (almost where we need to be!), not good enough yet
 #v9 - same as above, fid = 100s
-#v10 - fid = 70, 70, only theta exclusion
+#v10 - short, first try with DNN
+#v11 - DNN full length, some optimization
+#v12 - no ground plane, more optimization

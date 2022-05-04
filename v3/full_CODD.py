@@ -11,7 +11,7 @@ from metpy.calc import lat_lon_grid_deltas
 import h5py
 
 
-num_frames = 124
+num_frames = 20 #124
 vidx = 0 #vehicle index
 
 # filename = 'C:/CODD/data/m2v7p3s333.hdf5'
@@ -45,7 +45,7 @@ for i in range(num_frames):
 
 	#-------------------------------------------------------------------------------------------------
 	#run once to get rough estimate and remove outlier points
-	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 20, draw = False, group = 2, RM = True)
+	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 30, draw = False, group = 2, RM = True, DNN_filter = True)
 	ICET_pred_stds[i] = it.pred_stds
 
 	#run again to re-converge with outliers removed
@@ -57,8 +57,11 @@ for i in range(num_frames):
 
 	# intial_guess = it.X
 
-	# print("\n solution from ICET \n", ICET_estimates[i])
-	# print("\n ground truth transformation \n", np.diff(pose, axis = 0)[i])
+	print("\n solution from ICET \n", ICET_estimates[i])
+	print("\n ground truth transformation \n", np.diff(pose, axis = 0)[i])
 
-np.savetxt("ICET_pred_stds_CODD_v3.txt", ICET_pred_stds)
-np.savetxt("ICET_estimates_CODD_v3.txt", ICET_estimates)
+np.savetxt("ICET_pred_stds_CODD_v4.txt", ICET_pred_stds)
+np.savetxt("ICET_estimates_CODD_v4.txt", ICET_estimates)
+
+#v3 - basic outlier exclusion
+#v4 - using dnn filter
