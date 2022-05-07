@@ -10,41 +10,68 @@ from ICET_spherical import ICET
 from utils import R_tf
 from metpy.calc import lat_lon_grid_deltas
 
-# init KITTI dataset -----------------------------------------------------------------
-basedir = 'C:/kitti/'
-date = '2011_09_26'
+# # init KITTI dataset -----------------------------------------------------------------
+# basedir = 'C:/kitti/'
+# date = '2011_09_26'
 
-# urban dataset used in 3D-ICET paper 
-drive = '0005'
-idx = 137
+# # urban dataset used in 3D-ICET paper 
+# drive = '0005'
+# idx = 0 #137
 
-#test with aiodrive
-# drive = 'aiodrive'
-# idx = 1
+# #test with aiodrive
+# # drive = 'aiodrive'
+# # idx = 1
 
-#alternate dataset with fewer moving objects?
-# drive = '0009'
-# idx = 245
-# drive = '0093'
-# idx = 220
+# #alternate dataset with fewer moving objects?
+# # drive = '0009'
+# # idx = 245
+# # drive = '0093'
+# # idx = 220
 
+# dataset = pykitti.raw(basedir, date, drive)
+
+# # basedir = "E:/KITTI/dataset/"
+# # date = "2011_09_26"
+# # drive = '01'
+# # dataset = pykitti.raw(basedir, date, drive)
+
+# # idx = 0
+
+# velo1 = dataset.get_velo(idx) # Each scan is a Nx4 array of [x,y,z,reflectance]
+# c1 = velo1[:,:3]
+# velo2 = dataset.get_velo(idx+1) # Each scan is a Nx4 array of [x,y,z,reflectance]
+# c2 = velo2[:,:3]
+# # c1 = c1[c1[:,2] > -1.5] #ignore ground plane
+# # c2 = c2[c2[:,2] > -1.5] #ignore ground plane
+# # c1 = c1[c1[:,2] > -2.] #ignore reflections
+# # c2 = c2[c2[:,2] > -2.] #ignore reflections
+
+# #load previously processed cloud 1
+# # c1 = np.loadtxt("cloud1_good.txt")
+
+# poses0 = dataset.oxts[idx] #<- ID of 1st scan
+# poses1 = dataset.oxts[idx+1] #<- ID of 2nd scan
+# dt = 0.1037 #mean time between lidar samples
+# OXTS_ground_truth = tf.constant([poses1.packet.vf*dt, -poses1.packet.vl*dt, poses1.packet.vu*dt, poses1.packet.wf*dt, poses1.packet.wl*dt, poses1.packet.wu*dt])
+
+# # ------------------------------------------------------------------------------------
+
+# full KITTI dataset (uses differnt formatting incompable with PyKitti)---------------
+
+#files are 80gb so I remember to plug in the external hard drive!
+basedir = "E:/KITTI/dataset/"
+date = "2011_09_26"
+drive = '00' #urban
 dataset = pykitti.raw(basedir, date, drive)
+
+idx = 1000
+
 velo1 = dataset.get_velo(idx) # Each scan is a Nx4 array of [x,y,z,reflectance]
 c1 = velo1[:,:3]
 velo2 = dataset.get_velo(idx+1) # Each scan is a Nx4 array of [x,y,z,reflectance]
 c2 = velo2[:,:3]
-# c1 = c1[c1[:,2] > -1.5] #ignore ground plane
-# c2 = c2[c2[:,2] > -1.5] #ignore ground plane
-# c1 = c1[c1[:,2] > -2.] #ignore reflections
-# c2 = c2[c2[:,2] > -2.] #ignore reflections
 
-#load previously processed cloud 1
-# c1 = np.loadtxt("cloud1_good.txt")
-
-poses0 = dataset.oxts[idx] #<- ID of 1st scan
-poses1 = dataset.oxts[idx+1] #<- ID of 2nd scan
-dt = 0.1037 #mean time between lidar samples
-OXTS_ground_truth = tf.constant([poses1.packet.vf*dt, -poses1.packet.vl*dt, poses1.packet.vu*dt, poses1.packet.wf*dt, poses1.packet.wl*dt, poses1.packet.wu*dt])
+#just read from the OXTS text file directly instead of messing with PyKitti file formats
 
 # ------------------------------------------------------------------------------------
 
@@ -115,27 +142,9 @@ OXTS_ground_truth = tf.constant([poses1.packet.vf*dt, -poses1.packet.vl*dt, pose
 # # # c2 = c1 - np.array([0.1, 0.3, 0.0])
 # # # -------------------------------------------------------------------------------------
 
-#run once to get rough estimate and remove outlier points
-# x0 = tf.convert_to_tensor(OXTS_ground_truth)
-it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 15, 
-	draw = True, group = 2, RM = True, DNN_filter = True) #, x0 = x0) #, cheat = OXTS_ground_truth)
+it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 12, 
+	draw = True, group = 2, RM = True, DNN_filter = True) #, cheat = OXTS_ground_truth)
 
 print("\n OXTS_ground_truth: \n", OXTS_ground_truth)
 
 ViewInteractiveWidget(it1.plt.window)
-
-# #run again with reduced point set
-# it2 = ICET(cloud1 = it1.cloud1_static, cloud2 = c2, fid = 50, niter = 15, 
-# 	draw = True, group = 2, RM = False, DNN_filter = False) 
-
-# ViewInteractiveWidget(it2.plt.window)
-
-# bad_idx = tf.constant([0, 3,  14,  15, 17,  18 , 24 , 32,  37,  39,  41,  43,  46,  47,  48,  50,  52,
-#   52,  57,  57,  58,  62,  63,  66 , 68,  69 , 72 , 74 , 78 , 83 , 84 , 90 , 92 , 99, 102,
-#  102, 103, 104, 105, 106, 107, 108, 112, 116, 118, 132, 133 ]) #with ground plane
-
-# bounds_bad = tf.gather(it.bounds, tf.gather(it.corr, bad_idx))
-# bad_idx_corn = it.get_corners_cluster(tf.gather(it.occupied_spikes, tf.gather(it.corr, bad_idx)), bounds_bad)
-# it.draw_cell(bad_idx_corn, bad = 2)
-# it.plt.show(it.disp, "Spherical ICET")
-

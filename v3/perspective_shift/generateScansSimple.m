@@ -11,7 +11,7 @@ clear all
 close all
 
 nSamples = 25; %25;
-epochs = 5000;
+epochs = 2;
 
 % sam1_cum = [];
 % sam2_cum = [];
@@ -26,9 +26,9 @@ for e = 1:epochs
     e
 
     %import stl
-    roll = floor(9*rand());
+%     roll = floor(9*rand());
 %     roll = 5; %cylinders 
-%     roll = 2; %honda element
+    roll = 2; %honda element
 %     roll = 3; %tesla model 3
 %     roll = 6; %taxi
 %     roll = 7; %vw bus
@@ -102,9 +102,9 @@ for e = 1:epochs
     faces = OpenFile.ConnectivityList;
     
     vel = [10*randn() 10*randn() 1*randn()];
-    rot = rad2deg(2*pi*rand());
+%     rot = rad2deg(2*pi*rand());
 %     vel = [0, 0, 0];
-%     rot = 0;    %temp- just for demo dataset
+    rot = 0;    %temp- just for demo dataset
 
     %sample random  initial position, but NOT INSIDE OBJECT
     too_close = true;
@@ -123,7 +123,7 @@ for e = 1:epochs
 %     pos(1) = pos(1) + 1.5;
 %     true_pos1 = [true_pos1; [pos(1), pos(2), pos(3), rot]];
 
-%     true_pos1 = [true_pos1; [pos(1), pos(2), pos(3)]];
+    true_pos1 = [true_pos1; [pos(1), pos(2), pos(3)]];
 
 %     pos = [2, 1, 0];
 %     vel = [0, -10, 0];
@@ -205,41 +205,41 @@ hold on
 scatter3(sam1(:,1), sam1(:,2), sam1(:,3))
 scatter3(sam2(:,1), sam2(:,2), sam2(:,3))
 
-%augment data by translating scan 2 (remember to adjust solution vector
-%accordingly) -------------------------------------------------------------
-sam1_cum = [sam1_cum; sam1_cum];
-% temp = 5*randn(size(truth_cum)); % single random translation vector
-% temp = -rand(size(truth_cum)).*truth_cum; %translate some fraction of truth translation vec back to registration
-% temp = (-1.0+ 0.2*rand(size(truth_cum))).*truth_cum*0.1; %translate most of the way to correct soln
-temp = (-1.0+ 0.1*randn(size(truth_cum))).*truth_cum*0.1; %translate to correct solution +/- some small error
-
-truth_cum = [truth_cum; truth_cum + 10*temp];
-moved_sam2 = sam2_cum + repelem(temp, nSamples ,1);
-sam2_cum = [sam2_cum; sam2_cum + repelem(temp, nSamples ,1)]; %need to tile temp 25 times
-%-------------------------------------------------------------------------
-
-%augment data 2^4 times by rotating about vertical axis
-for i = 1:4
-    r = eul2rotm([randn()*360, 0, 0]);
-    old1 = reshape(transpose(sam1_cum), [1, 3, size(sam1_cum, 1)]);
-    rot1 = pagemtimes(old1, r);
-    rot1 = transpose(reshape(rot1, [3, size(sam1_cum, 1)]));
-    
-    old2 = reshape(transpose(sam2_cum), [1, 3, size(sam2_cum, 1)]);
-    rot2 = pagemtimes(old2, r);
-    rot2 = transpose(reshape(rot2, [3, size(sam2_cum, 1)]));
-    
-    % scatter3(rot1(:,1), rot1(:,2), rot1(:,3))
-    % scatter3(rot2(:,1), rot2(:,2), rot2(:,3))
-    truth_old = reshape(transpose(truth_cum), 1, 3, size(truth_cum, 1));
-    rot_truth = pagemtimes(truth_old, r);
-    rot_truth = transpose(reshape(rot_truth, [3, size(truth_cum, 1)]));
-    
-    %append rotated stuff to OG
-    sam1_cum = [sam1_cum; rot1];
-    sam2_cum = [sam2_cum; rot2];
-    truth_cum = [truth_cum; rot_truth];
-end
+% %augment data by translating scan 2 (remember to adjust solution vector
+% %accordingly) -------------------------------------------------------------
+% sam1_cum = [sam1_cum; sam1_cum];
+% % temp = 5*randn(size(truth_cum)); % single random translation vector
+% % temp = -rand(size(truth_cum)).*truth_cum; %translate some fraction of truth translation vec back to registration
+% % temp = (-1.0+ 0.2*rand(size(truth_cum))).*truth_cum*0.1; %translate most of the way to correct soln
+% temp = (-1.0+ 0.1*randn(size(truth_cum))).*truth_cum*0.1; %translate to correct solution +/- some small error
+% 
+% truth_cum = [truth_cum; truth_cum + 10*temp];
+% moved_sam2 = sam2_cum + repelem(temp, nSamples ,1);
+% sam2_cum = [sam2_cum; sam2_cum + repelem(temp, nSamples ,1)]; %need to tile temp 25 times
+% %-------------------------------------------------------------------------
+% 
+% %augment data 2^4 times by rotating about vertical axis
+% for i = 1:4
+%     r = eul2rotm([randn()*360, 0, 0]);
+%     old1 = reshape(transpose(sam1_cum), [1, 3, size(sam1_cum, 1)]);
+%     rot1 = pagemtimes(old1, r);
+%     rot1 = transpose(reshape(rot1, [3, size(sam1_cum, 1)]));
+%     
+%     old2 = reshape(transpose(sam2_cum), [1, 3, size(sam2_cum, 1)]);
+%     rot2 = pagemtimes(old2, r);
+%     rot2 = transpose(reshape(rot2, [3, size(sam2_cum, 1)]));
+%     
+%     % scatter3(rot1(:,1), rot1(:,2), rot1(:,3))
+%     % scatter3(rot2(:,1), rot2(:,2), rot2(:,3))
+%     truth_old = reshape(transpose(truth_cum), 1, 3, size(truth_cum, 1));
+%     rot_truth = pagemtimes(truth_old, r);
+%     rot_truth = transpose(reshape(rot_truth, [3, size(truth_cum, 1)]));
+%     
+%     %append rotated stuff to OG
+%     sam1_cum = [sam1_cum; rot1];
+%     sam2_cum = [sam2_cum; rot2];
+%     truth_cum = [truth_cum; rot_truth];
+% end
 
 %last step, add gaussian noise to all range estimates
 % sam1_cum = sam1_cum + 0.01*randn(size(sam1_cum));
@@ -253,9 +253,9 @@ end
 
 
 %for larger datasets (don't save with git)
-writematrix(sam1_cum, "C:/Users/Derm/Desktop/big/pshift/scan1_10k.txt", 'Delimiter', 'tab')
-writematrix(sam2_cum, "C:/Users/Derm/Desktop/big/pshift/scan2_10k.txt", 'Delimiter', 'tab')
-writematrix(truth_cum, "C:/Users/Derm/Desktop/big/pshift/ground_truth_10k.txt", 'Delimiter', 'tab')
+% writematrix(sam1_cum, "C:/Users/Derm/Desktop/big/pshift/scan1_10k.txt", 'Delimiter', 'tab')
+% writematrix(sam2_cum, "C:/Users/Derm/Desktop/big/pshift/scan2_10k.txt", 'Delimiter', 'tab')
+% writematrix(truth_cum, "C:/Users/Derm/Desktop/big/pshift/ground_truth_10k.txt", 'Delimiter', 'tab')
 
 %test scene for viz
 % writematrix(sam1_cum, "training_data/car_demo_scan1.txt", 'Delimiter', 'tab')
@@ -270,9 +270,9 @@ writematrix(truth_cum, "C:/Users/Derm/Desktop/big/pshift/ground_truth_10k.txt", 
 % scatter3(moved_sam2(:,1), moved_sam2(:,2), moved_sam2(:,3))
 
 %write scaled translated and rotated figure to new stl file for viz
-% TR = triangulation( target.Mesh.Faces, target.Mesh.Vertices);
-% stlwrite(TR, 'viz_model.stl')
-% writematrix(sam1_cum, "viz_scan1.txt", 'Delimiter', 'tab')
-% writematrix(sam2_cum, "viz_scan2.txt", 'Delimiter', 'tab')
-% writematrix(truth_cum, "viz_ground_truth.txt", 'Delimiter', 'tab')
-% writematrix(true_pos1, "viz_true_pos1.txt", 'Delimiter', 'tab')
+TR = triangulation( target.Mesh.Faces, target.Mesh.Vertices);
+stlwrite(TR, 'viz_model.stl')
+writematrix(sam1_cum, "viz_scan1.txt", 'Delimiter', 'tab')
+writematrix(sam2_cum, "viz_scan2.txt", 'Delimiter', 'tab')
+writematrix(truth_cum, "viz_ground_truth.txt", 'Delimiter', 'tab')
+writematrix(true_pos1, "viz_true_pos1.txt", 'Delimiter', 'tab')

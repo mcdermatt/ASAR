@@ -43,7 +43,7 @@ class ICET():
 		DNN_filter = False, cheat = []):
 
 		self.min_cell_distance = 2 #5 #3 #begin closest spherical voxel here
-		self.min_num_pts = 25 #10 #ignore "occupied" cells with fewer than this number of pts
+		self.min_num_pts = 50 #25 #ignore "occupied" cells with fewer than this number of pts
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
 		self.niter = niter

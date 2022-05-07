@@ -22,7 +22,7 @@ ICET_estimates = np.zeros([num_frames, 6])
 OXTS_baseline = np.zeros([num_frames, 6])
 ICET_pred_stds = np.zeros([num_frames, 6])
 
-intial_guess = tf.constant([0., 0., 0., 0., 0., 0.])
+initial_guess = tf.constant([0., 0., 0., 0., 0., 0.])
 
 for i in range(num_frames):
 
@@ -32,8 +32,8 @@ for i in range(num_frames):
 	c1 = velo1[:,:3]
 	velo2 = dataset.get_velo(i+1) # Each scan is a Nx4 array of [x,y,z,reflectance]
 	c2 = velo2[:,:3]
-	c1 = c1[c1[:,2] > -1.5] #ignore ground plane
-	c2 = c2[c2[:,2] > -1.5] #ignore ground plane
+	# c1 = c1[c1[:,2] > -1.5] #ignore ground plane
+	# c2 = c2[c2[:,2] > -1.5] #ignore ground plane
 	# c1 = c1[c1[:,2] > -2.] #ignore reflections
 	# c2 = c2[c2[:,2] > -2.] #ignore reflections
 
@@ -52,7 +52,7 @@ for i in range(num_frames):
 	ICET_estimates[i] = it.X #* (dataset.timestamps[i+1] - dataset.timestamps[i]).microseconds/(10e5)/0.1
 	# ICET_pred_stds[i] = it.pred_stds
 
-	intial_guess = it.X
+	initial_guess = it.X
 
 	# -------------------------------
 	poses0 = dataset.oxts[i] 
