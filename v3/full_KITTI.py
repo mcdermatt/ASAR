@@ -101,9 +101,9 @@ for i in range(num_frames):
 	# print("\n solution from ICET \n", ICET_estimates[i])
 	print("\n solution from GPS/INS \n", OXTS_baseline[i])
 
-np.savetxt("ICET_pred_stds_v13.txt", ICET_pred_stds)
-np.savetxt("ICET_estimates_v13.txt", ICET_estimates)
-np.savetxt("OXTS_baseline_v13.txt", OXTS_baseline)
+np.savetxt("ICET_pred_stds_v14.txt", ICET_pred_stds)
+np.savetxt("ICET_estimates_v14.txt", ICET_estimates)
+np.savetxt("OXTS_baseline_v14.txt", OXTS_baseline)
 
 # np.savetxt("OXTS_baseline_gps.txt", OXTS_baseline)
 
@@ -117,3 +117,5 @@ np.savetxt("OXTS_baseline_v13.txt", OXTS_baseline)
 #v10 - short, first try with DNN
 #v11 - DNN full length, some optimization
 #v12 - no ground plane, more optimization
+#v13 - used in presentation, more compact but obvious low frequency error
+#v14 - debugging it/dnn compact, test flipping sign of DNN correction

@@ -300,36 +300,57 @@ class ICET():
 					# bad_idx = tf.sets.union(bad_idx, bad_idx2).values
 					# #------------------------------------------------------------------------------------------------
 
-					#------------------------------------------------------------------------------------------------
-					#Using Gaussian n-sigma outlier exclusion on translation
-					mu_x = tf.math.reduce_mean(metric1)
-					sigma_x = tf.math.reduce_std(metric1)
+					# #------------------------------------------------------------------------------------------------
+					# #Using Gaussian n-sigma outlier exclusion on translation
+					# mu_x = tf.math.reduce_mean(metric1)
+					# sigma_x = tf.math.reduce_std(metric1)
 					
-					# #just x------------
-					# bad_idx = tf.where( tf.math.abs(metric1) > mu_x + 2*sigma_x )[:, 0]
-					# #------------------
+					# # #just x------------
+					# # bad_idx = tf.where( tf.math.abs(metric1) > mu_x + 2*sigma_x )[:, 0]
+					# # #------------------
 
-					#x and y---------
-					bad_idx = tf.where( tf.math.abs(metric1) > mu_x + 1.5*sigma_x )[:,0][None, :]
-					# print(" \n bad_idx1", bad_idx)
+					# #x and y---------
+					# bad_idx = tf.where( tf.math.abs(metric1) > mu_x + 1*sigma_x )[:,0][None, :]
+					# # print(" \n bad_idx1", bad_idx)
 
-					mu_y = tf.math.reduce_mean(metric2)
-					sigma_y = tf.math.reduce_std(metric2)
-					bad_idx2 = tf.where( tf.math.abs(metric2) > mu_y + 	1.5*sigma_y )[:,0][None, :]
-					# print("\n bad_idx2", bad_idx2)
-					bad_idx = tf.sets.union(bad_idx, bad_idx2).values
+					# mu_y = tf.math.reduce_mean(metric2)
+					# sigma_y = tf.math.reduce_std(metric2)
+					# bad_idx2 = tf.where( tf.math.abs(metric2) > mu_y + 	1*sigma_y )[:,0][None, :]
+					# # print("\n bad_idx2", bad_idx2)
+					# bad_idx = tf.sets.union(bad_idx, bad_idx2).values
 
-					#if using rotation too
-					# self.bad_idx = bad_idx
-					# self.bad_idx_rot = bad_idx_rot
-					# bad_idx = tf.sets.union(bad_idx[None, :], bad_idx_rot[None, :]).values 
-					#-----------------
+					# #if using rotation too
+					# # self.bad_idx = bad_idx
+					# # self.bad_idx_rot = bad_idx_rot
+					# # bad_idx = tf.sets.union(bad_idx[None, :], bad_idx_rot[None, :]).values 
+					# #-----------------
 
-					# print("corr \n", corr)
-					# print("bad idx", bad_idx)
-					# print(tf.gather(it.dx_i[:,0], bad_idx))
-					# print(tf.gather(occupied_spikes, corr))
-					#------------------------------------------------------------------------------------------------
+					# # print("corr \n", corr)
+					# # print("bad idx", bad_idx)
+					# # print(tf.gather(it.dx_i[:,0], bad_idx))
+					# # print(tf.gather(occupied_spikes, corr))
+					# #------------------------------------------------------------------------------------------------
+
+					#Test hard cutoff for outlier rejection
+					#NEW (5/7)~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+					both = tf.sets.intersection(enough1[None,:], corr_full[None,:]).values
+					ans = tf.where(enough1[:,None] == both)[:,0]
+					
+					#test moving these here
+					U_i = tf.gather(U, ans)
+					L_i = tf.gather(L, ans)
+					residuals_compact = L_i @ U_i @ tf.gather(self.residuals_full[:,:,None], corr_full)
+					# print(tf.shape(residuals_compact))
+					# print(residuals_compact)
+
+					thresh = 0.1 #0.05
+					bidx = tf.where(residuals_compact > thresh )[:,0]
+					# print("\n bidx", bidx)
+					# print(" \nbad_idx", bad_idx)
+
+					bad_idx = bidx
+
+					#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 					bounds_bad = tf.gather(bounds, tf.gather(corr, bad_idx))
 					bad_idx_corn_moving = self.get_corners_cluster(tf.gather(occupied_spikes, tf.gather(corr, bad_idx)), bounds_bad)
@@ -384,6 +405,7 @@ class ICET():
 					inputs = np.append(from1, from2, axis = 1)
 
 				dnnsoln = tf.convert_to_tensor(correction)
+				# dnnsoln = tf.convert_to_tensor(-correction) #TEST
 				#~~~~~~~~~~~~~~~~~~~~
 				# print(dnnsoln)
 
@@ -427,12 +449,10 @@ class ICET():
 				dnn_compact = tf.matmul(LU, dnnsoln[:,:,None])
 				dnn_compact_xyz = tf.matmul(tf.transpose(U_i, [0,2,1]), dnn_compact)
 
-				# print(tf.shape(dnnsoln))
-				# print(tf.shape(dnn_compact))
 				# print(it_compact_xyz - dnn_compact_xyz)
 
 				#find where the largest difference in residuals are
-				thresh = 0.08 #0.05 #0.1
+				thresh = 0.1 #0.05 #0.05 #0.1
 				#be careful- not sure what this index corresponds to (may not be voxel ID)
 				# bad_idx = tf.where(tf.math.abs(it_compact - dnn_compact) > thresh)[:,0] #incorrect? (comparing xyz vs dist axis aligned...)
 				bad_idx = tf.where(tf.math.abs(it_compact_xyz - dnn_compact_xyz) > thresh)[:,0]
@@ -449,6 +469,7 @@ class ICET():
 				#TODO- there may be a bug here
 				corr = tf.sets.difference(corr[None,:], ignore_these_dnn[None,:]).values #was this
 			
+				idx_to_draw_dnn_soln = tf.gather(mu1_enough, ans)
 				# self.draw_DNN_soln(dnn_compact_xyz[:,:,0], it_compact_xyz[:,:,0], tf.gather(mu1_enough, ans))
 			#----------------------------------------------
 
@@ -578,6 +599,8 @@ class ICET():
 				self.draw_cell(bad_idx_corn_moving, bad = True) #for debug
 			if self.DNN_filter:
 				self.draw_cell(bad_idx_corn_DNN, bad = 2)
+				self.draw_DNN_soln(dnn_compact_xyz[:,:,0], it_compact_xyz[:,:,0], idx_to_draw_dnn_soln) #remove this you animal
+
 
 			self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
 			self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
@@ -587,12 +610,12 @@ class ICET():
 			# for n in range(tf.shape(inside2.to_tensor())[0]):
 			# 	temp = tf.gather(self.cloud2_tensor, inside2[n]).numpy()	
 			# 	self.disp.append(Points(temp, c = 'green', r = 5))
-			self.draw_correspondences(mu1, mu2, corr)
+			# self.draw_correspondences(mu1, mu2, corr)
 			# self.visualize_L(tf.gather(mu1, corr), U_i, L_i) #not correct...
 
 			#FOR DEBUG: we should be looking at U_i, L_i anyways...
 			#   ans == indeces of enough1 that intersect with corr (aka combined enough1, enough2)
-			self.visualize_L(tf.gather(mu1_enough, ans), U_i, L_i)
+			# self.visualize_L(tf.gather(mu1_enough, ans), U_i, L_i)
 
 		# 	# #get rid of points too close to ego-vehicle in cloud1_static------------------------
 		# 	# #	doing this to minmize negative effects of perspective shift
@@ -1015,11 +1038,17 @@ class ICET():
 
 		for i in range(tf.shape(dnnsoln)[0].numpy()):
 			#normalize len of each arrow
-			arrowlen = 1/(np.sqrt(dnnsoln[i,0].numpy()**2 + dnnsoln[i,1].numpy()**2 + dnnsoln[i,2].numpy()**2))
-			# arrowlen = 1 #leave arrows proportional to residual distance
+			# arrowlen = 1/(np.sqrt(dnnsoln[i,0].numpy()**2 + dnnsoln[i,1].numpy()**2 + dnnsoln[i,2].numpy()**2))
+			arrowlen = 1 #leave arrows proportional to residual distance
 			# A = Arrow2D(startPoint = mu1[i].numpy(), endPoint = mu1[i].numpy() + arrowlen*dnnsoln[i,:].numpy(), c = 'purple')
 			A = shapes.Arrow(mu1[i].numpy(), mu1[i].numpy() + arrowlen*dnnsoln[i,:].numpy(), c = 'purple')
 			self.disp.append(A)
+
+			#Draw ICET solns as well (for debug)
+			# arrowlen = 1/(np.sqrt(itsoln[i,0].numpy()**2 + itsoln[i,1].numpy()**2 + itsoln[i,2].numpy()**2))
+			B = shapes.Arrow(mu1[i].numpy(), mu1[i].numpy() + arrowlen*itsoln[i,:].numpy(), c = 'yellow')
+			self.disp.append(B)
+
 
 			# #draw big dot if dnnsoln and itsoln disagree
 			# if (abs((dnnsoln[i] - itsoln[i]).numpy()) > 0.1).any():

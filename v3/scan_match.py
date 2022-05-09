@@ -10,13 +10,13 @@ from ICET_spherical import ICET
 from utils import R_tf
 from metpy.calc import lat_lon_grid_deltas
 
-# # init KITTI dataset -----------------------------------------------------------------
+# # KITTI sample dataset -----------------------------------------------------------------
 # basedir = 'C:/kitti/'
 # date = '2011_09_26'
 
 # # urban dataset used in 3D-ICET paper 
 # drive = '0005'
-# idx = 0 #137
+# idx = 10 #137
 
 # #test with aiodrive
 # # drive = 'aiodrive'
@@ -56,33 +56,47 @@ from metpy.calc import lat_lon_grid_deltas
 
 # # ------------------------------------------------------------------------------------
 
-# full KITTI dataset (uses differnt formatting incompable with PyKitti)---------------
+# # full KITTI dataset (uses differnt formatting incompable with PyKitti)---------------
+# #files are 80gb so remember to plug in the external hard drive!
+# basedir = "E:/KITTI/dataset/"
+# date = "2011_09_26"
+# drive = '00' #urban
+# dataset = pykitti.raw(basedir, date, drive)
 
-#files are 80gb so I remember to plug in the external hard drive!
-basedir = "E:/KITTI/dataset/"
-date = "2011_09_26"
-drive = '00' #urban
-dataset = pykitti.raw(basedir, date, drive)
+# idx = 1000
 
-idx = 1000
+# velo1 = dataset.get_velo(idx) # Each scan is a Nx4 array of [x,y,z,reflectance]
+# c1 = velo1[:,:3]
+# velo2 = dataset.get_velo(idx+1) # Each scan is a Nx4 array of [x,y,z,reflectance]
+# c2 = velo2[:,:3]
 
-velo1 = dataset.get_velo(idx) # Each scan is a Nx4 array of [x,y,z,reflectance]
-c1 = velo1[:,:3]
-velo2 = dataset.get_velo(idx+1) # Each scan is a Nx4 array of [x,y,z,reflectance]
-c2 = velo2[:,:3]
+# #read from the OXTS text file directly instead of messing with PyKitti file formats...
+# # ------------------------------------------------------------------------------------
 
-#just read from the OXTS text file directly instead of messing with PyKitti file formats
+
+# Ford Campus Datset------------------------------------------------------------------
+import mat4py
+#starts at 1000
+fn1 = 'E:/Ford/IJRR-Dataset-1-subset/SCANS/Scan1000.mat'
+fn2 = 'E:/Ford/IJRR-Dataset-1-subset/SCANS/Scan1001.mat'
+
+dat1 = mat4py.loadmat(fn1)
+SCAN1 = dat1['SCAN']
+c1 = np.transpose(np.array(SCAN1['XYZ']))
+
+dat2 = mat4py.loadmat(fn2)
+SCAN2 = dat2['SCAN']
+c2 = np.transpose(np.array(SCAN2['XYZ']))
 
 # ------------------------------------------------------------------------------------
 
-# #TIERS forest dataset -----------------------------------------------------------------
 
+# #TIERS forest dataset -----------------------------------------------------------------
 # filename1 = 'C:/TIERS/rawPointClouds/scan0.txt'
 # filename2 = 'C:/TIERS/rawPointClouds/scan1.txt'
 
 # c1 = np.loadtxt(filename1, dtype = float)
 # c2 = np.loadtxt(filename2, dtype = float)
-
 # # #---------------------------------------------------------------------------------------
 
 # #CODD (colaborative driving dataset)----------------------------------------------------
@@ -142,7 +156,7 @@ c2 = velo2[:,:3]
 # # # c2 = c1 - np.array([0.1, 0.3, 0.0])
 # # # -------------------------------------------------------------------------------------
 
-it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 12, 
+it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 20, 
 	draw = True, group = 2, RM = True, DNN_filter = True) #, cheat = OXTS_ground_truth)
 
 print("\n OXTS_ground_truth: \n", OXTS_ground_truth)
