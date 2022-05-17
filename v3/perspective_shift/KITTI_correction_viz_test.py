@@ -14,13 +14,16 @@ disp = []
 #load model
 # model = tf.keras.models.load_model("Net.kmod")
 # model = tf.keras.models.load_model("PIPEnet10.kmod")
-model = tf.keras.models.load_model("KITTInet.kmod")
+# model = tf.keras.models.load_model("KITTInet.kmod")
+model = tf.keras.models.load_model("KITTInet50.kmod")
 
 
 #read in dense point cloud of car
-points_per_sample = 25 #num pts per scan - defined in MatLab script
-d1 = np.loadtxt('training_data/ICET_KITTI_scan1.txt')
-d2 = np.loadtxt('training_data/ICET_KITTI_scan2.txt')
+points_per_sample = 50 #25 #num pts per scan - defined in MatLab script
+# d1 = np.loadtxt('training_data/ICET_KITTI_scan1.txt')
+# d2 = np.loadtxt('training_data/ICET_KITTI_scan2.txt')
+d1 = np.loadtxt('training_data/ICET_KITTI_scan1_50.txt')
+d2 = np.loadtxt('training_data/ICET_KITTI_scan2_50.txt')
 scan1 = tf.reshape(tf.convert_to_tensor(d1), [-1, points_per_sample, 3])
 scan2 = tf.reshape(tf.convert_to_tensor(d2), [-1, points_per_sample, 3])
 
@@ -31,7 +34,7 @@ x_train = tf.concat((scan1[:ntrain], scan2[:ntrain]), axis = 1)
 x_test = tf.concat((scan1[ntrain:], scan2[ntrain:]), axis = 1)
 
 #appy model to points
-n = 110 #110 #sample number (from x_test)
+n = 13 #110 #sample number (from x_test)
 
 c1 = np.array([x_test[n,:points_per_sample,0].numpy(), x_test[n,:points_per_sample,1].numpy(), x_test[n,:points_per_sample,2].numpy()])
 c2 = np.array([x_test[n,points_per_sample:,0].numpy(), x_test[n,points_per_sample:,1].numpy(), x_test[n,points_per_sample:,2].numpy()])
@@ -40,7 +43,7 @@ disp.append(Points(c1, c = 'red', r = 10, alpha = 0.4))
 disp.append(Points(c2, c = 'blue', r = 10))
 
 inputs = x_test[n][None,:]
-runlen = 5 #number of iterations to run iterative PC matching
+runlen = 10 #number of iterations to run iterative PC matching
 correction = 0
 for i in range(runlen):
     correction += model.predict(inputs)[0] #show what the network thinks

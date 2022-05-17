@@ -9,7 +9,8 @@ from metpy.calc import lat_lon_grid_deltas
 
 
 numShifts = 5 #number of times to resample and translate each voxel each scan
-runLen = 100
+runLen = 5 #150
+npts = 50 #25
 
 # init KITTI dataset
 basedir = 'C:/kitti/'
@@ -22,8 +23,8 @@ for idx in range(runLen):
 	c1 = velo1[:,:3]
 	velo2 = dataset.get_velo(idx+1) # Each scan is a Nx4 array of [x,y,z,reflectance]
 	c2 = velo2[:,:3]
-	# c1 = c1[c1[:,2] > -1.5] #ignore ground plane
-	# c2 = c2[c2[:,2] > -1.5] #ignore ground plane
+	c1 = c1[c1[:,2] > -1.5] #ignore ground plane
+	c2 = c2[c2[:,2] > -1.5] #ignore ground plane
 	# c1 = c1[c1[:,2] > -2.] #ignore reflections
 	# c2 = c2[c2[:,2] > -2.] #ignore reflections
 
@@ -33,7 +34,8 @@ for idx in range(runLen):
 	OXTS_ground_truth = tf.constant([poses1.packet.vf*dt, -poses1.packet.vl*dt, poses1.packet.vu*dt, poses1.packet.wf*dt, poses1.packet.wl*dt, poses1.packet.wu*dt])
 
 
-	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 12, draw = False, group = 2, RM = True, cheat = OXTS_ground_truth)
+	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 12, draw = False, group = 2, 
+		RM = True, DNN_filter = False, cheat = OXTS_ground_truth)
 
 	#Get ragged tensor containing all points from each scan inside each sufficient voxel
 	in1 = it.inside1
@@ -50,13 +52,13 @@ for idx in range(runLen):
 
 	for j in range(numShifts):
 		#init array to store indices
-		idx1 = np.zeros([ncells ,25])
-		idx2 = np.zeros([ncells ,25])
+		idx1 = np.zeros([ncells ,npts])
+		idx2 = np.zeros([ncells ,npts])
 
 		#loop through each element of ragged tensor
 		for i in range(ncells):
-		    idx1[i,:] = tf.random.shuffle(enough1[i])[:25].numpy() #shuffle order and take first 25 elements
-		    idx2[i,:] = tf.random.shuffle(enough2[i])[:25].numpy() #shuffle order and take first 25 elements
+		    idx1[i,:] = tf.random.shuffle(enough1[i])[:npts].numpy() #shuffle order and take first 25 elements
+		    idx2[i,:] = tf.random.shuffle(enough2[i])[:npts].numpy() #shuffle order and take first 25 elements
 
 		idx1 = tf.cast(tf.convert_to_tensor(idx1), tf.int32) #indices in scan 1 of points we've selected
 		idx2 = tf.cast(tf.convert_to_tensor(idx2), tf.int32) 
@@ -71,8 +73,8 @@ for idx in range(runLen):
 		#randomly translate each sample from scan 2
 		rand = tf.constant([1., 1., 0.1])*tf.random.normal([ncells, 3])
 		#tile and apply to scan2
-		t = tf.tile(rand, [25,1])
-		t = tf.reshape(tf.transpose(t), [3,25,-1])
+		t = tf.tile(rand, [npts,1])
+		t = tf.reshape(tf.transpose(t), [3,npts,-1])
 		t = tf.transpose(t, [2,1,0])
 		t = tf.reshape(t, [-1, 3])
 		scan2 += t.numpy()
@@ -89,11 +91,11 @@ for idx in range(runLen):
 	print("got", tf.shape(enough2.to_tensor())[0].numpy()*numShifts, "training samples from scan", idx)
 
 #smol
-# np.savetxt('perspective_shift/training_data/ICET_KITTI_scan1.txt', scan1_cum)
-# np.savetxt('perspective_shift/training_data/ICET_KITTI_scan2.txt', scan2_cum)
-# np.savetxt('perspective_shift/training_data/ICET_KITTI_ground_truth.txt', rand_cum)
+np.savetxt('perspective_shift/training_data/ICET_KITTI_scan1_50.txt', scan1_cum)
+np.savetxt('perspective_shift/training_data/ICET_KITTI_scan2_50.txt', scan2_cum)
+np.savetxt('perspective_shift/training_data/ICET_KITTI_ground_truth_50.txt', rand_cum)
 
 #big
-np.savetxt('C:/Users/Derm/Desktop/big/pshift/ICET_KITTI_scan1.txt', scan1_cum)
-np.savetxt('C:/Users/Derm/Desktop/big/pshift/ICET_KITTI_scan2.txt', scan2_cum)
-np.savetxt('C:/Users/Derm/Desktop/big/pshift/ICET_KITTI_ground_truth.txt', rand_cum)
+# np.savetxt('C:/Users/Derm/Desktop/big/pshift/ICET_KITTI_scan1_50.txt', scan1_cum)
+# np.savetxt('C:/Users/Derm/Desktop/big/pshift/ICET_KITTI_scan2_50.txt', scan2_cum)
+# np.savetxt('C:/Users/Derm/Desktop/big/pshift/ICET_KITTI_ground_truth_50.txt', rand_cum)

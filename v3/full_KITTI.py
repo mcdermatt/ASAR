@@ -10,7 +10,7 @@ from ICET_spherical import ICET
 from metpy.calc import lat_lon_grid_deltas
 
 
-num_frames = 150
+num_frames = 20
 
 basedir = 'C:/kitti/'
 date = '2011_09_26'
@@ -28,10 +28,21 @@ for i in range(num_frames):
 
 	print("\n ~~~~~~~~~~~~~~~~~~ Epoch ",  i," ~~~~~~~~~~~~~~~~~~~~~~~~~ \n")
 
+	# # normal KITTI data~~~~~~
 	velo1 = dataset.get_velo(i) # Each scan is a Nx4 array of [x,y,z,reflectance]
 	c1 = velo1[:,:3]
 	velo2 = dataset.get_velo(i+1) # Each scan is a Nx4 array of [x,y,z,reflectance]
 	c2 = velo2[:,:3]
+	# #~~~~~~~~~~~~~~~~~~~~~~~~
+
+	# # Raw KITTI data ~~~~~~~~~~
+	# fn1 = "C:/kitti/2011_09_26/2011_09_26_drive_0005_raw/velodyne_points/data/%010d.txt" %(i)
+	# fn2 = "C:/kitti/2011_09_26/2011_09_26_drive_0005_raw/velodyne_points/data/%010d.txt" %(i+1)
+	# c1 = np.loadtxt(fn1)[:,:3]
+	# c2 = np.loadtxt(fn2)[:,:3]
+	# #~~~~~~~~~~~~~~~~~~~~~~~~
+
+
 	# c1 = c1[c1[:,2] > -1.5] #ignore ground plane
 	# c2 = c2[c2[:,2] > -1.5] #ignore ground plane
 	# c1 = c1[c1[:,2] > -2.] #ignore reflections
@@ -41,7 +52,7 @@ for i in range(num_frames):
 
 	#-------------------------------------------------------------------------------------------------
 	#run once to get rough estimate and remove outlier points
-	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 15, draw = False, group = 2, 
+	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 17, draw = False, group = 2, 
 		RM = True, DNN_filter = True, x0 = initial_guess)
 	ICET_pred_stds[i] = it.pred_stds
 
@@ -101,9 +112,9 @@ for i in range(num_frames):
 	# print("\n solution from ICET \n", ICET_estimates[i])
 	print("\n solution from GPS/INS \n", OXTS_baseline[i])
 
-np.savetxt("ICET_pred_stds_v14.txt", ICET_pred_stds)
-np.savetxt("ICET_estimates_v14.txt", ICET_estimates)
-np.savetxt("OXTS_baseline_v14.txt", OXTS_baseline)
+np.savetxt("ICET_pred_stds_v16.txt", ICET_pred_stds)
+np.savetxt("ICET_estimates_v16.txt", ICET_estimates)
+np.savetxt("OXTS_baseline_v16.txt", OXTS_baseline)
 
 # np.savetxt("OXTS_baseline_gps.txt", OXTS_baseline)
 
@@ -119,3 +130,5 @@ np.savetxt("OXTS_baseline_v14.txt", OXTS_baseline)
 #v12 - no ground plane, more optimization
 #v13 - used in presentation, more compact but obvious low frequency error
 #v14 - debugging it/dnn compact, test flipping sign of DNN correction
+#v15 - using raw data (rolling shutter effect uncompensated)
+#v16 - normal data, using DNN solutions in place of dz

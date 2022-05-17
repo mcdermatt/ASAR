@@ -53,9 +53,10 @@ class ICET():
 
 		#load dnn model
 		if self.DNN_filter:
-			self.model = tf.keras.models.load_model("perspective_shift/KITTInet.kmod")
+			# self.model = tf.keras.models.load_model("perspective_shift/FORDnet.kmod")  #25 sample points
+			# self.model = tf.keras.models.load_model("perspective_shift/KITTInet.kmod") #25 sample points
+			self.model = tf.keras.models.load_model("perspective_shift/KITTInet50.kmod") #50 sample points
 			# self.model = tf.keras.models.load_model("perspective_shift/NET.kmod")
-
 
 		#convert cloud1 to tesnsor
 		self.cloud1_tensor = tf.cast(tf.convert_to_tensor(cloud1), tf.float32)
@@ -224,7 +225,7 @@ class ICET():
 			#transform cartesian point cloud 2 by estimated solution vector X
 			t = self.X[:3]
 			rot = R_tf(-self.X[3:])
-			self.cloud2_tensor = tf.matmul((self.cloud2_tensor_OG + t), tf.transpose(rot)) #was this
+			self.cloud2_tensor = tf.matmul((self.cloud2_tensor_OG + t), tf.transpose(rot)) #was this in 3D-ICET paper
 			# self.cloud2_tensor = tf.matmul((self.cloud2_tensor_OG), tf.transpose(rot)) + t   #rotate then translate
 
 			#convert back to spherical coordinates
@@ -243,9 +244,12 @@ class ICET():
 			self.enough1 = enough1
 
 			#fit gaussians distributions to each of these groups of points 		
+			# temp  = time.time()
 			mu2, sigma2 = self.fit_gaussian(self.cloud2_tensor, inside2, tf.cast(npts2, tf.float32))
 			enough2 = tf.where(npts2 > self.min_num_pts)[:,0]
 			mu2_enough = tf.gather(mu2, enough2)
+			# print("\n took ", time.time() - temp , "seconds to fit gaussian to scan2" )
+
 
 			#get correspondences
 			corr = tf.sets.intersection(enough1[None,:], enough2[None,:]).values
@@ -253,6 +257,7 @@ class ICET():
 			# print("\n occupied_spikes \n", occupied_spikes)
 			corr_full = tf.sets.intersection(enough1[None,:], enough2[None,:]).values
 
+			# temp  = time.time()
 			#----------------------------------------------
 			if remove_moving:  
 				if i >= 10: #TODO: tune this to optimal value
@@ -343,7 +348,7 @@ class ICET():
 					# print(tf.shape(residuals_compact))
 					# print(residuals_compact)
 
-					thresh = 0.1 #0.05
+					thresh = 0.05 #0.05
 					bidx = tf.where(residuals_compact > thresh )[:,0]
 					# print("\n bidx", bidx)
 					# print(" \nbad_idx", bad_idx)
@@ -362,8 +367,9 @@ class ICET():
 			#----------------------------------------------
 			#Use DNN to remove cells affected by persepective shift
 			if self.DNN_filter and i >= 10:
-
 				#DEBUG (5/2)- replaced all references of <corr> to <corr_full>
+
+				nSamplePts = 50 #25
 
 				print("\n ---checking for perspective shift---")
 				#get indices of rag with >= 25 elements
@@ -373,13 +379,13 @@ class ICET():
 				en2 = tf.gather(inside2, corr_full)
 
 				#init array to store indices
-				idx1 = np.zeros([ncells ,25])
-				idx2 = np.zeros([ncells ,25])
+				idx1 = np.zeros([ncells ,nSamplePts])
+				idx2 = np.zeros([ncells ,nSamplePts])
 
 				#loop through each element of ragged tensor
 				for i in range(ncells):
-				    idx1[i,:] = tf.random.shuffle(en1[i])[:25].numpy() #shuffle order and take first 25 elements
-				    idx2[i,:] = tf.random.shuffle(en2[i])[:25].numpy() #shuffle order and take first 25 elements
+				    idx1[i,:] = tf.random.shuffle(en1[i])[:nSamplePts].numpy() #shuffle order and take first 25 elements
+				    idx2[i,:] = tf.random.shuffle(en2[i])[:nSamplePts].numpy() #shuffle order and take first 25 elements
 
 				idx1 = tf.cast(tf.convert_to_tensor(idx1), tf.int32)
 				idx2 = tf.cast(tf.convert_to_tensor(idx2), tf.int32)
@@ -396,7 +402,7 @@ class ICET():
 
 				#Iterative~~~~~~~~~~~~
 				correction = 0
-				niter = 7
+				niter = 10
 				inputs = x_test
 				for _ in range(niter):
 					correction += self.model.predict(inputs)
@@ -407,7 +413,7 @@ class ICET():
 				dnnsoln = tf.convert_to_tensor(correction)
 				# dnnsoln = tf.convert_to_tensor(-correction) #TEST
 				#~~~~~~~~~~~~~~~~~~~~
-				# print(dnnsoln)
+				# print(dnnsoln[:10])
 
 				#---------------------------------------------------------------
 				# for debug:
@@ -419,7 +425,7 @@ class ICET():
 				#was this - DEBUG: think it may be creating a chicken and egg problem
 				# icetsoln = tf.gather(self.residuals, corr)
 				icetsoln = tf.math.reduce_mean(tf.gather(self.cloud1_tensor,en1), axis = 1) - tf.math.reduce_mean(tf.gather(self.cloud2_tensor,en2), axis = 1)
-				# print(icetsoln)
+				# print(icetsoln[:10])
 
 				#fix - just do m2 - mu1 
 				#temp lazy solution: just take mean of subset of 25 points fed into dnn from each pc, and get diff
@@ -437,6 +443,7 @@ class ICET():
 				L_i = tf.gather(L, ans)
 				#was this
 				# LUT = tf.matmul(L_i, tf.transpose(U_i, [0,2,1]))
+				# dz_new = tf.matmul(LUT, dnnsoln[:,:,None])
 				# it_compact = tf.matmul(LUT, icetsoln[:,:,None])
 				# it_compact_xyz = tf.matmul(U_i, it_compact)
 				# dnn_compact = tf.matmul(LUT, dnnsoln[:,:,None])
@@ -452,7 +459,7 @@ class ICET():
 				# print(it_compact_xyz - dnn_compact_xyz)
 
 				#find where the largest difference in residuals are
-				thresh = 0.1 #0.05 #0.05 #0.1
+				thresh = 0.5 #0.05 #0.05 #0.1
 				#be careful- not sure what this index corresponds to (may not be voxel ID)
 				# bad_idx = tf.where(tf.math.abs(it_compact - dnn_compact) > thresh)[:,0] #incorrect? (comparing xyz vs dist axis aligned...)
 				bad_idx = tf.where(tf.math.abs(it_compact_xyz - dnn_compact_xyz) > thresh)[:,0]
@@ -472,41 +479,43 @@ class ICET():
 				idx_to_draw_dnn_soln = tf.gather(mu1_enough, ans)
 				# self.draw_DNN_soln(dnn_compact_xyz[:,:,0], it_compact_xyz[:,:,0], tf.gather(mu1_enough, ans))
 			#----------------------------------------------
+			# print("\n took ", time.time() - temp , "seconds to remove moving and apply DNN filter" )
 
-			#for debug ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-			#to confirm correct points are being ignored
-			bounds_good = tf.gather(bounds, corr)
-			good_pts_rag, _ = self.get_points_in_cluster(self.cloud1_tensor_spherical, tf.gather(occupied_spikes, corr), bounds_good)
 
-			if remove_moving or self.DNN_filter:
-				if i >= 10:
-					to_save = np.zeros([1,3])
-					for z in range(good_pts_rag.bounding_shape()[0]):
-						temp = tf.gather(self.cloud1_tensor, good_pts_rag[z]).numpy()
-						#draw good points from scan 1-------------
-						# if self.draw == True:
-						# 	self.disp.append(Points(temp, c = 'green', r = 6))
-						#-----------------------------------------
+			# #for debug ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+			# #to confirm correct points are being ignored
+			# bounds_good = tf.gather(bounds, corr)
+			# good_pts_rag, _ = self.get_points_in_cluster(self.cloud1_tensor_spherical, tf.gather(occupied_spikes, corr), bounds_good)
 
-						#for debug: save good points from scan 1 to file ---
-						# to_save 
-						# print(tf.shape(temp))
-						to_save = np.append(to_save, temp, axis = 0)
-						# np.savetxt("cloud1_good.txt", to_save)
+			# if remove_moving or self.DNN_filter:
+			# 	if i >= 10:
+			# 		to_save = np.zeros([1,3])
+			# 		for z in range(good_pts_rag.bounding_shape()[0]):
+			# 			temp = tf.gather(self.cloud1_tensor, good_pts_rag[z]).numpy()
+			# 			#draw good points from scan 1-------------
+			# 			# if self.draw == True:
+			# 			# 	self.disp.append(Points(temp, c = 'green', r = 6))
+			# 			#-----------------------------------------
 
-					self.cloud1_static = to_save
+			# 			#for debug: save good points from scan 1 to file ---
+			# 			# to_save 
+			# 			# print(tf.shape(temp))
+			# 			to_save = np.append(to_save, temp, axis = 0)
+			# 			# np.savetxt("cloud1_good.txt", to_save)
 
-					#update cloud1 and dependencies (mu1, sigma1, etc.) to remove pts form scan1 in problematic regions
-					# self.cloud1_tensor = tf.cast(tf.convert_to_tensor(to_save), tf.float32)
-					# self.cloud1_tensor_spherical = tf.cast(self.c2s(self.cloud1_tensor), tf.float32)
-					# inside1, npts1 = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes, bounds)
-					# mu1, sigma1 = self.fit_gaussian(tf.cast(self.cloud1_tensor, tf.float32), inside1, tf.cast(npts1, tf.float32))
-					# enough1 = tf.where(npts1 > self.min_num_pts)[:,0]
-					# mu1_enough = tf.gather(mu1, enough1)
-					# sigma1_enough = tf.gather(sigma1, enough1)
-					# print("enough1", enough1)
+			# 		self.cloud1_static = to_save
 
-			# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+			# 		#update cloud1 and dependencies (mu1, sigma1, etc.) to remove pts form scan1 in problematic regions
+			# 		# self.cloud1_tensor = tf.cast(tf.convert_to_tensor(to_save), tf.float32)
+			# 		# self.cloud1_tensor_spherical = tf.cast(self.c2s(self.cloud1_tensor), tf.float32)
+			# 		# inside1, npts1 = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes, bounds)
+			# 		# mu1, sigma1 = self.fit_gaussian(tf.cast(self.cloud1_tensor, tf.float32), inside1, tf.cast(npts1, tf.float32))
+			# 		# enough1 = tf.where(npts1 > self.min_num_pts)[:,0]
+			# 		# mu1_enough = tf.gather(mu1, enough1)
+			# 		# sigma1_enough = tf.gather(sigma1, enough1)
+			# 		# print("enough1", enough1)
+
+			# # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
 			y0_i_full = tf.gather(mu1, corr_full)
@@ -562,8 +571,8 @@ class ICET():
 			#take inverse of R_noise to get our weighting matrix
 			W = tf.linalg.pinv(R_noise)
 
-			LUT = L_i @ U_iT #was this
-			# LUT = L_i @ U_i #test
+			LUT = L_i @ U_iT
+			# LU = L_i @ U_i 
 
 			# use LUT to remove rows of H corresponding to overly extended directions
 			H_z = LUT @ H
@@ -578,6 +587,43 @@ class ICET():
 			z0 = tf.squeeze(tf.matmul(LUT, y0_i[:,:,None]))	
 			dz = z - z0
 			dz = dz[:,:,None] #need to add an extra dimension to dz to get the math to work out
+
+			# #DEBUG - replace distribution matching step with output from DNN ~~~~~~~~~
+			if i >= 10:
+				#directly using output from dnn -----------
+				# # dz_new = dnn_compact[:,:,0] #was this
+				# dz_new = dnn_compact_xyz[:,:,0]
+				# # dz_new = dz_new[:,:,0] #alt method - TODO-> figure out which of these is correct
+				# dz_new = tf.gather(dz_new, corr)[:,:,None]
+				# dz = -dz_new
+
+				# #make virtual y_i -------------------------
+				# print("y_i", tf.shape(y_i))
+				# print("dnn_compact_xyz", tf.shape(dnn_compact_xyz))
+
+				dnn_compact_xyz_i = tf.gather(dnn_compact_xyz[:,:,0], corr)
+				# print("dnn_compact_xyz_i", tf.shape(dnn_compact_xyz_i)) #same shape as y0_i
+				y_i_temp = y0_i + dnn_compact_xyz_i
+
+				z = tf.squeeze(tf.matmul(LUT, y_i_temp[:,:,None]))
+				dz_new = z - z0
+				dz_new = dz_new[:,:,None]
+
+				# print("dz", dz[:10,:,0])
+				# print("dz_new", dz_new[:10,:,0])
+				# dz = dz_new
+				#----------------------------------------------
+
+				# #update H and dependencies
+				# H = jacobian_tf(tf.transpose(y_i_temp), self.X[3:]) # shape = [num of corr * 3, 6]
+				# H = tf.reshape(H, (tf.shape(H)[0]//3,3,6)) # -> need shape [#corr//3, 3, 6]
+				# H_z = LUT @ H
+				# HTWH = tf.math.reduce_sum(tf.matmul(tf.matmul(tf.transpose(H_z, [0,2,1]), W), H_z), axis = 0) #was this (which works)
+				# HTW = tf.matmul(tf.transpose(H_z, [0,2,1]), W)
+				# L2, lam, U2 = self.check_condition(HTWH)
+
+			# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 
 			dx = tf.squeeze(tf.matmul( tf.matmul(tf.linalg.pinv(L2 @ lam @ tf.transpose(U2)) @ L2 @ tf.transpose(U2) , HTW ), dz))	
 
@@ -771,6 +817,7 @@ class ICET():
 			#TODO: this is SUPER inefficient rn- 
 
 		"""
+		# st = time.time()
 
 		thetamin = -np.pi
 		thetamax = np.pi #-  2*np.pi/self.fid_theta
@@ -796,6 +843,8 @@ class ICET():
 		inside1 = tf.where(tf.math.reduce_all(tf.Variable([cond1, cond2, cond3]), axis = 0))
 		numPtsPerCluster = tf.math.bincount(tf.cast(inside1[:,0], tf.int32))
 		inside1 = tf.RaggedTensor.from_value_rowids(inside1[:,1], inside1[:,0])
+
+		# print("\n took ", time.time() -st , "seconds to get points in cluster" )
 
 		return(inside1, numPtsPerCluster)
 
@@ -1038,14 +1087,14 @@ class ICET():
 
 		for i in range(tf.shape(dnnsoln)[0].numpy()):
 			#normalize len of each arrow
-			# arrowlen = 1/(np.sqrt(dnnsoln[i,0].numpy()**2 + dnnsoln[i,1].numpy()**2 + dnnsoln[i,2].numpy()**2))
-			arrowlen = 1 #leave arrows proportional to residual distance
+			arrowlen = 1/(np.sqrt(dnnsoln[i,0].numpy()**2 + dnnsoln[i,1].numpy()**2 + dnnsoln[i,2].numpy()**2))
+			# arrowlen = 1 #leave arrows proportional to residual distance
 			# A = Arrow2D(startPoint = mu1[i].numpy(), endPoint = mu1[i].numpy() + arrowlen*dnnsoln[i,:].numpy(), c = 'purple')
 			A = shapes.Arrow(mu1[i].numpy(), mu1[i].numpy() + arrowlen*dnnsoln[i,:].numpy(), c = 'purple')
 			self.disp.append(A)
 
 			#Draw ICET solns as well (for debug)
-			# arrowlen = 1/(np.sqrt(itsoln[i,0].numpy()**2 + itsoln[i,1].numpy()**2 + itsoln[i,2].numpy()**2))
+			arrowlen = 1/(np.sqrt(itsoln[i,0].numpy()**2 + itsoln[i,1].numpy()**2 + itsoln[i,2].numpy()**2))
 			B = shapes.Arrow(mu1[i].numpy(), mu1[i].numpy() + arrowlen*itsoln[i,:].numpy(), c = 'yellow')
 			self.disp.append(B)
 

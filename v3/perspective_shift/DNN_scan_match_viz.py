@@ -12,11 +12,12 @@ plt = Plotter(N = 1, axes = 1, bg = (1, 1, 1), interactive = True) #axis = 4
 disp = []
 
 #load model
-model = tf.keras.models.load_model("Net.kmod")
-# model = tf.keras.models.load_model("KITTInet.kmod")
+# model = tf.keras.models.load_model("Net.kmod") 	  #25
+model = tf.keras.models.load_model("KITTInet.kmod") #25
+# model = tf.keras.models.load_model("KITTInet.kmod")  #50 
 
 #read in dense point cloud of car
-points_per_sample = 25 #num pts per scan - defined in MatLab script
+points_per_sample = 50 #num pts per scan - defined in MatLab script
 # d1 = np.loadtxt('training_data/car_demo_scan1.txt')
 # d2 = np.loadtxt('training_data/car_demo_scan2.txt')
 # gt = np.loadtxt('training_data/car_demo_ground_truth.txt')

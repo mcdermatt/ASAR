@@ -30,16 +30,17 @@ for i in range(num_frames):
 	SCAN2 = dat2['SCAN']
 	c2 = np.transpose(np.array(SCAN2['XYZ']))
 
-	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 20, draw = False, group = 2, 
-		RM = True, DNN_filter = True, x0 = initial_guess)
+	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 10, draw = False, group = 2, 
+		RM = False, DNN_filter = False, x0 = initial_guess)
 
 	ICET_pred_stds[i] = it.pred_stds
 	ICET_estimates[i] = it.X
 	initial_guess = it.X
 
 
-np.savetxt("Ford_pred_stds_v1.txt", ICET_pred_stds)
-np.savetxt("Ford_estimates_v1.txt", ICET_estimates)
+np.savetxt("Ford_pred_stds_v3.txt", ICET_pred_stds)
+np.savetxt("Ford_estimates_v3.txt", ICET_estimates)
 
 #v1 - fid 50, dnn = 0.10, moving = 0.1
 #v2 - fid 90, dnn = 0.05, moving = 0.1
+#v3 - fid 50, no dnn or RM
