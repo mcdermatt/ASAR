@@ -9,7 +9,7 @@ from metpy.calc import lat_lon_grid_deltas
 
 
 numShifts = 5 #number of times to resample and translate each voxel each scan
-runLen = 5 #150
+runLen = 15 #150
 npts = 50 #25
 
 # init KITTI dataset

@@ -10,7 +10,7 @@ from ICET_spherical import ICET
 from metpy.calc import lat_lon_grid_deltas
 
 
-num_frames = 20
+num_frames = 150
 
 basedir = 'C:/kitti/'
 date = '2011_09_26'
@@ -52,7 +52,7 @@ for i in range(num_frames):
 
 	#-------------------------------------------------------------------------------------------------
 	#run once to get rough estimate and remove outlier points
-	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 17, draw = False, group = 2, 
+	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 20, draw = False, group = 2, 
 		RM = True, DNN_filter = True, x0 = initial_guess)
 	ICET_pred_stds[i] = it.pred_stds
 
@@ -63,7 +63,7 @@ for i in range(num_frames):
 	ICET_estimates[i] = it.X #* (dataset.timestamps[i+1] - dataset.timestamps[i]).microseconds/(10e5)/0.1
 	# ICET_pred_stds[i] = it.pred_stds
 
-	initial_guess = it.X
+	# initial_guess = it.X
 
 	# -------------------------------
 	poses0 = dataset.oxts[i] 

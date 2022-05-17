@@ -50,6 +50,7 @@ class ICET():
 		self.alpha = 0.5 #controls alpha values when displaying ellipses
 		self.cheat = cheat
 		self.DNN_filter = DNN_filter
+		self.start_filter_iter = 10 #10 #iteration to start DNN rejection filter
 
 		#load dnn model
 		if self.DNN_filter:
@@ -366,7 +367,7 @@ class ICET():
 
 			#----------------------------------------------
 			#Use DNN to remove cells affected by persepective shift
-			if self.DNN_filter and i >= 10:
+			if self.DNN_filter and i >= self.start_filter_iter:
 				#DEBUG (5/2)- replaced all references of <corr> to <corr_full>
 
 				nSamplePts = 50 #25
@@ -427,10 +428,9 @@ class ICET():
 				icetsoln = tf.math.reduce_mean(tf.gather(self.cloud1_tensor,en1), axis = 1) - tf.math.reduce_mean(tf.gather(self.cloud2_tensor,en2), axis = 1)
 				# print(icetsoln[:10])
 
-				#fix - just do m2 - mu1 
-				#temp lazy solution: just take mean of subset of 25 points fed into dnn from each pc, and get diff
-				# icetsoln = tf.math.reduce_mean(from2, axis = 1) - tf.math.reduce_mean(from1, axis = 1) #signage shows we need 2-1
-				# print("lazy", icetsoln)
+				#Signs need to be flipped
+				icetsoln = -icetsoln
+				dnnsoln = -dnnsoln
 
 				# print(enough1)
 				# print(self.corr)
@@ -441,6 +441,7 @@ class ICET():
 				#test moving these here
 				U_i = tf.gather(U, ans)
 				L_i = tf.gather(L, ans)
+				U_i_dnn = U_i #debug
 				#was this
 				# LUT = tf.matmul(L_i, tf.transpose(U_i, [0,2,1]))
 				# dz_new = tf.matmul(LUT, dnnsoln[:,:,None])
@@ -456,16 +457,24 @@ class ICET():
 				dnn_compact = tf.matmul(LU, dnnsoln[:,:,None])
 				dnn_compact_xyz = tf.matmul(tf.transpose(U_i, [0,2,1]), dnn_compact)
 
+				# #-temp override----------
+				# # print(dnnsoln - icetsoln)
+				# dnn_compact_xyz = dnnsoln
+				# it_compact_xyz = icetsoln
+				# #------------------------
+
 				# print(it_compact_xyz - dnn_compact_xyz)
 
 				#find where the largest difference in residuals are
-				thresh = 0.5 #0.05 #0.05 #0.1
-				#be careful- not sure what this index corresponds to (may not be voxel ID)
-				# bad_idx = tf.where(tf.math.abs(it_compact - dnn_compact) > thresh)[:,0] #incorrect? (comparing xyz vs dist axis aligned...)
+				thresh = 0.05 #0.05 #0.1
 				bad_idx = tf.where(tf.math.abs(it_compact_xyz - dnn_compact_xyz) > thresh)[:,0]
 				bad_idx = tf.unique(bad_idx)[0] #get rid of repeated indices
+				print("bad_idx", bad_idx)
 
-				# print("bad_idx", bad_idx)
+				good_idx = tf.where(tf.math.abs(it_compact_xyz - dnn_compact_xyz) < thresh)[:,0]
+				good_idx = tf.unique(good_idx)[0] #get rid of repeated indices
+				# print("good_idx", good_idx)
+				# print(tf.math.abs(it_compact_xyz - dnn_compact_xyz))
 
 				#draw bad cells
 				bounds_bad = tf.gather(self.bounds, tf.gather(corr_full, bad_idx))
@@ -587,42 +596,55 @@ class ICET():
 			z0 = tf.squeeze(tf.matmul(LUT, y0_i[:,:,None]))	
 			dz = z - z0
 			dz = dz[:,:,None] #need to add an extra dimension to dz to get the math to work out
+			# print("old dz", dz[:15,:,0])
 
-			# #DEBUG - replace distribution matching step with output from DNN ~~~~~~~~~
-			if i >= 10:
+			#DEBUG - replace distribution matching step with output from DNN ~~~~~~~~~
+			if i >= self.start_filter_iter:
 				#directly using output from dnn -----------
-				# # dz_new = dnn_compact[:,:,0] #was this
-				# dz_new = dnn_compact_xyz[:,:,0]
-				# # dz_new = dz_new[:,:,0] #alt method - TODO-> figure out which of these is correct
-				# dz_new = tf.gather(dz_new, corr)[:,:,None]
-				# dz = -dz_new
+				#converges with no DNN voxel rejection, but still need to remove cells where soln disagrees with ICET
+				dz = dnn_compact 
+				# dz = tf.matmul(U_i_dnn, dnnsoln[:,:,None])  #test - rotate along principal axis of ICET distributions but do not remove extended axis
+
+				#get list of all possible indices
+				all_idx = tf.cast(tf.linspace(0,tf.shape(dz)[0].numpy()-1,tf.shape(dz)[0].numpy()), tf.int64)[None,:]
+
+				#combine bad idx's from dnn filter and moving object filter
+				rmidx = tf.sets.union(bad_idx[None,:], bidx[None,:]) #bad_idx from dnn, bidx from moving rejection filter
+
+				#removing rejected dnn solns
+				good_idx = tf.sets.difference(all_idx, rmidx).values #with RM turned on
+				# good_idx = tf.sets.difference(all_idx, bad_idx[None,:]).values #if RM turned off
+				dz = tf.gather(dz, good_idx)
+				# print("new dz", dz[:15,:,0])
+
 
 				# #make virtual y_i -------------------------
 				# print("y_i", tf.shape(y_i))
 				# print("dnn_compact_xyz", tf.shape(dnn_compact_xyz))
 
-				dnn_compact_xyz_i = tf.gather(dnn_compact_xyz[:,:,0], corr)
+				# dnn_compact_xyz_i = tf.gather(dnn_compact_xyz[:,:,0], corr)
+				# dnn_compact_xyz_i = tf.gather(dnn_compact_xyz, corr)
 				# print("dnn_compact_xyz_i", tf.shape(dnn_compact_xyz_i)) #same shape as y0_i
-				y_i_temp = y0_i + dnn_compact_xyz_i
+				# y_i_temp = y0_i + dnn_compact_xyz_i
 
-				z = tf.squeeze(tf.matmul(LUT, y_i_temp[:,:,None]))
-				dz_new = z - z0
-				dz_new = dz_new[:,:,None]
+				# z = tf.squeeze(tf.matmul(LUT, y_i_temp[:,:,None]))
+				# dz_new = z - z0
+				# dz_new = dz_new[:,:,None]
 
 				# print("dz", dz[:10,:,0])
 				# print("dz_new", dz_new[:10,:,0])
 				# dz = dz_new
 				#----------------------------------------------
 
-				# #update H and dependencies
-				# H = jacobian_tf(tf.transpose(y_i_temp), self.X[3:]) # shape = [num of corr * 3, 6]
-				# H = tf.reshape(H, (tf.shape(H)[0]//3,3,6)) # -> need shape [#corr//3, 3, 6]
-				# H_z = LUT @ H
-				# HTWH = tf.math.reduce_sum(tf.matmul(tf.matmul(tf.transpose(H_z, [0,2,1]), W), H_z), axis = 0) #was this (which works)
-				# HTW = tf.matmul(tf.transpose(H_z, [0,2,1]), W)
-				# L2, lam, U2 = self.check_condition(HTWH)
+			# 	# #update H and dependencies
+			# 	# H = jacobian_tf(tf.transpose(y_i_temp), self.X[3:]) # shape = [num of corr * 3, 6]
+			# 	# H = tf.reshape(H, (tf.shape(H)[0]//3,3,6)) # -> need shape [#corr//3, 3, 6]
+			# 	# H_z = LUT @ H
+			# 	# HTWH = tf.math.reduce_sum(tf.matmul(tf.matmul(tf.transpose(H_z, [0,2,1]), W), H_z), axis = 0) #was this (which works)
+			# 	# HTW = tf.matmul(tf.transpose(H_z, [0,2,1]), W)
+			# 	# L2, lam, U2 = self.check_condition(HTWH)
 
-			# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+			# # #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
 			dx = tf.squeeze(tf.matmul( tf.matmul(tf.linalg.pinv(L2 @ lam @ tf.transpose(U2)) @ L2 @ tf.transpose(U2) , HTW ), dz))	
@@ -645,7 +667,8 @@ class ICET():
 				self.draw_cell(bad_idx_corn_moving, bad = True) #for debug
 			if self.DNN_filter:
 				self.draw_cell(bad_idx_corn_DNN, bad = 2)
-				self.draw_DNN_soln(dnn_compact_xyz[:,:,0], it_compact_xyz[:,:,0], idx_to_draw_dnn_soln) #remove this you animal
+				self.draw_DNN_soln(dnn_compact_xyz[:,:,0], it_compact_xyz[:,:,0], idx_to_draw_dnn_soln) #just in compact directions
+				# self.draw_DNN_soln(dnnsoln, icetsoln, idx_to_draw_dnn_soln) #raw solutions
 
 
 			self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
@@ -1087,14 +1110,14 @@ class ICET():
 
 		for i in range(tf.shape(dnnsoln)[0].numpy()):
 			#normalize len of each arrow
-			arrowlen = 1/(np.sqrt(dnnsoln[i,0].numpy()**2 + dnnsoln[i,1].numpy()**2 + dnnsoln[i,2].numpy()**2))
-			# arrowlen = 1 #leave arrows proportional to residual distance
+			# arrowlen = 1/(np.sqrt(dnnsoln[i,0].numpy()**2 + dnnsoln[i,1].numpy()**2 + dnnsoln[i,2].numpy()**2))
+			arrowlen = 1 #leave arrows proportional to residual distance
 			# A = Arrow2D(startPoint = mu1[i].numpy(), endPoint = mu1[i].numpy() + arrowlen*dnnsoln[i,:].numpy(), c = 'purple')
 			A = shapes.Arrow(mu1[i].numpy(), mu1[i].numpy() + arrowlen*dnnsoln[i,:].numpy(), c = 'purple')
 			self.disp.append(A)
 
 			#Draw ICET solns as well (for debug)
-			arrowlen = 1/(np.sqrt(itsoln[i,0].numpy()**2 + itsoln[i,1].numpy()**2 + itsoln[i,2].numpy()**2))
+			# arrowlen = 1/(np.sqrt(itsoln[i,0].numpy()**2 + itsoln[i,1].numpy()**2 + itsoln[i,2].numpy()**2))
 			B = shapes.Arrow(mu1[i].numpy(), mu1[i].numpy() + arrowlen*itsoln[i,:].numpy(), c = 'yellow')
 			self.disp.append(B)
 
@@ -1281,9 +1304,9 @@ class ICET():
 		yy = tf.math.reduce_sum(tf.math.square(ypos - mu[:,1][:,None] ), axis = 1)/npts
 		zz = tf.math.reduce_sum(tf.math.square(zpos - mu[:,2][:,None] ), axis = 1)/npts
 
-		xy = tf.math.reduce_sum( (xpos - mu[:,0][:,None])*(ypos - mu[:,1][:,None]), axis = 1)/npts
-		xz = -tf.math.reduce_sum( (xpos - mu[:,0][:,None])*(zpos - mu[:,2][:,None]), axis = 1)/npts
-		yz = -tf.math.reduce_sum( (ypos - mu[:,1][:,None])*(zpos - mu[:,2][:,None]), axis = 1)/npts
+		xy = tf.math.reduce_sum( (xpos - mu[:,0][:,None])*(ypos - mu[:,1][:,None]), axis = 1)/npts  #+
+		xz = -tf.math.reduce_sum( (xpos - mu[:,0][:,None])*(zpos - mu[:,2][:,None]), axis = 1)/npts #-
+		yz = -tf.math.reduce_sum( (ypos - mu[:,1][:,None])*(zpos - mu[:,2][:,None]), axis = 1)/npts #-
 
 
 		sigma = tf.Variable([xx, xy, xz,

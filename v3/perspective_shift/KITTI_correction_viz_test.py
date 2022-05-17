@@ -7,6 +7,8 @@ import time
 
 #NOTE: make sure tf23 conda env is actiated
 
+n = 25 #110 #sample number (from x_test)
+
 #init vedo and scene
 plt = Plotter(N = 1, axes = 1, bg = (1, 1, 1), interactive = True) #axis = 4
 disp = []
@@ -24,6 +26,7 @@ points_per_sample = 50 #25 #num pts per scan - defined in MatLab script
 # d2 = np.loadtxt('training_data/ICET_KITTI_scan2.txt')
 d1 = np.loadtxt('training_data/ICET_KITTI_scan1_50.txt')
 d2 = np.loadtxt('training_data/ICET_KITTI_scan2_50.txt')
+gt = np.loadtxt('training_data/ICET_KITTI_ground_truth_50.txt')
 scan1 = tf.reshape(tf.convert_to_tensor(d1), [-1, points_per_sample, 3])
 scan2 = tf.reshape(tf.convert_to_tensor(d2), [-1, points_per_sample, 3])
 
@@ -32,10 +35,9 @@ tsplit = 0.95 #this fraction goes into training
 ntrain = int(tsplit*tf.shape(scan1)[0].numpy())
 x_train = tf.concat((scan1[:ntrain], scan2[:ntrain]), axis = 1)
 x_test = tf.concat((scan1[ntrain:], scan2[ntrain:]), axis = 1)
+y_test = gt[ntrain:]
 
 #appy model to points
-n = 13 #110 #sample number (from x_test)
-
 c1 = np.array([x_test[n,:points_per_sample,0].numpy(), x_test[n,:points_per_sample,1].numpy(), x_test[n,:points_per_sample,2].numpy()])
 c2 = np.array([x_test[n,points_per_sample:,0].numpy(), x_test[n,points_per_sample:,1].numpy(), x_test[n,points_per_sample:,2].numpy()])
 # draw scans 1 and 2
@@ -51,11 +53,12 @@ for i in range(runlen):
     c1_new = np.array([c1[0,:] + correction[0], c1[1,:] + correction[1], c1[2,:] + correction[2]])
     inputs = np.append(c1_new, c2, axis = 1).T[None,:,:]
 
+print("\n estimated solution: ", correction)
+print("\n ground truth solution: ", y_test[n])
+
 plt.show(disp, "DNN registration test")
 
 disp.append(Points(c1_new, c = 'red', r = 10))
-
-print("\n estimated solution: \n :", correction)
 
 #draw and close
 plt.show(disp, "DNN Model on subsampled KITTI voxel data \n via ICET")
