@@ -349,7 +349,7 @@ class ICET():
 					# print(tf.shape(residuals_compact))
 					# print(residuals_compact)
 
-					thresh = 0.05 #0.05
+					thresh = 0.05 #0.1 #0.05
 					bidx = tf.where(residuals_compact > thresh )[:,0]
 					# print("\n bidx", bidx)
 					# print(" \nbad_idx", bad_idx)
@@ -457,19 +457,13 @@ class ICET():
 				dnn_compact = tf.matmul(LU, dnnsoln[:,:,None])
 				dnn_compact_xyz = tf.matmul(tf.transpose(U_i, [0,2,1]), dnn_compact)
 
-				# #-temp override----------
-				# # print(dnnsoln - icetsoln)
-				# dnn_compact_xyz = dnnsoln
-				# it_compact_xyz = icetsoln
-				# #------------------------
-
 				# print(it_compact_xyz - dnn_compact_xyz)
 
 				#find where the largest difference in residuals are
-				thresh = 0.05 #0.05 #0.1
+				thresh = 0.5 #0.05 #0.1
 				bad_idx = tf.where(tf.math.abs(it_compact_xyz - dnn_compact_xyz) > thresh)[:,0]
 				bad_idx = tf.unique(bad_idx)[0] #get rid of repeated indices
-				print("bad_idx", bad_idx)
+				# print("bad_idx", bad_idx)
 
 				good_idx = tf.where(tf.math.abs(it_compact_xyz - dnn_compact_xyz) < thresh)[:,0]
 				good_idx = tf.unique(good_idx)[0] #get rid of repeated indices
@@ -598,53 +592,53 @@ class ICET():
 			dz = dz[:,:,None] #need to add an extra dimension to dz to get the math to work out
 			# print("old dz", dz[:15,:,0])
 
-			#DEBUG - replace distribution matching step with output from DNN ~~~~~~~~~
-			if i >= self.start_filter_iter:
-				#directly using output from dnn -----------
-				#converges with no DNN voxel rejection, but still need to remove cells where soln disagrees with ICET
-				dz = dnn_compact 
-				# dz = tf.matmul(U_i_dnn, dnnsoln[:,:,None])  #test - rotate along principal axis of ICET distributions but do not remove extended axis
+			# #DEBUG - replace distribution matching step with output from DNN ~~~~~~~~~
+			# if i >= self.start_filter_iter:
+			# 	#directly using output from dnn -----------
+			# 	#converges with no DNN voxel rejection, but still need to remove cells where soln disagrees with ICET
+			# 	dz = dnn_compact 
+			# 	# dz = tf.matmul(U_i_dnn, dnnsoln[:,:,None])  #test - rotate along principal axis of ICET distributions but do not remove extended axis
 
-				#get list of all possible indices
-				all_idx = tf.cast(tf.linspace(0,tf.shape(dz)[0].numpy()-1,tf.shape(dz)[0].numpy()), tf.int64)[None,:]
+			# 	#get list of all possible indices
+			# 	all_idx = tf.cast(tf.linspace(0,tf.shape(dz)[0].numpy()-1,tf.shape(dz)[0].numpy()), tf.int64)[None,:]
 
-				#combine bad idx's from dnn filter and moving object filter
-				rmidx = tf.sets.union(bad_idx[None,:], bidx[None,:]) #bad_idx from dnn, bidx from moving rejection filter
+			# 	#combine bad idx's from dnn filter and moving object filter
+			# 	rmidx = tf.sets.union(bad_idx[None,:], bidx[None,:]) #bad_idx from dnn, bidx from moving rejection filter
 
-				#removing rejected dnn solns
-				good_idx = tf.sets.difference(all_idx, rmidx).values #with RM turned on
-				# good_idx = tf.sets.difference(all_idx, bad_idx[None,:]).values #if RM turned off
-				dz = tf.gather(dz, good_idx)
-				# print("new dz", dz[:15,:,0])
+			# 	#removing rejected dnn solns
+			# 	good_idx = tf.sets.difference(all_idx, rmidx).values #with RM turned on
+			# 	# good_idx = tf.sets.difference(all_idx, bad_idx[None,:]).values #if RM turned off
+			# 	dz = tf.gather(dz, good_idx)
+			# 	# print("new dz", dz[:15,:,0])
 
 
-				# #make virtual y_i -------------------------
-				# print("y_i", tf.shape(y_i))
-				# print("dnn_compact_xyz", tf.shape(dnn_compact_xyz))
+			# 	# #make virtual y_i -------------------------
+			# 	# print("y_i", tf.shape(y_i))
+			# 	# print("dnn_compact_xyz", tf.shape(dnn_compact_xyz))
 
-				# dnn_compact_xyz_i = tf.gather(dnn_compact_xyz[:,:,0], corr)
-				# dnn_compact_xyz_i = tf.gather(dnn_compact_xyz, corr)
-				# print("dnn_compact_xyz_i", tf.shape(dnn_compact_xyz_i)) #same shape as y0_i
-				# y_i_temp = y0_i + dnn_compact_xyz_i
+			# 	# dnn_compact_xyz_i = tf.gather(dnn_compact_xyz[:,:,0], corr)
+			# 	# dnn_compact_xyz_i = tf.gather(dnn_compact_xyz, corr)
+			# 	# print("dnn_compact_xyz_i", tf.shape(dnn_compact_xyz_i)) #same shape as y0_i
+			# 	# y_i_temp = y0_i + dnn_compact_xyz_i
 
-				# z = tf.squeeze(tf.matmul(LUT, y_i_temp[:,:,None]))
-				# dz_new = z - z0
-				# dz_new = dz_new[:,:,None]
+			# 	# z = tf.squeeze(tf.matmul(LUT, y_i_temp[:,:,None]))
+			# 	# dz_new = z - z0
+			# 	# dz_new = dz_new[:,:,None]
 
-				# print("dz", dz[:10,:,0])
-				# print("dz_new", dz_new[:10,:,0])
-				# dz = dz_new
-				#----------------------------------------------
+			# 	# print("dz", dz[:10,:,0])
+			# 	# print("dz_new", dz_new[:10,:,0])
+			# 	# dz = dz_new
+			# 	#----------------------------------------------
 
-			# 	# #update H and dependencies
-			# 	# H = jacobian_tf(tf.transpose(y_i_temp), self.X[3:]) # shape = [num of corr * 3, 6]
-			# 	# H = tf.reshape(H, (tf.shape(H)[0]//3,3,6)) # -> need shape [#corr//3, 3, 6]
-			# 	# H_z = LUT @ H
-			# 	# HTWH = tf.math.reduce_sum(tf.matmul(tf.matmul(tf.transpose(H_z, [0,2,1]), W), H_z), axis = 0) #was this (which works)
-			# 	# HTW = tf.matmul(tf.transpose(H_z, [0,2,1]), W)
-			# 	# L2, lam, U2 = self.check_condition(HTWH)
+			# # 	# #update H and dependencies
+			# # 	# H = jacobian_tf(tf.transpose(y_i_temp), self.X[3:]) # shape = [num of corr * 3, 6]
+			# # 	# H = tf.reshape(H, (tf.shape(H)[0]//3,3,6)) # -> need shape [#corr//3, 3, 6]
+			# # 	# H_z = LUT @ H
+			# # 	# HTWH = tf.math.reduce_sum(tf.matmul(tf.matmul(tf.transpose(H_z, [0,2,1]), W), H_z), axis = 0) #was this (which works)
+			# # 	# HTW = tf.matmul(tf.transpose(H_z, [0,2,1]), W)
+			# # 	# L2, lam, U2 = self.check_condition(HTWH)
 
-			# # #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+			# # # #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
 			dx = tf.squeeze(tf.matmul( tf.matmul(tf.linalg.pinv(L2 @ lam @ tf.transpose(U2)) @ L2 @ tf.transpose(U2) , HTW ), dz))	

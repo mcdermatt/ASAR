@@ -10,7 +10,7 @@ from ICET_spherical import ICET
 import mat4py
 
 
-num_frames = 199
+num_frames = 100 #199
 
 ICET_estimates = np.zeros([num_frames, 6])
 ICET_pred_stds = np.zeros([num_frames, 6])
@@ -18,6 +18,8 @@ ICET_pred_stds = np.zeros([num_frames, 6])
 initial_guess = tf.constant([0., 0., 0., 0., 0., 0.])
 
 for i in range(num_frames):
+
+	print("\n ~~~~~~~~~~~~~~~~~~ Epoch ",  i," ~~~~~~~~~~~~~~~~~~~~~~~~~ \n")
 
 	fn1 = 'E:/Ford/IJRR-Dataset-1-subset/SCANS/Scan%04d.mat' %(i+1000)
 	fn2 = 'E:/Ford/IJRR-Dataset-1-subset/SCANS/Scan%04d.mat' %(i+1001)
@@ -30,17 +32,19 @@ for i in range(num_frames):
 	SCAN2 = dat2['SCAN']
 	c2 = np.transpose(np.array(SCAN2['XYZ']))
 
-	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 10, draw = False, group = 2, 
-		RM = False, DNN_filter = False, x0 = initial_guess)
+	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 15, draw = False, group = 2, 
+		RM = True, DNN_filter = True, x0 = initial_guess)
 
 	ICET_pred_stds[i] = it.pred_stds
 	ICET_estimates[i] = it.X
-	initial_guess = it.X
+	# initial_guess = it.X
 
 
-np.savetxt("Ford_pred_stds_v3.txt", ICET_pred_stds)
-np.savetxt("Ford_estimates_v3.txt", ICET_estimates)
+np.savetxt("Ford_pred_stds_v5.txt", ICET_pred_stds)
+np.savetxt("Ford_estimates_v5.txt", ICET_estimates)
 
 #v1 - fid 50, dnn = 0.10, moving = 0.1
 #v2 - fid 90, dnn = 0.05, moving = 0.1
 #v3 - fid 50, no dnn or RM
+#v4 - pure dnn, fid = 70, niter = 20
+#v5 - pure dnn, fid = 50, niter = 15

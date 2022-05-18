@@ -63,7 +63,7 @@ for i in range(num_frames):
 	ICET_estimates[i] = it.X #* (dataset.timestamps[i+1] - dataset.timestamps[i]).microseconds/(10e5)/0.1
 	# ICET_pred_stds[i] = it.pred_stds
 
-	# initial_guess = it.X
+	initial_guess = it.X
 
 	# -------------------------------
 	poses0 = dataset.oxts[i] 
@@ -112,9 +112,9 @@ for i in range(num_frames):
 	# print("\n solution from ICET \n", ICET_estimates[i])
 	print("\n solution from GPS/INS \n", OXTS_baseline[i])
 
-np.savetxt("ICET_pred_stds_v16.txt", ICET_pred_stds)
-np.savetxt("ICET_estimates_v16.txt", ICET_estimates)
-np.savetxt("OXTS_baseline_v16.txt", OXTS_baseline)
+np.savetxt("ICET_pred_stds_v10.txt", ICET_pred_stds)
+np.savetxt("ICET_estimates_v10.txt", ICET_estimates)
+np.savetxt("OXTS_baseline_v10.txt", OXTS_baseline)
 
 # np.savetxt("OXTS_baseline_gps.txt", OXTS_baseline)
 
@@ -125,7 +125,7 @@ np.savetxt("OXTS_baseline_v16.txt", OXTS_baseline)
 #v7 - running twice again, with gp, fid = 100, sigma x,y = 2
 #v8 - x, y and vertical rotation exclusion- improved results with yaw (almost where we need to be!), not good enough yet
 #v9 - same as above, fid = 100s
-#v10 - short, first try with DNN
+#v10 - DNN, with ground plane
 #v11 - DNN full length, some optimization
 #v12 - no ground plane, more optimization
 #v13 - used in presentation, more compact but obvious low frequency error

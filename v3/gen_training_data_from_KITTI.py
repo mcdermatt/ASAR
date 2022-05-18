@@ -9,7 +9,7 @@ from metpy.calc import lat_lon_grid_deltas
 
 
 numShifts = 5 #number of times to resample and translate each voxel each scan
-runLen = 15 #150
+runLen = 150 #150
 npts = 50 #25
 
 # init KITTI dataset
@@ -32,10 +32,11 @@ for idx in range(runLen):
 	poses1 = dataset.oxts[idx+1] #<- ID of 2nd scan
 	dt = 0.1037 #mean time between lidar samples
 	OXTS_ground_truth = tf.constant([poses1.packet.vf*dt, -poses1.packet.vl*dt, poses1.packet.vu*dt, poses1.packet.wf*dt, poses1.packet.wl*dt, poses1.packet.wu*dt])
-
+	shift_scale = 0.40 #0.0
+	shift = tf.cast(tf.constant([shift_scale*tf.random.normal([1]).numpy()[0], shift_scale*tf.random.normal([1]).numpy()[0], 0.2*shift_scale*tf.random.normal([1]).numpy()[0], 0, 0, 0]), tf.float32)
 
 	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 12, draw = False, group = 2, 
-		RM = True, DNN_filter = False, cheat = OXTS_ground_truth)
+		RM = True, DNN_filter = False, cheat = OXTS_ground_truth+shift)
 
 	#Get ragged tensor containing all points from each scan inside each sufficient voxel
 	in1 = it.inside1
@@ -86,16 +87,16 @@ for idx in range(runLen):
 		else:
 			scan1_cum = np.append(scan1_cum, scan1, axis = 0)
 			scan2_cum = np.append(scan2_cum, scan2, axis = 0)
-			rand_cum = np.append(rand_cum, rand, axis = 0)
+			rand_cum = np.append(rand_cum, rand + shift[:3], axis = 0)
 
 	print("got", tf.shape(enough2.to_tensor())[0].numpy()*numShifts, "training samples from scan", idx)
 
 #smol
-np.savetxt('perspective_shift/training_data/ICET_KITTI_scan1_50.txt', scan1_cum)
-np.savetxt('perspective_shift/training_data/ICET_KITTI_scan2_50.txt', scan2_cum)
-np.savetxt('perspective_shift/training_data/ICET_KITTI_ground_truth_50.txt', rand_cum)
+# np.savetxt('perspective_shift/training_data/ICET_KITTI_scan1_50_shifted.txt', scan1_cum)
+# np.savetxt('perspective_shift/training_data/ICET_KITTI_scan2_50_shifted.txt', scan2_cum)
+# np.savetxt('perspective_shift/training_data/ICET_KITTI_ground_truth_50_shifted.txt', rand_cum)
 
 #big
-# np.savetxt('C:/Users/Derm/Desktop/big/pshift/ICET_KITTI_scan1_50.txt', scan1_cum)
-# np.savetxt('C:/Users/Derm/Desktop/big/pshift/ICET_KITTI_scan2_50.txt', scan2_cum)
-# np.savetxt('C:/Users/Derm/Desktop/big/pshift/ICET_KITTI_ground_truth_50.txt', rand_cum)
+np.savetxt('C:/Users/Derm/Desktop/big/pshift/ICET_KITTI_scan1_50_shifted.txt', scan1_cum)
+np.savetxt('C:/Users/Derm/Desktop/big/pshift/ICET_KITTI_scan2_50_shifted.txt', scan2_cum)
+np.savetxt('C:/Users/Derm/Desktop/big/pshift/ICET_KITTI_ground_truth_50_shifted.txt', rand_cum)

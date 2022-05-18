@@ -7,7 +7,7 @@ import time
 
 #NOTE: make sure tf23 conda env is actiated
 
-n = 25 #110 #sample number (from x_test)
+n = 12 #110 #sample number (from x_test)
 
 #init vedo and scene
 plt = Plotter(N = 1, axes = 1, bg = (1, 1, 1), interactive = True) #axis = 4
@@ -24,14 +24,22 @@ model = tf.keras.models.load_model("KITTInet50.kmod")
 points_per_sample = 50 #25 #num pts per scan - defined in MatLab script
 # d1 = np.loadtxt('training_data/ICET_KITTI_scan1.txt')
 # d2 = np.loadtxt('training_data/ICET_KITTI_scan2.txt')
-d1 = np.loadtxt('training_data/ICET_KITTI_scan1_50.txt')
-d2 = np.loadtxt('training_data/ICET_KITTI_scan2_50.txt')
-gt = np.loadtxt('training_data/ICET_KITTI_ground_truth_50.txt')
+#old
+# d1 = np.loadtxt('training_data/ICET_KITTI_scan1_50.txt')
+# d2 = np.loadtxt('training_data/ICET_KITTI_scan2_50.txt')
+# gt = np.loadtxt('training_data/ICET_KITTI_ground_truth_50.txt')
+
+#new shifted dataset
+d1 = np.loadtxt('training_data/ICET_KITTI_scan1_50_shifted.txt')
+d2 = np.loadtxt('training_data/ICET_KITTI_scan2_50_shifted.txt')
+gt = np.loadtxt('training_data/ICET_KITTI_ground_truth_50_shifted.txt')
+
 scan1 = tf.reshape(tf.convert_to_tensor(d1), [-1, points_per_sample, 3])
 scan2 = tf.reshape(tf.convert_to_tensor(d2), [-1, points_per_sample, 3])
 
 #split data into training and validation sets
-tsplit = 0.95 #this fraction goes into training
+# tsplit = 0.95 #this fraction goes into training
+tsplit = 0.1
 ntrain = int(tsplit*tf.shape(scan1)[0].numpy())
 x_train = tf.concat((scan1[:ntrain], scan2[:ntrain]), axis = 1)
 x_test = tf.concat((scan1[ntrain:], scan2[ntrain:]), axis = 1)
@@ -49,7 +57,7 @@ runlen = 10 #number of iterations to run iterative PC matching
 correction = 0
 for i in range(runlen):
     correction += model.predict(inputs)[0] #show what the network thinks
-#     correction = 0.1*y_test[n] #show actual solution
+    # correction = y_test[n] #show actual solution
     c1_new = np.array([c1[0,:] + correction[0], c1[1,:] + correction[1], c1[2,:] + correction[2]])
     inputs = np.append(c1_new, c2, axis = 1).T[None,:,:]
 
