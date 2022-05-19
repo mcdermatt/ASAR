@@ -43,7 +43,7 @@ class ICET():
 		DNN_filter = False, cheat = []):
 
 		self.min_cell_distance = 2 #5 #3 #begin closest spherical voxel here
-		self.min_num_pts = 50 #25 #ignore "occupied" cells with fewer than this number of pts
+		self.min_num_pts = 80 #50 #25 #ignore "occupied" cells with fewer than this number of pts
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
 		self.niter = niter
@@ -264,95 +264,29 @@ class ICET():
 				if i >= 10: #TODO: tune this to optimal value
 					print("\n ---checking for moving objects---")
 					#FIND CELLS THAT INTRODUCE THE MOST ERROR
-					# self.H = H
-					# self.H_z = H_z			
-					# self.dx_i = dx
-					# self.W = W
-					# self.mu1_enough = mu1_enough
-					# self.mu2_enough = mu2_enough
 					
+					#test - re-calculting this here
+					y0_i_full = tf.gather(mu1, corr_full)
+					y_i_full = tf.gather(mu2, corr_full)
+
 					self.residuals_full = y_i_full - y0_i_full
 
-					metric1 = self.residuals_full[:,0]
-					metric2 = self.residuals_full[:,1]
-
-					# # #------------------------------------------------------------------------------------------------
-					# # Compare rotation about the vertical axis between each distribution correspondance
-					# s1 = tf.transpose(tf.gather(sigma1, corr), [1, 2, 0])
-					# s2 = tf.transpose(tf.gather(sigma2, corr), [1, 2, 0])
-
-					# self.angs1 = R2Euler(s1)[2,:]
-					# self.angs2 = R2Euler(s2)[2,:]
-
-					# self.res = self.angs1 - self.angs2
-
-					# mean = np.mean(self.res)
-					# std = np.std(self.res)
-
-					# # bad_idx = tf.where(np.abs(self.res) > mean + 1*std )[:, 0]
-					# # bad_idx = tf.where(np.abs(self.res) > 0.1)[:, 0]
-					# bad_idx_rot = tf.where(np.abs(self.res) > 0.1)[:, 0]
-					# # #------------------------------------------------------------------------------------------------
-					
-					# #------------------------------------------------------------------------------------------------
-					# #Using binned mode oulier exclusion (get rid of everything outside of some range close to 0)
-					# nbins = 30
-					# edges = tf.linspace(-0.75, 0.75, nbins)
-					# bins_soln = tfp.stats.find_bins(self.residuals_full[:,0], edges)
-					# bad_idx = tf.where(bins_soln != (nbins//2 - 1))[:,0][None, :]
-
-					# bins_soln2 = tfp.stats.find_bins(self.residuals_full[:,1], edges)
-					# bad_idx2 = tf.where(bins_soln2 != (nbins//2 - 1))[:,0][None, :]
-					# bad_idx = tf.sets.union(bad_idx, bad_idx2).values
-					# #------------------------------------------------------------------------------------------------
-
-					# #------------------------------------------------------------------------------------------------
-					# #Using Gaussian n-sigma outlier exclusion on translation
-					# mu_x = tf.math.reduce_mean(metric1)
-					# sigma_x = tf.math.reduce_std(metric1)
-					
-					# # #just x------------
-					# # bad_idx = tf.where( tf.math.abs(metric1) > mu_x + 2*sigma_x )[:, 0]
-					# # #------------------
-
-					# #x and y---------
-					# bad_idx = tf.where( tf.math.abs(metric1) > mu_x + 1*sigma_x )[:,0][None, :]
-					# # print(" \n bad_idx1", bad_idx)
-
-					# mu_y = tf.math.reduce_mean(metric2)
-					# sigma_y = tf.math.reduce_std(metric2)
-					# bad_idx2 = tf.where( tf.math.abs(metric2) > mu_y + 	1*sigma_y )[:,0][None, :]
-					# # print("\n bad_idx2", bad_idx2)
-					# bad_idx = tf.sets.union(bad_idx, bad_idx2).values
-
-					# #if using rotation too
-					# # self.bad_idx = bad_idx
-					# # self.bad_idx_rot = bad_idx_rot
-					# # bad_idx = tf.sets.union(bad_idx[None, :], bad_idx_rot[None, :]).values 
-					# #-----------------
-
-					# # print("corr \n", corr)
-					# # print("bad idx", bad_idx)
-					# # print(tf.gather(it.dx_i[:,0], bad_idx))
-					# # print(tf.gather(occupied_spikes, corr))
-					# #------------------------------------------------------------------------------------------------
-
-					#Test hard cutoff for outlier rejection
+					#hard cutoff for outlier rejection
 					#NEW (5/7)~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 					both = tf.sets.intersection(enough1[None,:], corr_full[None,:]).values
 					ans = tf.where(enough1[:,None] == both)[:,0]
 					
 					#test moving these here
 					U_i = tf.gather(U, ans)
+					U_iT = tf.transpose(U_i, [0,2,1])
 					L_i = tf.gather(L, ans)
-					residuals_compact = L_i @ U_i @ tf.gather(self.residuals_full[:,:,None], corr_full)
-					# print(tf.shape(residuals_compact))
-					# print(residuals_compact)
+					# residuals_compact = L_i @ U_i @ tf.gather(self.residuals_full[:,:,None], corr_full) #was this (incorrect)
+					residuals_compact = L_i @ U_iT @ tf.gather(self.residuals_full[:,:,None], corr_full) #new (5/19)
 
 					thresh = 0.05 #0.1 #0.05
-					bidx = tf.where(residuals_compact > thresh )[:,0]
-					# print("\n bidx", bidx)
-					# print(" \nbad_idx", bad_idx)
+					bidx = tf.where(residuals_compact > thresh )[:,0] #TODO: consider absolute value!
+					# bidx = tf.where(tf.math.abs(residuals_compact) > thresh )[:,0]
+					# print(residuals_compact)
 
 					bad_idx = bidx
 
@@ -575,6 +509,7 @@ class ICET():
 			H_z = LUT @ H #correct(?)
 			#test (wrong?)
 			# LU = L_i @ U_i 
+			# H_z = LU @ H
 
 
 			HTWH = tf.math.reduce_sum(tf.matmul(tf.matmul(tf.transpose(H_z, [0,2,1]), W), H_z), axis = 0) #was this (which works)

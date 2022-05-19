@@ -11,7 +11,8 @@ close all
 % FileName = 'virtual_scenes/scene5.stl'; % rectangles w/0 occlusion
 % FileName = 'virtual_scenes/scene6.stl'; % cylinders w/0 occlusion
 % FileName = 'virtual_scenes/scene7.stl'; % skinny cylinders w/0 occlusion
-FileName = 'virtual_scenes/large_room1.stl'; % large room
+% FileName = 'virtual_scenes/large_room1.stl'; % no back wall
+FileName = 'virtual_scenes/large_room2.stl'; % with back wall 
 OpenFile = stlread(FileName);
 
 %get vertices, faces, and normals from stl
@@ -43,8 +44,8 @@ sensor.ElevationResolution = 0.4;
 scenario = trackingScenario;
 ego = platform(scenario, 'Position', [0, 0, 1.72]);
 % ego.Position = [0, 0, 1.72];
-% target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[0 0 0],'Velocity',[5 -10 0])); %no rotation
-target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[0 0 0],'Velocity',[-7 0 0], 'AngularVelocity', [0, 0, 0.1])); %with rotatation
+target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[-.7 0 0],'Velocity',[-7 0 0])); %no rotation
+% target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[-0.3 0 0],'Velocity',[-7 0 0], 'AngularVelocity', [0, 0, 0.1])); %with rotatation
 target.Mesh = mesh;
 
 % %default~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -59,7 +60,7 @@ target.Dimensions.Width = 40;
 target.Dimensions.Height = 4;
 %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-show(target.Mesh)
+% show(target.Mesh)
 
 % Obtain the mesh of the target viewed from the ego platform after advancing the scenario one step forward.
 advance(scenario);
