@@ -83,26 +83,26 @@ from metpy.calc import lat_lon_grid_deltas
 # # ------------------------------------------------------------------------------------
 
 
-# Ford Campus Datset------------------------------------------------------------------
-import mat4py
-#starts at 1000
-fn1 = 'E:/Ford/IJRR-Dataset-1-subset/SCANS/Scan1154.mat'
-fn2 = 'E:/Ford/IJRR-Dataset-1-subset/SCANS/Scan1155.mat'
+# # Ford Campus Datset------------------------------------------------------------------
+# import mat4py
+# #starts at 1000
+# fn1 = 'E:/Ford/IJRR-Dataset-1-subset/SCANS/Scan1154.mat'
+# fn2 = 'E:/Ford/IJRR-Dataset-1-subset/SCANS/Scan1155.mat'
 
-dat1 = mat4py.loadmat(fn1)
-SCAN1 = dat1['SCAN']
-c1 = np.transpose(np.array(SCAN1['XYZ']))
+# dat1 = mat4py.loadmat(fn1)
+# SCAN1 = dat1['SCAN']
+# c1 = np.transpose(np.array(SCAN1['XYZ']))
 
-dat2 = mat4py.loadmat(fn2)
-SCAN2 = dat2['SCAN']
-c2 = np.transpose(np.array(SCAN2['XYZ']))
+# dat2 = mat4py.loadmat(fn2)
+# SCAN2 = dat2['SCAN']
+# c2 = np.transpose(np.array(SCAN2['XYZ']))
 
-ground_truth = np.loadtxt("E:/Ford/IJRR-Dataset-1-subset/SCANS/truth.txt")/10
-ground_truth = tf.cast(tf.convert_to_tensor(ground_truth)[154,:], tf.float32)
+# ground_truth = np.loadtxt("E:/Ford/IJRR-Dataset-1-subset/SCANS/truth.txt")/10
+# ground_truth = tf.cast(tf.convert_to_tensor(ground_truth)[154,:], tf.float32)
 
-# c1 = c1[c1[:,2] > -2.2] #ignore ground plane #mounted 2.4m off ground
-# c2 = c2[c2[:,2] > -2.2] #ignore ground plane
-# ------------------------------------------------------------------------------------
+# # c1 = c1[c1[:,2] > -2.2] #ignore ground plane #mounted 2.4m off ground
+# # c2 = c2[c2[:,2] > -2.2] #ignore ground plane
+# # ------------------------------------------------------------------------------------
 
 
 # #TIERS forest dataset -----------------------------------------------------------------
@@ -141,26 +141,28 @@ ground_truth = tf.cast(tf.convert_to_tensor(ground_truth)[154,:], tf.float32)
 # #---------------------------------------------------------------------------------------
 
 
-# # load custom point cloud geneated in matlab------------------------------------------
+# load custom point cloud geneated in matlab------------------------------------------
 # c1 = np.loadtxt("scene2_scan1.txt", dtype = float) #small cylinders
 # c2 = np.loadtxt("scene2_scan2.txt", dtype = float)
-# # c1 = np.loadtxt("scene3_scan1.txt", dtype = float) #rectangles
-# # c2 = np.loadtxt("scene3_scan2.txt", dtype = float)
-# # c1 = np.loadtxt("scene4_scan1.txt", dtype = float) #cylinders
-# # c2 = np.loadtxt("scene4_scan2.txt", dtype = float)
+# c1 = np.loadtxt("scene3_scan1.txt", dtype = float) #rectangles
+# c2 = np.loadtxt("scene3_scan2.txt", dtype = float)
+# c1 = np.loadtxt("scene4_scan1.txt", dtype = float) #cylinders
+# c2 = np.loadtxt("scene4_scan2.txt", dtype = float)
+c1 = np.loadtxt("simple_room_scan1.txt", dtype = float) #for debugging DNN filter
+c2 = np.loadtxt("simple_room_scan2.txt", dtype = float)
 
-# # c1 = c1[c1[:,2] > -1.55] #ignore ground plane
-# # c2 = c2[c2[:,2] > -1.55] #ignore ground plane
+# c1 = c1[c1[:,2] > -1.55] #ignore ground plane
+# c2 = c2[c2[:,2] > -1.55] #ignore ground plane
 
-# # x = tf.constant([0., 0.3, 0., 0., 0.0, -0.1])
-# # rot = R_tf(x[3:])
-# # c2 = c1 @ rot.numpy() + x[:3].numpy()
-# # # c2 = (c1 +  x[:3].numpy()) @ rot.numpy()
+# x = tf.constant([0., 0.3, 0., 0., 0.0, -0.1])
+# rot = R_tf(x[3:])
+# c2 = c1 @ rot.numpy() + x[:3].numpy()
+# # c2 = (c1 +  x[:3].numpy()) @ rot.numpy()
 
-# #add noise (if not generated when point clouds were created)
-# c1 += 0.02*np.random.randn(np.shape(c1)[0], 3)
-# c2 += 0.02*np.random.randn(np.shape(c2)[0], 3) 
-# # ------------------------------------------------------------------------------------
+#add noise (if not generated when point clouds were created)
+c1 += 0.02*np.random.randn(np.shape(c1)[0], 3)
+c2 += 0.02*np.random.randn(np.shape(c2)[0], 3) 
+# ------------------------------------------------------------------------------------
 
 # # #single distinct cluster---------------------------------------------------------------
 # c1 = np.random.randn(3000,3)*tf.constant([0.3,0.04,0.3]) + tf.constant([0.,8.,0.])
@@ -168,8 +170,8 @@ ground_truth = tf.cast(tf.convert_to_tensor(ground_truth)[154,:], tf.float32)
 # # # c2 = c1 - np.array([0.1, 0.3, 0.0])
 # # # -------------------------------------------------------------------------------------
 
-it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 20, 
-	draw = True, group = 2, RM = True, DNN_filter = True) #, cheat = ground_truth)
+it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 30, niter = 13, 
+	draw = True, group = 2, RM = False, DNN_filter = False) #, cheat = ground_truth)
 
 print("\n OXTS_ground_truth: \n", OXTS_ground_truth)
 

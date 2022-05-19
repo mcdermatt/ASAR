@@ -460,7 +460,7 @@ class ICET():
 				# print(it_compact_xyz - dnn_compact_xyz)
 
 				#find where the largest difference in residuals are
-				thresh = 0.5 #0.05 #0.1
+				thresh = 0.05 #0.05 #0.1
 				bad_idx = tf.where(tf.math.abs(it_compact_xyz - dnn_compact_xyz) > thresh)[:,0]
 				bad_idx = tf.unique(bad_idx)[0] #get rid of repeated indices
 				# print("bad_idx", bad_idx)
@@ -532,12 +532,9 @@ class ICET():
 			y_i = tf.gather(mu2, corr)
 			sigma_i = tf.gather(sigma2, corr)
 			npts_i = tf.gather(npts2, corr)
-
-			#was this, incorrect
-			# U_i = tf.gather(U, corr)
-			# L_i = tf.gather(L, corr)
 			
 			#need special indexing for U_i and L_i since they are derived from <mu1_enough>
+			# rather than the full mu1 tensor:
 			#  1) get IDX of elements that are in both enough1 and corr
 			#  2) use this to index U and L to get U_i and L_i
 			both = tf.sets.intersection(enough1[None,:], corr[None,:]).values
@@ -546,14 +543,13 @@ class ICET():
 			L_i = tf.gather(L, ans)
 
 			#----------------------------------------------
-			#hold on to inside ICET object so we can use these to compare results with DNN
+			#hold on to these values inside ICET object so we can use these to compare results with DNN
 			self.corr = corr
 			self.residuals = y_i - y0_i
 			self.U = U_i
 			self.L = L_i
 			# self.U = U
 			# self.L = L
-			
 			#-----------------------------------------------
 
 
@@ -568,17 +564,18 @@ class ICET():
 			#construct sensor noise covariance matrix
 			R_noise = (tf.transpose(tf.transpose(sigma0_i, [1,2,0]) / tf.cast(npts0_i - 1, tf.float32)) + 
 						tf.transpose(tf.transpose(sigma_i, [1,2,0]) / tf.cast(npts_i - 1, tf.float32)) )
-
-			R_noise = L_i @ tf.transpose(U_i, [0,2,1]) @ R_noise @ U_i @ tf.transpose(L_i, [0,2,1])
+			#use projection matrix to remove extended directions
+			R_noise = L_i @ U_iT @ R_noise @ U_i @ L_iT #correct(?)
 
 			#take inverse of R_noise to get our weighting matrix
 			W = tf.linalg.pinv(R_noise)
 
+			# use LUT to remove rows of H corresponding to overly extended directions
 			LUT = L_i @ U_iT
+			H_z = LUT @ H #correct(?)
+			#test (wrong?)
 			# LU = L_i @ U_i 
 
-			# use LUT to remove rows of H corresponding to overly extended directions
-			H_z = LUT @ H
 
 			HTWH = tf.math.reduce_sum(tf.matmul(tf.matmul(tf.transpose(H_z, [0,2,1]), W), H_z), axis = 0) #was this (which works)
 			HTW = tf.matmul(tf.transpose(H_z, [0,2,1]), W)
@@ -661,7 +658,7 @@ class ICET():
 				self.draw_cell(bad_idx_corn_moving, bad = True) #for debug
 			if self.DNN_filter:
 				self.draw_cell(bad_idx_corn_DNN, bad = 2)
-				self.draw_DNN_soln(dnn_compact_xyz[:,:,0], it_compact_xyz[:,:,0], idx_to_draw_dnn_soln) #just in compact directions
+				# self.draw_DNN_soln(dnn_compact_xyz[:,:,0], it_compact_xyz[:,:,0], idx_to_draw_dnn_soln) #just in compact directions
 				# self.draw_DNN_soln(dnnsoln, icetsoln, idx_to_draw_dnn_soln) #raw solutions
 
 
@@ -678,7 +675,7 @@ class ICET():
 
 			#FOR DEBUG: we should be looking at U_i, L_i anyways...
 			#   ans == indeces of enough1 that intersect with corr (aka combined enough1, enough2)
-			# self.visualize_L(tf.gather(mu1_enough, ans), U_i, L_i)
+			self.visualize_L(tf.gather(mu1_enough, ans), U_i, L_i)
 
 		# 	# #get rid of points too close to ego-vehicle in cloud1_static------------------------
 		# 	# #	doing this to minmize negative effects of perspective shift
@@ -870,8 +867,10 @@ class ICET():
 
 
 		eigenval, eigenvec = tf.linalg.eig(sigma1)
-		# U = tf.math.real(eigenvec) #was this
-		U = tf.transpose(tf.math.real(eigenvec), [0, 2, 1]) #test
+		U = tf.math.real(eigenvec) #was this
+		# U = tf.transpose(tf.math.real(eigenvec), [0, 2, 1]) #wrong! (but looks right if we are drawing arrows incorrectly)
+
+		# print("eigenval", tf.math.real(eigenval))
 
 		#need to create [N,3,3] diagonal matrices for axislens
 		zeros = tf.zeros([tf.shape(tf.math.real(eigenval))[0]])
@@ -884,8 +883,9 @@ class ICET():
 		# get projections of axis length in each direction
 		rotated = tf.matmul(axislen, tf.transpose(U, [0, 2, 1])) #new
 
-		# axislen_actual = 2*tf.math.sqrt(axislen) #was this
-		axislen_actual = 3*tf.math.sqrt(axislen) #test
+		# axislen_actual = 2*tf.math.sqrt(axislen) #theoretically correct
+		axislen_actual = 3*tf.math.sqrt(axislen) #was this (works with one edge extended detection criteria)
+		# axislen_actual = 5*tf.math.sqrt(axislen) #test
 		# print(axislen_actual)
 		rotated_actual = tf.matmul(axislen_actual, tf.transpose(U, [0, 2, 1]))
 		# print("rotated_actual", rotated_actual)
@@ -925,7 +925,9 @@ class ICET():
 		# print("\n bofa2", bofa2)
 
 		#combine both the positive and negative axis directions
-		deez = tf.cast(tf.sets.intersection(bofa1[None, :], bofa2[None, :]).values[:,None], tf.int32)
+		# deez = tf.cast(tf.sets.intersection(bofa1[None, :], bofa2[None, :]).values[:,None], tf.int32) # only need one edge outside cell (was this)
+		deez = tf.cast(tf.sets.union(bofa1[None, :], bofa2[None, :]).values[:,None], tf.int32) #both edeges need to be outside cell to be ambigous
+
 		# print("unambiguous indices", deez)
 
 		data = tf.ones((tf.shape(deez)[0],3))
@@ -1073,8 +1075,8 @@ class ICET():
 
 		for i in range(tf.shape(y0)[0]):
 
-			# ends =  L[i] @ tf.transpose(U[i])
-			ends =  L[i] @ U[i]
+			ends =  L[i] @ tf.transpose(U[i])
+			# ends =  L[i] @ U[i] #WRONG!!
 
 
 			arrow_len = 0.5
@@ -1299,8 +1301,8 @@ class ICET():
 		zz = tf.math.reduce_sum(tf.math.square(zpos - mu[:,2][:,None] ), axis = 1)/npts
 
 		xy = tf.math.reduce_sum( (xpos - mu[:,0][:,None])*(ypos - mu[:,1][:,None]), axis = 1)/npts  #+
-		xz = -tf.math.reduce_sum( (xpos - mu[:,0][:,None])*(zpos - mu[:,2][:,None]), axis = 1)/npts #-
-		yz = -tf.math.reduce_sum( (ypos - mu[:,1][:,None])*(zpos - mu[:,2][:,None]), axis = 1)/npts #-
+		xz = tf.math.reduce_sum( (xpos - mu[:,0][:,None])*(zpos - mu[:,2][:,None]), axis = 1)/npts #-
+		yz = tf.math.reduce_sum( (ypos - mu[:,1][:,None])*(zpos - mu[:,2][:,None]), axis = 1)/npts #-
 
 
 		sigma = tf.Variable([xx, xy, xz,

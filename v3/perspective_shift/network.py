@@ -231,8 +231,8 @@ def Net(**kwargs):
     X = keras.layers.Dense(units = 256, activation = 'relu')(X)
     # ~~~~~~
 
-    X = keras.layers.BatchNormalization()(X)
-    X = keras.layers.Dense(units = 512, activation = 'relu')(X)
+    # X = keras.layers.BatchNormalization()(X)
+    # X = keras.layers.Dense(units = 512, activation = 'relu')(X)
 
     # 2D Max Pooling -------------------------------------------------------------------
     # X = tf.keras.layers.Reshape((insize, 8, 8))(X)
@@ -262,10 +262,10 @@ def Net(**kwargs):
     X = keras.layers.BatchNormalization()(X)
 
 
-    X = keras.layers.Conv1D(filters = 32, kernel_size = 8, strides = 3, padding = 'valid')(X)
-    X = keras.layers.BatchNormalization()(X)
-    X = keras.layers.Dense(units = 64, activation = 'relu')(X)
-    X = keras.layers.BatchNormalization()(X)
+    # X = keras.layers.Conv1D(filters = 32, kernel_size = 8, strides = 3, padding = 'valid')(X)
+    # X = keras.layers.BatchNormalization()(X)
+    # X = keras.layers.Dense(units = 64, activation = 'relu')(X)
+    # X = keras.layers.BatchNormalization()(X)
 
     #----------------------------------------------------------------------------------
 
