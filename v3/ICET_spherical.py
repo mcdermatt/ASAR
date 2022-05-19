@@ -210,6 +210,7 @@ class ICET():
 			# for n in range(tf.shape(inside1.to_tensor())[0]):
 			# 	temp = tf.gather(self.cloud1_tensor, inside1[n]).numpy()	
 			# 	self.disp.append(Points(temp, c = 'green', r = 5))
+			# self.visualize_L(mu1_enough, U, L)
 
 		for i in range(niter):
 			#TODO- make sure we are calculating moving outliers on the FULL residuals (not the previously ignored set)
@@ -274,6 +275,7 @@ class ICET():
 					#hard cutoff for outlier rejection
 					#NEW (5/7)~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 					both = tf.sets.intersection(enough1[None,:], corr_full[None,:]).values
+					#get indices of mu1 that correspond to mu2 that also have sufficient number of points
 					ans = tf.where(enough1[:,None] == both)[:,0]
 					
 					#test moving these here
@@ -281,11 +283,11 @@ class ICET():
 					U_iT = tf.transpose(U_i, [0,2,1])
 					L_i = tf.gather(L, ans)
 					# residuals_compact = L_i @ U_i @ tf.gather(self.residuals_full[:,:,None], corr_full) #was this (incorrect)
-					residuals_compact = L_i @ U_iT @ tf.gather(self.residuals_full[:,:,None], corr_full) #new (5/19)
+					residuals_compact = L_i @ U_iT @ tf.gather(self.residuals_full[:,:,None], ans) #(5/19) -> debug: should this be U_i or U_iT?
 
 					thresh = 0.05 #0.1 #0.05
-					bidx = tf.where(residuals_compact > thresh )[:,0] #TODO: consider absolute value!
-					# bidx = tf.where(tf.math.abs(residuals_compact) > thresh )[:,0]
+					# bidx = tf.where(residuals_compact > thresh )[:,0] #TODO: consider absolute value!
+					bidx = tf.where(tf.math.abs(residuals_compact) > thresh )[:,0]
 					# print(residuals_compact)
 
 					bad_idx = bidx
@@ -297,6 +299,10 @@ class ICET():
 
 					ignore_these = tf.gather(corr, bad_idx)
 					corr = tf.sets.difference(corr[None, :], ignore_these[None, :]).values
+
+					#temp
+					self.U_i = U_i
+					self.L_i = L_i
 			#----------------------------------------------
 
 			#----------------------------------------------
@@ -605,12 +611,11 @@ class ICET():
 			# for n in range(tf.shape(inside2.to_tensor())[0]):
 			# 	temp = tf.gather(self.cloud2_tensor, inside2[n]).numpy()	
 			# 	self.disp.append(Points(temp, c = 'green', r = 5))
-			# self.draw_correspondences(mu1, mu2, corr)
-			# self.visualize_L(tf.gather(mu1, corr), U_i, L_i) #not correct...
+			self.draw_correspondences(mu1, mu2, corr_full) #corr displays just used correspondences
 
 			#FOR DEBUG: we should be looking at U_i, L_i anyways...
 			#   ans == indeces of enough1 that intersect with corr (aka combined enough1, enough2)
-			self.visualize_L(tf.gather(mu1_enough, ans), U_i, L_i)
+			# self.visualize_L(tf.gather(mu1_enough, ans), U_i, L_i)
 
 		# 	# #get rid of points too close to ego-vehicle in cloud1_static------------------------
 		# 	# #	doing this to minmize negative effects of perspective shift
