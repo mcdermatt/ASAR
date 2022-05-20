@@ -41,8 +41,8 @@ velo1 = dataset.get_velo(idx) # Each scan is a Nx4 array of [x,y,z,reflectance]
 c1 = velo1[:,:3]
 velo2 = dataset.get_velo(idx+1) # Each scan is a Nx4 array of [x,y,z,reflectance]
 c2 = velo2[:,:3]
-c1 = c1[c1[:,2] > -1.5] #ignore ground plane
-c2 = c2[c2[:,2] > -1.5] #ignore ground plane
+# c1 = c1[c1[:,2] > -1.5] #ignore ground plane
+# c2 = c2[c2[:,2] > -1.5] #ignore ground plane
 # c1 = c1[c1[:,2] > -2.] #ignore reflections
 # c2 = c2[c2[:,2] > -2.] #ignore reflections
 
@@ -141,28 +141,31 @@ OXTS_ground_truth = tf.constant([poses1.packet.vf*dt, -poses1.packet.vl*dt, pose
 # #---------------------------------------------------------------------------------------
 
 
-# load custom point cloud geneated in matlab------------------------------------------
-# c1 = np.loadtxt("scene2_scan1.txt", dtype = float) #small cylinders
-# c2 = np.loadtxt("scene2_scan2.txt", dtype = float)
-# c1 = np.loadtxt("scene3_scan1.txt", dtype = float) #rectangles
-# c2 = np.loadtxt("scene3_scan2.txt", dtype = float)
-# c1 = np.loadtxt("scene4_scan1.txt", dtype = float) #cylinders
-# c2 = np.loadtxt("scene4_scan2.txt", dtype = float)
-c1 = np.loadtxt("simple_room_scan1.txt", dtype = float) #for debugging DNN filter
-c2 = np.loadtxt("simple_room_scan2.txt", dtype = float)
+# # load custom point cloud geneated in matlab------------------------------------------
+# # c1 = np.loadtxt("scene2_scan1.txt", dtype = float) #small cylinders
+# # c2 = np.loadtxt("scene2_scan2.txt", dtype = float)
+# # c1 = np.loadtxt("scene3_scan1.txt", dtype = float) #rectangles
+# # c2 = np.loadtxt("scene3_scan2.txt", dtype = float)
+# # c1 = np.loadtxt("scene4_scan1.txt", dtype = float) #cylinders
+# # c2 = np.loadtxt("scene4_scan2.txt", dtype = float)
+# c1 = np.loadtxt("simple_room_scan1.txt", dtype = float) #for debugging DNN filter
+# c2 = np.loadtxt("simple_room_scan2.txt", dtype = float)
 
-# c1 = c1[c1[:,2] > -1.55] #ignore ground plane
-# c2 = c2[c2[:,2] > -1.55] #ignore ground plane
+# # c1 = c1[c1[:,2] > -1.55] #ignore ground plane
+# # c2 = c2[c2[:,2] > -1.55] #ignore ground plane
 
-# x = tf.constant([0., 0.3, 0., 0., 0.0, -0.1])
-# rot = R_tf(x[3:])
-# c2 = c1 @ rot.numpy() + x[:3].numpy()
-# # c2 = (c1 +  x[:3].numpy()) @ rot.numpy()
+# #debug: get rid of half of the points in scan 2 (testing outlier rejection indexing)
+# # c2 = c2[c2[:,1] > 0 ]
 
-#add noise (if not generated when point clouds were created)
-c1 += 0.02*np.random.randn(np.shape(c1)[0], 3)
-c2 += 0.02*np.random.randn(np.shape(c2)[0], 3) 
-# ------------------------------------------------------------------------------------
+# # x = tf.constant([0., 0.3, 0., 0., 0.0, -0.1])
+# # rot = R_tf(x[3:])
+# # c2 = c1 @ rot.numpy() + x[:3].numpy()
+# # # c2 = (c1 +  x[:3].numpy()) @ rot.numpy()
+
+# #add noise (if not generated when point clouds were created)
+# c1 += 0.02*np.random.randn(np.shape(c1)[0], 3)
+# c2 += 0.02*np.random.randn(np.shape(c2)[0], 3) 
+# # ------------------------------------------------------------------------------------
 
 # # #single distinct cluster---------------------------------------------------------------
 # c1 = np.random.randn(3000,3)*tf.constant([0.3,0.04,0.3]) + tf.constant([0.,8.,0.])
@@ -170,8 +173,8 @@ c2 += 0.02*np.random.randn(np.shape(c2)[0], 3)
 # # # c2 = c1 - np.array([0.1, 0.3, 0.0])
 # # # -------------------------------------------------------------------------------------
 
-it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 20, 
-	draw = True, group = 2, RM = True, DNN_filter = False) #, cheat = ground_truth)
+it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 14, 
+	draw = True, group = 2, RM = True, DNN_filter = True) #, cheat = ground_truth)
 
 print("\n OXTS_ground_truth: \n", OXTS_ground_truth)
 

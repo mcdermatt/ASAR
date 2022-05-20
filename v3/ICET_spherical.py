@@ -43,7 +43,7 @@ class ICET():
 		DNN_filter = False, cheat = []):
 
 		self.min_cell_distance = 2 #5 #3 #begin closest spherical voxel here
-		self.min_num_pts = 80 #50 #25 #ignore "occupied" cells with fewer than this number of pts
+		self.min_num_pts = 50 #25 #ignore "occupied" cells with fewer than this number of pts
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
 		self.niter = niter
@@ -55,8 +55,8 @@ class ICET():
 		#load dnn model
 		if self.DNN_filter:
 			# self.model = tf.keras.models.load_model("perspective_shift/FORDnet.kmod")  #25 sample points
-			# self.model = tf.keras.models.load_model("perspective_shift/KITTInet.kmod") #25 sample points
-			self.model = tf.keras.models.load_model("perspective_shift/KITTInet50.kmod") #50 sample points
+			self.model = tf.keras.models.load_model("perspective_shift/KITTInet.kmod") #25 sample points
+			# self.model = tf.keras.models.load_model("perspective_shift/KITTInet50.kmod") #50 sample points
 			# self.model = tf.keras.models.load_model("perspective_shift/NET.kmod")
 
 		#convert cloud1 to tesnsor
@@ -283,15 +283,15 @@ class ICET():
 					U_iT = tf.transpose(U_i, [0,2,1])
 					L_i = tf.gather(L, ans)
 					# residuals_compact = L_i @ U_i @ tf.gather(self.residuals_full[:,:,None], corr_full) #was this (incorrect)
-					residuals_compact = L_i @ U_iT @ tf.gather(self.residuals_full[:,:,None], ans) #(5/19) -> debug: should this be U_i or U_iT?
+					# residuals_compact = L_i @ U_iT @ tf.gather(self.residuals_full[:,:,None], ans) #(5/19) -> debug: should this be U_i or U_iT?
+					residuals_compact = L_i @ U_iT @ self.residuals_full[:,:,None] #correct (5/20)
 
 					thresh = 0.05 #0.1 #0.05
 					# bidx = tf.where(residuals_compact > thresh )[:,0] #TODO: consider absolute value!
 					bidx = tf.where(tf.math.abs(residuals_compact) > thresh )[:,0]
 					# print(residuals_compact)
-
 					bad_idx = bidx
-
+					# print("bad_idx", bidx)
 					#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 					bounds_bad = tf.gather(bounds, tf.gather(corr, bad_idx))
@@ -310,7 +310,7 @@ class ICET():
 			if self.DNN_filter and i >= self.start_filter_iter:
 				#DEBUG (5/2)- replaced all references of <corr> to <corr_full>
 
-				nSamplePts = 50 #25
+				nSamplePts = 25 #50 #25
 
 				print("\n ---checking for perspective shift---")
 				#get indices of rag with >= 25 elements
@@ -383,24 +383,24 @@ class ICET():
 				L_i = tf.gather(L, ans)
 				U_i_dnn = U_i #debug
 				#was this
-				# LUT = tf.matmul(L_i, tf.transpose(U_i, [0,2,1]))
-				# dz_new = tf.matmul(LUT, dnnsoln[:,:,None])
-				# it_compact = tf.matmul(LUT, icetsoln[:,:,None])
-				# it_compact_xyz = tf.matmul(U_i, it_compact)
-				# dnn_compact = tf.matmul(LUT, dnnsoln[:,:,None])
-				# dnn_compact_xyz = tf.matmul(U_i, dnn_compact)
+				LUT = tf.matmul(L_i, tf.transpose(U_i, [0,2,1]))
+				dz_new = tf.matmul(LUT, dnnsoln[:,:,None])
+				it_compact = tf.matmul(LUT, icetsoln[:,:,None])
+				it_compact_xyz = tf.matmul(U_i, it_compact)
+				dnn_compact = tf.matmul(LUT, dnnsoln[:,:,None])
+				dnn_compact_xyz = tf.matmul(U_i, dnn_compact)
 
 				#test 5/2
-				LU = tf.matmul(L_i, U_i) 
-				it_compact = tf.matmul(LU, icetsoln[:,:,None])
-				it_compact_xyz = tf.matmul(tf.transpose(U_i, [0,2,1]), it_compact)
-				dnn_compact = tf.matmul(LU, dnnsoln[:,:,None])
-				dnn_compact_xyz = tf.matmul(tf.transpose(U_i, [0,2,1]), dnn_compact)
+				# LU = tf.matmul(L_i, U_i) 
+				# it_compact = tf.matmul(LU, icetsoln[:,:,None])
+				# it_compact_xyz = tf.matmul(tf.transpose(U_i, [0,2,1]), it_compact)
+				# dnn_compact = tf.matmul(LU, dnnsoln[:,:,None])
+				# dnn_compact_xyz = tf.matmul(tf.transpose(U_i, [0,2,1]), dnn_compact)
 
 				# print(it_compact_xyz - dnn_compact_xyz)
 
 				#find where the largest difference in residuals are
-				thresh = 0.05 #0.05 #0.1
+				thresh = 0.1 #0.05 #0.1
 				bad_idx = tf.where(tf.math.abs(it_compact_xyz - dnn_compact_xyz) > thresh)[:,0]
 				bad_idx = tf.unique(bad_idx)[0] #get rid of repeated indices
 				# print("bad_idx", bad_idx)
@@ -540,42 +540,17 @@ class ICET():
 			# 	#get list of all possible indices
 			# 	all_idx = tf.cast(tf.linspace(0,tf.shape(dz)[0].numpy()-1,tf.shape(dz)[0].numpy()), tf.int64)[None,:]
 
-			# 	#combine bad idx's from dnn filter and moving object filter
-			# 	rmidx = tf.sets.union(bad_idx[None,:], bidx[None,:]) #bad_idx from dnn, bidx from moving rejection filter
 
-			# 	#removing rejected dnn solns
-			# 	good_idx = tf.sets.difference(all_idx, rmidx).values #with RM turned on
-			# 	# good_idx = tf.sets.difference(all_idx, bad_idx[None,:]).values #if RM turned off
+			# 	#removing rejected dnn solnss
+			# 	##with RM turned on
+			# 	##combine bad idx's from dnn filter and moving object filter
+			# 	# rmidx = tf.sets.union(bad_idx[None,:], bidx[None,:]) #bad_idx from dnn, bidx from moving rejection filter
+			# 	# good_idx = tf.sets.difference(all_idx, rmidx).values 
+			# 	##if RM turned off
+			# 	good_idx = tf.sets.difference(all_idx, bad_idx[None,:]).values 
+				
 			# 	dz = tf.gather(dz, good_idx)
 			# 	# print("new dz", dz[:15,:,0])
-
-
-			# 	# #make virtual y_i -------------------------
-			# 	# print("y_i", tf.shape(y_i))
-			# 	# print("dnn_compact_xyz", tf.shape(dnn_compact_xyz))
-
-			# 	# dnn_compact_xyz_i = tf.gather(dnn_compact_xyz[:,:,0], corr)
-			# 	# dnn_compact_xyz_i = tf.gather(dnn_compact_xyz, corr)
-			# 	# print("dnn_compact_xyz_i", tf.shape(dnn_compact_xyz_i)) #same shape as y0_i
-			# 	# y_i_temp = y0_i + dnn_compact_xyz_i
-
-			# 	# z = tf.squeeze(tf.matmul(LUT, y_i_temp[:,:,None]))
-			# 	# dz_new = z - z0
-			# 	# dz_new = dz_new[:,:,None]
-
-			# 	# print("dz", dz[:10,:,0])
-			# 	# print("dz_new", dz_new[:10,:,0])
-			# 	# dz = dz_new
-			# 	#----------------------------------------------
-
-			# # 	# #update H and dependencies
-			# # 	# H = jacobian_tf(tf.transpose(y_i_temp), self.X[3:]) # shape = [num of corr * 3, 6]
-			# # 	# H = tf.reshape(H, (tf.shape(H)[0]//3,3,6)) # -> need shape [#corr//3, 3, 6]
-			# # 	# H_z = LUT @ H
-			# # 	# HTWH = tf.math.reduce_sum(tf.matmul(tf.matmul(tf.transpose(H_z, [0,2,1]), W), H_z), axis = 0) #was this (which works)
-			# # 	# HTW = tf.matmul(tf.transpose(H_z, [0,2,1]), W)
-			# # 	# L2, lam, U2 = self.check_condition(HTWH)
-
 			# # # #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
@@ -599,7 +574,7 @@ class ICET():
 				self.draw_cell(bad_idx_corn_moving, bad = True) #for debug
 			if self.DNN_filter:
 				self.draw_cell(bad_idx_corn_DNN, bad = 2)
-				# self.draw_DNN_soln(dnn_compact_xyz[:,:,0], it_compact_xyz[:,:,0], idx_to_draw_dnn_soln) #just in compact directions
+				self.draw_DNN_soln(dnn_compact_xyz[:,:,0], it_compact_xyz[:,:,0], idx_to_draw_dnn_soln) #just in compact directions
 				# self.draw_DNN_soln(dnnsoln, icetsoln, idx_to_draw_dnn_soln) #raw solutions
 
 
@@ -611,7 +586,7 @@ class ICET():
 			# for n in range(tf.shape(inside2.to_tensor())[0]):
 			# 	temp = tf.gather(self.cloud2_tensor, inside2[n]).numpy()	
 			# 	self.disp.append(Points(temp, c = 'green', r = 5))
-			self.draw_correspondences(mu1, mu2, corr_full) #corr displays just used correspondences
+			# self.draw_correspondences(mu1, mu2, corr_full) #corr displays just used correspondences
 
 			#FOR DEBUG: we should be looking at U_i, L_i anyways...
 			#   ans == indeces of enough1 that intersect with corr (aka combined enough1, enough2)

@@ -53,7 +53,7 @@ for i in range(num_frames):
 	#-------------------------------------------------------------------------------------------------
 	#run once to get rough estimate and remove outlier points
 	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 20, draw = False, group = 2, 
-		RM = True, DNN_filter = True, x0 = initial_guess)
+		RM = True, DNN_filter = False, x0 = initial_guess)
 	ICET_pred_stds[i] = it.pred_stds
 
 	#run again to re-converge with outliers removed
@@ -112,9 +112,9 @@ for i in range(num_frames):
 	# print("\n solution from ICET \n", ICET_estimates[i])
 	print("\n solution from GPS/INS \n", OXTS_baseline[i])
 
-np.savetxt("ICET_pred_stds_v10.txt", ICET_pred_stds)
-np.savetxt("ICET_estimates_v10.txt", ICET_estimates)
-np.savetxt("OXTS_baseline_v10.txt", OXTS_baseline)
+np.savetxt("ICET_pred_stds_v17.txt", ICET_pred_stds)
+np.savetxt("ICET_estimates_v17.txt", ICET_estimates)
+np.savetxt("OXTS_baseline_v17.txt", OXTS_baseline)
 
 # np.savetxt("OXTS_baseline_gps.txt", OXTS_baseline)
 
@@ -132,3 +132,4 @@ np.savetxt("OXTS_baseline_v10.txt", OXTS_baseline)
 #v14 - debugging it/dnn compact, test flipping sign of DNN correction
 #v15 - using raw data (rolling shutter effect uncompensated)
 #v16 - normal data, using DNN solutions in place of dz
+#v17 - just moving object rejection after fixing U, sigma and moving object ID

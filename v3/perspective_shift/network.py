@@ -209,7 +209,7 @@ def Net(**kwargs):
     '''
     #DO MAX POOLING FOR insize//2 since we are looking at two seperate point clouds!!!!!
 
-    insize = 100 #50
+    insize = 50 #100
 
     inputs = keras.Input(shape=(insize, 3)) 
 
