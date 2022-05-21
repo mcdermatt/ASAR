@@ -99,16 +99,19 @@ def get_cluster(rads, thresh = 0.2, mnp = 25): #mnp = 50, thresh = 0.2
 
 
 def R2Euler(mat):
-	"""determines euler angles from euler rotation matrix"""
+    """determines euler angles from euler rotation matrix"""
 
-	R_sum = np.sqrt(( mat[0,0]**2 + mat[0,1]**2 + mat[1,2]**2 + mat[2,2]**2 ) / 2)
+    if len( tf.shape(mat) ) == 2:
+        mat = mat[None, :, :]
 
-	phi = np.arctan2(-mat[1,2],mat[2,2])
-	theta = np.arctan2(mat[0,2], R_sum)
-	psi = np.arctan2(-mat[0,1], mat[0,0])
+    R_sum = np.sqrt(( mat[:,0,0]**2 + mat[:,0,1]**2 + mat[:,1,2]**2 + mat[:,2,2]**2 ) / 2)
 
-	angs = np.array([phi, theta, psi])
-	return angs
+    phi = np.arctan2(-mat[:,1,2],mat[:,2,2])
+    theta = np.arctan2(mat[:,0,2], R_sum)
+    psi = np.arctan2(-mat[:,0,1], mat[:,0,0])
+
+    angs = np.array([phi, theta, psi])
+    return angs
 
 def R_tf(angs):
     """generates rotation matrix using euler angles

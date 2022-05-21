@@ -1,3 +1,5 @@
+"""generates data for training perspective shift filter DNN from KITTI sample dataset"""
+
 import pykitti
 import numpy as np
 import tensorflow as tf
@@ -6,7 +8,6 @@ import tensorflow_probability as tfp
 from ICET_spherical import ICET
 from utils import R_tf
 from metpy.calc import lat_lon_grid_deltas
-
 
 numShifts = 5 #number of times to resample and translate each voxel each scan
 runLen = 150
