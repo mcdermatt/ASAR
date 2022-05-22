@@ -7,7 +7,7 @@ import time
 
 #NOTE: make sure tf23 conda env is actiated
 
-n = 99 #110 #sample number (from x_test)
+n = 187 #110 #sample number (from x_test)
 
 #init vedo and scene
 plt = Plotter(N = 1, axes = 1, bg = (1, 1, 1), interactive = True) #axis = 4
@@ -16,23 +16,24 @@ disp = []
 #load model
 # model = tf.keras.models.load_model("Net.kmod")
 # model = tf.keras.models.load_model("PIPEnet10.kmod")
-# model = tf.keras.models.load_model("KITTInet.kmod")
-model = tf.keras.models.load_model("KITTInet50.kmod")
+# model = tf.keras.models.load_model("KITTInet.kmod") #25 pts, trained well on small KITTI city
+model = tf.keras.models.load_model("FULL_KITTInet.kmod") #25 pts large KITTI 00
+# model = tf.keras.models.load_model("KITTInet50.kmod")
 
 
 #read in dense point cloud of car
-points_per_sample = 50 #25 #50  #num pts per scan - defined in MatLab script
+points_per_sample = 25 #50  #num pts per scan - defined in MatLab script
 # d1 = np.loadtxt('training_data/ICET_KITTI_scan1.txt')
 # d2 = np.loadtxt('training_data/ICET_KITTI_scan2.txt')
 #old
-d1 = np.loadtxt('training_data/ICET_KITTI_scan1_50.txt')
-d2 = np.loadtxt('training_data/ICET_KITTI_scan2_50.txt')
-gt = np.loadtxt('training_data/ICET_KITTI_ground_truth_50.txt')
+# d1 = np.loadtxt('training_data/ICET_KITTI_scan1_50.txt')
+# d2 = np.loadtxt('training_data/ICET_KITTI_scan2_50.txt')
+# gt = np.loadtxt('training_data/ICET_KITTI_ground_truth_50.txt')
 
 #new shifted dataset
-# d1 = np.loadtxt('training_data/ICET_KITTI_scan1_25_shifted.txt')
-# d2 = np.loadtxt('training_data/ICET_KITTI_scan2_25_shifted.txt')
-# gt = np.loadtxt('training_data/ICET_KITTI_ground_truth_25_shifted.txt')
+d1 = np.loadtxt('training_data/ICET_KITTI_FULL_scan1_to10.txt')
+d2 = np.loadtxt('training_data/ICET_KITTI_FULL_scan2_to10.txt')
+gt = np.loadtxt('training_data/ICET_KITTI_FULL_ground_truth_to10.txt')
 
 scan1 = tf.reshape(tf.convert_to_tensor(d1), [-1, points_per_sample, 3])
 scan2 = tf.reshape(tf.convert_to_tensor(d2), [-1, points_per_sample, 3])

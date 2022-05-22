@@ -86,8 +86,8 @@ for idx in range(runLen):
 		compact_soln_vec = tf.matmul(it.U, compact_soln_vec) #project back to XYZ
 		compact_soln_vec = compact_soln_vec[:,:,0] #get rid of extra dimension
 
-		# soln = full_soln_vec #consider entire solution vector (compact and extended directions)
-		soln = compact_soln_vec #only consider ground truth solutions in directions deemed useful by ICET
+		soln = full_soln_vec #consider entire solution vector (compact and extended directions)
+		# soln = compact_soln_vec #only consider ground truth solutions in directions deemed useful by ICET
 
 		#initialize array to store data on first iteration
 		if idx*(j+1) == 0:

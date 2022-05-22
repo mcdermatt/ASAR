@@ -51,6 +51,7 @@ class ICET():
 		self.cheat = cheat
 		self.DNN_filter = DNN_filter
 		self.start_filter_iter = 10 #10 #iteration to start DNN rejection filter
+		self.start_RM_iter = 3 #10 #iteration to start removing moving objects (set low to generate training data)
 
 		#load dnn model
 		if self.DNN_filter:
@@ -262,7 +263,7 @@ class ICET():
 			# temp  = time.time()
 			#----------------------------------------------
 			if remove_moving:  
-				if i >= 10: #TODO: tune this to optimal value
+				if i >= self.start_RM_iter: #TODO: tune this to optimal value
 					print("\n ---checking for moving objects---")
 					#FIND CELLS THAT INTRODUCE THE MOST ERROR
 					
@@ -286,7 +287,7 @@ class ICET():
 					# residuals_compact = L_i @ U_iT @ tf.gather(self.residuals_full[:,:,None], ans) #(5/19) -> debug: should this be U_i or U_iT?
 					residuals_compact = L_i @ U_iT @ self.residuals_full[:,:,None] #correct (5/20)
 
-					thresh = 0.05 #0.1 #0.05
+					thresh = 0.2 #0.1 #0.05
 					# bidx = tf.where(residuals_compact > thresh )[:,0] #TODO: consider absolute value!
 					bidx = tf.where(tf.math.abs(residuals_compact) > thresh )[:,0]
 					# print(residuals_compact)
