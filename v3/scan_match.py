@@ -10,70 +10,70 @@ from ICET_spherical import ICET
 from utils import R_tf
 from metpy.calc import lat_lon_grid_deltas
 
-# # KITTI sample dataset -----------------------------------------------------------------
-# basedir = 'C:/kitti/'
-# date = '2011_09_26'
+# KITTI sample dataset -----------------------------------------------------------------
+basedir = 'C:/kitti/'
+date = '2011_09_26'
 
-# # urban dataset used in 3D-ICET paper 
-# drive = '0005'
-# idx = 10
+# urban dataset used in 3D-ICET paper 
+drive = '0005'
+idx = 15
 
-# #test with aiodrive
-# # drive = 'aiodrive'
-# # idx = 1
+#test with aiodrive
+# drive = 'aiodrive'
+# idx = 1
 
-# #alternate dataset with fewer moving objects?
-# # drive = '0009'
-# # idx = 245
-# # drive = '0093'
-# # idx = 220
+#alternate dataset with fewer moving objects?
+# drive = '0009'
+# idx = 245
+# drive = '0093'
+# idx = 220
 
-# dataset = pykitti.raw(basedir, date, drive)
-
-# # basedir = "E:/KITTI/dataset/"
-# # date = "2011_09_26"
-# # drive = '01'
-# # dataset = pykitti.raw(basedir, date, drive)
-
-# # idx = 0
-
-# velo1 = dataset.get_velo(idx) # Each scan is a Nx4 array of [x,y,z,reflectance]
-# c1 = velo1[:,:3]
-# velo2 = dataset.get_velo(idx+1) # Each scan is a Nx4 array of [x,y,z,reflectance]
-# c2 = velo2[:,:3]
-# # c1 = c1[c1[:,2] > -1.5] #ignore ground plane
-# # c2 = c2[c2[:,2] > -1.5] #ignore ground plane
-# # c1 = c1[c1[:,2] > -2.] #ignore reflections
-# # c2 = c2[c2[:,2] > -2.] #ignore reflections
-
-# #load previously processed cloud 1
-# # c1 = np.loadtxt("cloud1_good.txt")
-
-# poses0 = dataset.oxts[idx] #<- ID of 1st scan
-# poses1 = dataset.oxts[idx+1] #<- ID of 2nd scan
-# dt = 0.1037 #mean time between lidar samples
-# OXTS_ground_truth = tf.constant([poses1.packet.vf*dt, -poses1.packet.vl*dt, poses1.packet.vu*dt, poses1.packet.wf*dt, poses1.packet.wl*dt, poses1.packet.wu*dt])
-# # ------------------------------------------------------------------------------------
-
-# full KITTI dataset (uses different formatting incompable with PyKitti)--------------
-#files are 80gb so remember to plug in the external hard drive!
-basedir = "E:/KITTI/dataset/"
-date = "2011_09_26"
-drive = '00' #urban
 dataset = pykitti.raw(basedir, date, drive)
 
-idx = 600
+# basedir = "E:/KITTI/dataset/"
+# date = "2011_09_26"
+# drive = '01'
+# dataset = pykitti.raw(basedir, date, drive)
+
+# idx = 0
 
 velo1 = dataset.get_velo(idx) # Each scan is a Nx4 array of [x,y,z,reflectance]
 c1 = velo1[:,:3]
 velo2 = dataset.get_velo(idx+1) # Each scan is a Nx4 array of [x,y,z,reflectance]
 c2 = velo2[:,:3]
+# c1 = c1[c1[:,2] > -1.5] #ignore ground plane
+# c2 = c2[c2[:,2] > -1.5] #ignore ground plane
+# c1 = c1[c1[:,2] > -2.] #ignore reflections
+# c2 = c2[c2[:,2] > -2.] #ignore reflections
 
-c1 = c1[c1[:,2] > -1.3] #ignore ground plane
-c2 = c2[c2[:,2] > -1.3] #ignore ground plane
+#load previously processed cloud 1
+# c1 = np.loadtxt("cloud1_good.txt")
 
-#read from the OXTS text file directly instead of messing with PyKitti file formats...
+poses0 = dataset.oxts[idx] #<- ID of 1st scan
+poses1 = dataset.oxts[idx+1] #<- ID of 2nd scan
+dt = 0.1037 #mean time between lidar samples
+OXTS_ground_truth = tf.constant([poses1.packet.vf*dt, -poses1.packet.vl*dt, poses1.packet.vu*dt, poses1.packet.wf*dt, poses1.packet.wl*dt, poses1.packet.wu*dt])
 # ------------------------------------------------------------------------------------
+
+# # full KITTI dataset (uses different formatting incompable with PyKitti)--------------
+# #files are 80gb so remember to plug in the external hard drive!
+# basedir = "E:/KITTI/dataset/"
+# date = "2011_09_26"
+# drive = '00' #urban
+# dataset = pykitti.raw(basedir, date, drive)
+
+# idx = 600
+
+# velo1 = dataset.get_velo(idx) # Each scan is a Nx4 array of [x,y,z,reflectance]
+# c1 = velo1[:,:3]
+# velo2 = dataset.get_velo(idx+1) # Each scan is a Nx4 array of [x,y,z,reflectance]
+# c2 = velo2[:,:3]
+
+# c1 = c1[c1[:,2] > -1.3] #ignore ground plane
+# c2 = c2[c2[:,2] > -1.3] #ignore ground plane
+
+# #read from the OXTS text file directly instead of messing with PyKitti file formats...
+# # ------------------------------------------------------------------------------------
 
 # # RAW KITTI dataset ------------------------------------------------------------------
 # i = 110

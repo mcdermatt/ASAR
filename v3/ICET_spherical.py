@@ -60,8 +60,8 @@ class ICET():
 			# self.model = tf.keras.models.load_model("perspective_shift/FORDnet.kmod")  #25 sample points
 			# self.model = tf.keras.models.load_model("perspective_shift/KITTInet.kmod") #25 sample points
 			# self.model = tf.keras.models.load_model("perspective_shift/KITTInet50.kmod") #50 sample points
-			self.model = tf.keras.models.load_model("perspective_shift/NET.kmod") #25 pts, for tests
-			# self.model = tf.keras.models.load_model("perspective_shift/FULL_KITTInet4500.kmod") #25 sample points
+			# self.model = tf.keras.models.load_model("perspective_shift/NET.kmod") #25 pts, for tests
+			self.model = tf.keras.models.load_model("perspective_shift/FULL_KITTInet4500.kmod") #25 sample points
 
 
 		#convert cloud1 to tesnsor
@@ -142,6 +142,7 @@ class ICET():
 		""" Main loop using new radial clustering strategy """
 
 		self.X = x0
+		self.before_correction = x0
 
 		# get boundaries containing useful clusters of points from first scan
 				#bin points by spike
@@ -414,6 +415,9 @@ class ICET():
 				idx_to_draw_dnn_soln = tf.gather(mu1_enough, ans)
 				# self.draw_DNN_soln(dnn_compact_xyz[:,:,0], it_compact_xyz[:,:,0], tf.gather(mu1_enough, ans))
 			#----------------------------------------------
+
+			if i < self.start_filter_iter:
+				self.before_correction = self.X
 
 			# #for debug ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 			# #to confirm correct points are being ignored

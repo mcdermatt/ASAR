@@ -20,6 +20,7 @@ dataset = pykitti.raw(basedir, date, drive)
 ICET_estimates = np.zeros([num_frames, 6])
 OXTS_baseline = np.zeros([num_frames, 6])
 ICET_pred_stds = np.zeros([num_frames, 6])
+before_correction = np.zeros([num_frames, 6])
 
 initial_guess = tf.constant([0., 0., 0., 0., 0., 0.])
 
@@ -60,7 +61,7 @@ for i in range(num_frames):
 	#-------------------------------------------------------------------------------------------------
 
 	ICET_estimates[i] = it.X #* (dataset.timestamps[i+1] - dataset.timestamps[i]).microseconds/(10e5)/0.1
-	# ICET_pred_stds[i] = it.pred_stds
+	before_correction[i] = it.before_correction
 
 	initial_guess = it.X
 
@@ -114,6 +115,8 @@ for i in range(num_frames):
 np.savetxt("ICET_pred_stds_v18.txt", ICET_pred_stds)
 np.savetxt("ICET_estimates_v18.txt", ICET_estimates)
 np.savetxt("OXTS_baseline_v18.txt", OXTS_baseline)
+np.savetxt("Before_correction_v18.txt", before_correction)
+
 
 # np.savetxt("OXTS_baseline_gps.txt", OXTS_baseline)
 

@@ -36,8 +36,8 @@ for idx in range(runLen):
 	velo2 = dataset.get_velo(idx+1) # Each scan is a Nx4 array of [x,y,z,reflectance]
 	c2 = velo2[:,:3]
 
-	c1 = c1[c1[:,2] > -1.5] #ignore ground plane
-	c2 = c2[c2[:,2] > -1.5] #ignore ground plane
+	# c1 = c1[c1[:,2] > -1.5] #ignore ground plane
+	# c2 = c2[c2[:,2] > -1.5] #ignore ground plane
 
 	#get change in rotation
 	drot = euls[:,idx+1] - euls[:,idx]
@@ -103,6 +103,11 @@ for idx in range(runLen):
 		# rand = tf.constant([1., 1., 0.1])*tf.random.normal([ncells, 3]) #larger initial offset
 		rand = tf.constant([0.1, 0.1, 0.01])*tf.random.normal([ncells, 3]) #much tighter initial offset
 
+		#only apply rand to compact directions ~~~~~~~~~~~~~~
+		rand = it.L @ tf.transpose(it.U, [0,2,1]) @ rand[:,:,None]
+		rand = tf.squeeze(rand)
+		#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 		#tile and apply to scan2
 		t = tf.tile(rand, [npts,1])
 		t = tf.reshape(tf.transpose(t), [3,npts,-1])
@@ -111,9 +116,9 @@ for idx in range(runLen):
 		scan2 += t.numpy()
 
 		full_soln_vec = rand + shift[:3]
-		compact_soln_vec = it.L @ tf.transpose(it.U, [0,2,1]) @ full_soln_vec[:,:,None] #remove extended axis
-		compact_soln_vec = tf.matmul(it.U, compact_soln_vec) #project back to XYZ
-		compact_soln_vec = compact_soln_vec[:,:,0] #get rid of extra dimension
+		# compact_soln_vec = it.L @ tf.transpose(it.U, [0,2,1]) @ full_soln_vec[:,:,None] #remove extended axis
+		# compact_soln_vec = tf.matmul(it.U, compact_soln_vec) #project back to XYZ
+		# compact_soln_vec = compact_soln_vec[:,:,0] #get rid of extra dimension
 
 		soln = full_soln_vec #consider entire solution vector (compact and extended directions)
 		# soln = compact_soln_vec #only consider ground truth solutions in directions deemed useful by ICET
@@ -151,12 +156,12 @@ for idx in range(runLen):
 # np.savetxt('perspective_shift/training_data/ICET_KITTI_FULL_scan1_to10.txt', scan1_cum)
 # np.savetxt('perspective_shift/training_data/ICET_KITTI_FULL_scan2_to10.txt', scan2_cum)
 # np.savetxt('perspective_shift/training_data/ICET_KITTI_FULL_ground_truth_to10.txt', soln_cum)
-
 # #big
 # np.savetxt('C:/Users/Derm/Desktop/big/pshift/ICET_KITTI_FULL_scan1_to400.txt', scan1_cum)
 # np.savetxt('C:/Users/Derm/Desktop/big/pshift/ICET_KITTI_FULL_scan2_to400.txt', scan2_cum)
 # np.savetxt('C:/Users/Derm/Desktop/big/pshift/ICET_KITTI_FULL_ground_truth_to400.txt', soln_cum)
+
 #direct to npy
-np.save("C:/Users/Derm/Desktop/big/pshift/ICET_KITTI_FULL_scan1_to400_noGP", scan1_cum)
-np.save("C:/Users/Derm/Desktop/big/pshift/ICET_KITTI_FULL_scan2_to400_noGP", scan2_cum)
-np.save("C:/Users/Derm/Desktop/big/pshift/ICET_KITTI_FULL_ground_truth_to400_noGP", soln_cum)
+np.save("C:/Users/Derm/Desktop/big/pshift/ICET_KITTI_FULL_scan1_to400", scan1_cum)
+np.save("C:/Users/Derm/Desktop/big/pshift/ICET_KITTI_FULL_scan2_to400", scan2_cum)
+np.save("C:/Users/Derm/Desktop/big/pshift/ICET_KITTI_FULL_ground_truth_to400", soln_cum)
