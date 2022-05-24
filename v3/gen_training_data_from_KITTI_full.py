@@ -10,7 +10,7 @@ from utils import R_tf, R2Euler
 from metpy.calc import lat_lon_grid_deltas
 
 numShifts = 5 #number of times to resample and translate each voxel each scan
-runLen = 4500
+runLen = 400 #4500
 npts = 25 #50 
 
 # init KITTI dataset
@@ -36,8 +36,8 @@ for idx in range(runLen):
 	velo2 = dataset.get_velo(idx+1) # Each scan is a Nx4 array of [x,y,z,reflectance]
 	c2 = velo2[:,:3]
 
-	# c1 = c1[c1[:,2] > -1.5] #ignore ground plane
-	# c2 = c2[c2[:,2] > -1.5] #ignore ground plane
+	c1 = c1[c1[:,2] > -1.5] #ignore ground plane
+	c2 = c2[c2[:,2] > -1.5] #ignore ground plane
 
 	#get change in rotation
 	drot = euls[:,idx+1] - euls[:,idx]
@@ -51,11 +51,20 @@ for idx in range(runLen):
 	OXTS_ground_truth[2] = 0
 	OXTS_ground_truth = tf.cast(tf.convert_to_tensor(OXTS_ground_truth), tf.float32)
 
-	shift_scale = 0.1 #standard deviation by which to shift the grid BEFORE SAMPLING corresponding segments of the point cloud
+	#randomly switch order of scans to minimize bias ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	roll = np.random.rand()
+	if roll > 0.5: 
+		c1_temp = c1
+		c1 = c2
+		c2 = c1_temp
+		OXTS_ground_truth = -OXTS_ground_truth
+	#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+	shift_scale = 0.003 #standard deviation by which to shift the grid BEFORE SAMPLING corresponding segments of the point cloud
 	shift = tf.cast(tf.constant([shift_scale*tf.random.normal([1]).numpy()[0], shift_scale*tf.random.normal([1]).numpy()[0], 0.2*shift_scale*tf.random.normal([1]).numpy()[0], 0, 0, 0]), tf.float32)
 
-	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 4, draw = False, group = 2, 
-		RM = True, DNN_filter = False, cheat = OXTS_ground_truth+shift)
+	it = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 2, draw = False, group = 2, 
+		RM = False, DNN_filter = False, cheat = OXTS_ground_truth+shift)
 
 	#Get ragged tensor containing all points from each scan inside each sufficient voxel
 	in1 = it.inside1
@@ -91,7 +100,9 @@ for idx in range(runLen):
 		scan2 = tf.reshape(from2, [-1, 3]).numpy()
 
 		#randomly translate each sample from scan 2
-		rand = tf.constant([1., 1., 0.1])*tf.random.normal([ncells, 3])
+		# rand = tf.constant([1., 1., 0.1])*tf.random.normal([ncells, 3]) #larger initial offset
+		rand = tf.constant([0.1, 0.1, 0.01])*tf.random.normal([ncells, 3]) #much tighter initial offset
+
 		#tile and apply to scan2
 		t = tf.tile(rand, [npts,1])
 		t = tf.reshape(tf.transpose(t), [3,npts,-1])
@@ -106,6 +117,23 @@ for idx in range(runLen):
 
 		soln = full_soln_vec #consider entire solution vector (compact and extended directions)
 		# soln = compact_soln_vec #only consider ground truth solutions in directions deemed useful by ICET
+
+		# #Center scan 1 at origin ~~~~~~~~~~~~~~~~~~~~~~~~~
+		# # print(scan1)
+		# # print(np.shape(scan1))
+		# temp1 = np.reshape(scan1, [-1,25,3])
+		# # print(np.shape(temp))
+		# means = np.reshape(np.mean(temp1, axis = 1), [-1,1,3])
+		# # print(np.shape(means))
+		# scan1 = temp1-means
+		# scan1 = np.reshape(scan1, [-1,3])
+		# # print(np.shape(scan1))
+
+		# temp2 = np.reshape(scan2, [-1,25,3])
+		# scan2 = temp2 - means
+		# scan2 = np.reshape(scan2, [-1,3]) 
+		# # print(np.shape(scan2))
+		# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 		#initialize array to store data on first iteration
 		if idx*(j+1) == 0:
@@ -129,6 +157,6 @@ for idx in range(runLen):
 # np.savetxt('C:/Users/Derm/Desktop/big/pshift/ICET_KITTI_FULL_scan2_to400.txt', scan2_cum)
 # np.savetxt('C:/Users/Derm/Desktop/big/pshift/ICET_KITTI_FULL_ground_truth_to400.txt', soln_cum)
 #direct to npy
-np.save("C:/Users/Derm/Desktop/big/pshift/ICET_KITTI_FULL_scan1_to2k", scan1_cum)
-np.save("C:/Users/Derm/Desktop/big/pshift/ICET_KITTI_FULL_scan2_to2k", scan2_cum)
-np.save("C:/Users/Derm/Desktop/big/pshift/ICET_KITTI_FULL_ground_truth_to2k", soln_cum)
+np.save("C:/Users/Derm/Desktop/big/pshift/ICET_KITTI_FULL_scan1_to400_noGP", scan1_cum)
+np.save("C:/Users/Derm/Desktop/big/pshift/ICET_KITTI_FULL_scan2_to400_noGP", scan2_cum)
+np.save("C:/Users/Derm/Desktop/big/pshift/ICET_KITTI_FULL_ground_truth_to400_noGP", soln_cum)

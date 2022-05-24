@@ -6,14 +6,15 @@ import tensorflow as tf
 import time
 
 #load model
-# model = tf.keras.models.load_model("Net.kmod")
+model = tf.keras.models.load_model("Net.kmod") #for tests
 # model = tf.keras.models.load_model("PIPEnet10.kmod")
 # model = tf.keras.models.load_model("KITTInet.kmod")
+# model = tf.keras.models.load_model("FULL_KITTInet4500.kmod")
 # model = tf.keras.models.load_model("KITTInet50.kmod")
-model = tf.keras.models.load_model("FORDnet.kmod")
+# model = tf.keras.models.load_model("FORDnet.kmod")
 
 #read in dense point cloud of car
-points_per_sample = 25 #num pts per scan - defined in MatLab script
+points_per_sample = 25 #num pts per scan - defined by network
 d1 = np.loadtxt('training_data/ICET_KITTI_scan1.txt')
 d2 = np.loadtxt('training_data/ICET_KITTI_scan2.txt')
 gt = np.loadtxt('training_data/ICET_KITTI_ground_truth.txt')
@@ -32,7 +33,7 @@ x_train = tf.concat((scan1[:ntrain], scan2[:ntrain]), axis = 1)
 x_test = tf.concat((scan1[ntrain:], scan2[ntrain:]), axis = 1)
 y_test = gt[ntrain:]
 
-niter = 90
+niter = 300
 err  = np.zeros([niter, 3])
 for j in range(niter):
 	print(j)

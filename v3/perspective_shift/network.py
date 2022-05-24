@@ -231,8 +231,8 @@ def Net(**kwargs):
     X = keras.layers.Dense(units = 256, activation = 'relu')(X)
     # ~~~~~~
 
-    # X = keras.layers.BatchNormalization()(X)
-    # X = keras.layers.Dense(units = 512, activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+    X = keras.layers.Dense(units = 512, activation = 'relu')(X)
 
     # 2D Max Pooling -------------------------------------------------------------------
     # X = tf.keras.layers.Reshape((insize, 8, 8))(X)
@@ -250,22 +250,22 @@ def Net(**kwargs):
     # X = keras.layers.Permute((2,1))(X) #also works
 
     #conv layers help 1d a lot
-    X = keras.layers.Conv1D(filters = 32, kernel_size = 3, padding = 'valid')(X)
+    X = keras.layers.Conv1D(filters = 4, kernel_size = 8, strides = 4, padding = 'valid')(X)
     X = keras.layers.BatchNormalization()(X)
     X = keras.layers.Dense(units = 64, activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
 
     # #test repeat
-    X = keras.layers.Conv1D(filters = 32, kernel_size = 5, padding = 'valid')(X)
+    X = keras.layers.Conv1D(filters = 2, kernel_size = 4, strides = 2, padding = 'valid')(X)
     X = keras.layers.BatchNormalization()(X)
     X = keras.layers.Dense(units = 64, activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
 
 
-    # X = keras.layers.Conv1D(filters = 32, kernel_size = 8, strides = 3, padding = 'valid')(X)
-    # X = keras.layers.BatchNormalization()(X)
-    # X = keras.layers.Dense(units = 64, activation = 'relu')(X)
-    # X = keras.layers.BatchNormalization()(X)
+    X = keras.layers.Conv1D(filters = 2, kernel_size = 3, strides = 2, padding = 'valid')(X)
+    X = keras.layers.BatchNormalization()(X)
+    X = keras.layers.Dense(units = 64, activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
 
     #----------------------------------------------------------------------------------
 
@@ -284,7 +284,7 @@ def Net(**kwargs):
     # output = output*tf.constant([15., 15., 0.03]) #was this for simple models
     # output = output*tf.constant([30., 30., 3.]) #increased vel using real cars
     output = output*tf.constant([3., 3., 0.3]) #KITTI
-    # output = output*tf.constant([5., 5., 0.5])
+    # output = output*tf.constant([0.5, 0.5, 0.5]) #new
 
 
     model = tf.keras.Model(inputs,output)

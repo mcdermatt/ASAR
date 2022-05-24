@@ -42,7 +42,7 @@ class ICET():
 		x0 = tf.constant([0.0, 0.0, 0., 0., 0., 0.]), group = 2, RM = True,
 		DNN_filter = False, cheat = []):
 
-		self.min_cell_distance = 2 #5 #3 #begin closest spherical voxel here
+		self.min_cell_distance = 5 #2 #begin closest spherical voxel here
 		self.min_num_pts = 50 #25 #ignore "occupied" cells with fewer than this number of pts
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
@@ -51,14 +51,18 @@ class ICET():
 		self.cheat = cheat
 		self.DNN_filter = DNN_filter
 		self.start_filter_iter = 10 #10 #iteration to start DNN rejection filter
-		self.start_RM_iter = 3 #10 #iteration to start removing moving objects (set low to generate training data)
+		self.start_RM_iter = 10 #iteration to start removing moving objects (set low to generate training data)
+		self.DNN_thresh = 0.1
+		self.RM_thresh = 0.1
 
 		#load dnn model
 		if self.DNN_filter:
 			# self.model = tf.keras.models.load_model("perspective_shift/FORDnet.kmod")  #25 sample points
-			self.model = tf.keras.models.load_model("perspective_shift/KITTInet.kmod") #25 sample points
+			# self.model = tf.keras.models.load_model("perspective_shift/KITTInet.kmod") #25 sample points
 			# self.model = tf.keras.models.load_model("perspective_shift/KITTInet50.kmod") #50 sample points
-			# self.model = tf.keras.models.load_model("perspective_shift/NET.kmod")
+			self.model = tf.keras.models.load_model("perspective_shift/NET.kmod") #25 pts, for tests
+			# self.model = tf.keras.models.load_model("perspective_shift/FULL_KITTInet4500.kmod") #25 sample points
+
 
 		#convert cloud1 to tesnsor
 		self.cloud1_tensor = tf.cast(tf.convert_to_tensor(cloud1), tf.float32)
@@ -214,15 +218,12 @@ class ICET():
 			# self.visualize_L(mu1_enough, U, L)
 
 		for i in range(niter):
-			#TODO- make sure we are calculating moving outliers on the FULL residuals (not the previously ignored set)
-
 			#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 			#Option to read in ground truth positions so we can use ICET to generate training data for DNN
 			if tf.shape(self.cheat)[0].numpy() > 0:
 				self.X = self.cheat
 				print("using state estimate form OXTS")
 			#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
 
 			print("\n estimated solution vector X: \n", self.X)
 			#transform cartesian point cloud 2 by estimated solution vector X
@@ -234,12 +235,8 @@ class ICET():
 			#convert back to spherical coordinates
 			self.cloud2_tensor_spherical = tf.cast(self.c2s(self.cloud2_tensor), tf.float32)
 
-
 			#find points from scan 2 that fall inside clusters
 			inside2, npts2 = self.get_points_in_cluster(self.cloud2_tensor_spherical, occupied_spikes, bounds)
-			# print("inside2", inside2)
-			# print("npts2", npts2)
-			# print("npts1", npts1)
 
 			#temp			
 			self.inside2 = inside2
@@ -247,20 +244,14 @@ class ICET():
 			self.enough1 = enough1
 
 			#fit gaussians distributions to each of these groups of points 		
-			# temp  = time.time()
 			mu2, sigma2 = self.fit_gaussian(self.cloud2_tensor, inside2, tf.cast(npts2, tf.float32))
 			enough2 = tf.where(npts2 > self.min_num_pts)[:,0]
 			mu2_enough = tf.gather(mu2, enough2)
-			# print("\n took ", time.time() - temp , "seconds to fit gaussian to scan2" )
-
 
 			#get correspondences
 			corr = tf.sets.intersection(enough1[None,:], enough2[None,:]).values
-			# print("corr \n", corr)
-			# print("\n occupied_spikes \n", occupied_spikes)
 			corr_full = tf.sets.intersection(enough1[None,:], enough2[None,:]).values
 
-			# temp  = time.time()
 			#----------------------------------------------
 			if remove_moving:  
 				if i >= self.start_RM_iter: #TODO: tune this to optimal value
@@ -287,9 +278,9 @@ class ICET():
 					# residuals_compact = L_i @ U_iT @ tf.gather(self.residuals_full[:,:,None], ans) #(5/19) -> debug: should this be U_i or U_iT?
 					residuals_compact = L_i @ U_iT @ self.residuals_full[:,:,None] #correct (5/20)
 
-					thresh = 0.2 #0.1 #0.05
+					self.RM_thresh = 0.05 #0.1 #0.05
 					# bidx = tf.where(residuals_compact > thresh )[:,0] #TODO: consider absolute value!
-					bidx = tf.where(tf.math.abs(residuals_compact) > thresh )[:,0]
+					bidx = tf.where(tf.math.abs(residuals_compact) > self.RM_thresh )[:,0]
 					# print(residuals_compact)
 					bad_idx = bidx
 					# print("bad_idx", bidx)
@@ -401,12 +392,12 @@ class ICET():
 				# print(it_compact_xyz - dnn_compact_xyz)
 
 				#find where the largest difference in residuals are
-				thresh = 0.1 #0.05 #0.1
-				bad_idx = tf.where(tf.math.abs(it_compact_xyz - dnn_compact_xyz) > thresh)[:,0]
+				# self.DNN_thresh = 0.05 #0.05 #0.1
+				bad_idx = tf.where(tf.math.abs(it_compact_xyz - dnn_compact_xyz) > self.DNN_thresh)[:,0]
 				bad_idx = tf.unique(bad_idx)[0] #get rid of repeated indices
 				# print("bad_idx", bad_idx)
 
-				good_idx = tf.where(tf.math.abs(it_compact_xyz - dnn_compact_xyz) < thresh)[:,0]
+				good_idx = tf.where(tf.math.abs(it_compact_xyz - dnn_compact_xyz) < self.DNN_thresh)[:,0]
 				good_idx = tf.unique(good_idx)[0] #get rid of repeated indices
 				# print("good_idx", good_idx)
 				# print(tf.math.abs(it_compact_xyz - dnn_compact_xyz))
@@ -423,8 +414,6 @@ class ICET():
 				idx_to_draw_dnn_soln = tf.gather(mu1_enough, ans)
 				# self.draw_DNN_soln(dnn_compact_xyz[:,:,0], it_compact_xyz[:,:,0], tf.gather(mu1_enough, ans))
 			#----------------------------------------------
-			# print("\n took ", time.time() - temp , "seconds to remove moving and apply DNN filter" )
-
 
 			# #for debug ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 			# #to confirm correct points are being ignored
@@ -541,14 +530,13 @@ class ICET():
 			# 	#get list of all possible indices
 			# 	all_idx = tf.cast(tf.linspace(0,tf.shape(dz)[0].numpy()-1,tf.shape(dz)[0].numpy()), tf.int64)[None,:]
 
-
 			# 	#removing rejected dnn solnss
 			# 	##with RM turned on
 			# 	##combine bad idx's from dnn filter and moving object filter
-			# 	# rmidx = tf.sets.union(bad_idx[None,:], bidx[None,:]) #bad_idx from dnn, bidx from moving rejection filter
-			# 	# good_idx = tf.sets.difference(all_idx, rmidx).values 
+			# 	rmidx = tf.sets.union(bad_idx[None,:], bidx[None,:]) #bad_idx from dnn, bidx from moving rejection filter
+			# 	good_idx = tf.sets.difference(all_idx, rmidx).values 
 			# 	##if RM turned off
-			# 	good_idx = tf.sets.difference(all_idx, bad_idx[None,:]).values 
+			# 	# good_idx = tf.sets.difference(all_idx, bad_idx[None,:]).values 
 				
 			# 	dz = tf.gather(dz, good_idx)
 			# 	# print("new dz", dz[:15,:,0])
@@ -575,8 +563,8 @@ class ICET():
 				self.draw_cell(bad_idx_corn_moving, bad = True) #for debug
 			if self.DNN_filter:
 				self.draw_cell(bad_idx_corn_DNN, bad = 2)
-				self.draw_DNN_soln(dnn_compact_xyz[:,:,0], it_compact_xyz[:,:,0], idx_to_draw_dnn_soln) #just in compact directions
-				# self.draw_DNN_soln(dnnsoln, icetsoln, idx_to_draw_dnn_soln) #raw solutions
+				# self.draw_DNN_soln(dnn_compact_xyz[:,:,0], it_compact_xyz[:,:,0], idx_to_draw_dnn_soln) #just in compact directions
+				self.draw_DNN_soln(dnnsoln, icetsoln, idx_to_draw_dnn_soln) #raw solutions
 
 
 			self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
@@ -613,7 +601,7 @@ class ICET():
 		# print("occupied = ", o)
 		if self.draw:
 			corn_o = self.get_corners(o)
-			self.draw_cell(corn_o)
+			# self.draw_cell(corn_o)
 			self.draw_car()
 
 		inside1, npts1 = self.get_points_inside(self.cloud1_tensor_spherical,o[:,None])		

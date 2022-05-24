@@ -16,7 +16,7 @@ from metpy.calc import lat_lon_grid_deltas
 
 # # urban dataset used in 3D-ICET paper 
 # drive = '0005'
-# idx = 0
+# idx = 10
 
 # #test with aiodrive
 # # drive = 'aiodrive'
@@ -62,15 +62,15 @@ date = "2011_09_26"
 drive = '00' #urban
 dataset = pykitti.raw(basedir, date, drive)
 
-idx = 1397
+idx = 600
 
 velo1 = dataset.get_velo(idx) # Each scan is a Nx4 array of [x,y,z,reflectance]
 c1 = velo1[:,:3]
 velo2 = dataset.get_velo(idx+1) # Each scan is a Nx4 array of [x,y,z,reflectance]
 c2 = velo2[:,:3]
 
-# c1 = c1[c1[:,2] > -1.5] #ignore ground plane
-# c2 = c2[c2[:,2] > -1.5] #ignore ground plane
+c1 = c1[c1[:,2] > -1.3] #ignore ground plane
+c2 = c2[c2[:,2] > -1.3] #ignore ground plane
 
 #read from the OXTS text file directly instead of messing with PyKitti file formats...
 # ------------------------------------------------------------------------------------
@@ -89,8 +89,8 @@ c2 = velo2[:,:3]
 # # Ford Campus Datset------------------------------------------------------------------
 # import mat4py
 # #starts at 1000
-# fn1 = 'E:/Ford/IJRR-Dataset-1-subset/SCANS/Scan1154.mat'
-# fn2 = 'E:/Ford/IJRR-Dataset-1-subset/SCANS/Scan1155.mat'
+# fn1 = 'E:/Ford/IJRR-Dataset-1-subset/SCANS/Scan1134.mat'
+# fn2 = 'E:/Ford/IJRR-Dataset-1-subset/SCANS/Scan1135.mat'
 
 # dat1 = mat4py.loadmat(fn1)
 # SCAN1 = dat1['SCAN']
@@ -178,7 +178,7 @@ c2 = velo2[:,:3]
 
 # ground_truth = tf.constant([0.1799, 0., 0., -0.0094, -0.011, -0.02072]) #FULL KITTI scan 1397
 
-it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 14, 
+it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 30, 
 	draw = True, group = 2, RM = True, DNN_filter = True)#, cheat = ground_truth)
 
 print("\n OXTS_ground_truth: \n", OXTS_ground_truth)
