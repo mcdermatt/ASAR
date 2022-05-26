@@ -12,7 +12,8 @@ close all
 % FileName = 'virtual_scenes/scene6.stl'; % cylinders w/0 occlusion
 % FileName = 'virtual_scenes/scene7.stl'; % skinny cylinders w/0 occlusion
 % FileName = 'virtual_scenes/large_room1.stl'; % no back wall
-FileName = 'virtual_scenes/large_room2.stl'; % with back wall 
+% FileName = 'virtual_scenes/large_room2.stl'; % with back wall
+FileName = 'virtual_scenes/verify_geometry2.stl'; %use with /perspective_shift/geometry ipynb
 OpenFile = stlread(FileName);
 
 %get vertices, faces, and normals from stl
@@ -44,21 +45,21 @@ sensor.ElevationResolution = 0.4;
 scenario = trackingScenario;
 ego = platform(scenario, 'Position', [0, 0, 1.72]);
 % ego.Position = [0, 0, 1.72];
-target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[-.7 0 0],'Velocity',[-7 0 0])); %no rotation
+target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[0 0 0],'Velocity',[0 5 0])); %no rotation
 % target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[-0.3 0 0],'Velocity',[-7 0 0], 'AngularVelocity', [0, 0, 0.1])); %with rotatation
 target.Mesh = mesh;
 
-% %default~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-% target.Dimensions.Length = 100; 
-% target.Dimensions.Width = 100;
-% target.Dimensions.Height = 18;
-% %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-%need to scale differently for simple room ~~~~~~~
-target.Dimensions.Length = 50; 
-target.Dimensions.Width = 40;
-target.Dimensions.Height = 4;
+%default~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+target.Dimensions.Length = 100; 
+target.Dimensions.Width = 100;
+target.Dimensions.Height = 6 %18;
 %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+% %need to scale differently for simple room ~~~~~~~
+% target.Dimensions.Length = 50; 
+% target.Dimensions.Width = 40;
+% target.Dimensions.Height = 4;
+% %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 % show(target.Mesh)
 
@@ -91,5 +92,8 @@ ptCloud2 = rmmissing(ptCloud2);
 % writematrix(ptCloud2, "scene3_scan2.txt", 'Delimiter', 'tab')
 % writematrix(ptCloud1, "scene4_scan1.txt", 'Delimiter', 'tab')
 % writematrix(ptCloud2, "scene4_scan2.txt", 'Delimiter', 'tab')
-writematrix(ptCloud1, "simple_room_scan1.txt", 'Delimiter', 'tab')
-writematrix(ptCloud2, "simple_room_scan2.txt", 'Delimiter', 'tab')
+% writematrix(ptCloud1, "simple_room_scan1.txt", 'Delimiter', 'tab')
+% writematrix(ptCloud2, "simple_room_scan2.txt", 'Delimiter', 'tab')
+writematrix(ptCloud1, "verify_geometry_scan1.txt", 'Delimiter', 'tab')
+writematrix(ptCloud2, "verify_geometry_scan2.txt", 'Delimiter', 'tab')
+

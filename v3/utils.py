@@ -38,7 +38,7 @@ def get_cluster(rads, thresh = 0.2, mnp = 25): #mnp = 50, thresh = 0.2
 
     # #find where difference jumps
     jumps = tf.where(diff > thresh)
-    # print("\n jumps \n", jumps) #[idx of jump, which spike is jumping]
+    print("\n jumps \n", jumps) #[idx of jump, which spike is jumping]
 
     #find where the first large cluster occurs in each spike
     #   using numpy here because we're not working with the full dataset and 

@@ -42,7 +42,7 @@ class ICET():
 		x0 = tf.constant([0.0, 0.0, 0., 0., 0., 0.]), group = 2, RM = True,
 		DNN_filter = False, cheat = []):
 
-		self.min_cell_distance = 5 #2 #begin closest spherical voxel here
+		self.min_cell_distance = 0.1 #5 #2 #begin closest spherical voxel here
 		self.min_num_pts = 50 #25 #ignore "occupied" cells with fewer than this number of pts
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
@@ -175,9 +175,11 @@ class ICET():
 		rads = tf.transpose(idx_by_rag.to_tensor())
 		bounds = get_cluster(rads, mnp = self.min_num_pts)
 		corn = self.get_corners_cluster(occupied_spikes, bounds)
-		# print("occupied_spikes \n", occupied_spikes)
+		print("occupied_spikes \n", occupied_spikes)
 		inside1, npts1 = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes, bounds)
 	
+		print("bounds:", bounds)
+
 		#temp			
 		self.inside1 = inside1
 		self.npts1 = npts1
@@ -211,7 +213,7 @@ class ICET():
 			# self.visualize_L(mu1_enough, U, L)
 			self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
 			self.draw_cell(corn)
-			self.draw_car()
+			# self.draw_car()
 			# draw identified points inside useful clusters
 			# for n in range(tf.shape(inside1.to_tensor())[0]):
 			# 	temp = tf.gather(self.cloud1_tensor, inside1[n]).numpy()	
@@ -606,7 +608,7 @@ class ICET():
 		if self.draw:
 			corn_o = self.get_corners(o)
 			# self.draw_cell(corn_o)
-			self.draw_car()
+			# self.draw_car()
 
 		inside1, npts1 = self.get_points_inside(self.cloud1_tensor_spherical,o[:,None])		
 		mu1, sigma1 = self.fit_gaussian(self.cloud1_tensor, inside1, tf.cast(npts1, tf.float32))
