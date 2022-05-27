@@ -13,7 +13,7 @@ close all
 % FileName = 'virtual_scenes/scene7.stl'; % skinny cylinders w/0 occlusion
 % FileName = 'virtual_scenes/large_room1.stl'; % no back wall
 % FileName = 'virtual_scenes/large_room2.stl'; % with back wall
-FileName = 'virtual_scenes/verify_geometry2.stl'; %use with /perspective_shift/geometry ipynb
+FileName = 'virtual_scenes/verify_geometry.stl'; %use with /perspective_shift/geometry ipynb
 OpenFile = stlread(FileName);
 
 %get vertices, faces, and normals from stl
