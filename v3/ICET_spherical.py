@@ -42,7 +42,7 @@ class ICET():
 		x0 = tf.constant([0.0, 0.0, 0., 0., 0., 0.]), group = 2, RM = True,
 		DNN_filter = False, cheat = []):
 
-		self.min_cell_distance = 0.1 #5 #2 #begin closest spherical voxel here
+		self.min_cell_distance = 2 #0.1 #5 #2 #begin closest spherical voxel here
 		self.min_num_pts = 50 #25 #ignore "occupied" cells with fewer than this number of pts
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
@@ -69,7 +69,7 @@ class ICET():
 		self.cloud2_tensor = tf.cast(tf.convert_to_tensor(cloud2), tf.float32)
 
 		if self.draw == True:
-			self.plt = Plotter(N = 1, axes = 1, bg = (1, 1, 1), interactive = True) #axis = 4
+			self.plt = Plotter(N = 1, axes = 4, bg = (1, 1, 1), interactive = True) #axis = 1
 			self.disp = []
 
 		#convert cloud to spherical coordinates
@@ -213,7 +213,7 @@ class ICET():
 			# self.visualize_L(mu1_enough, U, L)
 			self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
 			self.draw_cell(corn)
-			# self.draw_car()
+			self.draw_car()
 			# draw identified points inside useful clusters
 			# for n in range(tf.shape(inside1.to_tensor())[0]):
 			# 	temp = tf.gather(self.cloud1_tensor, inside1[n]).numpy()	
@@ -573,9 +573,9 @@ class ICET():
 				self.draw_DNN_soln(dnnsoln, icetsoln, idx_to_draw_dnn_soln) #raw solutions
 
 
-			self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
+			# self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
 			self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
-			self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
+			# self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
 			# self.draw_cloud(self.cloud2_tensor_OG.numpy(), pc = 3) #draw OG cloud in differnt color
 			# draw identified points from scan 2 inside useful clusters
 			# for n in range(tf.shape(inside2.to_tensor())[0]):
@@ -586,6 +586,19 @@ class ICET():
 			#FOR DEBUG: we should be looking at U_i, L_i anyways...
 			#   ans == indeces of enough1 that intersect with corr (aka combined enough1, enough2)
 			# self.visualize_L(tf.gather(mu1_enough, ans), U_i, L_i)
+
+			# #for generating figure in spherical ICET paper ----------
+			# #scene 1, fid = 50, with ground plane
+			# s = 86 #82 #spike 
+			# temp_corn = self.get_corners_cluster(occupied_spikes[s,None], tf.constant([[0.0, 16.0]]))
+			# self.draw_cell(temp_corn)
+
+			# #highlight points inside cell under consideration
+			# inside1_temp, _ = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes[s,None], tf.constant([[0.0, 16.0]]))
+			# temp = tf.gather(self.cloud1_tensor, inside1_temp[0]).numpy()	
+			# self.disp.append(Points(temp, c = 'green', r = 5))
+			# np.save("figure_dist_measurements", self.c2s(temp))
+			# #--------------------------------------------------------
 
 		# 	# #get rid of points too close to ego-vehicle in cloud1_static------------------------
 		# 	# #	doing this to minmize negative effects of perspective shift
@@ -1592,7 +1605,7 @@ class ICET():
 		if pc == 3:
 			color = [0.5, 0.8, 0.5]
 		
-		c = Points(points, c = color, r = 4) #r = 4
+		c = Points(points, c = color, r = 2) #r = 4
 		self.disp.append(c)
 
 	def draw_car(self):
