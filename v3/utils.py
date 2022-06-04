@@ -12,7 +12,13 @@ def get_cluster(rads, thresh = 0.2, mnp = 25): #mnp = 50, thresh = 0.2
         mnp = minimum number of points a cluster must contain to be considered
             """
 
-    max_buffer = 0.5
+    #TODO: try dymacally lowering <max_buffer> value as algorithm progresses
+
+    max_buffer = 0.05 #0.2 #0.5
+
+    #notes for spherical ICET MC 
+    #  0.1 -> mountain
+    #  0.2 -> shadows (need slightly longer basin of attraction to grab on to wall)
 
     #fix dimensions
     if len(tf.shape(rads)) < 2:
@@ -38,7 +44,7 @@ def get_cluster(rads, thresh = 0.2, mnp = 25): #mnp = 50, thresh = 0.2
 
     # #find where difference jumps
     jumps = tf.where(diff > thresh)
-    print("\n jumps \n", jumps) #[idx of jump, which spike is jumping]
+    # print("\n jumps \n", jumps) #[idx of jump, which spike is jumping]
 
     #find where the first large cluster occurs in each spike
     #   using numpy here because we're not working with the full dataset and 

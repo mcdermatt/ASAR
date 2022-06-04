@@ -14,7 +14,10 @@ close all
 % FileName = 'virtual_scenes/large_room1.stl'; % no back wall
 % FileName = 'virtual_scenes/large_room2.stl'; % with back wall
 % FileName = 'virtual_scenes/verify_geometry.stl'; %use with /perspective_shift/geometry ipynb
-FileName = 'virtual_scenes/verify_geometry2.stl'; %use with /perspective_shift/geometry ipynb
+% FileName = 'virtual_scenes/verify_geometry2.stl'; %use with /perspective_shift/geometry ipynb
+% FileName = 'virtual_scenes/mountain.stl';
+FileName = 'virtual_scenes/mountain_simple.stl'; %test
+
 
 OpenFile = stlread(FileName);
 
@@ -25,8 +28,8 @@ faces = OpenFile.ConnectivityList;
 %generate extended object mesh
 mesh = extendedObjectMesh(vertices,faces);
 %rotate mesh to correct orientation
-% mesh = rotate(mesh, [0, 0, 90]); %else
-mesh = rotate(mesh, [270, 0, 90]); %for room
+mesh = rotate(mesh, [0, 0, 90]); %else
+% mesh = rotate(mesh, [270, 0, 90]); %for room
 
 
 %init lidar unit
@@ -36,7 +39,7 @@ sensor.MountingLocation = [0, 0, 0]; %AHHHHAHHHHAHHHH!!!! Why is this not defaul
 
 % set parameters of virtual lidar unit to match velodyne VLP-16
 sensor.UpdateRate = 10;
-sensor.ElevationLimits = [-22, 2]; %[-24.8, 2]; %22
+sensor.ElevationLimits =  [-24.8, 2];  % was [-22, 2]; %22
 sensor.RangeAccuracy = 0.0001; %0.03; %0.01;
 sensor.AzimuthResolution = 0.2; %0.08;
 sensor.ElevationResolution = 0.4;
@@ -47,15 +50,19 @@ sensor.ElevationResolution = 0.4;
 scenario = trackingScenario;
 ego = platform(scenario, 'Position', [0, 0, 1.72]);
 % ego.Position = [0, 0, 1.72];
-target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[0 0 0],'Velocity',[0 5 0])); %no rotation
-% target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[-0.3 0 0],'Velocity',[-7 0 0], 'AngularVelocity', [0, 0, 0.1])); %with rotatation
+% target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[0 0 0],'Velocity',[0 5 0])); %no rotation
+target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[-20 0 -8],'Velocity',[5 0 0], 'AngularVelocity', [0, 0, 0.1])); %with rotatation 
+%pos = [0 0 7] for OG mountain
+%pos = [_ _ _] for no trees
+
 target.Mesh = mesh;
 
 %default~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 target.Dimensions.Length = 100; 
 target.Dimensions.Width = 100;
-target.Dimensions.Height = 6 %18;
+target.Dimensions.Height = 20; %6; %18;
 %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+%height = 20 for with trees, 
 
 % %need to scale differently for simple room ~~~~~~~
 % target.Dimensions.Length = 50; 
@@ -88,6 +95,8 @@ plot3(ptCloud2(:,1),ptCloud2(:,2),ptCloud2(:,3),'.')
 ptCloud1 = rmmissing(ptCloud1);
 ptCloud2 = rmmissing(ptCloud2);
 % 
+% writematrix(ptCloud1, "scene1_scan1.txt", 'Delimiter', 'tab')
+% writematrix(ptCloud2, "scene1_scan2.txt", 'Delimiter', 'tab')
 % writematrix(ptCloud1, "scene2_scan1.txt", 'Delimiter', 'tab')
 % writematrix(ptCloud2, "scene2_scan2.txt", 'Delimiter', 'tab')
 % writematrix(ptCloud1, "scene3_scan1.txt", 'Delimiter', 'tab')
@@ -96,6 +105,10 @@ ptCloud2 = rmmissing(ptCloud2);
 % writematrix(ptCloud2, "scene4_scan2.txt", 'Delimiter', 'tab')
 % writematrix(ptCloud1, "simple_room_scan1.txt", 'Delimiter', 'tab')
 % writematrix(ptCloud2, "simple_room_scan2.txt", 'Delimiter', 'tab')
-writematrix(ptCloud1, "verify_geometry_scan1.txt", 'Delimiter', 'tab')
-writematrix(ptCloud2, "verify_geometry_scan2.txt", 'Delimiter', 'tab')
+% writematrix(ptCloud1, "verify_geometry_scan1.txt", 'Delimiter', 'tab')
+% writematrix(ptCloud2, "verify_geometry_scan2.txt", 'Delimiter', 'tab')
+% writematrix(ptCloud1, "mountain_scan1.txt", 'Delimiter', 'tab')
+% writematrix(ptCloud2, "mountain_scan2.txt", 'Delimiter', 'tab')
+writematrix(ptCloud1, "mountain_scan1_no_trees.txt", 'Delimiter', 'tab')
+writematrix(ptCloud2, "mountain_scan2_no_trees.txt", 'Delimiter', 'tab')
 

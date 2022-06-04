@@ -145,8 +145,8 @@ from metpy.calc import lat_lon_grid_deltas
 
 
 # load custom point cloud geneated in matlab------------------------------------------
-c1 = np.loadtxt("scene1_scan1.txt", dtype = float) #shadows
-c2 = np.loadtxt("scene1_scan2.txt", dtype = float)
+# c1 = np.loadtxt("scene1_scan1.txt", dtype = float) #shadows
+# c2 = np.loadtxt("scene1_scan2.txt", dtype = float)
 # c1 = np.loadtxt("scene2_scan1.txt", dtype = float) #small cylinders
 # c2 = np.loadtxt("scene2_scan2.txt", dtype = float)
 # c1 = np.loadtxt("scene3_scan1.txt", dtype = float) #rectangles
@@ -157,7 +157,8 @@ c2 = np.loadtxt("scene1_scan2.txt", dtype = float)
 # c2 = np.loadtxt("simple_room_scan2.txt", dtype = float)
 # c1 = np.loadtxt("verify_geometry_scan1.txt", dtype = float) #validate  2d geometry ipynb
 # c2 = np.loadtxt("verify_geometry_scan2.txt", dtype = float)
-
+c1 = np.loadtxt("mountain_scan1_no_trees.txt", dtype = float) #test
+c2 = np.loadtxt("mountain_scan2_no_trees.txt", dtype = float)
 
 # c1 = c1[c1[:,2] > -1.55] #ignore ground plane
 # c2 = c2[c2[:,2] > -1.55] #ignore ground plane
@@ -174,8 +175,8 @@ c2 = np.loadtxt("scene1_scan2.txt", dtype = float)
 # # c2 = (c1 +  x[:3].numpy()) @ rot.numpy()
 
 #add noise (if not generated when point clouds were created)
-c1 += 0.01*np.random.randn(np.shape(c1)[0], 3)
-c2 += 0.01*np.random.randn(np.shape(c2)[0], 3) 
+c1 += 0.02*np.random.randn(np.shape(c1)[0], 3)
+c2 += 0.02*np.random.randn(np.shape(c2)[0], 3) 
 # ------------------------------------------------------------------------------------
 
 # # #single distinct cluster---------------------------------------------------------------
@@ -186,7 +187,7 @@ c2 += 0.01*np.random.randn(np.shape(c2)[0], 3)
 
 # ground_truth = tf.constant([0.1799, 0., 0., -0.0094, -0.011, -0.02072]) #FULL KITTI scan 1397
 
-it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 100, niter = 5, 
+it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 10, 
 	draw = True, group = 2, RM = False, DNN_filter = False)#, cheat = ground_truth)
 
 print("\n OXTS_ground_truth: \n", OXTS_ground_truth)

@@ -175,10 +175,10 @@ class ICET():
 		rads = tf.transpose(idx_by_rag.to_tensor())
 		bounds = get_cluster(rads, mnp = self.min_num_pts)
 		corn = self.get_corners_cluster(occupied_spikes, bounds)
-		print("occupied_spikes \n", occupied_spikes)
+		# print("occupied_spikes \n", occupied_spikes)
 		inside1, npts1 = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes, bounds)
 	
-		print("bounds:", bounds)
+		# print("bounds:", bounds)
 
 		#temp			
 		self.inside1 = inside1
@@ -573,9 +573,9 @@ class ICET():
 				self.draw_DNN_soln(dnnsoln, icetsoln, idx_to_draw_dnn_soln) #raw solutions
 
 
-			# self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
+			self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
 			self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
-			# self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
+			self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
 			# self.draw_cloud(self.cloud2_tensor_OG.numpy(), pc = 3) #draw OG cloud in differnt color
 			# draw identified points from scan 2 inside useful clusters
 			# for n in range(tf.shape(inside2.to_tensor())[0]):
@@ -585,7 +585,7 @@ class ICET():
 
 			#FOR DEBUG: we should be looking at U_i, L_i anyways...
 			#   ans == indeces of enough1 that intersect with corr (aka combined enough1, enough2)
-			# self.visualize_L(tf.gather(mu1_enough, ans), U_i, L_i)
+			self.visualize_L(tf.gather(mu1_enough, ans), U_i, L_i)
 
 			# #for generating figure in spherical ICET paper ----------
 			# #scene 1, fid = 50, with ground plane
