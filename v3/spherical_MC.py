@@ -13,30 +13,34 @@ from utils import R_tf
 
 niter = 100
 
-# c1 = np.loadtxt("scene1_scan1.txt", dtype = float) #Scene 1
-# c2 = np.loadtxt("scene1_scan2.txt", dtype = float)
+c1_raw = np.loadtxt("scene1_scan1.txt", dtype = float) #Scene 1
+c2_raw = np.loadtxt("scene1_scan2.txt", dtype = float)
 
-c1_raw = np.loadtxt("mountain_scan1_no_trees.txt", dtype = float) #Scene 2
-c2_raw = np.loadtxt("mountain_scan2_no_trees.txt", dtype = float)
+# c1_raw = np.loadtxt("mountain_scan1_no_trees.txt", dtype = float) #Scene 2
+# c2_raw = np.loadtxt("mountain_scan2_no_trees.txt", dtype = float)
 
 
 ICET_estimates = np.zeros([niter, 6])
 ICET_pred_stds = np.zeros([niter, 6])
 
 for i in range(niter):
+	print("------------- Epoch ", i, "---------------")
 
 	#add noise (if not generated when point clouds were created)
-	c1 = c1_raw + 0.01*np.random.randn(np.shape(c1_raw)[0], 3)
-	c2 = c2_raw + 0.01*np.random.randn(np.shape(c2_raw)[0], 3) 
+	c1 = c1_raw + 0.02*np.random.randn(np.shape(c1_raw)[0], 3)
+	c2 = c2_raw + 0.02*np.random.randn(np.shape(c2_raw)[0], 3) 
 
 	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 10, 
 		draw = False, group = 2, RM = False, DNN_filter = False)
 
+	it = ICET(cloud1 = c1, cloud2 = c2, fid = 100, niter = 20, 
+		draw = False, group = 2, RM = False, DNN_filter = False, x0 = it.X)
+
 	ICET_estimates[i] = it.X
 	ICET_pred_stds[i] = it.pred_stds
 
-# np.save("MC_results/s1_spherical_ICET_estimates", ICET_estimates)
-# np.save("MC_results/s1_spherical_ICET_pred_stds", ICET_pred_stds)
+np.save("MC_results/s1_spherical_ICET_estimates", ICET_estimates)
+np.save("MC_results/s1_spherical_ICET_pred_stds", ICET_pred_stds)
 
-np.save("MC_results/s2_spherical_ICET_estimates_no_trees_with_rotation", ICET_estimates)
-np.save("MC_results/s2_spherical_ICET_pred_stds_no_trees_with_rotation", ICET_pred_stds)
+# np.save("MC_results/s2_spherical_ICET_estimates_no_trees_with_rotation", ICET_estimates)
+# np.save("MC_results/s2_spherical_ICET_pred_stds_no_trees_with_rotation", ICET_pred_stds)

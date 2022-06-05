@@ -47,7 +47,7 @@ class ICET():
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
 		self.niter = niter
-		self.alpha = 0.5 #controls alpha values when displaying ellipses
+		self.alpha = 1 #0.5 #controls alpha values when displaying ellipses
 		self.cheat = cheat
 		self.DNN_filter = DNN_filter
 		self.start_filter_iter = 10 #10 #iteration to start DNN rejection filter

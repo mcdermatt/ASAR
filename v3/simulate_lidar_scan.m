@@ -5,7 +5,10 @@ close all
 
 %import stl
 % FileName = 'virtual_scenes/scene1.stl'; %easy scan with house 
-% FileName = 'virtual_scenes/scene2.stl'; %more difficult scan
+
+% FileName = 'virtual_scenes/scene2.stl'; %round pillars on one side of road
+% FileName = 'virtual_scenes/scene2_squares.stl'; %squared pillars
+
 % FileName = 'virtual_scenes/scene3.stl'; % rectangles w/ occlusion
 % FileName = 'virtual_scenes/scene4.stl'; % cylinders w/ occlusion
 % FileName = 'virtual_scenes/scene5.stl'; % rectangles w/0 occlusion
@@ -48,12 +51,17 @@ sensor.ElevationResolution = 0.4;
 
 % Create a tracking scenario. Add an ego platform and a target platform.
 scenario = trackingScenario;
-ego = platform(scenario, 'Position', [0, 0, 1.72]);
-% ego.Position = [0, 0, 1.72];
+
+% ego = platform(scenario, 'Position', [0, 0, 1.72]); %was this
+ego = platform(scenario, 'Position', [0, 0, 1.72], 'Orientation', eul2rotm(deg2rad([0.0, 10.0, 0.0]))); %[yaw, pitch, roll]
+
+
+
 % target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[0 0 0],'Velocity',[0 5 0])); %no rotation
-target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[-20 0 -8],'Velocity',[5 0 0], 'AngularVelocity', [0, 0, 0.1])); %with rotatation 
-%pos = [0 0 7] for OG mountain
-%pos = [_ _ _] for no trees
+target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[0 0 -3],'Velocity',[5 0 0], 'AngularVelocity', [0, 0, 0.1])); %with rotatation 
+% target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[-20 0 -8],'Velocity',[5 0 0], 'AngularVelocity', [0, 0, 0.0])); %mountain no trees 
+
+%NOTE: to use offcentered Position we need to have ZERO AngularVelocity!!!
 
 target.Mesh = mesh;
 
@@ -97,6 +105,10 @@ ptCloud2 = rmmissing(ptCloud2);
 % 
 % writematrix(ptCloud1, "scene1_scan1.txt", 'Delimiter', 'tab')
 % writematrix(ptCloud2, "scene1_scan2.txt", 'Delimiter', 'tab')
+% writematrix(ptCloud1, "scene1_scan1_squares.txt", 'Delimiter', 'tab')
+% writematrix(ptCloud2, "scene1_scan2_squares.txt", 'Delimiter', 'tab')
+
+
 % writematrix(ptCloud1, "scene2_scan1.txt", 'Delimiter', 'tab')
 % writematrix(ptCloud2, "scene2_scan2.txt", 'Delimiter', 'tab')
 % writematrix(ptCloud1, "scene3_scan1.txt", 'Delimiter', 'tab')
