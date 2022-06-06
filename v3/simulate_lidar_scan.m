@@ -7,6 +7,7 @@ close all
 % FileName = 'virtual_scenes/scene1.stl'; %easy scan with house 
 
 % FileName = 'virtual_scenes/scene2.stl'; %round pillars on one side of road
+FileName = 'virtual_scenes/scene2_thick.stl'; %squared pillars
 % FileName = 'virtual_scenes/scene2_squares.stl'; %squared pillars
 
 % FileName = 'virtual_scenes/scene3.stl'; % rectangles w/ occlusion
@@ -19,7 +20,7 @@ close all
 % FileName = 'virtual_scenes/verify_geometry.stl'; %use with /perspective_shift/geometry ipynb
 % FileName = 'virtual_scenes/verify_geometry2.stl'; %use with /perspective_shift/geometry ipynb
 % FileName = 'virtual_scenes/mountain.stl';
-FileName = 'virtual_scenes/mountain_simple.stl'; %test
+% FileName = 'virtual_scenes/mountain_simple.stl'; %test
 
 
 OpenFile = stlread(FileName);
@@ -52,13 +53,14 @@ sensor.ElevationResolution = 0.4;
 % Create a tracking scenario. Add an ego platform and a target platform.
 scenario = trackingScenario;
 
-% ego = platform(scenario, 'Position', [0, 0, 1.72]); %was this
-ego = platform(scenario, 'Position', [0, 0, 1.72], 'Orientation', eul2rotm(deg2rad([0.0, 10.0, 0.0]))); %[yaw, pitch, roll]
+ego = platform(scenario, 'Position', [0, 0, 0]);
+% ego = platform(scenario, 'Position', [0, 0, 1.72], 'Orientation', eul2rotm(deg2rad([0.0, 10.0, 0.0]))); %[yaw, pitch, roll]
 
 
 
-% target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[0 0 0],'Velocity',[0 5 0])); %no rotation
-target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[0 0 -3],'Velocity',[5 0 0], 'AngularVelocity', [0, 0, 0.1])); %with rotatation 
+target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[0 0 0],'Velocity',[5 0 0])); %no rotation
+% target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[0 0 -3],'Velocity',[5 0 0], 'AngularVelocity', [0, 0, 1.])); %with rotatation 
+% target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[0 0 0],'Velocity',[5 0 0], 'AngularVelocity', [0, 0, 1.])); %with rotatation 
 % target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[-20 0 -8],'Velocity',[5 0 0], 'AngularVelocity', [0, 0, 0.0])); %mountain no trees 
 
 %NOTE: to use offcentered Position we need to have ZERO AngularVelocity!!!
@@ -68,7 +70,7 @@ target.Mesh = mesh;
 %default~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 target.Dimensions.Length = 100; 
 target.Dimensions.Width = 100;
-target.Dimensions.Height = 20; %6; %18;
+target.Dimensions.Height = 5 %20; %6; %18;
 %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 %height = 20 for with trees, 
 
@@ -105,8 +107,8 @@ ptCloud2 = rmmissing(ptCloud2);
 % 
 % writematrix(ptCloud1, "scene1_scan1.txt", 'Delimiter', 'tab')
 % writematrix(ptCloud2, "scene1_scan2.txt", 'Delimiter', 'tab')
-% writematrix(ptCloud1, "scene1_scan1_squares.txt", 'Delimiter', 'tab')
-% writematrix(ptCloud2, "scene1_scan2_squares.txt", 'Delimiter', 'tab')
+writematrix(ptCloud1, "scene1_scan1_thick.txt", 'Delimiter', 'tab')
+writematrix(ptCloud2, "scene1_scan2_thick.txt", 'Delimiter', 'tab')
 
 
 % writematrix(ptCloud1, "scene2_scan1.txt", 'Delimiter', 'tab')
@@ -121,6 +123,6 @@ ptCloud2 = rmmissing(ptCloud2);
 % writematrix(ptCloud2, "verify_geometry_scan2.txt", 'Delimiter', 'tab')
 % writematrix(ptCloud1, "mountain_scan1.txt", 'Delimiter', 'tab')
 % writematrix(ptCloud2, "mountain_scan2.txt", 'Delimiter', 'tab')
-writematrix(ptCloud1, "mountain_scan1_no_trees.txt", 'Delimiter', 'tab')
-writematrix(ptCloud2, "mountain_scan2_no_trees.txt", 'Delimiter', 'tab')
+% writematrix(ptCloud1, "mountain_scan1_no_trees.txt", 'Delimiter', 'tab')
+% writematrix(ptCloud2, "mountain_scan2_no_trees.txt", 'Delimiter', 'tab')
 

@@ -150,8 +150,6 @@ from metpy.calc import lat_lon_grid_deltas
 # # c1 = np.loadtxt("scene1_scan1_squares.txt", dtype = float) #shadows
 # # c2 = np.loadtxt("scene1_scan2_squares.txt", dtype = float)
 
-
-
 # c1 = np.loadtxt("scene2_scan1.txt", dtype = float) #small cylinders
 # c2 = np.loadtxt("scene2_scan2.txt", dtype = float)
 # c1 = np.loadtxt("scene3_scan1.txt", dtype = float) #rectangles
@@ -162,8 +160,8 @@ from metpy.calc import lat_lon_grid_deltas
 # c2 = np.loadtxt("simple_room_scan2.txt", dtype = float)
 # c1 = np.loadtxt("verify_geometry_scan1.txt", dtype = float) #validate  2d geometry ipynb
 # c2 = np.loadtxt("verify_geometry_scan2.txt", dtype = float)
-c1 = np.loadtxt("mountain_scan1_no_trees.txt", dtype = float) #test
-c2 = np.loadtxt("mountain_scan2_no_trees.txt", dtype = float)
+# c1 = np.loadtxt("mountain_scan1_no_trees.txt", dtype = float) #test
+# c2 = np.loadtxt("mountain_scan2_no_trees.txt", dtype = float)
 
 # c1 = c1[c1[:,2] > -1.55] #ignore ground plane
 # c2 = c2[c2[:,2] > -1.55] #ignore ground plane
@@ -178,10 +176,21 @@ c2 = np.loadtxt("mountain_scan2_no_trees.txt", dtype = float)
 # rot = R_tf(x[3:])
 # c2 = c1 @ rot.numpy() + x[:3].numpy()
 # # c2 = (c1 +  x[:3].numpy()) @ rot.numpy()
+# ------------------------------------------------------------------------------------
+
+
+
+#tesing full trajectory before simulation for spherical ICET paper -------------------
+c1 = np.loadtxt("MC_trajectories/scene2_scan15.txt", dtype = float)
+c2 = np.loadtxt("MC_trajectories/scene2_scan16.txt", dtype = float)
 
 #add noise (if not generated when point clouds were created)
 c1 += 0.02*np.random.randn(np.shape(c1)[0], 3)
 c2 += 0.02*np.random.randn(np.shape(c2)[0], 3) 
+
+#rotate scans
+rot = R_tf(tf.constant([0., 0., 0.05]))
+c2 = c2 @ rot.numpy() 
 # ------------------------------------------------------------------------------------
 
 # # #single distinct cluster---------------------------------------------------------------
@@ -193,10 +202,10 @@ c2 += 0.02*np.random.randn(np.shape(c2)[0], 3)
 # ground_truth = tf.constant([0.1799, 0., 0., -0.0094, -0.011, -0.02072]) #FULL KITTI scan 1397
 
 it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 20, 
-	draw = True, group = 2, RM = False, DNN_filter = False)#, cheat = ground_truth)
+	draw = False, group = 2, RM = False, DNN_filter = False)#, cheat = ground_truth)
 
-# it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 100, niter = 20, 
-# 	draw = True, group = 2, RM = False, DNN_filter = False, x0 = it1.X)
+it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 100, niter = 20, 
+	draw = False, group = 2, RM = False, DNN_filter = False, x0 = it1.X)
 
 # print("\n OXTS_ground_truth: \n", OXTS_ground_truth)
 # ViewInteractiveWidget(it1.plt.window)
