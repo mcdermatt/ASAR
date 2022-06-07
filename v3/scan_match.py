@@ -181,8 +181,11 @@ from metpy.calc import lat_lon_grid_deltas
 
 
 #tesing full trajectory before simulation for spherical ICET paper -------------------
-c1 = np.loadtxt("MC_trajectories/scene2_scan15.txt", dtype = float)
-c2 = np.loadtxt("MC_trajectories/scene2_scan16.txt", dtype = float)
+c1 = np.loadtxt("MC_trajectories/scene2_scan17.txt", dtype = float)
+c2 = np.loadtxt("MC_trajectories/scene2_scan18.txt", dtype = float)
+
+# c1 = np.loadtxt("MC_trajectories/scene2_scan15.txt", dtype = float)
+# c2 = np.loadtxt("MC_trajectories/scene2_scan16.txt", dtype = float)
 
 #add noise (if not generated when point clouds were created)
 c1 += 0.02*np.random.randn(np.shape(c1)[0], 3)
@@ -205,7 +208,7 @@ it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 20,
 	draw = False, group = 2, RM = False, DNN_filter = False)#, cheat = ground_truth)
 
 it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 100, niter = 20, 
-	draw = False, group = 2, RM = False, DNN_filter = False, x0 = it1.X)
+	draw = True, group = 2, RM = False, DNN_filter = False, x0 = it1.X)
 
 # print("\n OXTS_ground_truth: \n", OXTS_ground_truth)
 # ViewInteractiveWidget(it1.plt.window)

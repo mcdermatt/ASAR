@@ -13,7 +13,7 @@ from utils import R_tf
  (Spherical ICET Paper) """
 
 scene = 1   #scene 1 = highway, scene 2 = mountain
-nframes = 20 #how many sequential frames to consider (num pairs = num frames - 1)
+nframes = 40 #how many sequential frames to consider (num pairs = num frames - 1)
 niter = 3   #number of times to repeat each pair of scans
 
 
@@ -42,8 +42,8 @@ for idx in range(1, nframes):
 		it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 10, 
 			draw = False, group = 2, RM = False, DNN_filter = False)
 
-		# it = ICET(cloud1 = c1, cloud2 = c2, fid = 100, niter = 10, 
-		# 	draw = False, group = 2, RM = False, DNN_filter = False, x0 = it.X)
+		it = ICET(cloud1 = c1, cloud2 = c2, fid = 100, niter = 10, 
+			draw = False, group = 2, RM = False, DNN_filter = False, x0 = it.X)
 
 		ICET_estimates[(idx-1)*niter + i] = it.X
 		ICET_pred_stds[(idx-1)*niter + i] = it.pred_stds

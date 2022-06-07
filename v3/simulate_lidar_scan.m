@@ -70,7 +70,7 @@ target.Mesh = mesh;
 %default~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 target.Dimensions.Length = 100; 
 target.Dimensions.Width = 100;
-target.Dimensions.Height = 5 %20; %6; %18;
+target.Dimensions.Height = 5; %20; %6; %18;
 %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 %height = 20 for with trees, 
 

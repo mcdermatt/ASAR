@@ -8,7 +8,8 @@ scene = 1;
 
 %import stl
 if scene == 1
-    FileName = 'virtual_scenes/scene2.stl';         %scene 1
+%     FileName = 'virtual_scenes/scene2.stl';         %scene 1
+    FileName = 'virtual_scenes/scene2_thick.stl';         %scene 1    
 else
     FileName = 'virtual_scenes/mountain_simple.stl'; %scene 2 
 end
@@ -46,8 +47,9 @@ scenario = trackingScenario;
 if scene == 1
 %     ego = platform(scenario, 'Trajectory', kinematicTrajectory('Position',[-10,0,3],'Velocity',[5 0 0], 'AngularVelocity', [0, 0, 0.1], 'Acceleration', [0, 0, 0])); 
     ego = platform(scenario,'Position',[0, 0, 0]);
-    target = platform(scenario, 'Trajectory', kinematicTrajectory('Position',[10,0,-2],'Velocity',[-5 0 0], 'AngularVelocity', [0, 0, 0]));
+    target = platform(scenario, 'Trajectory', kinematicTrajectory('Position',[10,0,0],'Velocity',[-5 0 0], 'AngularVelocity', [0, 0, 0]));
     % target = platform(scenario,'Position',[0, 0, 0]); %was this
+    target.Dimensions.Height = 5;
 
 end
 
@@ -56,6 +58,7 @@ if scene == 2
     ego = platform(scenario,'Position',[0, 0, 0]);
     target = platform(scenario, 'Trajectory', kinematicTrajectory('Position',[10,0,-3],'Velocity',[-5 0 0], 'AngularVelocity', [0, 0, 0]));
     % target = platform(scenario,'Position',[0, 0, 0]); %was this
+    target.Dimensions.Height = 20;
 end
 
 
@@ -65,7 +68,6 @@ target.Mesh = mesh;
 %default~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 target.Dimensions.Length = 100; 
 target.Dimensions.Width = 100;
-target.Dimensions.Height = 20; %6; %18;
 %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 %height = 20 for with trees, 
 
