@@ -217,118 +217,6 @@ def dR_simp(n_hat, theta):
 	mat = S.dot(R_mat)
 	return mat
 
-# def subdivide_scan(pc, plt, bounds = np.array([-50,50,-50,50,-10,10]), fid = np.array([10,10,3]), disp = [],
-# 					min_num_pts = 20, nstd = 2, draw_grid = True, show_pc = True):
-
-# 	""" Subdivide point cloud into consistantly sized rectangular voxles. Outputs mean center and
-# 		covariance matrix for each voxel
-
-# 	pc = input point cloud
-# 	plt = plotter object (from Vedo)
-# 	disp = display structure containing everything else we want to display
-# 	bounds = np.array([minx, maxx, miny, maxy, minz, maxz])
-# 	fid = np.array([ncellsx, ncellsy, ncellsz])
-
-# 	"""
-
-# 	start = time.time()
-
-# 	cloud = Points(pc, c = (1,1,1), alpha = 0.5)
-# 	if show_pc:
-# 		disp.append(cloud) #add point cloud object to viz
-# 	E = [] #strucutre to hold mus, sigmas and npts per voxel
-
-# 	# draw divisions between voxel cells
-# 	# b = shapes.Box(size=(bounds), c='g4', alpha=1) #meh
-
-# 	xbound = np.linspace(bounds[0], bounds[1], fid[0] + 1)
-# 	ybound = np.linspace(bounds[2], bounds[3], fid[1] + 1)
-# 	zbound = np.linspace(bounds[4], bounds[5], fid[2] + 1)
-
-# 	if draw_grid == True:
-# 		for y in range(fid[1]+1):
-# 			for z in range(fid[2]+1):
-# 				p0 = np.array([xbound[-1], ybound[y], zbound[z]])
-# 				p1 = np.array([xbound[0], ybound[y], zbound[z]])
-# 				x_lines = shapes.Line(p0, p1, closed=False, c='white', alpha=1, lw=0.25, res=0)
-# 				disp.append(x_lines)
-# 		for x in range(fid[0]+1):
-# 			for z in range(fid[2]+1):
-# 				p0 = np.array([xbound[x], ybound[-1], zbound[z]])
-# 				p1 = np.array([xbound[x], ybound[0], zbound[z]])
-# 				y_lines = shapes.Line(p0, p1, closed=False, c='white', alpha=1, lw=0.25, res=0)
-# 				disp.append(y_lines)
-# 		for x in range(fid[0]+1):
-# 			for y in range(fid[1]+1):
-# 				p0 = np.array([xbound[x], ybound[y], zbound[-1]])
-# 				p1 = np.array([xbound[x], ybound[y], zbound[0]])
-# 				z_lines = shapes.Line(p0, p1, closed=False, c='white', alpha=1, lw=0.25, res=0)
-# 				disp.append(z_lines)
-
-# 	mus = []
-# 	sigmas = []
-# 	sizes_list = []
-
-# 	#loop through each voxel
-# 	for x in range(fid[0]):
-# 		for y in range(fid[1]):
-# 			for z in range(fid[2]):
-# 				within_x = pc[pc[:,0] > xbound[x]]
-# 				within_x = within_x[within_x[:,0] < xbound[x+1] ]
-
-# 				within_y = within_x[within_x[:,1] > ybound[y]]
-# 				within_y = within_y[within_y[:,1] < ybound[y+1]]
-
-# 				within_z = within_y[within_y[:,2] > zbound[z]]
-# 				within_box = within_z[within_z[:,2] < zbound[z+1]]
-
-# 				if np.shape(within_box)[0] > min_num_pts-1:
-# 					mu, sigma = fit_gaussian(within_box)
-# 					# print(mu)
-# 					# print(sigma)
-# 					eig = np.linalg.eig(sigma)
-# 					eigenval = eig[0] #correspond to lengths of axis
-# 					eigenvec = eig[1]
-# 					# print(eigenval,"\n", eigenvec)
-
-# 					##was this
-# 					a1 = eigenval[0]
-# 					a2 = eigenval[1]
-# 					a3 = eigenval[2]
-# 					ell = Ell(pos=(mu[0], mu[1], mu[2]), axis1 = 4*np.sqrt(a1), 
-# 						axis2 = 4*np.sqrt(a2), axis3 = 4*np.sqrt(a3), 
-# 						angs = (np.array([-R2Euler(eigenvec)[0], -R2Euler(eigenvec)[1], -R2Euler(eigenvec)[2] ])), c=(1,0.5,0.5), alpha=1, res=12)
-
-# 					disp.append(ell)
-
-
-# 					# # more consistant eigenvalue orders (similar to TF implementation) but worse(?) performance
-# 					# big = np.argwhere(eigenval == np.max(eigenval))
-# 					# middle = np.argwhere(eigenval == np.median(eigenval))
-# 					# small = np.argwhere(eigenval == np.min(eigenval))
-# 					# # print(eigenval[big], eigenval[middle], eigenval[small])
-# 					# a1 = eigenval[big]
-# 					# a2 = eigenval[middle]
-# 					# a3 = eigenval[small]
-
-# 					# ell2 = Ell(pos=(mu[0], mu[1], mu[2]), axis1 = 4*np.sqrt(a1), 
-# 					# 	axis2 = 4*np.sqrt(a2), axis3 = 4*np.sqrt(a3), 
-# 					# 	angs = (np.array([-R2Euler(eigenvec)[big], -R2Euler(eigenvec)[middle], -R2Euler(eigenvec)[small] ])), c=(0.5,0.5,1), alpha=1, res=12)
-
-# 					# disp.append(ell2)
-
-# 					# E.append([mu, sigma, np.shape(within_box)[0]])
-
-# 					mus.append(mu)
-# 					sigmas.append(sigma)
-# 					sizes_list.append(np.shape(within_box)[0])
-
-# 	plt.show(disp, "subdivide_scan", at=0) 
-# 	print("took", time.time() - start, "seconds with numpy")
-
-
-# 	# return E
-# 	return(mus, sigmas, sizes_list)
 
 
 def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.,-10.,10.]), fid = tf.constant([10,10,3]), disp = [],
@@ -344,9 +232,9 @@ def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.
 	TODO: fix bug where bins get messed up if points exist outside bounds
 
 			"""
-	if show_pc == 1:
-		color = (0.5,0.5,1)
 	if show_pc == 2:
+		color = (0.5,0.5,1)
+	if show_pc == 1:
 		color = (1,0.5,0.5)
 	cloud = Points(cloud_tensor, c = color, alpha = 0.9)
 	disp.append(cloud) #add point cloud object to viz
@@ -477,8 +365,10 @@ def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.
 	if fast_gaussian == False:
 		# ~~~~~ New strategy (2/4/2022) ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 		#	loop though ragged tensor so we don't have to make the huge bounding box sized matrix 
-		#		whick eats up all the VRAM
-		
+		#		which eats up all the VRAM
+
+		#QUESTION: how does unbiased subsampling effect mean and cov. estimates?
+
 		mu, sigma = fit_gaussian_tf(rag, sizes_updated, mnp = min_num_pts)
 		#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -514,8 +404,8 @@ def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.
 
 		# E_xy = mean((xpts-mux)(ypts-muy))
 		E_xy = tf.reduce_sum( ((vox_with_zeros[:,:,0] - mu[:,0][:,None])*(vox_with_zeros[:,:,1] - mu[:,1][:,None]))*mask , axis = 1)/ tf.cast(sizes_updated, tf.float32)
-		E_xz = -tf.reduce_sum( ((vox_with_zeros[:,:,0] - mu[:,0][:,None])*(vox_with_zeros[:,:,2] - mu[:,2][:,None]))*mask , axis = 1)/ tf.cast(sizes_updated, tf.float32)
-		E_yz = -tf.reduce_sum( ((vox_with_zeros[:,:,1] - mu[:,1][:,None])*(vox_with_zeros[:,:,2] - mu[:,2][:,None]))*mask , axis = 1)/ tf.cast(sizes_updated, tf.float32)
+		E_xz = tf.reduce_sum( ((vox_with_zeros[:,:,0] - mu[:,0][:,None])*(vox_with_zeros[:,:,2] - mu[:,2][:,None]))*mask , axis = 1)/ tf.cast(sizes_updated, tf.float32)
+		E_yz = tf.reduce_sum( ((vox_with_zeros[:,:,1] - mu[:,1][:,None])*(vox_with_zeros[:,:,2] - mu[:,2][:,None]))*mask , axis = 1)/ tf.cast(sizes_updated, tf.float32)
 		
 		# [3,3,N]
 		# sigma = tf.Variable([[std_x, E_xy, E_xz],
@@ -589,7 +479,7 @@ def make_scene(plt, disp, E, color, draw_grid = False, draw_ell = True, fid = No
 		# a2 = eigenval[middle] 
 		# a3 = eigenval[big]
 
-		# assmues decreasing size
+		# assumes decreasing size
 		a1 = eigenval[0]
 		a2 = eigenval[1]
 		a3 = eigenval[2]
@@ -685,7 +575,6 @@ def fit_gaussian_tf(rag, sizes, mnp = 50):
 
 	mu = tf.math.reduce_mean(rag, axis = 1)
 
-	#TODO: only consider i where mu[i] != NaN
 	cnt = 0 # count var for number of loops since last useful data point
 
 	start = time.time()
@@ -957,8 +846,8 @@ class Ell(Mesh):
 
         #needed theta and angle to be negative before messing with E_xz, E_yz...
         t.RotateZ(np.rad2deg(phi))
-        t.RotateY(np.rad2deg(theta))
-        t.RotateX(np.rad2deg(angle))
+        t.RotateY(-np.rad2deg(theta))
+        t.RotateX(-np.rad2deg(angle))
         
         tf = vtk.vtkTransformPolyDataFilter()
         tf.SetInputData(elliSource.GetOutput())
@@ -977,96 +866,96 @@ class Ell(Mesh):
 
 #_______________________________________________________________________________________________
 
-def generate_test_dataset():
+# def generate_test_dataset():
 	
-	""" Generate a simple 3D T shaped intersection """
+# 	""" Generate a simple 3D T shaped intersection """
 
-	#TODO: take in transformation from pp1 to pp2
+# 	#TODO: take in transformation from pp1 to pp2
 
-	bounds = tf.constant ([-150.,150.,-150.,150.,-150,150])
-	# x = tf.constant([0.1, 3., 0.2, -0.02, -0.05, -0.12])
-	# x = tf.constant([0., 0., 0., 0., 0., 0.])
-	# x = tf.constant([0.1, 3., 0.2, -0.02, -0.05, -0.12])
-	x = tf.constant([1., 3., 2., -0.12, -0.1, -0.2])
-	# x = tf.constant([1., 3., 2., -0., 0.0, -0.2])
+# 	bounds = tf.constant ([-150.,150.,-150.,150.,-150,150])
+# 	# x = tf.constant([0.1, 3., 0.2, -0.02, -0.05, -0.12])
+# 	# x = tf.constant([0., 0., 0., 0., 0., 0.])
+# 	# x = tf.constant([0.1, 3., 0.2, -0.02, -0.05, -0.12])
+# 	x = tf.constant([1., 3., 2., -0.12, -0.1, -0.2])
+# 	# x = tf.constant([1., 3., 2., -0., 0.0, -0.2])
 
 
-	height = 40
-	hs = 1 #height spacing
-	ns = 200 #number of points scale
+# 	height = 40
+# 	hs = 1 #height spacing
+# 	ns = 200 #number of points scale
 
-	xpos = tf.linspace(-100., 100., ns)[:,None]
-	ypos = -60*tf.ones(ns)[:,None]
-	# ypos = (-60*tf.ones(ns) + 10*tf.sin(tf.linspace(-3., 3., ns)))[:,None]
-	zpos = tf.ones(ns)[:,None]
-	pp1 = tf.concat((xpos, ypos, zpos), axis = 1)
+# 	xpos = tf.linspace(-100., 100., ns)[:,None]
+# 	ypos = -60*tf.ones(ns)[:,None]
+# 	# ypos = (-60*tf.ones(ns) + 10*tf.sin(tf.linspace(-3., 3., ns)))[:,None]
+# 	zpos = tf.ones(ns)[:,None]
+# 	pp1 = tf.concat((xpos, ypos, zpos), axis = 1)
 
-	for i in range(height*5):
-		#back wall
-		if i < height:
-			xpos = tf.linspace(-100., 100., ns)[:,None]
-			ypos = -60*tf.ones(ns)[:,None]
-			# ypos = (-60*tf.ones(ns) + 10*tf.sin(tf.linspace(-3., 3., ns)))[:,None]
-			zpos = hs*i*tf.ones(ns)[:,None]
-			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+# 	for i in range(height*5):
+# 		#back wall
+# 		if i < height:
+# 			xpos = tf.linspace(-100., 100., ns)[:,None]
+# 			ypos = -60*tf.ones(ns)[:,None]
+# 			# ypos = (-60*tf.ones(ns) + 10*tf.sin(tf.linspace(-3., 3., ns)))[:,None]
+# 			zpos = hs*i*tf.ones(ns)[:,None]
+# 			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
 
-		if i > height and i < 2*height:
-			ypos = tf.linspace(-20., 100., int(.6*ns))[:,None]
-			xpos = -30*tf.ones(int(.6*ns))[:,None]
-			zpos = hs*(i%height)*tf.ones(int(.6*ns))[:,None]
-			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+# 		if i > height and i < 2*height:
+# 			ypos = tf.linspace(-20., 100., int(.6*ns))[:,None]
+# 			xpos = -30*tf.ones(int(.6*ns))[:,None]
+# 			zpos = hs*(i%height)*tf.ones(int(.6*ns))[:,None]
+# 			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
 
-		if i > 2*height and i < 3*height:
-			ypos = tf.linspace(-20., 100., int(.6*ns))[:,None]
-			xpos = 30*tf.ones(int(.6*ns))[:,None]
-			zpos = hs*(i%height)*tf.ones(int(.6*ns))[:,None]
-			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+# 		if i > 2*height and i < 3*height:
+# 			ypos = tf.linspace(-20., 100., int(.6*ns))[:,None]
+# 			xpos = 30*tf.ones(int(.6*ns))[:,None]
+# 			zpos = hs*(i%height)*tf.ones(int(.6*ns))[:,None]
+# 			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
 
-		#left & right connector
-		if i > 3*height and i < 4*height:
-			xpos = tf.linspace(30., 100., int(.7*ns))[:,None]
-			ypos = -20*tf.ones(int(.7*ns))[:,None]
-			zpos = hs*(i%height)*tf.ones(int(.7*ns))[:,None]
-			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
-		if i > 4*height and i < 5*height:
-			xpos = tf.linspace(-30., -100., int(.7*ns))[:,None]
-			ypos = -20*tf.ones(int(.7*ns))[:,None]
-			zpos = hs*(i%height)*tf.ones(int(.7*ns))[:,None]
-			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+# 		#left & right connector
+# 		if i > 3*height and i < 4*height:
+# 			xpos = tf.linspace(30., 100., int(.7*ns))[:,None]
+# 			ypos = -20*tf.ones(int(.7*ns))[:,None]
+# 			zpos = hs*(i%height)*tf.ones(int(.7*ns))[:,None]
+# 			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+# 		if i > 4*height and i < 5*height:
+# 			xpos = tf.linspace(-30., -100., int(.7*ns))[:,None]
+# 			ypos = -20*tf.ones(int(.7*ns))[:,None]
+# 			zpos = hs*(i%height)*tf.ones(int(.7*ns))[:,None]
+# 			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
 
-		pp1 = tf.concat((pp1, pp1_i), axis = 0)
+# 		pp1 = tf.concat((pp1, pp1_i), axis = 0)
 
-	#add floor -------------------------------------------
-	for i in range(-100, 100, 1):
-		ypos = tf.linspace(-60., -20., 100)[:,None]
-		xpos = i*tf.ones(100)[:,None]
-		zpos = tf.ones(100)[:,None]
-		pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
-		pp1 = tf.concat((pp1, pp1_i), axis = 0)
-	for i in range(-30, 30, 1):
-		ypos = tf.linspace(-20., 100., 100)[:,None]
-		xpos = i*tf.ones(100)[:,None]
-		zpos = tf.ones(100)[:,None]
-		pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
-		pp1 = tf.concat((pp1, pp1_i), axis = 0)
-	#------------------------------------------------------
+# 	#add floor -------------------------------------------
+# 	for i in range(-100, 100, 1):
+# 		ypos = tf.linspace(-60., -20., 100)[:,None]
+# 		xpos = i*tf.ones(100)[:,None]
+# 		zpos = tf.ones(100)[:,None]
+# 		pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+# 		pp1 = tf.concat((pp1, pp1_i), axis = 0)
+# 	for i in range(-30, 30, 1):
+# 		ypos = tf.linspace(-20., 100., 100)[:,None]
+# 		xpos = i*tf.ones(100)[:,None]
+# 		zpos = tf.ones(100)[:,None]
+# 		pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+# 		pp1 = tf.concat((pp1, pp1_i), axis = 0)
+# 	#------------------------------------------------------
 	
-	print(tf.shape(pp1))
-	# for debug - add particles in middle to prevent L1 rank deficiency bug
-	# pp1 = tf.concat((pp1, tf.random.normal((100,3))), axis = 0)
+# 	print(tf.shape(pp1))
+# 	# for debug - add particles in middle to prevent L1 rank deficiency bug
+# 	# pp1 = tf.concat((pp1, tf.random.normal((100,3))), axis = 0)
 
-	#rotate scan 1
-	# pp1 = pp1 @ (R_tf(tf.constant([0.1,0.1,-0.1]))) + tf.constant([1.,2.,3.])
+# 	#rotate scan 1
+# 	# pp1 = pp1 @ (R_tf(tf.constant([0.1,0.1,-0.1]))) + tf.constant([1.,2.,3.])
 
-	# pp2 = tf.random.normal((100,3))
-	rot = R_tf(x[3:])
-	pp2 = pp1 @ rot + x[:3]
+# 	# pp2 = tf.random.normal((100,3))
+# 	rot = R_tf(x[3:])
+# 	pp2 = pp1 @ rot + x[:3]
 
-	#add a little bit of noise
-	pp1 = pp1 + tf.random.normal(tf.shape(pp1))*0.2
-	pp2 = pp2 + tf.random.normal(tf.shape(pp2))*0.2
+# 	#add a little bit of noise
+# 	pp1 = pp1 + tf.random.normal(tf.shape(pp1))*0.2
+# 	pp2 = pp2 + tf.random.normal(tf.shape(pp2))*0.2
 
-	return(pp1, pp2, bounds, x)
+# 	return(pp1, pp2, bounds, x)
 #______________________________________________________________________________________________
 
 # def generate_test_dataset():
@@ -1135,57 +1024,58 @@ def generate_test_dataset():
 
 #_____________________________________________________________________________________
 
-# def generate_test_dataset():
+def generate_test_dataset():
 	
-# 	""" Generate a single wall"""
+	""" Generate a single wall"""
 
-# 	#TODO: take in transformation from pp1 to pp2
+	#TODO: take in transformation from pp1 to pp2
 
-# 	bounds = tf.constant ([-150.,150.,-150.,150.,-150,150])
-# 	# x = tf.constant([0., 0., 0., 0., 0., 0.])
-# 	# x = tf.constant([1., 3., 2., -0.12, -0.1, -0.2])
-# 	x = tf.constant([0., 1., 0., 0., 0.0, -0.1])
+	bounds = tf.constant ([-150.,150.,-150.,150.,-150,150])
+	# x = tf.constant([0., 0., 0., 0., 0., 0.])
+	# x = tf.constant([1., 3., 2., -0.12, -0.1, -0.2])
+	x = tf.constant([0., 1., 0., 0., 0.0, -0.1])
 
 
-# 	height = 120 #40
-# 	hs = 1 #height spacing
-# 	ns = 200 #number of points scale
+	height = 120 #40
+	hs = 1 #height spacing
+	ns = 200 #number of points scale
 
-# 	xpos = tf.linspace(-100., 100., ns)[:,None]
-# 	ypos = -60*tf.ones(ns)[:,None]
-# 	# ypos = (-60*tf.ones(ns) + 10*tf.sin(tf.linspace(-3., 3., ns)))[:,None]
-# 	zpos = tf.ones(ns)[:,None]
-# 	pp1 = tf.concat((xpos, ypos, zpos), axis = 1)
+	xpos = tf.linspace(-100., 100., ns)[:,None]
+	ypos = -60*tf.ones(ns)[:,None]
+	# ypos = (-60*tf.ones(ns) + 10*tf.sin(tf.linspace(-3., 3., ns)))[:,None]
+	zpos = tf.ones(ns)[:,None]
+	pp1 = tf.concat((xpos, ypos, zpos), axis = 1)
 
-# 	for i in range(height):
-# 		#back wall
-# 		if i < height:
-# 			xpos = tf.linspace(-100., 100., ns)[:,None]
-# 			ypos = -60*tf.ones(ns)[:,None]
-# 			# ypos = (-60*tf.ones(ns) + 10*tf.sin(tf.linspace(-3., 3., ns)))[:,None]
-# 			zpos = hs*i*tf.ones(ns)[:,None]
-# 			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
+	for i in range(height):
+		#back wall
+		if i < height:
+			xpos = tf.linspace(-100., 100., ns)[:,None]
+			ypos = -60*tf.ones(ns)[:,None]
+			# ypos = (-60*tf.ones(ns) + 10*tf.sin(tf.linspace(-3., 3., ns)))[:,None]
+			zpos = hs*i*tf.ones(ns)[:,None]
+			pp1_i = tf.concat((xpos, ypos, zpos), axis = 1)
 
-# 		pp1 = tf.concat((pp1, pp1_i), axis = 0)
+		pp1 = tf.concat((pp1, pp1_i), axis = 0)
 
 	
-# 	print(tf.shape(pp1))
+	print(tf.shape(pp1))
 
-# 	#rotate scan 1
-# 	# pp1 = pp1 @ (R_tf(tf.constant([0.1,0.1,-0.1]))) + tf.constant([1.,2.,3.])
-# 	# pp1 += tf.constant([1.,2.,3.])
+	#rotate scan 1
+	# pp1 = pp1 @ (R_tf(tf.constant([0.4,0.,1-0.4]))) + tf.constant([1.,2.,3.])
+	# pp1 += tf.constant([1.,2.,3.])
 
-# 	# pp2 = tf.random.normal((100,3))
-# 	rot = R_tf(x[3:])
-# 	pp2 = pp1 @ rot + x[:3]
-# 	# pp2 = (pp1 + x[:3]) @ rot
+	# pp2 = tf.random.normal((100,3))
+	rot = R_tf(x[3:])
+	pp2 = pp1 @ rot + x[:3]
+	# pp2 = (pp1 + x[:3]) @ rot
 
-# 	#add a little bit of noise
-# 	pp1 = pp1 + tf.random.normal(tf.shape(pp1))*0.2
-# 	pp2 = pp2 + tf.random.normal(tf.shape(pp2))*0.2
+	#add a little bit of noise
+	pp1 = pp1 + tf.random.normal(tf.shape(pp1))*0.2
+	pp2 = pp2 + tf.random.normal(tf.shape(pp2))*0.2
 
+	# print(pp1)
 
-# 	return(pp1, pp2, bounds, x)
+	return(pp1, pp2, bounds, x)
 
 #____________________________________________________________________________________________
 
@@ -1244,3 +1134,117 @@ def generate_test_dataset():
 # 	pp2 = pp2 + tf.random.normal(tf.shape(pp2))*scale
 
 # 	return(pp1, pp2, bounds, x)
+
+
+# def subdivide_scan(pc, plt, bounds = np.array([-50,50,-50,50,-10,10]), fid = np.array([10,10,3]), disp = [],
+# 					min_num_pts = 20, nstd = 2, draw_grid = True, show_pc = True):
+
+# 	""" Subdivide point cloud into consistantly sized rectangular voxles. Outputs mean center and
+# 		covariance matrix for each voxel
+
+# 	pc = input point cloud
+# 	plt = plotter object (from Vedo)
+# 	disp = display structure containing everything else we want to display
+# 	bounds = np.array([minx, maxx, miny, maxy, minz, maxz])
+# 	fid = np.array([ncellsx, ncellsy, ncellsz])
+
+# 	"""
+
+# 	start = time.time()
+
+# 	cloud = Points(pc, c = (1,1,1), alpha = 0.5)
+# 	if show_pc:
+# 		disp.append(cloud) #add point cloud object to viz
+# 	E = [] #strucutre to hold mus, sigmas and npts per voxel
+
+# 	# draw divisions between voxel cells
+# 	# b = shapes.Box(size=(bounds), c='g4', alpha=1) #meh
+
+# 	xbound = np.linspace(bounds[0], bounds[1], fid[0] + 1)
+# 	ybound = np.linspace(bounds[2], bounds[3], fid[1] + 1)
+# 	zbound = np.linspace(bounds[4], bounds[5], fid[2] + 1)
+
+# 	if draw_grid == True:
+# 		for y in range(fid[1]+1):
+# 			for z in range(fid[2]+1):
+# 				p0 = np.array([xbound[-1], ybound[y], zbound[z]])
+# 				p1 = np.array([xbound[0], ybound[y], zbound[z]])
+# 				x_lines = shapes.Line(p0, p1, closed=False, c='white', alpha=1, lw=0.25, res=0)
+# 				disp.append(x_lines)
+# 		for x in range(fid[0]+1):
+# 			for z in range(fid[2]+1):
+# 				p0 = np.array([xbound[x], ybound[-1], zbound[z]])
+# 				p1 = np.array([xbound[x], ybound[0], zbound[z]])
+# 				y_lines = shapes.Line(p0, p1, closed=False, c='white', alpha=1, lw=0.25, res=0)
+# 				disp.append(y_lines)
+# 		for x in range(fid[0]+1):
+# 			for y in range(fid[1]+1):
+# 				p0 = np.array([xbound[x], ybound[y], zbound[-1]])
+# 				p1 = np.array([xbound[x], ybound[y], zbound[0]])
+# 				z_lines = shapes.Line(p0, p1, closed=False, c='white', alpha=1, lw=0.25, res=0)
+# 				disp.append(z_lines)
+
+# 	mus = []
+# 	sigmas = []
+# 	sizes_list = []
+
+# 	#loop through each voxel
+# 	for x in range(fid[0]):
+# 		for y in range(fid[1]):
+# 			for z in range(fid[2]):
+# 				within_x = pc[pc[:,0] > xbound[x]]
+# 				within_x = within_x[within_x[:,0] < xbound[x+1] ]
+
+# 				within_y = within_x[within_x[:,1] > ybound[y]]
+# 				within_y = within_y[within_y[:,1] < ybound[y+1]]
+
+# 				within_z = within_y[within_y[:,2] > zbound[z]]
+# 				within_box = within_z[within_z[:,2] < zbound[z+1]]
+
+# 				if np.shape(within_box)[0] > min_num_pts-1:
+# 					mu, sigma = fit_gaussian(within_box)
+# 					# print(mu)
+# 					# print(sigma)
+# 					eig = np.linalg.eig(sigma)
+# 					eigenval = eig[0] #correspond to lengths of axis
+# 					eigenvec = eig[1]
+# 					# print(eigenval,"\n", eigenvec)
+
+# 					##was this
+# 					a1 = eigenval[0]
+# 					a2 = eigenval[1]
+# 					a3 = eigenval[2]
+# 					ell = Ell(pos=(mu[0], mu[1], mu[2]), axis1 = 4*np.sqrt(a1), 
+# 						axis2 = 4*np.sqrt(a2), axis3 = 4*np.sqrt(a3), 
+# 						angs = (np.array([-R2Euler(eigenvec)[0], -R2Euler(eigenvec)[1], -R2Euler(eigenvec)[2] ])), c=(1,0.5,0.5), alpha=1, res=12)
+
+# 					disp.append(ell)
+
+
+# 					# # more consistant eigenvalue orders (similar to TF implementation) but worse(?) performance
+# 					# big = np.argwhere(eigenval == np.max(eigenval))
+# 					# middle = np.argwhere(eigenval == np.median(eigenval))
+# 					# small = np.argwhere(eigenval == np.min(eigenval))
+# 					# # print(eigenval[big], eigenval[middle], eigenval[small])
+# 					# a1 = eigenval[big]
+# 					# a2 = eigenval[middle]
+# 					# a3 = eigenval[small]
+
+# 					# ell2 = Ell(pos=(mu[0], mu[1], mu[2]), axis1 = 4*np.sqrt(a1), 
+# 					# 	axis2 = 4*np.sqrt(a2), axis3 = 4*np.sqrt(a3), 
+# 					# 	angs = (np.array([-R2Euler(eigenvec)[big], -R2Euler(eigenvec)[middle], -R2Euler(eigenvec)[small] ])), c=(0.5,0.5,1), alpha=1, res=12)
+
+# 					# disp.append(ell2)
+
+# 					# E.append([mu, sigma, np.shape(within_box)[0]])
+
+# 					mus.append(mu)
+# 					sigmas.append(sigma)
+# 					sizes_list.append(np.shape(within_box)[0])
+
+# 	plt.show(disp, "subdivide_scan", at=0) 
+# 	print("took", time.time() - start, "seconds with numpy")
+
+
+# 	# return E
+# 	return(mus, sigmas, sizes_list)

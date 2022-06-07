@@ -8,20 +8,6 @@ import tensorflow_probability as tfp
 import time
 from utils import *
 
-#Optimization:
-#TODO: 	figure out why memory usage is increasing after each loop
-			# https://stackoverflow.com/questions/44825360/tensorflows-memory-cost-gradually-increasing-in-very-simple-for-loop/44825824
-
-#Viz:
-#TODO: 	remove past iterations of point cloud in viz
-#TODO: 	add slider to allow selection of iterations
-#			generate every <x> beforehand 
-#TODO:	Replace arrows in L1 with axis lines
-#TODO:	Draw visual marker inside each qualifying voxel
-
-#Algorithm: 
-#TODO:	Fix bug where unequal cellsizes in xyz messes up axis removal (or just always use cubic voxels...)
-
 def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False, 
 	       num_cycles = 5, min_num_pts = 50, draw_grid = False, draw_ell = True, 
 	       draw_corr = False, CM = "voxel", vizL = True, xHat0 = tf.zeros([6,1]), FG = True):
@@ -194,7 +180,7 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 
 		#check condition number
 		L2, lam, U2 = check_condition(HTWH)
-		# print("\n L2 \n", L2)
+		print("\n L2 \n", L2)
 
 		# create alternate corrdinate system to align with axis of scan 1 distributions
 		z = tf.squeeze(tf.matmul(LUT, y_i[:,:,None]))
@@ -237,9 +223,8 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 		#transform 2nd scan by x
 		t = x[:3]
 		rot = R_tf(-x[3:])
-		# pp2_corrected = tf.matmul(pp2, rot) + t # was this (wrong)
-		# pp2_corrected = tf.matmul((pp2 + t), rot) # slightly better
-		pp2_corrected = tf.matmul((pp2 + t), tf.transpose(rot)) # AAAAAHHHHHHH THIS FIXED IT!!!
+		# pp2_corrected = tf.matmul((pp2 + t), tf.transpose(rot)) # Was this for 3D-ICET paper
+		pp2_corrected = tf.matmul(pp2, tf.transpose(rot)) + t	#temp-- changing to this for spherical ICET simulations (have to match transform convention with MatLab sim script)
 
 		#update solution history
 		x_hist = tf.concat((x_hist, x[None,:]), axis = 0)
@@ -342,7 +327,7 @@ def get_U_and_L(sigma1, bounds, fid):
 	# print("\n rotated \n", tf.squeeze(rotated))
 
 	#check for overly extended axis directions
-	print("\n cellsize \n", cellsize)
+	# print("\n cellsize \n", cellsize)
 	# thresh = (cellsize**2)/16 #doesn't work as well
 	thresh = (cellsize**2)/64 #need to /64 because axis length is 2x
 	# thresh = cellsize**2 #use this to negate dimesnion reduction
@@ -434,7 +419,11 @@ def check_condition(HTWH):
 		U2 = rotation matrix to transform for L2 pruning 
 		"""
 
-	cutoff = 10e5 #TODO-> experiment with this to get a good value
+	#was this
+	# cutoff = 4e4 #1e5 #TODO-> experiment with this to get a good value
+
+	#turning it off for benchmarking purposes against spherical ICET
+	cutoff = 1e7
 
 	#do eigendecomposition
 	eigenval, eigenvec = tf.linalg.eig(HTWH)
@@ -443,6 +432,7 @@ def check_condition(HTWH):
 
 	# print("\n eigenvals \n", eigenval)
 	# print("\n eigenvec \n", eigenvec)
+	# print("\n eigenvec.T \n", tf.transpose(eigenvec))
 
 	#sort eigenvals by size -default sorts small to big
 	# small2big = tf.sort(eigenval)
@@ -465,13 +455,7 @@ def check_condition(HTWH):
 
 		if abs(condition) > cutoff:
 			i.assign_add(tf.Variable([1],dtype = tf.int32))
-			# print(i.numpy())
 			remainingaxis = everyaxis[i.numpy()[0]:]
-
-
-	#TODO: fix bug around here...
-	# print("\n remaining axis \n", remainingaxis)
-
 
 	#create identity matrix truncated to only have the remaining axis
 	L2 = tf.gather(tf.eye(6), remainingaxis)
@@ -494,15 +478,15 @@ def visualize_L(U, L, y0, disp1):
 	""" for each voxel center, mu, this func draws untruncated axis via L 
 	      transformed into the frame of the distribution ellipsoids via U """
 
-	
-
 	for i in range(tf.shape(y0)[0]):
 		# print(tf.shape(L),"\n", tf.shape(U))
 		ends =  L[i] @ tf.transpose(U[i])
 		# ends =  L[i] @ U[i] #test
 
 		#for 3d -------------------------
-		arrow_len = 5
+		# arrow_len = 5 #was this
+		arrow_len = 1 #test 6/4/22
+
 		arr1 = shapes.Arrow(y0[i].numpy(), (y0[i] + arrow_len * ends[0,:]).numpy(), c = 'red')
 		disp1.append(arr1)
 		arr2 = shapes.Arrow(y0[i].numpy(), (y0[i] + arrow_len * ends[1,:]).numpy(), c = 'green')

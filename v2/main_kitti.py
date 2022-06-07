@@ -31,13 +31,13 @@ nc1 = 5	 #number of cycles using coarse voxel sizes
 mnp = 20 #minimum number of points per voxel
 D = True #draw sim
 DG = False #draw grid
-DE = True #draw ellipsoids
+DE = False #draw ellipsoids
 DC = False #draw correspondences
 TD = False #use test dataset
 CM = "voxel" #correspondence method, "voxel" or "NN"
-fast_gaussian = False
+fast_gaussian = True
 vizL = False #draw arrows in direction of non-truncated directions for each distribution
-id1 = 99 #idx of 1st scan #118 is the naughty scan in raw 0005, 37 is bad in benchmark 05
+id1 = 118 #idx of 1st scan #118 is the naughty scan in raw 0005, 37 is bad in benchmark 05
 id2 = id1 + 1 #idx of 2nd scan
 
 plt = Plotter(N=1, axes=1, bg = (0.1,0.1,0.1), bg2 = (0.3,0.3,0.3),  interactive=True)
@@ -76,6 +76,8 @@ lim2 = -1.65 #vertical lim (sensor is +1.73m from ground)
 cloud1 = cloud1[ cloud1[:,2] > lim2]
 cloud1_tensor = tf.convert_to_tensor(cloud1, np.float32)
 
+# print(tf.shape(cloud1_tensor)) #118 has 50% more pts above min than 37...
+
 velo2 = dataset.get_velo(id2) # Each scan is a Nx4 array of [x,y,z,reflectance]
 cloud2 = velo2[:,:3]
 #repeat for cloud2
@@ -97,7 +99,8 @@ cloud2_tensor = tf.convert_to_tensor(cloud2, np.float32)
 lim = tf.constant([-100.,100.,-100.,100.,-10.,10.]) #needs to encompass every point
 # lim = tf.constant([-100.,100.,-50.,50.,-5.,5.])
 # npts = 100000
-f1 = tf.constant([60, 60, 10]) #need larger voxel sizes for 018
+f1 = tf.constant([20,20,2])
+# f1 = tf.constant([60, 60, 10])
 # f2 = tf.constant([200,200,4])
 Q, x_hist = ICET3D(cloud1_tensor, cloud2_tensor, plt, bounds = lim, 
            fid = f1, num_cycles = nc1 , min_num_pts = mnp, draw = D, draw_grid = DG, 

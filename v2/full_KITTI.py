@@ -2,9 +2,9 @@ import numpy as np
 import tensorflow as tf
 #need to have these two lines to work on my ancient 1060 3gb
 #  https://stackoverflow.com/questions/43990046/tensorflow-blas-gemm-launch-failed
-# physical_devices = tf.config.list_physical_devices('GPU') 
-# for device in physical_devices:
-#     tf.config.experimental.set_memory_growth(device, True)
+physical_devices = tf.config.list_physical_devices('GPU') 
+for device in physical_devices:
+    tf.config.experimental.set_memory_growth(device, True)
 from utils import *
 import tensorflow_probability as tfp
 import time
@@ -19,7 +19,7 @@ from metpy.calc import lat_lon_grid_deltas
 
 
 nc1 = 5	 #number of iterations of ICET per each pair of clouds
-nc2 = 1 
+nc2 = 2 
 mnp = 20 #minimum number of points per voxel
 D = False #draw sim
 
@@ -34,7 +34,8 @@ drive = '0005' #city
 # drive = '0018' #difficult intersection case
 dataset = pykitti.raw(basedir, date, drive)
 # f = tf.constant([50,50,2]) #fidelity in x, y, z # < 5s  --- works for 0005
-f = tf.constant([20,20,10]) #0018
+f = tf.constant([20,20,2])
+# f2 = tf.constant([40,40,3])
 f2 = tf.constant([60,60,10])
 
 lim = tf.constant([-100.,100.,-100.,100.,-5.,10.]) #needs to encompass every point
@@ -73,8 +74,8 @@ for i in range(num_frames):
 	else:
 		Q, x_hist = ICET3D(cloud1_tensor, cloud2_tensor, plt, bounds = lim, 
 			fid = f, num_cycles = nc1 , min_num_pts = mnp, draw = D, xHat0 = x_hist[-1], FG = True)
-		# Q2, x_hist = ICET3D(cloud1_tensor, cloud2_tensor, plt, bounds = lim, 
-		# 	fid = f2, num_cycles = nc2 , min_num_pts = mnp, draw = D, xHat0 = x_hist[-1], FG = False)
+		Q2, x_hist = ICET3D(cloud1_tensor, cloud2_tensor, plt, bounds = lim, 
+			fid = f2, num_cycles = nc2 , min_num_pts = mnp, draw = D, xHat0 = x_hist[-1], FG = False)
 
 	ICET_estimates[i] = x_hist[-1].numpy()
 
