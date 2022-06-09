@@ -53,7 +53,7 @@ sensor.ElevationResolution = 0.4;
 % Create a tracking scenario. Add an ego platform and a target platform.
 scenario = trackingScenario;
 
-ego = platform(scenario, 'Position', [0, 0, 0]);
+ego = platform(scenario, 'Position', [-9.75, -1, 0]);
 % ego = platform(scenario, 'Position', [0, 0, 1.72], 'Orientation', eul2rotm(deg2rad([0.0, 10.0, 0.0]))); %[yaw, pitch, roll]
 
 
@@ -105,10 +105,10 @@ plot3(ptCloud2(:,1),ptCloud2(:,2),ptCloud2(:,3),'.')
 ptCloud1 = rmmissing(ptCloud1);
 ptCloud2 = rmmissing(ptCloud2);
 % 
-% writematrix(ptCloud1, "scene1_scan1.txt", 'Delimiter', 'tab')
-% writematrix(ptCloud2, "scene1_scan2.txt", 'Delimiter', 'tab')
-writematrix(ptCloud1, "scene1_scan1_thick.txt", 'Delimiter', 'tab')
-writematrix(ptCloud2, "scene1_scan2_thick.txt", 'Delimiter', 'tab')
+writematrix(ptCloud1, "scene1_scan1.txt", 'Delimiter', 'tab')
+writematrix(ptCloud2, "scene1_scan2.txt", 'Delimiter', 'tab')
+% writematrix(ptCloud1, "scene1_scan1_thick.txt", 'Delimiter', 'tab')
+% writematrix(ptCloud2, "scene1_scan2_thick.txt", 'Delimiter', 'tab')
 
 
 % writematrix(ptCloud1, "scene2_scan1.txt", 'Delimiter', 'tab')

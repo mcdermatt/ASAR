@@ -3,7 +3,7 @@ import tensorflow as tf
 from vedo import *
 import vtk
 
-def get_cluster(rads, thresh = 0.2, mnp = 25): #mnp = 50, thresh = 0.2
+def get_cluster(rads, thresh = 0.3, mnp = 25): #mnp = 50, thresh = 0.2
     """ Identifies radial bounds which contain the first cluster in a spike 
             that is closest to the ego-vehicle 
         
@@ -38,10 +38,12 @@ def get_cluster(rads, thresh = 0.2, mnp = 25): #mnp = 50, thresh = 0.2
     rads = tf.reverse(rads, axis = tf.constant([0]))
     # print("rads \n", rads)
 
+
     # calculate the forward difference between neighboring points
     z = tf.zeros([1, tf.shape(rads)[1].numpy()])
     shifted = tf.concat((rads[1:], z), axis = 0)
     diff = shifted - rads
+    # diff = tf.math.abs(rads - shifted) #debug 6/9/22
     # print("\n diff \n", diff)
 
     # #find where difference jumps
