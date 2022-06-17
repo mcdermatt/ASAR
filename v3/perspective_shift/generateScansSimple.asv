@@ -202,9 +202,9 @@ hold on
 
 % scatter3(ptCloud1(:,1), ptCloud1(:,2), ptCloud1(:,3))
 % scatter3(ptCloud2(:,1), ptCloud2(:,2), ptCloud2(:,3))
-scatter3(sam1(:,1), sam1(:,2), sam1(:,3), '.')
+scatter3(sam1(:,1), sam1(:,2), sam1(:,3))
 % scatter3(sam2(:,1), sam2(:,2), sam2(:,3))
-scatter3(sam2(:,1)-0.1*vel(1), sam2(:,2)-0.1*vel(2), sam2(:,3)-0.1*vel(3), '.')
+scatter3(sam2(:,1), sam2(:,2), sam2(:,3)-0.1*vel)
 set(gca,'XLim',[-10 10],'YLim',[-10 10],'ZLim',[-10 10])
 
 
