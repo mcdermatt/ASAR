@@ -7,7 +7,7 @@ class scene():
 	"""Define class contianing all necessary parameters to calculate and visualize
 	   the alert limit formulation defined in Olivier's paper"""
 
-	def __init__(self, pos = np.array([-3,2]), theta = -60, road_width = 5, road_radius = 10):
+	def __init__(self, pos = np.array([-3,2]), theta = -20, road_width = 5, road_radius = 10):
 
 		self.pos = pos #location of center of vehicle
 		self.theta = theta #rotation of vehicle relative to global North/ East
@@ -116,13 +116,46 @@ class scene():
 		self.ax.add_patch(rect)
 
 		
-	def add_ebb(self):
+	def add_ebb(self, dlat = 5, dlon = 6):
 		""" adds extended bonding box """
 
-		#TODO: implement this here -----------------
+		R = rot(self.theta) #get rotation matrix
+
+		#TEMPORARY DRAWING FOR DEMO
+
+		#front driver side
+		corner_pos = self.pos + R.dot(np.array([-self.v_w/2, self.v_h/2]))
+		fd = Ellipse(corner_pos, width = dlat, height = dlon, angle = self.theta, color = (0.8, 0.5, 0.5)) 
+		self.ax.add_patch(fd)
+		rect = Rectangle(corner_pos, self.v_w, dlon/2, angle = self.theta, color = (0.8, 0.5, 0.5))
+		self.ax.add_patch(rect)
+
+		#front passanger side
+		corner_pos = self.pos + R.dot(np.array([self.v_w/2, self.v_h/2]))
+		fp = Ellipse(corner_pos, width = dlat, height = dlon, angle = self.theta, color = (0.8, 0.5, 0.5)) 
+		self.ax.add_patch(fp)
+		rect = Rectangle(corner_pos, dlat/2, -self.v_h, angle = self.theta, color = (0.8, 0.5, 0.5))
+		self.ax.add_patch(rect)
+
+		#rear driver side
+		corner_pos = self.pos + R.dot(np.array([-self.v_w/2, -self.v_h/2]))
+		rd = Ellipse(corner_pos, width = dlat, height = dlon, angle = self.theta, color = (0.8, 0.5, 0.5)) 
+		self.ax.add_patch(rd)
+		rect = Rectangle(corner_pos, -dlat/2, self.v_h, angle = self.theta, color = (0.8, 0.5, 0.5))
+		self.ax.add_patch(rect)
+
+		#rear passanger side
+		corner_pos = self.pos + R.dot(np.array([self.v_w/2, -self.v_h/2]))
+		rp = Ellipse(corner_pos, width = dlat, height = dlon, angle = self.theta, color = (0.8, 0.5, 0.5)) 
+		self.ax.add_patch(rp)
+		rect = Rectangle(corner_pos, -self.v_w, -dlon/2, angle = self.theta, color = (0.8, 0.5, 0.5))
+		self.ax.add_patch(rect)
 
 
-		#-------------------------------------------
+		#TODO: actually implement this here -----------------
+
+
+		#----------------------------------------------------
 
 		pass
 
