@@ -22,8 +22,8 @@ class scene():
 
 		self.init_scene()
 
-		#not sure if it going to make sense to automatically draw on scene population
-		#   going to leave this here for now, remove if it makes sense to do so
+		# not sure if it makes sense to automatically draw on scene population
+		#   so I'm going to leave this here for now, remove if it makes sense to do so
 		# self.draw()
 
 	def init_scene(self):
@@ -47,7 +47,7 @@ class scene():
 		self.ax.add_patch(road_outer)
 
 		#TODO: define inner bound using similar variables to outer bound
-		#	   define this in a way that maintains constant road width
+		#TODO: define this in a way that maintains constant road width
 		road_inner = Arc((10,-10), 20, 20, theta1 = 90, theta2 = 180)
 		self.ax.add_patch(road_inner)
 		#-------------------------------
@@ -75,24 +75,52 @@ class scene():
 		rp = Rectangle(self.pos, self.v_w/2, -self.v_h/2, angle = self.theta, facecolor = (0.3,0.3,0.5), edgecolor = None)
 		self.ax.add_patch(rp)
 
+		#draw center point at <self.pos>
 		self.ax.plot(self.pos[0], self.pos[1], 'r.')
 
 
-	def add_alert_limit(self):
+	def add_alert_limit(self, dlat = 2, dlon = 3):
 		""" adds alert limits to vehicle """
+
+		#TODO - not sure if this is actully how alert limits are formulated, I just wanted
+		#		to get something put together that you can work with
 
 		R = rot(self.theta) #get rotation matrix
 
 		#front driver side
 		corner_pos = self.pos + R.dot(np.array([-self.v_w/2, self.v_h/2]))
-		fd = Ellipse(corner_pos, width = 1, height = 1) 
-
+		fd = Ellipse(corner_pos, width = dlat, height = dlon, angle = self.theta) 
 		self.ax.add_patch(fd)
+		rect = Rectangle(corner_pos, self.v_w, dlon/2, angle = self.theta)
+		self.ax.add_patch(rect)
+
+		#front passanger side
+		corner_pos = self.pos + R.dot(np.array([self.v_w/2, self.v_h/2]))
+		fp = Ellipse(corner_pos, width = dlat, height = dlon, angle = self.theta) 
+		self.ax.add_patch(fp)
+		rect = Rectangle(corner_pos, dlat/2, -self.v_h, angle = self.theta)
+		self.ax.add_patch(rect)
+
+		#rear driver side
+		corner_pos = self.pos + R.dot(np.array([-self.v_w/2, -self.v_h/2]))
+		rd = Ellipse(corner_pos, width = dlat, height = dlon, angle = self.theta) 
+		self.ax.add_patch(rd)
+		rect = Rectangle(corner_pos, -dlat/2, self.v_h, angle = self.theta)
+		self.ax.add_patch(rect)
+
+		#rear passanger side
+		corner_pos = self.pos + R.dot(np.array([self.v_w/2, -self.v_h/2]))
+		rp = Ellipse(corner_pos, width = dlat, height = dlon, angle = self.theta) 
+		self.ax.add_patch(rp)
+		rect = Rectangle(corner_pos, -self.v_w, -dlon/2, angle = self.theta)
+		self.ax.add_patch(rect)
+
 		
 	def add_ebb(self):
 		""" adds extended bonding box """
 
 		#TODO: implement this here -----------------
+
 
 		#-------------------------------------------
 
