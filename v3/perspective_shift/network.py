@@ -209,7 +209,7 @@ def Net(**kwargs):
     '''
     #DO MAX POOLING FOR insize//2 since we are looking at two seperate point clouds!!!!!
 
-    insize = 50 #100
+    insize = 200 #50
 
     inputs = keras.Input(shape=(insize, 3)) 
 
@@ -278,13 +278,18 @@ def Net(**kwargs):
     X = keras.layers.BatchNormalization()(X)
     
 
-    output = keras.layers.Dense(units=3, activation = 'tanh')(X)
+    output = keras.layers.Dense(units=3, activation = 'tanh')(X) #translation only
+    # output = keras.layers.Dense(units=6, activation = 'tanh')(X) #translation + rotation
+
 
     #rescale output
     # output = output*tf.constant([15., 15., 0.03]) #was this for simple models
     # output = output*tf.constant([30., 30., 3.]) #increased vel using real cars
-    output = output*tf.constant([3., 3., 0.3]) #KITTI
-    # output = output*tf.constant([0.5, 0.5, 0.5]) #new
+    # output = output*tf.constant([3., 3., 0.3]) #KITTI
+
+    #toilet benchmark
+    # output = output*tf.constant([2., 2., 2., 0.6, 0.6, 0.6]) #new 6DOF test
+    output = output*tf.constant([2., 2., 2.])
 
 
     model = tf.keras.Model(inputs,output)
