@@ -10,8 +10,8 @@
 clear all 
 close all
 
-nSamples = 25; %25;
-epochs = 2;
+nSamples = 1000; %25;
+epochs = 1;
 
 % sam1_cum = [];
 % sam2_cum = [];
@@ -28,7 +28,7 @@ for e = 1:epochs
     %import stl
 %     roll = floor(9*rand());
 %     roll = 5; %cylinders 
-    roll = 2; %honda element
+    roll = 2; %honda element (best car ever made)
 %     roll = 3; %tesla model 3
 %     roll = 6; %taxi
 %     roll = 7; %vw bus
@@ -95,15 +95,26 @@ for e = 1:epochs
         mindist = 4;
     end
 
-    OpenFile = stlread(FileName);
-    
     %get vertices, faces, and normals from stl
+    OpenFile = stlread(FileName);
     vertices = OpenFile.Points;
     faces = OpenFile.ConnectivityList;
+
+    %test----------
+    fn= 'C:\Users\Derm\Desktop\big\ModelNet10\toilet\train\toilet_0055.off';
+    scale = [1., 1., 1.];
+    rot_corr = [0, 0, 0];
+    mindist = 4;
+    [vertices, faces] = read_off(fn);
+    vertices = vertices.';
+    faces = faces.';
+    %-------------
+
+
     
     vel = [10*randn() 10*randn() 1*randn()];
 %     rot = rad2deg(2*pi*rand());
-%     vel = [0, 0, 0];
+%     vel = [100, 0, 0];
     rot = 0;    %temp- just for demo dataset
 
     %sample random  initial position, but NOT INSIDE OBJECT
@@ -118,8 +129,8 @@ for e = 1:epochs
     end
     
     %test
-%     pos = [-1, 5.0, 0.01];
-%     vel = [10 2 0.1];
+    pos = [-5.0, 5.0, 0.01];
+    vel = [100 2 0.1];
 %     pos(1) = pos(1) + 1.5;
 %     true_pos1 = [true_pos1; [pos(1), pos(2), pos(3), rot]];
 
@@ -159,7 +170,7 @@ for e = 1:epochs
     target.Dimensions.Height = scale(3);
 %     target.pose();
 
-%     show(target.Mesh)
+    show(target.Mesh)
     
     % Obtain the mesh of the target viewed from the ego platform after advancing the scenario one step forward.
     advance(scenario);
@@ -202,8 +213,11 @@ hold on
 
 % scatter3(ptCloud1(:,1), ptCloud1(:,2), ptCloud1(:,3))
 % scatter3(ptCloud2(:,1), ptCloud2(:,2), ptCloud2(:,3))
-scatter3(sam1(:,1), sam1(:,2), sam1(:,3))
-scatter3(sam2(:,1), sam2(:,2), sam2(:,3))
+scatter3(sam1(:,1), sam1(:,2), sam1(:,3), '.')
+% scatter3(sam2(:,1), sam2(:,2), sam2(:,3))
+scatter3(sam2(:,1)-0.1*vel(1), sam2(:,2)-0.1*vel(2), sam2(:,3)-0.1*vel(3), '.')
+set(gca,'XLim',[-10 10],'YLim',[-10 10],'ZLim',[-10 10])
+
 
 % %augment data by translating scan 2 (remember to adjust solution vector
 % %accordingly) -------------------------------------------------------------
@@ -269,10 +283,10 @@ scatter3(sam2(:,1), sam2(:,2), sam2(:,3))
 % scatter3(sam2(:,1), sam2(:,2), sam2(:,3))
 % scatter3(moved_sam2(:,1), moved_sam2(:,2), moved_sam2(:,3))
 
-%write scaled translated and rotated figure to new stl file for viz
-TR = triangulation( target.Mesh.Faces, target.Mesh.Vertices);
-stlwrite(TR, 'viz_model.stl')
-writematrix(sam1_cum, "viz_scan1.txt", 'Delimiter', 'tab')
-writematrix(sam2_cum, "viz_scan2.txt", 'Delimiter', 'tab')
-writematrix(truth_cum, "viz_ground_truth.txt", 'Delimiter', 'tab')
-writematrix(true_pos1, "viz_true_pos1.txt", 'Delimiter', 'tab')
+% %write scaled translated and rotated figure to new stl file for viz
+% TR = triangulation( target.Mesh.Faces, target.Mesh.Vertices);
+% stlwrite(TR, 'viz_model.stl')
+% writematrix(sam1_cum, "viz_scan1.txt", 'Delimiter', 'tab')
+% writematrix(sam2_cum, "viz_scan2.txt", 'Delimiter', 'tab')
+% writematrix(truth_cum, "viz_ground_truth.txt", 'Delimiter', 'tab')
+% writematrix(true_pos1, "viz_true_pos1.txt", 'Delimiter', 'tab')

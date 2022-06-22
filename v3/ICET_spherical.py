@@ -211,14 +211,17 @@ class ICET():
 
 		if self.draw:
 			# self.visualize_L(mu1_enough, U, L)
-			self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
-			self.draw_cell(corn)
-			self.draw_car()
+			# self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
+			# self.draw_cell(corn)
+			# self.draw_car()
 			# draw identified points inside useful clusters
 			# for n in range(tf.shape(inside1.to_tensor())[0]):
 			# 	temp = tf.gather(self.cloud1_tensor, inside1[n]).numpy()	
 			# 	self.disp.append(Points(temp, c = 'green', r = 5))
 			# self.visualize_L(mu1_enough, U, L)
+			##for fig introducing shadowing bias problem
+			self.disp.append(Point(pos = (0,0,0), c = 'red', r = 10 )) 
+			self.disp.append(Point(pos = (0.5,0,0), c = 'blue', r = 10 )) 
 
 		for i in range(niter):
 			#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -575,7 +578,7 @@ class ICET():
 
 			# self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
 			self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
-			# self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
+			self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
 			# self.draw_cloud(self.cloud2_tensor_OG.numpy(), pc = 3) #draw OG cloud in differnt color
 			# draw identified points from scan 2 inside useful clusters
 			# for n in range(tf.shape(inside2.to_tensor())[0]):
@@ -626,44 +629,44 @@ class ICET():
 			# np.save("figure_dist_measurements4", self.c2s(temp))
 			# #--------------------------------------------------------
 
-			# #for generating figure 4 in spherical ICET paper ----------
-			#scene 1, fid = 50, with ground plane
-			s = 101 #spike 
-			temp_corn = self.get_corners_cluster(occupied_spikes[s,None], bounds[s, None])
-			self.draw_cell(temp_corn)
-			#highlight points inside cell under consideration
-			inside1_temp, _ = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes[s,None], bounds[s, None])
-			temp = tf.gather(self.cloud1_tensor, inside1_temp[0]).numpy()	
-			self.disp.append(Points(temp, c = 'green', r = 5, alpha = 0.75))
-			# np.save("figure_dist_measurements1", self.c2s(temp))
+			# # #for generating figure 4 in spherical ICET paper ----------
+			# #scene 1, fid = 50, with ground plane
+			# s = 101 #spike 
+			# temp_corn = self.get_corners_cluster(occupied_spikes[s,None], bounds[s, None])
+			# self.draw_cell(temp_corn)
+			# #highlight points inside cell under consideration
+			# inside1_temp, _ = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes[s,None], bounds[s, None])
+			# temp = tf.gather(self.cloud1_tensor, inside1_temp[0]).numpy()	
+			# self.disp.append(Points(temp, c = 'green', r = 5, alpha = 0.75))
+			# # np.save("figure_dist_measurements1", self.c2s(temp))
 
-			# s = 126 #spike 
+			# # s = 126 #spike 
+			# # temp_corn = self.get_corners_cluster(occupied_spikes[s,None], bounds[s,None])
+			# # self.draw_cell(temp_corn)
+			# # #highlight points inside cell under consideration
+			# # inside1_temp, _ = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes[s,None], bounds[s,None])
+			# # temp = tf.gather(self.cloud1_tensor, inside1_temp[0]).numpy()	
+			# # self.disp.append(Points(temp, c = 'purple', r = 5))
+			# # # np.save("figure_dist_measurements2", self.c2s(temp))
+
+			# s = 112 #spike 
 			# temp_corn = self.get_corners_cluster(occupied_spikes[s,None], bounds[s,None])
 			# self.draw_cell(temp_corn)
 			# #highlight points inside cell under consideration
 			# inside1_temp, _ = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes[s,None], bounds[s,None])
 			# temp = tf.gather(self.cloud1_tensor, inside1_temp[0]).numpy()	
-			# self.disp.append(Points(temp, c = 'purple', r = 5))
-			# # np.save("figure_dist_measurements2", self.c2s(temp))
+			# self.disp.append(Points(temp, c = 'orange', r = 5, alpha = 0.75))
+			# # np.save("figure_dist_measurements3", self.c2s(temp))
 
-			s = 112 #spike 
-			temp_corn = self.get_corners_cluster(occupied_spikes[s,None], bounds[s,None])
-			self.draw_cell(temp_corn)
-			#highlight points inside cell under consideration
-			inside1_temp, _ = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes[s,None], bounds[s,None])
-			temp = tf.gather(self.cloud1_tensor, inside1_temp[0]).numpy()	
-			self.disp.append(Points(temp, c = 'orange', r = 5, alpha = 0.75))
-			# np.save("figure_dist_measurements3", self.c2s(temp))
-
-			s = 88 #spike 
-			temp_corn = self.get_corners_cluster(occupied_spikes[s,None], bounds[s,None])
-			self.draw_cell(temp_corn)
-			#highlight points inside cell under consideration
-			inside1_temp, _ = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes[s,None], bounds[s,None])
-			temp = tf.gather(self.cloud1_tensor, inside1_temp[0]).numpy()	
-			self.disp.append(Points(temp, c = 'blue', r = 5, alpha = 0.75))
-			# np.save("figure_dist_measurements4", self.c2s(temp))
-			#--------------------------------------------------------
+			# s = 88 #spike 
+			# temp_corn = self.get_corners_cluster(occupied_spikes[s,None], bounds[s,None])
+			# self.draw_cell(temp_corn)
+			# #highlight points inside cell under consideration
+			# inside1_temp, _ = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes[s,None], bounds[s,None])
+			# temp = tf.gather(self.cloud1_tensor, inside1_temp[0]).numpy()	
+			# self.disp.append(Points(temp, c = 'blue', r = 5, alpha = 0.75))
+			# # np.save("figure_dist_measurements4", self.c2s(temp))
+			# #--------------------------------------------------------
 
 		# 	# #get rid of points too close to ego-vehicle in cloud1_static------------------------
 		# 	# #	doing this to minmize negative effects of perspective shift
@@ -1670,7 +1673,7 @@ class ICET():
 		if pc == 3:
 			color = [0.5, 0.8, 0.5]
 		
-		c = Points(points, c = color, r = 2) #r = 4
+		c = Points(points, c = color, r = 4, alpha = 0.5) #r = 4
 		self.disp.append(c)
 
 	def draw_car(self):

@@ -145,8 +145,8 @@ from metpy.calc import lat_lon_grid_deltas
 
 
 # load custom point cloud geneated in matlab------------------------------------------
-c1 = np.loadtxt("scene1_scan1.txt", dtype = float) #shadows
-c2 = np.loadtxt("scene1_scan2.txt", dtype = float)
+c1 = np.loadtxt("scene1_scan2.txt", dtype = float) #shadows
+c2 = np.loadtxt("scene1_scan1.txt", dtype = float)
 # c1 = np.loadtxt("scene1_scan1_squares.txt", dtype = float) #shadows
 # c2 = np.loadtxt("scene1_scan2_squares.txt", dtype = float)
 
