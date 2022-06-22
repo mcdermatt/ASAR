@@ -1,0 +1,15 @@
+%subsample 50 points from .off files in ModelNet10 and save to csv 
+
+% fn = 'sofa_0681.off';
+
+fn = 'C:\Users\Derm\Desktop\big\ModelNet10\sofa\train\sofa_0045.off'
+
+[vertex, face] = read_off(fn);
+vertex = vertex.';
+face = face.';
+
+mesh = extendedObjectMesh(vertex,face);
+show(mesh)
+
+% figure()
+% scatter3(vertex(:,1), vertex(:,2), vertex(:,3))

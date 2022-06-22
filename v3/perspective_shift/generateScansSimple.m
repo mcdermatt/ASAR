@@ -11,7 +11,7 @@ clear all
 close all
 
 nSamples = 1000; %25;
-epochs = 2;
+epochs = 1;
 
 % sam1_cum = [];
 % sam2_cum = [];
@@ -95,11 +95,22 @@ for e = 1:epochs
         mindist = 4;
     end
 
-    OpenFile = stlread(FileName);
-    
     %get vertices, faces, and normals from stl
+    OpenFile = stlread(FileName);
     vertices = OpenFile.Points;
     faces = OpenFile.ConnectivityList;
+
+    %test----------
+    fn= 'C:\Users\Derm\Desktop\big\ModelNet10\toilet\train\toilet_0055.off';
+    scale = [1., 1., 1.];
+    rot_corr = [0, 0, 0];
+    mindist = 4;
+    [vertices, faces] = read_off(fn);
+    vertices = vertices.';
+    faces = faces.';
+    %-------------
+
+
     
     vel = [10*randn() 10*randn() 1*randn()];
 %     rot = rad2deg(2*pi*rand());
@@ -159,7 +170,7 @@ for e = 1:epochs
     target.Dimensions.Height = scale(3);
 %     target.pose();
 
-%     show(target.Mesh)
+    show(target.Mesh)
     
     % Obtain the mesh of the target viewed from the ego platform after advancing the scenario one step forward.
     advance(scenario);

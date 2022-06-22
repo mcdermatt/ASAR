@@ -95,6 +95,14 @@ for e = 1:epochs
         mindist = 4;
     end
 
+    if roll == 9
+        F= 'C:\Users\Derm\Desktop\big\ModelNet10\toilet\train\toilet_0052.off';
+        scale = [0.6, 0.3, 2.0];
+        rot_corr = [0, 0, 90];
+        mindist = 4;
+    end
+    
+
     OpenFile = stlread(FileName);
     
     %get vertices, faces, and normals from stl
@@ -202,9 +210,9 @@ hold on
 
 % scatter3(ptCloud1(:,1), ptCloud1(:,2), ptCloud1(:,3))
 % scatter3(ptCloud2(:,1), ptCloud2(:,2), ptCloud2(:,3))
-scatter3(sam1(:,1), sam1(:,2), sam1(:,3))
+scatter3(sam1(:,1), sam1(:,2), sam1(:,3), '.')
 % scatter3(sam2(:,1), sam2(:,2), sam2(:,3))
-scatter3(sam2(:,1), sam2(:,2), sam2(:,3)-0.1*vel)
+scatter3(sam2(:,1)-0.1*vel(1), sam2(:,2)-0.1*vel(2), sam2(:,3)-0.1*vel(3), '.')
 set(gca,'XLim',[-10 10],'YLim',[-10 10],'ZLim',[-10 10])
 
 
