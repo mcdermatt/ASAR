@@ -244,7 +244,7 @@ def Net(**kwargs):
 
 
     # 1D Max Pooling ------------------------------------------------------------------
-    X = keras.layers.MaxPool1D(pool_size = 25)(X)
+    X = keras.layers.MaxPool1D(pool_size = int(insize/2))(X)
 
     X = tf.transpose(X, [0, 2, 1]) #test - I think this is needed to perform conv on correct axis
     # X = keras.layers.Permute((2,1))(X) #also works
@@ -278,8 +278,8 @@ def Net(**kwargs):
     X = keras.layers.BatchNormalization()(X)
     
 
-    output = keras.layers.Dense(units=3, activation = 'tanh')(X) #translation only
-    # output = keras.layers.Dense(units=6, activation = 'tanh')(X) #translation + rotation
+    # output = keras.layers.Dense(units=3, activation = 'tanh')(X) #translation only
+    output = keras.layers.Dense(units=6, activation = 'tanh')(X) #translation + rotation
 
 
     #rescale output
@@ -289,7 +289,7 @@ def Net(**kwargs):
 
     #toilet benchmark
     # output = output*tf.constant([2., 2., 2., 0.6, 0.6, 0.6]) #new 6DOF test
-    output = output*tf.constant([2., 2., 2.])
+    output = output*tf.constant([3., 3., 3., 3., 3., 3.])
 
 
     model = tf.keras.Model(inputs,output)
