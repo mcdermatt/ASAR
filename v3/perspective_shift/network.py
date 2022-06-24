@@ -209,7 +209,7 @@ def Net(**kwargs):
     '''
     #DO MAX POOLING FOR insize//2 since we are looking at two seperate point clouds!!!!!
 
-    insize = 200 #50
+    insize = 512 #256 #50
 
     inputs = keras.Input(shape=(insize, 3)) 
 
@@ -223,16 +223,22 @@ def Net(**kwargs):
     X = keras.layers.BatchNormalization()(inputs)
     X = keras.layers.Dense(units = 64, activation = 'relu')(X)
 
-    # new ~~
+    # # new ~~
     X = keras.layers.BatchNormalization()(X)
-    X = keras.layers.Dense(units = 128, activation = 'relu')(X)
+    X = keras.layers.Dense(units = 64, activation = 'relu')(X)
+
+    X = keras.layers.BatchNormalization()(X)
+    X = keras.layers.Dense(units = 64, activation = 'relu')(X)
 
     X = keras.layers.BatchNormalization()(X)
     X = keras.layers.Dense(units = 256, activation = 'relu')(X)
-    # ~~~~~~
+    # # ~~~~~~
 
     X = keras.layers.BatchNormalization()(X)
     X = keras.layers.Dense(units = 512, activation = 'relu')(X)
+
+    # X = keras.layers.BatchNormalization()(X)
+    # X = keras.layers.Dense(units = 1024, activation = 'relu')(X)
 
     # 2D Max Pooling -------------------------------------------------------------------
     # X = tf.keras.layers.Reshape((insize, 8, 8))(X)
@@ -271,12 +277,20 @@ def Net(**kwargs):
 
     X = keras.layers.Flatten()(X)    
 
-    X = keras.layers.Dense(units = 64, activation = 'relu')(X)
+    # X = keras.layers.Dense(units = 256, activation = 'relu')(X)
+    # X = keras.layers.BatchNormalization()(X)
+
+    X = keras.layers.Dense(units = 128, activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
 
     X = keras.layers.Dense(units = 64, activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
     
+    X = keras.layers.Dense(units = 64, activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+
+    X = keras.layers.Dense(units = 8, activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
 
     # output = keras.layers.Dense(units=3, activation = 'tanh')(X) #translation only
     output = keras.layers.Dense(units=6, activation = 'tanh')(X) #translation + rotation
