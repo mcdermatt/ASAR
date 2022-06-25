@@ -224,14 +224,14 @@ def Net(**kwargs):
     X = keras.layers.Dense(units = 64, activation = 'relu')(X)
 
     # # new ~~
-    X = keras.layers.BatchNormalization()(X)
-    X = keras.layers.Dense(units = 64, activation = 'relu')(X)
+    # X = keras.layers.BatchNormalization()(X)
+    # X = keras.layers.Dense(units = 64, activation = 'relu')(X)
 
-    X = keras.layers.BatchNormalization()(X)
-    X = keras.layers.Dense(units = 64, activation = 'relu')(X)
+    # X = keras.layers.BatchNormalization()(X)
+    # X = keras.layers.Dense(units = 64, activation = 'relu')(X)
 
-    X = keras.layers.BatchNormalization()(X)
-    X = keras.layers.Dense(units = 256, activation = 'relu')(X)
+    # X = keras.layers.BatchNormalization()(X)
+    # X = keras.layers.Dense(units = 128, activation = 'relu')(X)
     # # ~~~~~~
 
     X = keras.layers.BatchNormalization()(X)
@@ -256,22 +256,22 @@ def Net(**kwargs):
     # X = keras.layers.Permute((2,1))(X) #also works
 
     #conv layers help 1d a lot
-    X = keras.layers.Conv1D(filters = 4, kernel_size = 8, strides = 4, padding = 'valid')(X)
+    X = keras.layers.Conv1D(filters = 4, kernel_size = 8, strides = 4, padding = 'valid', activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
-    X = keras.layers.Dense(units = 64, activation = 'relu')(X)
-    X = keras.layers.BatchNormalization()(X)
+    # X = keras.layers.Dense(units = 64, activation = 'relu')(X)
+    # X = keras.layers.BatchNormalization()(X)
 
     # #test repeat
-    X = keras.layers.Conv1D(filters = 2, kernel_size = 4, strides = 2, padding = 'valid')(X)
+    X = keras.layers.Conv1D(filters = 2, kernel_size = 4, strides = 2, padding = 'valid', activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
-    X = keras.layers.Dense(units = 64, activation = 'relu')(X)
-    X = keras.layers.BatchNormalization()(X)
+    # X = keras.layers.Dense(units = 64, activation = 'relu')(X)
+    # X = keras.layers.BatchNormalization()(X)
 
 
-    X = keras.layers.Conv1D(filters = 2, kernel_size = 3, strides = 2, padding = 'valid')(X)
+    X = keras.layers.Conv1D(filters = 2, kernel_size = 3, strides = 2, padding = 'valid', activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
-    X = keras.layers.Dense(units = 64, activation = 'relu')(X)
-    X = keras.layers.BatchNormalization()(X)
+    # X = keras.layers.Dense(units = 64, activation = 'relu')(X)
+    # X = keras.layers.BatchNormalization()(X)
 
     #----------------------------------------------------------------------------------
 
@@ -280,17 +280,17 @@ def Net(**kwargs):
     # X = keras.layers.Dense(units = 256, activation = 'relu')(X)
     # X = keras.layers.BatchNormalization()(X)
 
-    X = keras.layers.Dense(units = 128, activation = 'relu')(X)
+    X = keras.layers.Dense(units = 1024, activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
 
-    X = keras.layers.Dense(units = 64, activation = 'relu')(X)
+    X = keras.layers.Dense(units = 512, activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
     
-    X = keras.layers.Dense(units = 64, activation = 'relu')(X)
+    X = keras.layers.Dense(units = 256, activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
 
-    X = keras.layers.Dense(units = 8, activation = 'relu')(X)
-    X = keras.layers.BatchNormalization()(X)
+    # X = keras.layers.Dense(units = 8, activation = 'relu')(X)
+    # X = keras.layers.BatchNormalization()(X)
 
     # output = keras.layers.Dense(units=3, activation = 'tanh')(X) #translation only
     output = keras.layers.Dense(units=6, activation = 'tanh')(X) #translation + rotation
