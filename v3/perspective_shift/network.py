@@ -209,7 +209,7 @@ def Net(**kwargs):
     '''
     #DO MAX POOLING FOR insize//2 since we are looking at two seperate point clouds!!!!!
 
-    insize = 128 #512 #50
+    insize = 512 #50
 
     inputs = keras.Input(shape=(insize, 3)) 
 
@@ -224,13 +224,31 @@ def Net(**kwargs):
     #new way- use conv layers to auto share weights--------------
     X = tf.expand_dims(inputs, -1)
 
-    # X = tf.keras.layers.Conv2D(64, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X) #test
-    # X = tf.keras.layers.Conv2D(64, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X) #test
+    # #TEST
+    # #~~~~~~~
+    # X = tf.keras.layers.Conv2D(64, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
+    # X = keras.layers.BatchNormalization()(X)
+    # X = tf.keras.layers.Conv2D(64, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
+    # X = keras.layers.BatchNormalization()(X)
+    # #~~~~~~~
 
-    X = tf.keras.layers.Conv2D(256, [1,3], padding = 'valid', strides = [1,1], activation = 'relu')(X)
-    X = tf.reshape(X, [-1,insize,256])
-    # X = tf.keras.layers.Conv1D(64, kernel_size = 1, strides = 1, padding = 'valid', activation = 'relu')(X)
-    X = tf.keras.layers.Conv1D(512, kernel_size = 1, strides = 1, padding = 'valid', activation = 'relu')(X)
+    X = tf.keras.layers.Conv2D(64, [1,3], padding = 'valid', strides = [1,1], activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+
+    X = tf.keras.layers.Conv2D(64, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+
+    X = tf.keras.layers.Conv2D(128, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+
+    #TODO -> figure out why this is better than 1d conv
+    X = tf.keras.layers.Conv2D(512, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+
+    X = tf.reshape(X, [-1,insize,512])
+    #worse than 2d...
+    # X = tf.keras.layers.Conv1D(512, kernel_size = 1, strides = 1, padding = 'valid', activation = 'relu')(X)
+    # X = keras.layers.BatchNormalization()(X)
     #------------------------------------------------------------
 
     # 1D Max Pooling 
@@ -267,11 +285,11 @@ def Net(**kwargs):
     # X = keras.layers.Dense(units = 256, activation = 'relu')(X)
     # X = keras.layers.BatchNormalization()(X)
 
-    X = keras.layers.Dense(units = 1024, activation = 'relu')(X)
-    X = keras.layers.BatchNormalization()(X)
+    # X = keras.layers.Dense(units = 1024, activation = 'relu')(X)
+    # X = keras.layers.BatchNormalization()(X)
 
-    X = keras.layers.Dense(units = 512, activation = 'relu')(X)
-    X = keras.layers.BatchNormalization()(X)
+    # X = keras.layers.Dense(units = 512, activation = 'relu')(X)
+    # X = keras.layers.BatchNormalization()(X)
     
     X = keras.layers.Dense(units = 256, activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
