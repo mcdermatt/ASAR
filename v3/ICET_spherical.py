@@ -69,8 +69,15 @@ class ICET():
 		self.cloud2_tensor = tf.cast(tf.convert_to_tensor(cloud2), tf.float32)
 
 		if self.draw == True:
-			self.plt = Plotter(N = 1, axes = 4, bg = (1, 1, 1), interactive = True) #axis = 1
+			self.plt = Plotter(N = 1, axes = 0, bg = (1, 1, 1), interactive = True) #axis = 1
 			self.disp = []
+			#copy-paste camera settings here using Shift+C on vedo terminal window-----------
+			self.plt.camera.SetPosition( [-36.28, 13.51, 20.48] )
+			self.plt.camera.SetFocalPoint( [11.18, -2.13, 0.8092] )
+			self.plt.camera.SetViewUp( [0.3443, -0.124, 0.9305] )
+			self.plt.camera.SetDistance( 53.70 )
+			self.plt.camera.SetClippingRange( [0.18, 181.9] )
+			#--------------------------------------------------------------------------------
 
 		#convert cloud to spherical coordinates
 		self.cloud1_tensor_spherical = tf.cast(self.c2s(self.cloud1_tensor), tf.float32)
@@ -136,7 +143,7 @@ class ICET():
 
 		if self.draw == True:
 			# self.disp.append(addons.LegendBox(self.disp))
-			self.plt.show(self.disp, "Spherical ICET")
+			self.plt.show(self.disp, "Spherical ICET", resetcam = False)
 
 	def main_2(self, niter, x0, remove_moving = True):
 		""" Main loop using new radial clustering strategy """
@@ -211,17 +218,17 @@ class ICET():
 
 		if self.draw:
 			# self.visualize_L(mu1_enough, U, L)
-			# self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
+			self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
 			# self.draw_cell(corn)
-			# self.draw_car()
+			self.draw_car()
 			# draw identified points inside useful clusters
 			# for n in range(tf.shape(inside1.to_tensor())[0]):
 			# 	temp = tf.gather(self.cloud1_tensor, inside1[n]).numpy()	
 			# 	self.disp.append(Points(temp, c = 'green', r = 5))
 			# self.visualize_L(mu1_enough, U, L)
 			##for fig introducing shadowing bias problem
-			self.disp.append(Point(pos = (0,0,0), c = 'red', r = 10 )) 
-			self.disp.append(Point(pos = (0.5,0,0), c = 'blue', r = 10 )) 
+			# self.disp.append(Point(pos = (0,0,0), c = 'red', r = 10 )) 
+			# self.disp.append(Point(pos = (0.5,0,0), c = 'blue', r = 10 )) 
 
 		for i in range(niter):
 			#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -578,7 +585,7 @@ class ICET():
 
 			# self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
 			self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
-			self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
+			# self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
 			# self.draw_cloud(self.cloud2_tensor_OG.numpy(), pc = 3) #draw OG cloud in differnt color
 			# draw identified points from scan 2 inside useful clusters
 			# for n in range(tf.shape(inside2.to_tensor())[0]):
@@ -590,7 +597,7 @@ class ICET():
 			#   ans == indeces of enough1 that intersect with corr (aka combined enough1, enough2)
 			# self.visualize_L(tf.gather(mu1_enough, ans), U_i, L_i)
 
-			# # #for generating figure 3 in spherical ICET paper ----------
+			# # #for generating figure 3b in spherical ICET paper ----------
 			# #scene 1, fid = 50, with ground plane
 			# s = 101 #spike 
 			# temp_corn = self.get_corners_cluster(occupied_spikes[s,None], tf.constant([[0.0, 25.0]]))
@@ -619,54 +626,54 @@ class ICET():
 			# self.disp.append(Points(temp, c = 'orange', r = 5))
 			# np.save("figure_dist_measurements3", self.c2s(temp))
 
-			# s = 89 #spike 
-			# temp_corn = self.get_corners_cluster(occupied_spikes[s,None], tf.constant([[0.0, 15.0]]))
+			# s = 88 #spike 
+			# temp_corn = self.get_corners_cluster(occupied_spikes[s,None], tf.constant([[0.0, 10.0]]))
 			# self.draw_cell(temp_corn)
 			# #highlight points inside cell under consideration
-			# inside1_temp, _ = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes[s,None], tf.constant([[0.0, 15.0]]))
+			# inside1_temp, _ = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes[s,None], tf.constant([[0.0, 10.0]]))
 			# temp = tf.gather(self.cloud1_tensor, inside1_temp[0]).numpy()	
 			# self.disp.append(Points(temp, c = 'blue', r = 5))
 			# np.save("figure_dist_measurements4", self.c2s(temp))
 			# #--------------------------------------------------------
 
-			# # #for generating figure 4 in spherical ICET paper ----------
-			# #scene 1, fid = 50, with ground plane
-			# s = 101 #spike 
-			# temp_corn = self.get_corners_cluster(occupied_spikes[s,None], bounds[s, None])
-			# self.draw_cell(temp_corn)
-			# #highlight points inside cell under consideration
-			# inside1_temp, _ = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes[s,None], bounds[s, None])
-			# temp = tf.gather(self.cloud1_tensor, inside1_temp[0]).numpy()	
-			# self.disp.append(Points(temp, c = 'green', r = 5, alpha = 0.75))
-			# # np.save("figure_dist_measurements1", self.c2s(temp))
+			# #for generating figure 3c in spherical ICET paper ----------
+			#scene 1, fid = 50, with ground plane
+			s = 101 #spike 
+			temp_corn = self.get_corners_cluster(occupied_spikes[s,None], bounds[s, None])
+			self.draw_cell(temp_corn)
+			#highlight points inside cell under consideration
+			inside1_temp, _ = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes[s,None], bounds[s, None])
+			temp = tf.gather(self.cloud1_tensor, inside1_temp[0]).numpy()	
+			self.disp.append(Points(temp, c = 'green', r = 5, alpha = 0.75))
+			# np.save("figure_dist_measurements1", self.c2s(temp))
 
-			# # s = 126 #spike 
-			# # temp_corn = self.get_corners_cluster(occupied_spikes[s,None], bounds[s,None])
-			# # self.draw_cell(temp_corn)
-			# # #highlight points inside cell under consideration
-			# # inside1_temp, _ = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes[s,None], bounds[s,None])
-			# # temp = tf.gather(self.cloud1_tensor, inside1_temp[0]).numpy()	
-			# # self.disp.append(Points(temp, c = 'purple', r = 5))
-			# # # np.save("figure_dist_measurements2", self.c2s(temp))
-
-			# s = 112 #spike 
+			# s = 126 #spike 
 			# temp_corn = self.get_corners_cluster(occupied_spikes[s,None], bounds[s,None])
 			# self.draw_cell(temp_corn)
 			# #highlight points inside cell under consideration
 			# inside1_temp, _ = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes[s,None], bounds[s,None])
 			# temp = tf.gather(self.cloud1_tensor, inside1_temp[0]).numpy()	
-			# self.disp.append(Points(temp, c = 'orange', r = 5, alpha = 0.75))
-			# # np.save("figure_dist_measurements3", self.c2s(temp))
+			# self.disp.append(Points(temp, c = 'purple', r = 5))
+			# # np.save("figure_dist_measurements2", self.c2s(temp))
 
-			# s = 88 #spike 
-			# temp_corn = self.get_corners_cluster(occupied_spikes[s,None], bounds[s,None])
-			# self.draw_cell(temp_corn)
-			# #highlight points inside cell under consideration
-			# inside1_temp, _ = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes[s,None], bounds[s,None])
-			# temp = tf.gather(self.cloud1_tensor, inside1_temp[0]).numpy()	
-			# self.disp.append(Points(temp, c = 'blue', r = 5, alpha = 0.75))
-			# # np.save("figure_dist_measurements4", self.c2s(temp))
-			# #--------------------------------------------------------
+			s = 112 #spike 
+			temp_corn = self.get_corners_cluster(occupied_spikes[s,None], bounds[s,None])
+			self.draw_cell(temp_corn)
+			#highlight points inside cell under consideration
+			inside1_temp, _ = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes[s,None], bounds[s,None])
+			temp = tf.gather(self.cloud1_tensor, inside1_temp[0]).numpy()	
+			self.disp.append(Points(temp, c = 'orange', r = 5, alpha = 0.75))
+			# np.save("figure_dist_measurements3", self.c2s(temp))
+
+			s = 88 #89 #spike 
+			temp_corn = self.get_corners_cluster(occupied_spikes[s,None], bounds[s,None])
+			self.draw_cell(temp_corn)
+			#highlight points inside cell under consideration
+			inside1_temp, _ = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes[s,None], bounds[s,None])
+			temp = tf.gather(self.cloud1_tensor, inside1_temp[0]).numpy()	
+			self.disp.append(Points(temp, c = 'blue', r = 5, alpha = 0.75))
+			# np.save("figure_dist_measurements4", self.c2s(temp))
+			#--------------------------------------------------------
 
 		# 	# #get rid of points too close to ego-vehicle in cloud1_static------------------------
 		# 	# #	doing this to minmize negative effects of perspective shift
@@ -1453,32 +1460,34 @@ class ICET():
 			for i in range(tf.shape(corners)[0]):
 				p1, p2, p3, p4, p5, p6, p7, p8 = self.s2c(corners[i]).numpy()
 
+				lineWidth = 2
+
 				# arc1 = shapes.Arc(center = [0,0,0], point1 = p1, point2 = p2, c = 'red')	
-				arc1 = shapes.Line(p1, p2, c = 'red', lw = 1) #debug		
+				arc1 = shapes.Line(p1, p2, c = 'red', lw = lineWidth) #debug		
 				self.disp.append(arc1)
 				# arc2 = shapes.Arc(center = [0,0,0], point1 = p3, point2 = p4, c = 'red')
-				arc2 = shapes.Line(p3, p4, c = 'red', lw = 1) #debug
+				arc2 = shapes.Line(p3, p4, c = 'red', lw = lineWidth) #debug
 				self.disp.append(arc2)
-				line1 = shapes.Line(p1, p3, c = 'red', lw = 1)
+				line1 = shapes.Line(p1, p3, c = 'red', lw = lineWidth)
 				self.disp.append(line1)
-				line2 = shapes.Line(p2, p4, c = 'red', lw = 1) #problem here
+				line2 = shapes.Line(p2, p4, c = 'red', lw = lineWidth) #problem here
 				self.disp.append(line2)
 
 				# arc3 = shapes.Arc(center = [0,0,0], point1 = p5, point2 = p6, c = 'red')		
-				arc3 = shapes.Line(p5, p6, c = 'red', lw = 1) #debug
+				arc3 = shapes.Line(p5, p6, c = 'red', lw = lineWidth) #debug
 				self.disp.append(arc3)
 				# arc4 = shapes.Arc(center = [0,0,0], point1 = p7, point2 = p8, c = 'red')
-				arc4 = shapes.Line(p7, p8, c = 'red', lw = 1) #debug
+				arc4 = shapes.Line(p7, p8, c = 'red', lw = lineWidth) #debug
 				self.disp.append(arc4)
-				line3 = shapes.Line(p5, p7, c = 'red', lw = 1)
+				line3 = shapes.Line(p5, p7, c = 'red', lw = lineWidth)
 				self.disp.append(line3)
-				line4 = shapes.Line(p6, p8, c = 'red', lw = 1)
+				line4 = shapes.Line(p6, p8, c = 'red', lw = lineWidth)
 				self.disp.append(line4)
 
-				self.disp.append(shapes.Line(p1,p5,c = 'red', lw = 1))
-				self.disp.append(shapes.Line(p2,p6,c = 'red', lw = 1))
-				self.disp.append(shapes.Line(p3,p7,c = 'red', lw = 1))
-				self.disp.append(shapes.Line(p4,p8,c = 'red', lw = 1))
+				self.disp.append(shapes.Line(p1,p5,c = 'red', lw = lineWidth))
+				self.disp.append(shapes.Line(p2,p6,c = 'red', lw = lineWidth))
+				self.disp.append(shapes.Line(p3,p7,c = 'red', lw = lineWidth))
+				self.disp.append(shapes.Line(p4,p8,c = 'red', lw = lineWidth))
 
 		if bad == True:
 			#identified as containing moving objects
@@ -1673,7 +1682,7 @@ class ICET():
 		if pc == 3:
 			color = [0.5, 0.8, 0.5]
 		
-		c = Points(points, c = color, r = 4, alpha = 0.5) #r = 4
+		c = Points(points, c = color, r = 3, alpha = 0.8) #r = 4
 		self.disp.append(c)
 
 	def draw_car(self):
