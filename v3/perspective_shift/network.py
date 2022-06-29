@@ -238,14 +238,15 @@ def Net(**kwargs):
     X = tf.keras.layers.Conv2D(64, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
 
-    X = tf.keras.layers.Conv2D(128, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
-    X = keras.layers.BatchNormalization()(X)
+    # X = tf.keras.layers.Conv2D(128, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
+    # X = keras.layers.BatchNormalization()(X)
 
     #TODO -> figure out why this is better than 1d conv
-    X = tf.keras.layers.Conv2D(512, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
+    #This was at 512, I dropped it to increase batch size
+    X = tf.keras.layers.Conv2D(256, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
 
-    X = tf.reshape(X, [-1,insize,512])
+    X = tf.reshape(X, [-1,insize,256])
     #worse than 2d...
     # X = tf.keras.layers.Conv1D(512, kernel_size = 1, strides = 1, padding = 'valid', activation = 'relu')(X)
     # X = keras.layers.BatchNormalization()(X)
@@ -275,10 +276,10 @@ def Net(**kwargs):
     X = keras.layers.BatchNormalization()(X)
     X = keras.layers.Dense(units = 64, activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
-    X = keras.layers.Conv1D(filters = 2, kernel_size = 3, strides = 2, padding = 'valid', activation = 'relu')(X)
-    X = keras.layers.BatchNormalization()(X)
-    X = keras.layers.Dense(units = 64, activation = 'relu')(X)
-    X = keras.layers.BatchNormalization()(X)
+    # X = keras.layers.Conv1D(filters = 2, kernel_size = 3, strides = 2, padding = 'valid', activation = 'relu')(X)
+    # X = keras.layers.BatchNormalization()(X)
+    # X = keras.layers.Dense(units = 64, activation = 'relu')(X)
+    # X = keras.layers.BatchNormalization()(X)
     X = keras.layers.Flatten()(X)    
     #----------------------------------------------------------------------------------
 
