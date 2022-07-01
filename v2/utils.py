@@ -234,9 +234,14 @@ def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.
 			"""
 	if show_pc == 2:
 		color = (0.5,0.5,1)
+		alph = 1
 	if show_pc == 1:
-		color = (1,0.5,0.5)
-	cloud = Points(cloud_tensor, c = color, alpha = 0.9)
+		color = (0.8,0.3,0.3)
+		alph = 1
+	if show_pc == 0:
+		color = (0,0,0)
+		alph = 0
+	cloud = Points(cloud_tensor, c = color, alpha = alph, r = 2) #added r
 	disp.append(cloud) #add point cloud object to viz
 
 	# cloud_tensor = tf.convert_to_tensor(pc, np.float32)
@@ -431,7 +436,8 @@ def subdivide_scan_tf(cloud_tensor, plt, bounds = tf.constant([-50.,50.,-50.,50.
 	E = [mu, sigma, sizes, disp]
 	if draw == True:
 
-		disp = make_scene(plt, disp, E, color, bounds = bounds, draw_grid = draw_grid, draw_ell = draw_ell, fid = fid)
+		if show_pc != 0:
+			disp = make_scene(plt, disp, E, color, bounds = bounds, draw_grid = draw_grid, draw_ell = draw_ell, fid = fid)
 
 
 	# npts = sizes#was this
@@ -495,7 +501,7 @@ def make_scene(plt, disp, E, color, draw_grid = False, draw_ell = True, fid = No
 			if mu[i,0] != 0 and mu[i,1] != 0:
 				ell = Ell(pos=(mu[i,0], mu[i,1], mu[i,2]), axis1 = 4*np.sqrt(abs(a1)), 
 					axis2 = 4*np.sqrt(abs(a2)), axis3 = 4*np.sqrt(abs(a3)), 
-					angs = (np.array([-R2Euler(eigenvec)[0], -R2Euler(eigenvec)[1], -R2Euler(eigenvec)[2] ])), c=color, alpha=1, res=12)
+					angs = (np.array([-R2Euler(eigenvec)[0], -R2Euler(eigenvec)[1], -R2Euler(eigenvec)[2] ])), c = color , alpha=0.9, res=12)
 		#todo - fix rotation bug in angs[1]
 				
 				disp.append(ell)
@@ -506,41 +512,41 @@ def make_scene(plt, disp, E, color, draw_grid = False, draw_ell = True, fid = No
 		ybound = np.linspace(bounds[2], bounds[3], fid[1] + 1)
 		zbound = np.linspace(bounds[4], bounds[5], fid[2] + 1)
 
-		#normal (for 3D)---------------------------------
-		for y in range(fid[1]+1):
-			for z in range(fid[2]+1):
-				p0 = np.array([xbound[-1], ybound[y], zbound[z]])
-				p1 = np.array([xbound[0], ybound[y], zbound[z]])
-				x_lines = shapes.Line(p0, p1, closed=False, c='black', alpha=1, lw=0.25, res=0)
-				disp.append(x_lines)
-		for x in range(fid[0]+1):
-			for z in range(fid[2]+1):
-				p0 = np.array([xbound[x], ybound[-1], zbound[z]])
-				p1 = np.array([xbound[x], ybound[0], zbound[z]])
-				y_lines = shapes.Line(p0, p1, closed=False, c='black', alpha=1, lw=0.25, res=0)
-				disp.append(y_lines)
-		for x in range(fid[0]+1):
-			for y in range(fid[1]+1):
-				p0 = np.array([xbound[x], ybound[y], zbound[-1]])
-				p1 = np.array([xbound[x], ybound[y], zbound[0]])
-				z_lines = shapes.Line(p0, p1, closed=False, c='black', alpha=1, lw=0.25, res=0)
-				disp.append(z_lines)
-		#-------------------------------------------------
-
-		# # for 2d viz -------------------------------------
+		# #normal (for 3D)---------------------------------
 		# for y in range(fid[1]+1):
-		# 	for z in range(fid[2]):
-		# 		p0 = np.array([xbound[-1], ybound[y], 0])
-		# 		p1 = np.array([xbound[0], ybound[y], 0])
+		# 	for z in range(fid[2]+1):
+		# 		p0 = np.array([xbound[-1], ybound[y], zbound[z]])
+		# 		p1 = np.array([xbound[0], ybound[y], zbound[z]])
 		# 		x_lines = shapes.Line(p0, p1, closed=False, c='black', alpha=1, lw=0.25, res=0)
 		# 		disp.append(x_lines)
 		# for x in range(fid[0]+1):
-		# 	for z in range(fid[2]):
-		# 		p0 = np.array([xbound[x], ybound[-1], 0])
-		# 		p1 = np.array([xbound[x], ybound[0], 0])
+		# 	for z in range(fid[2]+1):
+		# 		p0 = np.array([xbound[x], ybound[-1], zbound[z]])
+		# 		p1 = np.array([xbound[x], ybound[0], zbound[z]])
 		# 		y_lines = shapes.Line(p0, p1, closed=False, c='black', alpha=1, lw=0.25, res=0)
 		# 		disp.append(y_lines)
+		# for x in range(fid[0]+1):
+		# 	for y in range(fid[1]+1):
+		# 		p0 = np.array([xbound[x], ybound[y], zbound[-1]])
+		# 		p1 = np.array([xbound[x], ybound[y], zbound[0]])
+		# 		z_lines = shapes.Line(p0, p1, closed=False, c='black', alpha=1, lw=0.25, res=0)
+		# 		disp.append(z_lines)
 		# #-------------------------------------------------
+
+		# for 2d viz -------------------------------------
+		for y in range(fid[1]+1):
+			for z in range(fid[2]):
+				p0 = np.array([xbound[-1], ybound[y], -15])
+				p1 = np.array([xbound[0], ybound[y], -15])
+				x_lines = shapes.Line(p0, p1, closed=False, c='black', alpha=1, lw=0.25, res=0)
+				disp.append(x_lines)
+		for x in range(fid[0]+1):
+			for z in range(fid[2]):
+				p0 = np.array([xbound[x], ybound[-1], -15])
+				p1 = np.array([xbound[x], ybound[0], -15])
+				y_lines = shapes.Line(p0, p1, closed=False, c='black', alpha=1, lw=0.25, res=0)
+				disp.append(y_lines)
+		#-------------------------------------------------
 
 	return(disp)
 	# plt.show(disp, "subdivide_scan", at=0) #was here, moving to inside main loop
@@ -589,8 +595,8 @@ def fit_gaussian_tf(rag, sizes, mnp = 50):
 			std_z = tf.reduce_sum(tf.math.square( rag[i][:,2] - mu[i,2]))[None] / tf.cast(sizes[i], tf.float32)
 		
 			E_xy = tf.reduce_sum( ( rag[i][:,0] - mu[i,0])*( rag[i][:,1] - mu[i,1]) )[None] / tf.cast(sizes[i], tf.float32)
-			E_xz = -tf.reduce_sum( ( rag[i][:,0] - mu[i,0])*( rag[i][:,2] - mu[i,2]) )[None] / tf.cast(sizes[i], tf.float32)
-			E_yz = -tf.reduce_sum( ( rag[i][:,1] - mu[i,1])*( rag[i][:,2] - mu[i,2]) )[None] / tf.cast(sizes[i], tf.float32)
+			E_xz = tf.reduce_sum( ( rag[i][:,0] - mu[i,0])*( rag[i][:,2] - mu[i,2]) )[None] / tf.cast(sizes[i], tf.float32)
+			E_yz = tf.reduce_sum( ( rag[i][:,1] - mu[i,1])*( rag[i][:,2] - mu[i,2]) )[None] / tf.cast(sizes[i], tf.float32)
 
 
 		else:
@@ -626,10 +632,10 @@ def fit_gaussian_tf(rag, sizes, mnp = 50):
 				new_E_xy = tf.reduce_sum( ( rag[i][:,0] - mu[i,0])*( rag[i][:,1] - mu[i,1]) )[None] / tf.cast(sizes[i], tf.float32)
 				E_xy = tf.concat([E_xy, new_E_xy], 0)
 
-				new_E_xz = -tf.reduce_sum( ( rag[i][:,0] - mu[i,0])*( rag[i][:,2] - mu[i,2]) )[None] / tf.cast(sizes[i], tf.float32)
+				new_E_xz = tf.reduce_sum( ( rag[i][:,0] - mu[i,0])*( rag[i][:,2] - mu[i,2]) )[None] / tf.cast(sizes[i], tf.float32)
 				E_xz = tf.concat([E_xz, new_E_xz], 0)
 				
-				new_E_yz = -tf.reduce_sum( ( rag[i][:,1] - mu[i,1])*( rag[i][:,2] - mu[i,2]) )[None] / tf.cast(sizes[i], tf.float32)
+				new_E_yz = tf.reduce_sum( ( rag[i][:,1] - mu[i,1])*( rag[i][:,2] - mu[i,2]) )[None] / tf.cast(sizes[i], tf.float32)
 				E_yz = tf.concat([E_yz, new_E_yz], 0)
 
 	# sigma = tf.Variable([std_x, std_y, std_z])

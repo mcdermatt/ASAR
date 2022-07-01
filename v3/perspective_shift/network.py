@@ -7,133 +7,48 @@ import numpy as np
 
 def PCRnet(**kwargs):
 
-    ''' Another attempt at permutation invariance, this time using PCRnet architecture '''
+    '''benchmark of https://github.com/vinits5/pcrnet '''
 
-    insize =  50 #200 
-    #init shared fully connected and conv layers
-    ff1 = keras.layers.Dense(256, activation = "relu")
-    ff2 = keras.layers.Dense(512, activation = "relu")
-    # ff22 = keras.layers.Dense(2048, activation = "relu")
+    insize = 512 #50
 
-    conv1 = keras.layers.Conv1D(filters = 32, kernel_size = 3) #, padding = 'same')
-    conv2 = keras.layers.Conv1D(filters = 32, kernel_size = 8, strides = 4) #, padding = 'same')
-    ff3 = keras.layers.Dense(64, activation = "relu")
-    ff4 = keras.layers.Dense(64, activation = "relu")
-
-
-	#get input    
     inputs = keras.Input(shape=(insize, 3)) 
 
-    #split into two "MLPs", one for each set of input sample points
-    X1 = inputs[:,:(insize//2)]
-    X1 = keras.layers.BatchNormalization()(X1)
-    X2 = inputs[:,(insize//2):]
-    X2 = keras.layers.BatchNormalization()(X2)
+    X = tf.expand_dims(inputs, -1)
 
-    #apply siamese feedforward layers-----------------------------------------
-    X1 = ff1(X1)
-    X1 = keras.layers.BatchNormalization()(X1)
-    # X2 = layers.Dropout(0.2)(X2) #0.3
-
-    X2 = ff1(X2)
-    X2 = keras.layers.BatchNormalization()(X2)
-    # X2 = layers.Dropout(0.2)(X2) #0.3
-
-    X1 = ff2(X1)
-    X1 = keras.layers.BatchNormalization()(X1)
-    X2 = ff2(X2)
-    X2 = keras.layers.BatchNormalization()(X2)
-
-    # X1 = ff22(X1)
-    # X1 = keras.layers.BatchNormalization()(X1)
-    # X2 = ff22(X2)
-    # X2 = keras.layers.BatchNormalization()(X2)
-    #-------------------------------------------------------------------------
-
-    # #apply symmetric functions (MaxPool1D) to each tower to remove any permutation invariance ----------
-    X1 = keras.layers.MaxPool1D(pool_size = (25))(X1)
-    X2 = keras.layers.MaxPool1D(pool_size = (25))(X2)
-    # #---------------------------------------------------------------------------------------------------
-
-    # # 3D conv on each feature representation----------------------------------
-    # #reshape to true 3d data representation
-    # X1 = keras.layers.Reshape([8, 8, 8, 1])(X1) 
-    # X2 = keras.layers.Reshape([8, 8, 8, 1])(X2) 
-
-    # X1 = keras.layers.Conv3D(filters = 32, kernel_size = 2, strides = (1,1,1), padding = 'valid')(X1)
-    # X1 = keras.layers.BatchNormalization()(X1)
-    # X1 = ff3(X1)
-    # X1 = keras.layers.BatchNormalization()(X1)
-
-    # X2 = keras.layers.Conv3D(filters = 32, kernel_size = 2, strides = (1,1,1), padding = 'valid')(X2)
-    # X2 = keras.layers.BatchNormalization()(X2)
-    # X2 = ff3(X2)
-    # X2 = keras.layers.BatchNormalization()(X2)
-
-
-    # X1 = keras.layers.Conv3D(filters = 32, kernel_size = 3, strides = (1,1,1), padding = 'valid')(X1)
-    # X1 = keras.layers.BatchNormalization()(X1)
-    # X1 = ff4(X1)
-    # X1 = keras.layers.BatchNormalization()(X1)
-
-    # X2 = keras.layers.Conv3D(filters = 32, kernel_size = 3, strides = (1,1,1), padding = 'valid')(X2)
-    # X2 = keras.layers.BatchNormalization()(X2)
-    # X2 = ff4(X2)
-    # X2 = keras.layers.BatchNormalization()(X2)
-
-
-    # #-------------------------------------------------------------------------
-
-
-    #reshape and perform 1D conv on each feature representation---------------
-    X1 = tf.transpose(X1, [0, 2, 1])
-    X2 = tf.transpose(X2, [0, 2, 1])
-
-    X1 = conv1(X1)
-    X1 = keras.layers.BatchNormalization()(X1)
-    X1 = ff3(X1)
-    X1 = keras.layers.BatchNormalization()(X1)
-
-    X2 = conv1(X2)
-    X2 = keras.layers.BatchNormalization()(X2)
-    X2 = ff3(X2)
-    X2 = keras.layers.BatchNormalization()(X2)
-
-    X1 = conv2(X1)
-    X1 = keras.layers.BatchNormalization()(X1)
-    X1 = ff4(X1)
-    X1 = keras.layers.BatchNormalization()(X1)
-
-    X2 = conv2(X2)
-    X2 = keras.layers.BatchNormalization()(X2)
-    X2 = ff4(X2)
-    X2 = keras.layers.BatchNormalization()(X2)
-    #-------------------------------------------------------------------------
-
-    #Flatten and concatenate -------------------------------------------------
-    X1 = keras.layers.Flatten()(X1)
-    X2 = keras.layers.Flatten()(X2)
-    X = keras.layers.Concatenate(axis=1)([X1, X2])
-
-    # more fully connected layers to perform the matching operation on encoded data -------
-    # X = keras.layers.Dense(512, activation = 'relu')(X)
-    # X = keras.layers.BatchNormalization()(X)
-    X = keras.layers.Dense(128, activation = 'relu')(X)
+    X = tf.keras.layers.Conv2D(64, [1,3], padding = 'valid', strides = [1,1], activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
-    X = keras.layers.Dense(64, activation = 'relu')(X)
+
+    X = tf.keras.layers.Conv2D(64, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
-    # X = layers.Dropout(0.2)(X) #0.3
 
+    X = tf.keras.layers.Conv2D(64, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
 
-    #--------------------------------------------------------------------------------------    
+    X = tf.keras.layers.Conv2D(128, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
 
+    X = tf.reshape(X, [-1,insize,128])
 
-    output = keras.layers.Dense(3, activation = 'tanh')(X)
+    X = keras.layers.MaxPool1D(pool_size = int(insize/2))(X)
+    # X = keras.layers.MaxPool1D(pool_size = int(insize))(X)    #test
 
+    X = keras.layers.Flatten()(X)
 
-    #rescale output
-    # output = output*tf.constant([15., 15., 0.03]) #was this for simple prism models
-    output = output*tf.constant([30., 30., 3.]) #increased vel and using more realistic 3d shapes (cars, busses, etc)
+    X = keras.layers.Dense(units = 1024, activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+    X = keras.layers.Dense(units = 1024, activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+    X = keras.layers.Dense(units = 512, activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+    X = keras.layers.Dense(units = 512, activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+    X = keras.layers.Dense(units = 256, activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+
+    output = keras.layers.Dense(units=6, activation = 'tanh')(X) #translation + rotation
+
+    #scale for toilet benchmark
+    output = output*tf.constant([3., 3., 3., 3., 3., 3.])
 
     model = tf.keras.Model(inputs,output)
 
@@ -256,41 +171,32 @@ def Net(**kwargs):
     X = keras.layers.MaxPool1D(pool_size = int(insize/2))(X)
     
 
-    # #just ff -------------------------------------------------------------------------- 
-    # X = keras.layers.Flatten()(X)
-    # X = keras.layers.Dense(units = 1024, activation = 'relu')(X)
-    # X = keras.layers.BatchNormalization()(X)
-    # X = keras.layers.Dense(units = 512, activation = 'relu')(X)
-    # X = keras.layers.BatchNormalization()(X)
-    # #----------------------------------------------------------------------------------
+    #just ff -------------------------------------------------------------------------- 
+    X = keras.layers.Flatten()(X)
+    X = keras.layers.Dense(units = 1024, activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+    X = keras.layers.Dense(units = 512, activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+    #----------------------------------------------------------------------------------
 
-    # using conv layers----------------------------------------------------------------
-    X = tf.transpose(X, [0, 2, 1]) #test - I think this is needed to perform conv on correct axis
-    # X = keras.layers.Permute((2,1))(X) #also works
-    #conv layers help 1d a lot
-    X = keras.layers.Conv1D(filters = 4, kernel_size = 8, strides = 4, padding = 'valid', activation = 'relu')(X)
-    X = keras.layers.BatchNormalization()(X)
-    X = keras.layers.Dense(units = 64, activation = 'relu')(X)
-    X = keras.layers.BatchNormalization()(X)
-    X = keras.layers.Conv1D(filters = 2, kernel_size = 4, strides = 2, padding = 'valid', activation = 'relu')(X)
-    X = keras.layers.BatchNormalization()(X)
-    X = keras.layers.Dense(units = 64, activation = 'relu')(X)
-    X = keras.layers.BatchNormalization()(X)
-    # X = keras.layers.Conv1D(filters = 2, kernel_size = 3, strides = 2, padding = 'valid', activation = 'relu')(X)
+    # # using conv layers----------------------------------------------------------------
+    # X = tf.transpose(X, [0, 2, 1]) #test - I think this is needed to perform conv on correct axis
+    # # X = keras.layers.Permute((2,1))(X) #also works
+    # #conv layers help 1d a lot
+    # X = keras.layers.Conv1D(filters = 4, kernel_size = 8, strides = 4, padding = 'valid', activation = 'relu')(X)
     # X = keras.layers.BatchNormalization()(X)
     # X = keras.layers.Dense(units = 64, activation = 'relu')(X)
     # X = keras.layers.BatchNormalization()(X)
-    X = keras.layers.Flatten()(X)    
-    #----------------------------------------------------------------------------------
-
-    # X = keras.layers.Dense(units = 256, activation = 'relu')(X)
+    # X = keras.layers.Conv1D(filters = 2, kernel_size = 4, strides = 2, padding = 'valid', activation = 'relu')(X)
     # X = keras.layers.BatchNormalization()(X)
-
-    # X = keras.layers.Dense(units = 1024, activation = 'relu')(X)
+    # X = keras.layers.Dense(units = 64, activation = 'relu')(X)
     # X = keras.layers.BatchNormalization()(X)
-
-    # X = keras.layers.Dense(units = 512, activation = 'relu')(X)
-    # X = keras.layers.BatchNormalization()(X)
+    # # X = keras.layers.Conv1D(filters = 2, kernel_size = 3, strides = 2, padding = 'valid', activation = 'relu')(X)
+    # # X = keras.layers.BatchNormalization()(X)
+    # # X = keras.layers.Dense(units = 64, activation = 'relu')(X)
+    # # X = keras.layers.BatchNormalization()(X)
+    # X = keras.layers.Flatten()(X)    
+    # #----------------------------------------------------------------------------------
     
     X = keras.layers.Dense(units = 256, activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
@@ -308,7 +214,6 @@ def Net(**kwargs):
     # output = output*tf.constant([3., 3., 0.3]) #KITTI
 
     #toilet benchmark
-    # output = output*tf.constant([2., 2., 2., 0.6, 0.6, 0.6]) #new 6DOF test
     output = output*tf.constant([3., 3., 3., 3., 3., 3.])
 
 

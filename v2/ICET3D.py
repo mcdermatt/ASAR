@@ -84,7 +84,7 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 		#subdivide second scan
 		if draw == True:
 			#referencing disp 1 here prevents re-drawing old transformations of scan2
-			E2 = subdivide_scan_tf(pp2_corrected, plt, bounds, fid, disp = disp1, draw=True, show_pc = 2, draw_grid = draw_grid, draw_ell = draw_ell,  fast_gaussian = FG)
+			E2 = subdivide_scan_tf(pp2_corrected, plt, bounds, fid, disp = disp1, draw=True, show_pc = 0, draw_grid = draw_grid, draw_ell = draw_ell,  fast_gaussian = FG)
 		else:
 			E2 = subdivide_scan_tf(pp2_corrected, plt, bounds, fid, draw=False,  fast_gaussian = FG)
 		mu2 = E2[0]
@@ -236,18 +236,20 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 				# plt.pop(at=0)
 				# plt.clear(disp, at=0) 
 
-			#plot car in center------------------------------------------
-			# # (used for making presentation graphics)
-			# fname = "C:/Users/Derm/honda.vtk"
+			# plot car in center------------------------------------------
+			# (used for making presentation graphics)
+			fname = "C:/Users/Derm/honda.vtk"
 			# car = Mesh(fname).c("gray").addShadow(z=0)
 			# car.pos(1.,0,0.1) #move slightly up to avoid clipping ground plane
-			# # plt.show([car, disp], "ICET3D", at=0, interactive = True)
-			# plt.show([car, disp], "ICET3D", at=0, resetcam = False)
-			#------------------------------------------------------------
+			car = Mesh(fname).c("gray").rotate(90, axis = (0,0,1))
+			car.pos(1.4,1,1.72)
+			# plt.show([car, disp], "ICET3D", at=0, interactive = True)
+			plt.show([car, disp], "ICET3D", at=0, resetcam = False)
+			# ------------------------------------------------------------
 
-			#don't plot car ---------------------------------------------
-			plt.show(disp, "ICET3D", at=0, interactive = True) 
-			#------------------------------------------------------------
+			# #don't plot car ---------------------------------------------
+			# plt.show(disp, "ICET3D", at=0, interactive = True) 
+			# #------------------------------------------------------------
 
 			#set interactive to False to autoplay
 			#NOTE: vedo documentation is incorrect, plotter does NOT have <new> parameter
