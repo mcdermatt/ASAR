@@ -208,7 +208,7 @@ c2[:,2] += 0.2
 
 # ground_truth = tf.constant([0.1799, 0., 0., -0.0094, -0.011, -0.02072]) #FULL KITTI scan 1397
 
-it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 5, 
+it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 15, 
 	draw = True, group = 2, RM = False, DNN_filter = False)#, cheat = ground_truth)
 
 # it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 100, niter = 20, 
