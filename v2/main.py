@@ -85,9 +85,11 @@ start = time.time()
 # cloud1 = np.loadtxt(r"C:\Users\Derm\vaRLnt\v3\mountain_scan1_no_trees.txt", dtype = float)
 # cloud2 = np.loadtxt(r"C:\Users\Derm\vaRLnt\v3\mountain_scan2_no_trees.txt", dtype = float)
 
-cloud1 = np.loadtxt(r"C:\Users\Derm\vaRLnt\v3\MC_trajectories\scene2_scan17.txt", dtype = float)
-cloud2 = np.loadtxt(r"C:\Users\Derm\vaRLnt\v3\MC_trajectories\scene2_scan18.txt", dtype = float)
+# cloud1 = np.loadtxt(r"C:\Users\Derm\vaRLnt\v3\MC_trajectories\scene2_scan17.txt", dtype = float)
+# cloud2 = np.loadtxt(r"C:\Users\Derm\vaRLnt\v3\MC_trajectories\scene2_scan18.txt", dtype = float)
 
+cloud1 = np.loadtxt("C:/Users/Derm/vaRLnt/v3/T_intersection_scan1.txt", dtype = float)
+cloud2 = np.loadtxt("C:/Users/Derm/vaRLnt/v3/T_intersection_scan2.txt", dtype = float)
 
 c1 = cloud1 + 0.02*np.random.randn(np.shape(cloud1)[0], 3)
 c2 = cloud2 + 0.02*np.random.randn(np.shape(cloud2)[0], 3)

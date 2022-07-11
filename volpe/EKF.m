@@ -117,7 +117,8 @@ if gpstime <= msrk1(1) && gpstime > msrk(1)  % If GPS time between two inertial 
 %         yHat = xHatM(1:3); % using this if xHatM is already in (m)
 
         %Use GPS to update correction -------------------------------------
-        xHatM_ins = xHatM_ins + L*(y-yHat); 
+        xHatM_ins = xHatM_ins + L*(y-yHat);  %was this
+%         xHatM_ins = xHatM_ins + L*(y-yHat); 
         %------------------------------------------------------------------
         
         %2/28: don't take PM from GPS combination if we're just using GPS

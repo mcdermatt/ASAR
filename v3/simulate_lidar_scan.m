@@ -5,9 +5,10 @@ close all
 
 %import stl
 % FileName = 'virtual_scenes/scene1.stl'; %easy scan with house 
+FileName = 'virtual_scenes/T_intersection.stl' ;
 
 % FileName = 'virtual_scenes/scene2.stl'; %round pillars on one side of road
-FileName = 'virtual_scenes/scene2_thick.stl'; %squared pillars
+% FileName = 'virtual_scenes/scene2_thick.stl'; %squared pillars
 % FileName = 'virtual_scenes/scene2_squares.stl'; %squared pillars
 
 % FileName = 'virtual_scenes/scene3.stl'; % rectangles w/ occlusion
@@ -53,25 +54,25 @@ sensor.ElevationResolution = 0.4;
 % Create a tracking scenario. Add an ego platform and a target platform.
 scenario = trackingScenario;
 
-ego = platform(scenario, 'Position', [-9.75, -1, 0]);
+% ego = platform(scenario, 'Position', [-9.75, -1, 0]);
 % ego = platform(scenario, 'Position', [0, 0, 1.72], 'Orientation', eul2rotm(deg2rad([0.0, 10.0, 0.0]))); %[yaw, pitch, roll]
+ego = platform(scenario, 'Position', [0, 0, 1.72]);
 
 
-
-target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[0 0 0],'Velocity',[5 0 0])); %no rotation
+% target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[0 0 0],'Velocity',[0 5 0])); %no rotation
 % target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[0 0 -3],'Velocity',[5 0 0], 'AngularVelocity', [0, 0, 1.])); %with rotatation 
-% target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[0 0 0],'Velocity',[5 0 0], 'AngularVelocity', [0, 0, 1.])); %with rotatation 
+target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[0 0 0],'Velocity',[0 5 0], 'AngularVelocity', [0, 0, 1.])); %with rotatation 
 % target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[-20 0 -8],'Velocity',[5 0 0], 'AngularVelocity', [0, 0, 0.0])); %mountain no trees 
 
 %NOTE: to use offcentered Position we need to have ZERO AngularVelocity!!!
 
 target.Mesh = mesh;
 
-%default~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-target.Dimensions.Length = 100; 
-target.Dimensions.Width = 100;
-target.Dimensions.Height = 5; %20; %6; %18;
-%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+% %default~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+% target.Dimensions.Length = 100; 
+% target.Dimensions.Width = 100;
+% target.Dimensions.Height = 5; %20; %6; %18;
+% %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 %height = 20 for with trees, 
 
 % %need to scale differently for simple room ~~~~~~~
@@ -80,7 +81,13 @@ target.Dimensions.Height = 5; %20; %6; %18;
 % target.Dimensions.Height = 4;
 % %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-% show(target.Mesh)
+% %need to scale differently for T intersection ~~~~~~~
+target.Dimensions.Length = 100; 
+target.Dimensions.Width = 150;
+target.Dimensions.Height = 6;
+% %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+show(target.Mesh)
 
 % Obtain the mesh of the target viewed from the ego platform after advancing the scenario one step forward.
 advance(scenario);
@@ -105,8 +112,8 @@ plot3(ptCloud2(:,1),ptCloud2(:,2),ptCloud2(:,3),'.')
 ptCloud1 = rmmissing(ptCloud1);
 ptCloud2 = rmmissing(ptCloud2);
 % 
-writematrix(ptCloud1, "scene1_scan1.txt", 'Delimiter', 'tab')
-writematrix(ptCloud2, "scene1_scan2.txt", 'Delimiter', 'tab')
+% writematrix(ptCloud1, "scene1_scan1.txt", 'Delimiter', 'tab')
+% writematrix(ptCloud2, "scene1_scan2.txt", 'Delimiter', 'tab')
 % writematrix(ptCloud1, "scene1_scan1_thick.txt", 'Delimiter', 'tab')
 % writematrix(ptCloud2, "scene1_scan2_thick.txt", 'Delimiter', 'tab')
 
@@ -125,4 +132,7 @@ writematrix(ptCloud2, "scene1_scan2.txt", 'Delimiter', 'tab')
 % writematrix(ptCloud2, "mountain_scan2.txt", 'Delimiter', 'tab')
 % writematrix(ptCloud1, "mountain_scan1_no_trees.txt", 'Delimiter', 'tab')
 % writematrix(ptCloud2, "mountain_scan2_no_trees.txt", 'Delimiter', 'tab')
+
+writematrix(ptCloud1, "T_intersection_scan1.txt", 'Delimiter', 'tab')
+writematrix(ptCloud2, "T_intersection_scan2.txt", 'Delimiter', 'tab')
 

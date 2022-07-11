@@ -1,13 +1,19 @@
-% GPS_INS_SPAN Loosely Coupled - version 11/21/2021
+% GPS_INS_SPAN Loosely Coupled
 clear all
+beep off
 
-% User defined paramaters
+% User defined paramaters--------------------------------------------------
 pureINS = 0;                    % Set False for GPS/INS fusion
 addpath('./Data/SPAN');         % Path for data 
-dat = load('signageData.mat');  % Data file
-endIndex = 1e6;                 % Example 1e4 is 50 sec of data @ 200 Hz
-                                % If endIndex exceeds max, then reset to max
-% endIndex = 1e4;
+% dat = load('signageData.mat');  % Data file
+dat = load('roundaboutData.mat');  
+endIndex = 1e6;                 % Example 1e4 is 50 sec of data @ 200 Hz                                % If endIndex exceeds max, then reset to max
+% endIndex = 2e5;
+
+%--------------------------------------------------------------------------
+
+% startGPS = %1109;                %ignore useless data before here
+startGPS = 1;
 
 % Clean workspace
 close all
@@ -24,6 +30,13 @@ ppplonstd = dat.ppppos.ppplonstd;
 ppphgtstd = dat.ppppos.ppphgtstd;
 gpspos = [ppptime ppplat ppplon ppphgt ppplatstd ppplonstd ppphgtstd];
 
+gpspos = gpspos(startGPS:end, :);
+% gpspos(:,1) = gpspos(:,1) - gpspos(1,1);
+
+%remove outages from gpspos
+nonzero = find(ppplon);
+gpspos = gpspos(nonzero, :);
+
 % Apply transducer constants for IMU
 ax = double(rawimusx.rawimuxaccel)*(0.400/65536)*(9.80665/1000)/200;
 ay = double(rawimusx.rawimuyaccel)*(0.400/65536)*(9.80665/1000)/200;
@@ -34,8 +47,12 @@ gz = double(rawimusx.rawimuzgyro)*0.0151515/65536/200;
 
 % Pacakge IMU data
 imutime = rawimusx.rawimugnsssow;
-imuraw = [imutime deg2rad(gy) deg2rad(gx) -deg2rad(gz) ay ax -az];  % imuraw = [imutime gx gy gz ax ay az];
+%was this
+% imuraw = [imutime deg2rad(gy) deg2rad(gx) -deg2rad(gz) ay ax -az];  % imuraw = [imutime gx gy gz ax ay az];
 % imuraw = [imutime deg2rad(gx) deg2rad(gy) deg2rad(gz) ax ay az];  % imuraw = [imutime gx gy gz ax ay az];
+%changed to this
+imuraw = [imutime deg2rad(gy) -deg2rad(gx) -deg2rad(gz) ay -ax -az]; %best soln when not fusing qbn_lidar
+
 
 [minVal, ind] = min(abs(dat.inspvax.sow1465(1) - imuraw(:,1)));
 imuraw = imuraw(ind:end,:);
@@ -84,7 +101,7 @@ dv0 = 0;
 qbn0_enu = eul2quat(rpy0);     %Initialize with RPY 
 rpy0_inverse = quat2eul(qbn0_enu);
 
-rpy0 - rpy0_inverse
+rpy0 - rpy0_inverse;
 qbn0_ned = [qbn0_enu(1) qbn0_enu(3) qbn0_enu(4) -qbn0_enu(2)];
 qbn0 = qbn0_ned;
 bias = 0;
@@ -96,13 +113,20 @@ if pureINS == 0
     gpsmsr = gpspos(1,:);
 end
 
+corr_hist = zeros(endIndex, 3); %init matrix to store correction vectors for each timestep
+
+%ONLY KEEP EVERY 3rd GPS MEASUREMNT (FOR SOLUTION SEPERATION DEMO)
+% gpspos = gpspos(1:3:end,:);
+
 % Start Loop
 gpsCnt = 0;
 i = 2;
 while i < endIndex  
     if(mod(i,1e3)==2); i-2, end;  % echo time step to screen current step
     
-    msrk1 = imuraw(i,:);
+%     msrk1 = [imuraw(i), imuraw(221800 + i, 2:end)];
+    msrk1 = imuraw(i + startGPS*200, :);
+%     msrk1 = imuraw(i,:);
     msrk1 = msrk1';
     
     if isempty(msrk1) 
@@ -127,7 +151,8 @@ while i < endIndex
     
     else
         % GPS/INS solution
-        [lla, vel, rpy, ned, dv, qbn, xHatP, PP, gpsUpdated, gpsCnt, gpsResUpd] = ins_gps(lla0, vel0, rpy0, dv0, qbn0, msrk, msrk1, gpsmsr, xHatP, PP, gpsCnt);
+        [lla, vel, rpy, ned, dv, qbn, xHatP, PP, gpsUpdated, gpsCnt, gpsResUpd, corr] = ins_gps(lla0, vel0, rpy0, dv0, qbn0, msrk, msrk1, gpsmsr, xHatP, PP, gpsCnt);
+        corr_hist(i,:) = corr; %update correction history
         if gpsUpdated == 1
             gpsmsr = gpspos(gpsCnt+1, :);   
             gps_res(gpsCnt,:) = gpsResUpd;
@@ -376,6 +401,19 @@ hold on; grid on
 % plot(-qbnRef(1:len,3));
 ylabel('{q_4}');
 
+
+%plot linearized correction factor
+figure()
+hold on
+subplot(3,1,1)
+plot(find(corr_hist(:,1)), corr_hist(find(corr_hist(:,1)),1))
+ylabel('Lat Correction')
+subplot(3,1,2)
+plot(find(corr_hist(:,2)), corr_hist(find(corr_hist(:,2)),2))
+ylabel('Lon Correction')
+subplot(3,1,3)
+plot(find(corr_hist(:,3)), corr_hist(find(corr_hist(:,3)),3))
+ylabel('Altitude Correction')
 
 % compute rn, rm
 WGS84_A = 6378137.0;           % earth semi-major axis (WGS84) (m) 
@@ -701,7 +739,7 @@ end
 
 
 % ins_mechanization_compact.m:
-function [lla, vel, rpy, ned, dv, qbn, xHatP, PP, gpsUpdated, gpsCnt, gpsResUpd] = ins_gps(lla0, vel0, rpy0, dv0, qbn0, msrk, msrk1, gpsmsr, xHatP, PP, gpsCnt)
+function [lla, vel, rpy, ned, dv, qbn, xHatP, PP, gpsUpdated, gpsCnt, gpsResUpd, corr] = ins_gps(lla0, vel0, rpy0, dv0, qbn0, msrk, msrk1, gpsmsr, xHatP, PP, gpsCnt)
 
 WGS84_A = 6378137.0;           % earth semi-major axis (WGS84) (m) 
 WGS84_B = 6356752.3142;        % earth semi-minor axis (WGS84) (m) 
@@ -1172,12 +1210,13 @@ if gpstime <= msrk1(1) && gpstime > msrk(1)  % If GPS time between two inertial 
     PP = (eye(size(F))-L*H)*PM*(eye(size(F))-L*H)'+L*R*L';
     
     lla = lla - (xHatP(1:3))';
- 
+    corr = - (xHatP(1:3))';
+    
     xi = xHatP(7:9);
     E = [0 -xi(3) xi(2); xi(3) 0 -xi(1); -xi(2) xi(1) 0];
     cbn = (eye(3)+E)*cbn;
     
-    vel = vel - (xHatP(4:6))';
+    vel = vel - (xHatP(4:6))'; %commenting out for debug 3/7/22
     
 %     comment out below to ignore correction step- not ideal but helps
     %convergence??
@@ -1207,6 +1246,7 @@ else
     
     gpsResUpd = [];
     gpsUpdated = 0;
+    corr = [0 0 0];
 end
 
     ned = (coeff*lla')';

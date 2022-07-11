@@ -596,8 +596,8 @@ def ICET_v2(Q,P,fig,ax,fid = 10, num_cycles = 1, min_num_pts = 5, draw = True, a
 
 	else:
 		#get point positions in 2d space and draw 1st and 2nd scans
-		pp1 = draw_scan(Q,fig,ax, pt = 2)
-		pp2 = draw_scan(P,fig,ax, pt = 2) #pt number 0,1 assigns color for plotting, pt = 2 does not draw
+		pp1 = draw_scan(Q,fig,ax, pt = 0)
+		pp2 = draw_scan(P,fig,ax, pt = 1) #pt number 0,1 assigns color for plotting, pt = 2 does not draw
 
 	#get cellsize param for calculating L
 	minx = np.min(pp1[:,0])

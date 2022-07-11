@@ -276,115 +276,115 @@ def draw_scan(scan, fig, ax, FOV = 60, pt = 0, hitters = None, ignore_boundary =
 
 	return point_pos
 
-# def generate_along_track_data(fig,ax,draw = True, output_actual = False):
-
-# 	""" Generates straight road scan (ambiguous case) """
-
-# 	npts = 4200 #4200
-# 	tscale = 5#10
-# 	noise_scale = 2
-
-# 	pp1 = np.zeros([npts,2])
-# 	pp2 = np.zeros([npts,2])
-
-# 	#ADJUST NET ROTATION HERE
-# 	theta = np.random.randn()*0.1 #+np.pi
-# 	t = np.random.randn(2)*tscale
-# 	# theta = 0.1
-# 	# t = np.array([5,10])
-
-# 	rot = R(theta)
-
-# 	#moves half of points to left wall and half to right
-# 	xshift = np.ones(npts)*-125
-# 	xshift[(npts//2):] = 125
-# 	yshift = np.zeros(npts) - 250
-# 	yshift[(npts//2):] = -750
-
-# 	for i in range(npts):
-# 		pp1[i,0] = xshift[i] #+ np.random.randn()*x_noise_scale
-# 		pp1[i,1] = i*1000/npts + yshift[i] #+ np.random.randn()*y_noise_scale
-
-# 	# pp1 = R(np.pi/3).dot(pp1.T)
-# 	# pp1 = pp1.T
-
-# 	pp2[:,:] = pp1[:,:]
-# 	pp1 += np.random.randn(npts,2)*noise_scale
-# 	pp2 += np.random.randn(npts,2)*noise_scale
-
-# 	#transform scan2
-# 	pp2 += t
-# 	pp2 = rot.dot(pp2.T)
-# 	pp2 = pp2.T
-
-# 	# ax.plot(pp1[:,0], pp1[:,1], color = (0.25,0.8,0.25,0.0375), ls = '', marker = '.', markersize = 20)
-# 	# ax.plot(pp2[:,0], pp2[:,1], color = (0.25,0.25,0.8,0.0375), ls = '', marker = '.', markersize = 20)
-
-# 	ax.plot(pp1[:,0], pp1[:,1], color = (0.25,0.8,0.25), ls = '', marker = '.', markersize = 1)
-# 	ax.plot(pp2[:,0], pp2[:,1], color = (0.25,0.25,0.8), ls = '', marker = '.', markersize = 1)
-
-# 	if output_actual == False:
-# 		return pp1, pp2
-# 	if output_actual == True:
-# 		x_actual = np.array([t[0], t[1], theta])
-# 		return pp1, pp2, x_actual
-
 def generate_along_track_data(fig,ax,draw = True, output_actual = False):
 
-	""" Generates T shaped scan (non-ambiguous case) """
+	""" Generates straight road scan (ambiguous case) """
 
-	npts =  4200 #4200
+	npts = 4200 #4200
 	tscale = 5#10
 	noise_scale = 2
 
 	pp1 = np.zeros([npts,2])
 	pp2 = np.zeros([npts,2])
 
-
 	#ADJUST NET ROTATION HERE
-	theta = np.random.randn()*0.1 #0.1
-	t = np.random.randn(2)*tscale
-	# theta = 0.1
-	# t = np.array([5,10])
+	# theta = np.random.randn()*0.1 #+np.pi
+	# t = np.random.randn(2)*tscale
+	theta = 0.2
+	t = np.array([5,10])
 
 	rot = R(theta)
 
+	#moves half of points to left wall and half to right
+	xshift = np.ones(npts)*-125
+	xshift[(npts//2):] = 125
+	yshift = np.zeros(npts) - 250
+	yshift[(npts//2):] = -750
 
-	#top part of T
-	pp1[:int(npts/3), :] = np.array([np.linspace(-250,250,int(npts/3)),125+10*np.sin(np.linspace(-2,2,int(npts/3)))]).T #wavy
-	# pp1[:int(npts/3), :] = np.array([np.linspace(-250,250,int(npts/3)),125*np.ones(int(npts/3))]).T #flat
-	#left horizontal
-	pp1[int(npts/3):int(npts/2), :] = np.array([np.linspace(-250,-75,int(npts/6)),np.ones(int(npts/6))*-75]).T
-	#left vertical
-	pp1[int(npts/2):int(2*npts/3), :] = np.array([np.ones(int(npts/6))*-75 ,np.linspace(-250,-75,int(npts/6))]).T
-	#right vertical
-	pp1[int(2*npts/3):int(5*npts/6), :] = np.array([np.ones(int(npts/6))*75 ,np.linspace(-250,-75,int(npts/6))]).T
-	#right horizontal
-	pp1[int(5*npts/6):, :] = np.array([np.linspace(75,250,int(npts/6)),np.ones(int(npts/6))*-75]).T
+	for i in range(npts):
+		pp1[i,0] = xshift[i] #+ np.random.randn()*x_noise_scale
+		pp1[i,1] = i*1000/npts + yshift[i] #+ np.random.randn()*y_noise_scale
 
-	#rotate 90 deg
-	# temp = np.array([pp1[:,1], pp1[:,0]]).T
-	# pp1[:,:] = temp[:,:]
+	# pp1 = R(np.pi/3).dot(pp1.T)
+	# pp1 = pp1.T
 
 	pp2[:,:] = pp1[:,:]
+	pp1 += np.random.randn(npts,2)*noise_scale
+	pp2 += np.random.randn(npts,2)*noise_scale
 
 	#transform scan2
 	pp2 += t
 	pp2 = rot.dot(pp2.T)
 	pp2 = pp2.T
 
-	#add noise to pp1 and pp2 SEPERATELY
-	pp1 += np.random.randn(npts, 2)*noise_scale
-	pp2 += np.random.randn(npts, 2)*noise_scale
+	# ax.plot(pp1[:,0], pp1[:,1], color = (0.25,0.8,0.25,0.0375), ls = '', marker = '.', markersize = 20)
+	# ax.plot(pp2[:,0], pp2[:,1], color = (0.25,0.25,0.8,0.0375), ls = '', marker = '.', markersize = 20)
 
-	# ax.plot(pp1[:,0], pp1[:,1], color = (0.25,0.8,0.25,0.125), ls = '', marker = '.', markersize = 1)
-	# ax.plot(pp2[:,0], pp2[:,1], color = (0.25,0.25,0.8,0.125), ls = '', marker = '.', markersize = 1)
+	ax.plot(pp1[:,0], pp1[:,1], color = (0.25,0.8,0.25), ls = '', marker = '.', markersize = 1)
+	ax.plot(pp2[:,0], pp2[:,1], color = (0.25,0.25,0.8,0.25), ls = '', marker = '.', markersize = 1)
 
 	if output_actual == False:
 		return pp1, pp2
 	if output_actual == True:
 		x_actual = np.array([t[0], t[1], theta])
 		return pp1, pp2, x_actual
+
+# def generate_along_track_data(fig,ax,draw = True, output_actual = False):
+
+# 	""" Generates T shaped scan (non-ambiguous case) """
+
+# 	npts =  4200 #4200
+# 	tscale = 5#10
+# 	noise_scale = 2
+
+# 	pp1 = np.zeros([npts,2])
+# 	pp2 = np.zeros([npts,2])
+
+
+# 	#ADJUST NET ROTATION HERE
+# 	# theta = np.random.randn()*0.1 #0.1
+# 	# t = np.random.randn(2)*tscale
+# 	theta = 0.1
+# 	t = np.array([5,10])
+
+# 	rot = R(theta)
+
+
+# 	#top part of T
+# 	pp1[:int(npts/3), :] = np.array([np.linspace(-250,250,int(npts/3)),125+10*np.sin(np.linspace(-2,2,int(npts/3)))]).T #wavy
+# 	# pp1[:int(npts/3), :] = np.array([np.linspace(-250,250,int(npts/3)),125*np.ones(int(npts/3))]).T #flat
+# 	#left horizontal
+# 	pp1[int(npts/3):int(npts/2), :] = np.array([np.linspace(-250,-75,int(npts/6)),np.ones(int(npts/6))*-75]).T
+# 	#left vertical
+# 	pp1[int(npts/2):int(2*npts/3), :] = np.array([np.ones(int(npts/6))*-75 ,np.linspace(-250,-75,int(npts/6))]).T
+# 	#right vertical
+# 	pp1[int(2*npts/3):int(5*npts/6), :] = np.array([np.ones(int(npts/6))*75 ,np.linspace(-250,-75,int(npts/6))]).T
+# 	#right horizontal
+# 	pp1[int(5*npts/6):, :] = np.array([np.linspace(75,250,int(npts/6)),np.ones(int(npts/6))*-75]).T
+
+# 	#rotate 90 deg
+# 	# temp = np.array([pp1[:,1], pp1[:,0]]).T
+# 	# pp1[:,:] = temp[:,:]
+
+# 	pp2[:,:] = pp1[:,:]
+
+# 	#transform scan2
+# 	pp2 += t
+# 	pp2 = rot.dot(pp2.T)
+# 	pp2 = pp2.T
+
+# 	#add noise to pp1 and pp2 SEPERATELY
+# 	pp1 += np.random.randn(npts, 2)*noise_scale
+# 	pp2 += np.random.randn(npts, 2)*noise_scale
+
+# 	ax.plot(pp1[:,0], pp1[:,1], color = (0.25,0.8,0.25,0.5), ls = '', marker = '.', markersize = 1)
+# 	ax.plot(pp2[:,0], pp2[:,1], color = (0.25,0.25,0.8,0.5), ls = '', marker = '.', markersize = 1)
+
+# 	if output_actual == False:
+# 		return pp1, pp2
+# 	if output_actual == True:
+# 		x_actual = np.array([t[0], t[1], theta])
+# 		return pp1, pp2, x_actual
 
 # def generate_along_track_data(fig,ax,draw = True, output_actual = False):
 

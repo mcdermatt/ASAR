@@ -342,10 +342,10 @@ while i < endIndx
 
     if fuse_lidar == 1
 %         interval = 2e3; %10s
-%         interval = 1e3; %5s
+        interval = 1e3; %5s
 %         interval = 2e2; %1s
-%         if  mod(i,interval) == 0 %fuse at regular arbitrary interval
-        if gpsmsr(1) <= msrk1(1) && gpsmsr(1) > msrk(1)  % If GPS time between two inertial measurement times, do an update %
+        if  mod(i,interval) == 0 %fuse at regular arbitrary interval
+%         if gpsmsr(1) <= msrk1(1) && gpsmsr(1) > msrk(1)  % If GPS time between two inertial measurement times, do an update %
 
             %reset INS and Lidar covariance to combined estiamte
             PM_ins(1:3,1:3) = PM_combined(1:3,1:3);
