@@ -291,7 +291,7 @@ class ICET():
 					# residuals_compact = L_i @ U_iT @ tf.gather(self.residuals_full[:,:,None], ans) #(5/19) -> debug: should this be U_i or U_iT?
 					residuals_compact = L_i @ U_iT @ self.residuals_full[:,:,None] #correct (5/20)
 
-					self.RM_thresh = 0.05 #0.1 #0.05
+					self.RM_thresh = 0.03 #0.1 #0.05
 					# bidx = tf.where(residuals_compact > thresh )[:,0] #TODO: consider absolute value!
 					bidx = tf.where(tf.math.abs(residuals_compact) > self.RM_thresh )[:,0]
 					# print(residuals_compact)

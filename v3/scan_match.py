@@ -55,30 +55,30 @@ from metpy.calc import lat_lon_grid_deltas
 # OXTS_ground_truth = tf.constant([poses1.packet.vf*dt, -poses1.packet.vl*dt, poses1.packet.vu*dt, poses1.packet.wf*dt, poses1.packet.wl*dt, poses1.packet.wu*dt])
 # # ------------------------------------------------------------------------------------
 
-# full KITTI dataset (uses different formatting incompable with PyKitti)--------------
-#files are 80gb so remember to plug in the external hard drive!
-basedir = "E:/KITTI/dataset/"
-date = "2011_09_26"
-drive = '00' #urban
-dataset = pykitti.raw(basedir, date, drive)
+# # full KITTI dataset (uses different formatting incompable with PyKitti)--------------
+# #files are 80gb so remember to plug in the external hard drive!
+# basedir = "E:/KITTI/dataset/"
+# date = "2011_09_26"
+# drive = '00' #urban
+# dataset = pykitti.raw(basedir, date, drive)
 
-idx = 315 #300 good
+# idx = 315 #300 good
 
-velo1 = dataset.get_velo(idx) # Each scan is a Nx4 array of [x,y,z,reflectance]
-c1 = velo1[:,:3]
-velo2 = dataset.get_velo(idx+1) # Each scan is a Nx4 array of [x,y,z,reflectance]
-c2 = velo2[:,:3]
+# velo1 = dataset.get_velo(idx) # Each scan is a Nx4 array of [x,y,z,reflectance]
+# c1 = velo1[:,:3]
+# velo2 = dataset.get_velo(idx+1) # Each scan is a Nx4 array of [x,y,z,reflectance]
+# c2 = velo2[:,:3]
 
-# c1 = c1[c1[:,2] > -1.3] #ignore ground plane
-# c2 = c2[c2[:,2] > -1.3] #ignore ground plane
+# # c1 = c1[c1[:,2] > -1.3] #ignore ground plane
+# # c2 = c2[c2[:,2] > -1.3] #ignore ground plane
 
-# #TEST: add gaussian noise to all points
-# noise_scale = 0.01
-# c1 += noise_scale*np.random.randn(np.shape(c1)[0], 3)
-# c2 += noise_scale*np.random.randn(np.shape(c2)[0], 3)
+# # #TEST: add gaussian noise to all points
+# # noise_scale = 0.01
+# # c1 += noise_scale*np.random.randn(np.shape(c1)[0], 3)
+# # c2 += noise_scale*np.random.randn(np.shape(c2)[0], 3)
 
-#read from the OXTS text file directly instead of messing with PyKitti file formats...
-# ------------------------------------------------------------------------------------
+# #read from the OXTS text file directly instead of messing with PyKitti file formats...
+# # ------------------------------------------------------------------------------------
 
 # # RAW KITTI dataset ------------------------------------------------------------------
 # i = 110
@@ -91,26 +91,32 @@ c2 = velo2[:,:3]
 # # ------------------------------------------------------------------------------------
 
 
-# # Ford Campus Datset------------------------------------------------------------------
-# import mat4py
-# #starts at 1000
+# Ford Campus Datset------------------------------------------------------------------
+import mat4py
+
+# partial dataset starts at 1000
 # fn1 = 'E:/Ford/IJRR-Dataset-1-subset/SCANS/Scan1134.mat'
 # fn2 = 'E:/Ford/IJRR-Dataset-1-subset/SCANS/Scan1135.mat'
 
-# dat1 = mat4py.loadmat(fn1)
-# SCAN1 = dat1['SCAN']
-# c1 = np.transpose(np.array(SCAN1['XYZ']))
+#full dataset starts at 00136
+i = 1190
+fn1 = 'E:/Ford/IJRR-Dataset-1/SCANS/Scan%04d.mat' %(i+75) #75 + 61 = 136
+fn2 = 'E:/Ford/IJRR-Dataset-1/SCANS/Scan%04d.mat' %(i+76) #76 + 61 = 137
 
-# dat2 = mat4py.loadmat(fn2)
-# SCAN2 = dat2['SCAN']
-# c2 = np.transpose(np.array(SCAN2['XYZ']))
+dat1 = mat4py.loadmat(fn1)
+SCAN1 = dat1['SCAN']
+c1 = np.transpose(np.array(SCAN1['XYZ']))
 
-# ground_truth = np.loadtxt("E:/Ford/IJRR-Dataset-1-subset/SCANS/truth.txt")/10
-# ground_truth = tf.cast(tf.convert_to_tensor(ground_truth)[154,:], tf.float32)
+dat2 = mat4py.loadmat(fn2)
+SCAN2 = dat2['SCAN']
+c2 = np.transpose(np.array(SCAN2['XYZ']))
 
-# # c1 = c1[c1[:,2] > -2.2] #ignore ground plane #mounted 2.4m off ground
-# # c2 = c2[c2[:,2] > -2.2] #ignore ground plane
-# # ------------------------------------------------------------------------------------
+ground_truth = np.loadtxt("E:/Ford/IJRR-Dataset-1-subset/SCANS/truth.txt")/10
+ground_truth = tf.cast(tf.convert_to_tensor(ground_truth)[154,:], tf.float32)
+
+# c1 = c1[c1[:,2] > -2.2] #ignore ground plane #mounted 2.4m off ground
+# c2 = c2[c2[:,2] > -2.2] #ignore ground plane
+# ------------------------------------------------------------------------------------
 
 
 # #TIERS forest dataset -----------------------------------------------------------------
@@ -226,7 +232,7 @@ c2 = velo2[:,:3]
 
 # ground_truth = tf.constant([0.1799, 0., 0., -0.0094, -0.011, -0.02072]) #FULL KITTI scan 1397
 
-it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 100, niter = 15, 
+it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 15, 
 	draw = True, group = 2, RM = True, DNN_filter = False)#, cheat = ground_truth)
 
 # it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 100, niter = 20, 
