@@ -6,6 +6,9 @@ close all
 %import stl
 % FileName = 'virtual_scenes/scene1.stl'; %easy scan with house 
 FileName = 'virtual_scenes/T_intersection.stl' ;
+% FileName = 'virtual_scenes/curve.stl' ;
+% FileName = 'virtual_scenes/big_curve.stl' ;
+% FileName = 'virtual_scenes/tube.stl' ;
 
 % FileName = 'virtual_scenes/scene2.stl'; %round pillars on one side of road
 % FileName = 'virtual_scenes/scene2_thick.stl'; %squared pillars
@@ -55,24 +58,24 @@ sensor.ElevationResolution = 0.4;
 scenario = trackingScenario;
 
 % ego = platform(scenario, 'Position', [-9.75, -1, 0]);
-% ego = platform(scenario, 'Position', [0, 0, 1.72], 'Orientation', eul2rotm(deg2rad([0.0, 10.0, 0.0]))); %[yaw, pitch, roll]
+% ego = platform(scenario, 'Position', [0, 0, 1.72], 'Orientation', eul2rotm(deg2rad([0.0, 45.0, 0.0]))); %[yaw, pitch, roll]
 ego = platform(scenario, 'Position', [0, 0, 1.72]);
 
 
 % target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[0 0 0],'Velocity',[0 5 0])); %no rotation
 % target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[0 0 -3],'Velocity',[5 0 0], 'AngularVelocity', [0, 0, 1.])); %with rotatation 
-target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[0 0 0],'Velocity',[0 5 0], 'AngularVelocity', [0, 0, 1.])); %with rotatation 
+target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[0 2 0],'Velocity',[5 5 0], 'AngularVelocity', [0., 0., 0.])); %with rotatation 
 % target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[-20 0 -8],'Velocity',[5 0 0], 'AngularVelocity', [0, 0, 0.0])); %mountain no trees 
 
 %NOTE: to use offcentered Position we need to have ZERO AngularVelocity!!!
 
 target.Mesh = mesh;
 
-% %default~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-% target.Dimensions.Length = 100; 
-% target.Dimensions.Width = 100;
-% target.Dimensions.Height = 5; %20; %6; %18;
-% %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+%default~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+target.Dimensions.Length = 100; 
+target.Dimensions.Width = 100;
+target.Dimensions.Height = 5; %20; %6; %18;
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 %height = 20 for with trees, 
 
 % %need to scale differently for simple room ~~~~~~~
@@ -81,11 +84,11 @@ target.Mesh = mesh;
 % target.Dimensions.Height = 4;
 % %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-% %need to scale differently for T intersection ~~~~~~~
-target.Dimensions.Length = 100; 
-target.Dimensions.Width = 150;
-target.Dimensions.Height = 6;
-% %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+% % %need to scale differently for T intersection ~~~~~~~
+% target.Dimensions.Length = 100; 
+% target.Dimensions.Width = 150;
+% target.Dimensions.Height = 6;
+% % %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 show(target.Mesh)
 
@@ -135,4 +138,8 @@ ptCloud2 = rmmissing(ptCloud2);
 
 writematrix(ptCloud1, "T_intersection_scan1.txt", 'Delimiter', 'tab')
 writematrix(ptCloud2, "T_intersection_scan2.txt", 'Delimiter', 'tab')
+% writematrix(ptCloud1, "curve_scan1.txt", 'Delimiter', 'tab')
+% writematrix(ptCloud2, "curve_scan2.txt", 'Delimiter', 'tab')
+% writematrix(ptCloud1, "tube_scan1.txt", 'Delimiter', 'tab')
+% writematrix(ptCloud2, "tube_scan2.txt", 'Delimiter', 'tab')
 

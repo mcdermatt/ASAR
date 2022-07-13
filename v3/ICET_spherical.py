@@ -69,7 +69,7 @@ class ICET():
 		self.cloud2_tensor = tf.cast(tf.convert_to_tensor(cloud2), tf.float32)
 
 		if self.draw == True:
-			self.plt = Plotter(N = 1, axes = 0, bg = (1, 1, 1), interactive = True) #axis = 1
+			self.plt = Plotter(N = 1, axes = 4, bg = (1, 1, 1), interactive = True) #axis = 1
 			self.disp = []
 			#copy-paste camera settings here using Shift+C on vedo terminal window-----------
 			self.plt.camera.SetPosition( [-36.28, 13.51, 20.48] )
@@ -220,7 +220,7 @@ class ICET():
 			# self.visualize_L(mu1_enough, U, L)
 			self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
 			# self.draw_cell(corn)
-			self.draw_car()
+			# self.draw_car()
 			# draw identified points inside useful clusters
 			# for n in range(tf.shape(inside1.to_tensor())[0]):
 			# 	temp = tf.gather(self.cloud1_tensor, inside1[n]).numpy()	
@@ -595,7 +595,7 @@ class ICET():
 
 			#FOR DEBUG: we should be looking at U_i, L_i anyways...
 			#   ans == indeces of enough1 that intersect with corr (aka combined enough1, enough2)
-			# self.visualize_L(tf.gather(mu1_enough, ans), U_i, L_i)
+			self.visualize_L(tf.gather(mu1_enough, ans), U_i, L_i)
 
 			# # #for generating figure 3b in spherical ICET paper ----------
 			# #scene 1, fid = 50, with ground plane
@@ -1132,7 +1132,7 @@ class ICET():
 			U2 = rotation matrix to transform for L2 pruning 
 			"""
 
-		cutoff = 1e7 #1e5 #TODO-> experiment with this to get a good value
+		cutoff = 1e7 #1e4 #1e5 #TODO-> experiment with this to get a good value
 
 		#do eigendecomposition
 		eigenval, eigenvec = tf.linalg.eig(HTWH)
@@ -1176,7 +1176,9 @@ class ICET():
 		# print("\n L2 \n", L2)
 
 		U2 = eigenvec
-		# print("\n U2 \n", U2)
+		# print("\n U2^T \n", tf.transpose(U2))
+
+		#TODO: scale eigenvectors associated with rotational components of solution
 
 		lam = tf.eye(6)*eigenval
 		# print("\n lam \n", lam)
@@ -1691,6 +1693,7 @@ class ICET():
 		# car = Mesh(fname).c("gray").rotate(90, axis = (0,0,1)).addShadow(z=-1.85) #old vedo
 		car = Mesh(fname).c("gray").rotate(90, axis = (0,0,1))
 		car.pos(1.4,1,-1.72)
+		car.rotate(-45, axis = (0,0,1)) #for curve scene
 		car.addShadow(plane = 'z', point = -1.85, c=(0.5, 0.5, 0.5))
 		# car.orientation(vector(0,np.pi/2,0)) 
 		self.disp.append(car)

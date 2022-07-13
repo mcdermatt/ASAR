@@ -112,10 +112,10 @@ for i in range(num_frames):
 	# print("\n solution from ICET \n", ICET_estimates[i])
 	print("\n solution from GPS/INS \n", OXTS_baseline[i])
 
-np.savetxt("ICET_pred_stds_v18.txt", ICET_pred_stds)
-np.savetxt("ICET_estimates_v18.txt", ICET_estimates)
-np.savetxt("OXTS_baseline_v18.txt", OXTS_baseline)
-np.savetxt("Before_correction_v18.txt", before_correction)
+# np.savetxt("ICET_pred_stds_v18.txt", ICET_pred_stds)
+# np.savetxt("ICET_estimates_v18.txt", ICET_estimates)
+# np.savetxt("OXTS_baseline_v18.txt", OXTS_baseline)
+# np.savetxt("Before_correction_v18.txt", before_correction)
 
 
 # np.savetxt("OXTS_baseline_gps.txt", OXTS_baseline)

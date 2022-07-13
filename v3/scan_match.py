@@ -55,25 +55,30 @@ from metpy.calc import lat_lon_grid_deltas
 # OXTS_ground_truth = tf.constant([poses1.packet.vf*dt, -poses1.packet.vl*dt, poses1.packet.vu*dt, poses1.packet.wf*dt, poses1.packet.wl*dt, poses1.packet.wu*dt])
 # # ------------------------------------------------------------------------------------
 
-# # full KITTI dataset (uses different formatting incompable with PyKitti)--------------
-# #files are 80gb so remember to plug in the external hard drive!
-# basedir = "E:/KITTI/dataset/"
-# date = "2011_09_26"
-# drive = '00' #urban
-# dataset = pykitti.raw(basedir, date, drive)
+# full KITTI dataset (uses different formatting incompable with PyKitti)--------------
+#files are 80gb so remember to plug in the external hard drive!
+basedir = "E:/KITTI/dataset/"
+date = "2011_09_26"
+drive = '00' #urban
+dataset = pykitti.raw(basedir, date, drive)
 
-# idx = 600
+idx = 315 #300 good
 
-# velo1 = dataset.get_velo(idx) # Each scan is a Nx4 array of [x,y,z,reflectance]
-# c1 = velo1[:,:3]
-# velo2 = dataset.get_velo(idx+1) # Each scan is a Nx4 array of [x,y,z,reflectance]
-# c2 = velo2[:,:3]
+velo1 = dataset.get_velo(idx) # Each scan is a Nx4 array of [x,y,z,reflectance]
+c1 = velo1[:,:3]
+velo2 = dataset.get_velo(idx+1) # Each scan is a Nx4 array of [x,y,z,reflectance]
+c2 = velo2[:,:3]
 
 # c1 = c1[c1[:,2] > -1.3] #ignore ground plane
 # c2 = c2[c2[:,2] > -1.3] #ignore ground plane
 
-# #read from the OXTS text file directly instead of messing with PyKitti file formats...
-# # ------------------------------------------------------------------------------------
+# #TEST: add gaussian noise to all points
+# noise_scale = 0.01
+# c1 += noise_scale*np.random.randn(np.shape(c1)[0], 3)
+# c2 += noise_scale*np.random.randn(np.shape(c2)[0], 3)
+
+#read from the OXTS text file directly instead of messing with PyKitti file formats...
+# ------------------------------------------------------------------------------------
 
 # # RAW KITTI dataset ------------------------------------------------------------------
 # i = 110
@@ -144,47 +149,57 @@ from metpy.calc import lat_lon_grid_deltas
 # #---------------------------------------------------------------------------------------
 
 
-# load custom point cloud geneated in matlab------------------------------------------
-# c1 = np.loadtxt("scene1_scan1.txt", dtype = float) #shadows
-# c2 = np.loadtxt("scene1_scan2.txt", dtype = float)
-# c1 = np.loadtxt("scene1_scan1_squares.txt", dtype = float) #shadows
-# c2 = np.loadtxt("scene1_scan2_squares.txt", dtype = float)
+# # load custom point cloud geneated in matlab------------------------------------------
+# # c1 = np.loadtxt("scene1_scan1.txt", dtype = float) #shadows
+# # c2 = np.loadtxt("scene1_scan2.txt", dtype = float)
+# # c1 = np.loadtxt("scene1_scan1_squares.txt", dtype = float) #shadows
+# # c2 = np.loadtxt("scene1_scan2_squares.txt", dtype = float)
 
-c1 = np.loadtxt("T_intersection_scan1.txt", dtype = float)
-c2 = np.loadtxt("T_intersection_scan2.txt", dtype = float)
+# c1 = np.loadtxt("T_intersection_scan1.txt", dtype = float)
+# c2 = np.loadtxt("T_intersection_scan2.txt", dtype = float)
 
-# c1 = np.loadtxt("scene2_scan1.txt", dtype = float) #small cylinders
-# c2 = np.loadtxt("scene2_scan2.txt", dtype = float)
-# c1 = np.loadtxt("scene3_scan1.txt", dtype = float) #rectangles
-# c2 = np.loadtxt("scene3_scan2.txt", dtype = float)
-# c1 = np.loadtxt("scene4_scan1.txt", dtype = float) #cylinders
-# c2 = np.loadtxt("scene4_scan2.txt", dtype = float)
-# c1 = np.loadtxt("simple_room_scan1.txt", dtype = float) #for debugging DNN filter
-# c2 = np.loadtxt("simple_room_scan2.txt", dtype = float)
-# c1 = np.loadtxt("verify_geometry_scan1.txt", dtype = float) #validate  2d geometry ipynb
-# c2 = np.loadtxt("verify_geometry_scan2.txt", dtype = float)
-# c1 = np.loadtxt("mountain_scan1_no_trees.txt", dtype = float) #test
-# c2 = np.loadtxt("mountain_scan2_no_trees.txt", dtype = float)
+# # c1 = np.loadtxt("curve_scan1.txt", dtype = float)
+# # c2 = np.loadtxt("curve_scan2.txt", dtype = float)
 
-# c1 = c1[c1[:,2] > -1.55] #ignore ground plane
-# c2 = c2[c2[:,2] > -1.55] #ignore ground plane
+# # c1 = np.loadtxt("tube_scan1.txt", dtype = float)
+# # c2 = np.loadtxt("tube_scan2.txt", dtype = float)
 
-# c1 = c1[c1[:,2] > -1.25] #ignore ground plane
-# c2 = c2[c2[:,2] > -1.25] #ignore ground plane
+# # c1 = np.loadtxt("scene2_scan1.txt", dtype = float) #small cylinders
+# # c2 = np.loadtxt("scene2_scan2.txt", dtype = float)
+# # c1 = np.loadtxt("scene3_scan1.txt", dtype = float) #rectangles
+# # c2 = np.loadtxt("scene3_scan2.txt", dtype = float)
+# # c1 = np.loadtxt("scene4_scan1.txt", dtype = float) #cylinders
+# # c2 = np.loadtxt("scene4_scan2.txt", dtype = float)
+# # c1 = np.loadtxt("simple_room_scan1.txt", dtype = float) #for debugging DNN filter
+# # c2 = np.loadtxt("simple_room_scan2.txt", dtype = float)
+# # c1 = np.loadtxt("verify_geometry_scan1.txt", dtype = float) #validate  2d geometry ipynb
+# # c2 = np.loadtxt("verify_geometry_scan2.txt", dtype = float)
+# # c1 = np.loadtxt("mountain_scan1_no_trees.txt", dtype = float) #test
+# # c2 = np.loadtxt("mountain_scan2_no_trees.txt", dtype = float)
 
-# debug: get rid of half of the points in scan 2 (testing outlier rejection indexing)
-# c2 = c2[c2[:,1] > 0 ]
+# # c1 = c1[c1[:,2] > -1.55] #ignore ground plane
+# # c2 = c2[c2[:,2] > -1.55] #ignore ground plane
 
-# #add noise (if not generated when point clouds were created)
-# np.random.seed(101)
-c1 += 0.01*np.random.randn(np.shape(c1)[0], 3)
-c2 += 0.01*np.random.randn(np.shape(c2)[0], 3) 
+# # c1 = c1[c1[:,2] > -1.25] #ignore ground plane
+# # c2 = c2[c2[:,2] > -1.25] #ignore ground plane
 
-#slightly raise each PC
-c1[:,2] += 0.2
-c2[:,2] += 0.2
+# # debug: get rid of half of the points in scan 2 (testing outlier rejection indexing)
+# # c2 = c2[c2[:,1] > 0 ]
 
-# ------------------------------------------------------------------------------------
+# # #add noise (if not generated when point clouds were created)
+# # np.random.seed(101)
+# c1 += 0.01*np.random.randn(np.shape(c1)[0], 3)
+# c2 += 0.01*np.random.randn(np.shape(c2)[0], 3) 
+
+# #slightly raise each PC
+# c1[:,2] += 0.2
+# c2[:,2] += 0.2
+
+# #rotate scans
+# rot = R_tf(tf.constant([0., 0., 0.05]))
+# c2 = c2 @ rot.numpy() 
+
+# # ------------------------------------------------------------------------------------
 
 
 # #tesing full trajectory before simulation for spherical ICET paper -------------------
@@ -211,8 +226,8 @@ c2[:,2] += 0.2
 
 # ground_truth = tf.constant([0.1799, 0., 0., -0.0094, -0.011, -0.02072]) #FULL KITTI scan 1397
 
-it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 15, 
-	draw = True, group = 2, RM = False, DNN_filter = False)#, cheat = ground_truth)
+it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 100, niter = 15, 
+	draw = True, group = 2, RM = True, DNN_filter = False)#, cheat = ground_truth)
 
 # it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 100, niter = 20, 
 # 	draw = True, group = 2, RM = False, DNN_filter = False, x0 = it1.X)
