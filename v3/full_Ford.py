@@ -10,7 +10,7 @@ from ICET_spherical import ICET
 import mat4py
 
 
-num_frames = 500 #199
+num_frames = 3810 #500 #199
 
 ICET_estimates = np.zeros([num_frames, 6])
 ICET_pred_stds = np.zeros([num_frames, 6])
@@ -27,9 +27,11 @@ for i in range(num_frames):
 	# #-------------------
 
 	#full dataset ------
-	fn1 = 'E:/Ford/IJRR-Dataset-1/SCANS/Scan%04d.mat' %(i+1055) # 980+75
-	fn2 = 'E:/Ford/IJRR-Dataset-1/SCANS/Scan%04d.mat' %(i+1056) # 980+76
-	#NOTE: the good section starts at img 980
+	fn1 = 'E:/Ford/IJRR-Dataset-1/SCANS/Scan%04d.mat' %(i+75)
+	fn2 = 'E:/Ford/IJRR-Dataset-1/SCANS/Scan%04d.mat' %(i+76)
+	#NOTE: 
+	#	campus townhouses at 980+75,76
+	#	long straight strip at 2200 + 75,76
 	#-------------------
 
 	dat1 = mat4py.loadmat(fn1)
@@ -40,7 +42,7 @@ for i in range(num_frames):
 	SCAN2 = dat2['SCAN']
 	c2 = np.transpose(np.array(SCAN2['XYZ']))
 
-	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 15, draw = False, group = 2, 
+	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 8, draw = False, group = 2, 
 		RM = True, DNN_filter = False, x0 = initial_guess)
 
 	ICET_pred_stds[i] = it.pred_stds
@@ -48,8 +50,8 @@ for i in range(num_frames):
 	# initial_guess = it.X
 
 
-np.savetxt("Ford_full_pred_stds_v3.txt", ICET_pred_stds)
-np.savetxt("Ford_full_estimates_v3.txt", ICET_estimates)
+# np.savetxt("Ford_full_pred_stds_v5.txt", ICET_pred_stds)
+# np.savetxt("Ford_full_estimates_v5.txt", ICET_estimates)
 
 #OLD (using partial Ford dataset)
 #v1 - fid 50, dnn = 0.10, moving = 0.1
@@ -62,3 +64,5 @@ np.savetxt("Ford_full_estimates_v3.txt", ICET_estimates)
 #v1 - fid 50, no dnn, moving = ??, 25 frame test
 #v2 - first 300 frames
 #v3 - 300 frames starting with frame corresponding to img980
+#V4 - 500 frames in main downtown area
+#v5 - every frame 

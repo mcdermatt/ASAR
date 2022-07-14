@@ -91,32 +91,32 @@ from metpy.calc import lat_lon_grid_deltas
 # # ------------------------------------------------------------------------------------
 
 
-# Ford Campus Datset------------------------------------------------------------------
-import mat4py
+# # Ford Campus Datset------------------------------------------------------------------
+# import mat4py
 
-# partial dataset starts at 1000
-# fn1 = 'E:/Ford/IJRR-Dataset-1-subset/SCANS/Scan1134.mat'
-# fn2 = 'E:/Ford/IJRR-Dataset-1-subset/SCANS/Scan1135.mat'
+# # partial dataset starts at 1000
+# # fn1 = 'E:/Ford/IJRR-Dataset-1-subset/SCANS/Scan1134.mat'
+# # fn2 = 'E:/Ford/IJRR-Dataset-1-subset/SCANS/Scan1135.mat'
 
-#full dataset starts at 00136
-i = 1190
-fn1 = 'E:/Ford/IJRR-Dataset-1/SCANS/Scan%04d.mat' %(i+75) #75 + 61 = 136
-fn2 = 'E:/Ford/IJRR-Dataset-1/SCANS/Scan%04d.mat' %(i+76) #76 + 61 = 137
+# #full dataset starts at 00136
+# i = 1150 #1190
+# fn1 = 'E:/Ford/IJRR-Dataset-1/SCANS/Scan%04d.mat' %(i+75) #75 + 61 = 136
+# fn2 = 'E:/Ford/IJRR-Dataset-1/SCANS/Scan%04d.mat' %(i+76) #76 + 61 = 137
 
-dat1 = mat4py.loadmat(fn1)
-SCAN1 = dat1['SCAN']
-c1 = np.transpose(np.array(SCAN1['XYZ']))
+# dat1 = mat4py.loadmat(fn1)
+# SCAN1 = dat1['SCAN']
+# c1 = np.transpose(np.array(SCAN1['XYZ']))
 
-dat2 = mat4py.loadmat(fn2)
-SCAN2 = dat2['SCAN']
-c2 = np.transpose(np.array(SCAN2['XYZ']))
+# dat2 = mat4py.loadmat(fn2)
+# SCAN2 = dat2['SCAN']
+# c2 = np.transpose(np.array(SCAN2['XYZ']))
 
-ground_truth = np.loadtxt("E:/Ford/IJRR-Dataset-1-subset/SCANS/truth.txt")/10
-ground_truth = tf.cast(tf.convert_to_tensor(ground_truth)[154,:], tf.float32)
+# ground_truth = np.loadtxt("E:/Ford/IJRR-Dataset-1-subset/SCANS/truth.txt")/10
+# ground_truth = tf.cast(tf.convert_to_tensor(ground_truth)[154,:], tf.float32)
 
-# c1 = c1[c1[:,2] > -2.2] #ignore ground plane #mounted 2.4m off ground
-# c2 = c2[c2[:,2] > -2.2] #ignore ground plane
-# ------------------------------------------------------------------------------------
+# # c1 = c1[c1[:,2] > -2.2] #ignore ground plane #mounted 2.4m off ground
+# # c2 = c2[c2[:,2] > -2.2] #ignore ground plane
+# # ------------------------------------------------------------------------------------
 
 
 # #TIERS forest dataset -----------------------------------------------------------------
@@ -126,33 +126,33 @@ ground_truth = tf.cast(tf.convert_to_tensor(ground_truth)[154,:], tf.float32)
 # c2 = np.loadtxt(filename2, dtype = float)
 # # #---------------------------------------------------------------------------------------
 
-# #CODD (colaborative driving dataset)----------------------------------------------------
-# import h5py
-# # filename = 'C:/CODD/data/m1v7p7s769.hdf5' #straight line urban(?)
-# # filename = 'C:/CODD/data/m5v10p6s31.hdf5' #turn on country road
-# # filename = 'C:/CODD/data/m2v7p3s333.hdf5'
-# filename = 'C:/CODD/data/m10v11p6s30.hdf5' #wide road, palm trees, and traffic
+#CODD (colaborative driving dataset)----------------------------------------------------
+import h5py
+# filename = 'C:/CODD/data/m1v7p7s769.hdf5' #straight line urban(?)
+# filename = 'C:/CODD/data/m5v10p6s31.hdf5' #turn on country road
+# filename = 'C:/CODD/data/m2v7p3s333.hdf5'
+filename = 'C:/CODD/data/m10v11p6s30.hdf5' #wide road, palm trees, and traffic
 
-# vidx = 0 #vehicle index
-# idx = 61 #frame idx
+vidx = 0 #vehicle index
+idx = 123 #frame idx
 
-# with h5py.File(filename, 'r') as hf:
-# #     pcls = hf['point_cloud'][:]
-#     #[frames, vehicles, points_per_cloud, 4]
-#     pcls = hf['point_cloud'][:, vidx ,: , :3]
-#     #[frames, points_per_cloud, rgb]
+with h5py.File(filename, 'r') as hf:
+#     pcls = hf['point_cloud'][:]
+    #[frames, vehicles, points_per_cloud, 4]
+    pcls = hf['point_cloud'][:, vidx ,: , :3]
+    #[frames, points_per_cloud, rgb]
     
-# #     pose = hf['lidar_pose'][:]
-#     #[frames, vehicles, (x,y,z, rotx, roty, rotz)]
-#     pose = hf['lidar_pose'][:, vidx, :]
+#     pose = hf['lidar_pose'][:]
+    #[frames, vehicles, (x,y,z, rotx, roty, rotz)]
+    pose = hf['lidar_pose'][:, vidx, :]
 
-# c1 = pcls[idx]
-# c2 = pcls[idx+1]
+c1 = pcls[idx]
+c2 = pcls[idx+1]
 
-# noise_scale = 0.01 # doesn't work at 0.001
-# c1 += noise_scale*np.random.randn(np.shape(c1)[0], 3)
-# c2 += noise_scale*np.random.randn(np.shape(c2)[0], 3)
-# #---------------------------------------------------------------------------------------
+noise_scale = 0.005 #0.01 # doesn't work at 0.001
+c1 += noise_scale*np.random.randn(np.shape(c1)[0], 3)
+c2 += noise_scale*np.random.randn(np.shape(c2)[0], 3)
+#---------------------------------------------------------------------------------------
 
 
 # # load custom point cloud geneated in matlab------------------------------------------
@@ -232,7 +232,7 @@ ground_truth = tf.cast(tf.convert_to_tensor(ground_truth)[154,:], tf.float32)
 
 # ground_truth = tf.constant([0.1799, 0., 0., -0.0094, -0.011, -0.02072]) #FULL KITTI scan 1397
 
-it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 15, 
+it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 10, 
 	draw = True, group = 2, RM = True, DNN_filter = False)#, cheat = ground_truth)
 
 # it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 100, niter = 20, 

@@ -43,15 +43,16 @@ class ICET():
 		DNN_filter = False, cheat = []):
 
 		self.min_cell_distance = 2 #0.1 #5 #2 #begin closest spherical voxel here
-		self.min_num_pts = 50 #25 #ignore "occupied" cells with fewer than this number of pts
+		#ignore "occupied" cells with fewer than this number of pts
+		self.min_num_pts = 25 #was 50 for KITTI and Ford, need to lower for CODD 
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
 		self.niter = niter
 		self.alpha = 0.75 #1 #controls alpha values when displaying ellipses
 		self.cheat = cheat
 		self.DNN_filter = DNN_filter
-		self.start_filter_iter = 10 #10 #iteration to start DNN rejection filter
-		self.start_RM_iter = 10 #iteration to start removing moving objects (set low to generate training data)
+		self.start_filter_iter = 5 #10 #iteration to start DNN rejection filter
+		self.start_RM_iter = 5 #10 #iteration to start removing moving objects (set low to generate training data)
 		self.DNN_thresh = 0.1
 		self.RM_thresh = 0.1
 
