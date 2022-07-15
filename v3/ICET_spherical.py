@@ -217,19 +217,19 @@ class ICET():
 		U, L = self.get_U_and_L_cluster(sigma1_enough, mu1_enough, occupied_spikes, bounds)
 
 
-		if self.draw:
-			# self.visualize_L(mu1_enough, U, L)
-			self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
-			# self.draw_cell(corn)
-			# self.draw_car()
-			# draw identified points inside useful clusters
-			# for n in range(tf.shape(inside1.to_tensor())[0]):
-			# 	temp = tf.gather(self.cloud1_tensor, inside1[n]).numpy()	
-			# 	self.disp.append(Points(temp, c = 'green', r = 5))
-			# self.visualize_L(mu1_enough, U, L)
-			##for fig introducing shadowing bias problem
-			# self.disp.append(Point(pos = (0,0,0), c = 'red', r = 10 )) 
-			# self.disp.append(Point(pos = (0.5,0,0), c = 'blue', r = 10 )) 
+		# if self.draw:
+		# 	# self.visualize_L(mu1_enough, U, L)
+		# 	self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
+		# 	# self.draw_cell(corn)
+		# 	# self.draw_car()
+		# 	# draw identified points inside useful clusters
+		# 	# for n in range(tf.shape(inside1.to_tensor())[0]):
+		# 	# 	temp = tf.gather(self.cloud1_tensor, inside1[n]).numpy()	
+		# 	# 	self.disp.append(Points(temp, c = 'green', r = 5))
+		# 	# self.visualize_L(mu1_enough, U, L)
+		# 	##for fig introducing shadowing bias problem
+		# 	# self.disp.append(Point(pos = (0,0,0), c = 'red', r = 10 )) 
+		# 	# self.disp.append(Point(pos = (0.5,0,0), c = 'blue', r = 10 )) 
 
 		for i in range(niter):
 			#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -576,18 +576,18 @@ class ICET():
 
 		#draw PC2
 		if self.draw == True:
-			if remove_moving:
-				self.draw_cell(bad_idx_corn_moving, bad = True) #for debug
+			# if remove_moving:
+			# 	self.draw_cell(bad_idx_corn_moving, bad = True) #for debug
 			if self.DNN_filter:
 				self.draw_cell(bad_idx_corn_DNN, bad = 2)
 				# self.draw_DNN_soln(dnn_compact_xyz[:,:,0], it_compact_xyz[:,:,0], idx_to_draw_dnn_soln) #just in compact directions
 				self.draw_DNN_soln(dnnsoln, icetsoln, idx_to_draw_dnn_soln) #raw solutions
 
 
-			self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
+			# self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
 			self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
-			self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
-			# self.draw_cloud(self.cloud2_tensor_OG.numpy(), pc = 3) #draw OG cloud in differnt color
+			# self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
+			self.draw_cloud(self.cloud2_tensor_OG.numpy(), pc = 2) #draw OG cloud in differnt color
 			# draw identified points from scan 2 inside useful clusters
 			# for n in range(tf.shape(inside2.to_tensor())[0]):
 			# 	temp = tf.gather(self.cloud2_tensor, inside2[n]).numpy()	
@@ -596,7 +596,7 @@ class ICET():
 
 			#FOR DEBUG: we should be looking at U_i, L_i anyways...
 			#   ans == indeces of enough1 that intersect with corr (aka combined enough1, enough2)
-			self.visualize_L(tf.gather(mu1_enough, ans), U_i, L_i)
+			# self.visualize_L(tf.gather(mu1_enough, ans), U_i, L_i)
 
 			# # #for generating figure 3b in spherical ICET paper ----------
 			# #scene 1, fid = 50, with ground plane
@@ -1133,7 +1133,7 @@ class ICET():
 			U2 = rotation matrix to transform for L2 pruning 
 			"""
 
-		cutoff = 1e7 #1e4 #1e5 #TODO-> experiment with this to get a good value
+		cutoff = 1e4 #1e4 #1e7 #TODO-> experiment with this to get a good value
 
 		#do eigendecomposition
 		eigenval, eigenvec = tf.linalg.eig(HTWH)
@@ -1174,15 +1174,15 @@ class ICET():
 		# while tf.shape(L2)[0] < 6:
 		# 	L2 = tf.concat((tf.zeros([1,6]), L2), axis = 0)
 
-		# print("\n L2 \n", L2)
+		print("\n L2 \n", L2)
 
 		U2 = eigenvec
-		# print("\n U2^T \n", tf.transpose(U2))
+		print("\n U2^T \n", tf.transpose(U2))
 
 		#TODO: scale eigenvectors associated with rotational components of solution
 
 		lam = tf.eye(6)*eigenval
-		# print("\n lam \n", lam)
+		print("\n lam \n", lam)
 
 		return(L2, lam, U2)
 

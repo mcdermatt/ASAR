@@ -126,86 +126,88 @@ from metpy.calc import lat_lon_grid_deltas
 # c2 = np.loadtxt(filename2, dtype = float)
 # # #---------------------------------------------------------------------------------------
 
-#CODD (colaborative driving dataset)----------------------------------------------------
-import h5py
-# filename = 'C:/CODD/data/m1v7p7s769.hdf5' #straight line urban(?)
-# filename = 'C:/CODD/data/m5v10p6s31.hdf5' #turn on country road
-# filename = 'C:/CODD/data/m2v7p3s333.hdf5'
-filename = 'C:/CODD/data/m10v11p6s30.hdf5' #wide road, palm trees, and traffic
+# #CODD (colaborative driving dataset)----------------------------------------------------
+# import h5py
+# # filename = 'C:/CODD/data/m1v7p7s769.hdf5' #straight line urban(?)
+# # filename = 'C:/CODD/data/m5v10p6s31.hdf5' #turn on country road
+# # filename = 'C:/CODD/data/m2v7p3s333.hdf5'
+# filename = 'C:/CODD/data/m10v11p6s30.hdf5' #wide road, palm trees, and traffic
 
-vidx = 0 #vehicle index
-idx = 123 #frame idx
+# vidx = 0 #vehicle index
+# idx = 0 #frame idx
 
-with h5py.File(filename, 'r') as hf:
-#     pcls = hf['point_cloud'][:]
-    #[frames, vehicles, points_per_cloud, 4]
-    pcls = hf['point_cloud'][:, vidx ,: , :3]
-    #[frames, points_per_cloud, rgb]
+# with h5py.File(filename, 'r') as hf:
+# #     pcls = hf['point_cloud'][:]
+#     #[frames, vehicles, points_per_cloud, 4]
+#     pcls = hf['point_cloud'][:, vidx ,: , :3]
+#     #[frames, points_per_cloud, rgb]
     
-#     pose = hf['lidar_pose'][:]
-    #[frames, vehicles, (x,y,z, rotx, roty, rotz)]
-    pose = hf['lidar_pose'][:, vidx, :]
+# #     pose = hf['lidar_pose'][:]
+#     #[frames, vehicles, (x,y,z, rotx, roty, rotz)]
+#     pose = hf['lidar_pose'][:, vidx, :]
 
-c1 = pcls[idx]
-c2 = pcls[idx+1]
+# c1 = pcls[idx]
+# c2 = pcls[idx+1]
 
-noise_scale = 0.005 #0.01 # doesn't work at 0.001
-c1 += noise_scale*np.random.randn(np.shape(c1)[0], 3)
-c2 += noise_scale*np.random.randn(np.shape(c2)[0], 3)
-#---------------------------------------------------------------------------------------
+# noise_scale = 0.01#0.005 #0.01 # doesn't work at 0.001
+# c1 += noise_scale*np.random.randn(np.shape(c1)[0], 3)
+# c2 += noise_scale*np.random.randn(np.shape(c2)[0], 3)
+# #---------------------------------------------------------------------------------------
 
 
-# # load custom point cloud geneated in matlab------------------------------------------
-# # c1 = np.loadtxt("scene1_scan1.txt", dtype = float) #shadows
-# # c2 = np.loadtxt("scene1_scan2.txt", dtype = float)
-# # c1 = np.loadtxt("scene1_scan1_squares.txt", dtype = float) #shadows
-# # c2 = np.loadtxt("scene1_scan2_squares.txt", dtype = float)
+# load custom point cloud geneated in matlab------------------------------------------
+# c1 = np.loadtxt("scene1_scan1.txt", dtype = float) #shadows
+# c2 = np.loadtxt("scene1_scan2.txt", dtype = float)
+# c1 = np.loadtxt("scene1_scan1_squares.txt", dtype = float) #shadows
+# c2 = np.loadtxt("scene1_scan2_squares.txt", dtype = float)
 
 # c1 = np.loadtxt("T_intersection_scan1.txt", dtype = float)
 # c2 = np.loadtxt("T_intersection_scan2.txt", dtype = float)
 
-# # c1 = np.loadtxt("curve_scan1.txt", dtype = float)
-# # c2 = np.loadtxt("curve_scan2.txt", dtype = float)
+c1 = np.loadtxt("curve_scan1.txt", dtype = float)
+c2 = np.loadtxt("curve_scan2.txt", dtype = float)
+# c1 = np.loadtxt("big_curve_scan1.txt", dtype = float)
+# c2 = np.loadtxt("big_curve_scan2.txt", dtype = float)
 
-# # c1 = np.loadtxt("tube_scan1.txt", dtype = float)
-# # c2 = np.loadtxt("tube_scan2.txt", dtype = float)
+# c1 = np.loadtxt("tube_scan1.txt", dtype = float)
+# c2 = np.loadtxt("tube_scan2.txt", dtype = float)
 
-# # c1 = np.loadtxt("scene2_scan1.txt", dtype = float) #small cylinders
-# # c2 = np.loadtxt("scene2_scan2.txt", dtype = float)
-# # c1 = np.loadtxt("scene3_scan1.txt", dtype = float) #rectangles
-# # c2 = np.loadtxt("scene3_scan2.txt", dtype = float)
-# # c1 = np.loadtxt("scene4_scan1.txt", dtype = float) #cylinders
-# # c2 = np.loadtxt("scene4_scan2.txt", dtype = float)
-# # c1 = np.loadtxt("simple_room_scan1.txt", dtype = float) #for debugging DNN filter
-# # c2 = np.loadtxt("simple_room_scan2.txt", dtype = float)
-# # c1 = np.loadtxt("verify_geometry_scan1.txt", dtype = float) #validate  2d geometry ipynb
-# # c2 = np.loadtxt("verify_geometry_scan2.txt", dtype = float)
-# # c1 = np.loadtxt("mountain_scan1_no_trees.txt", dtype = float) #test
-# # c2 = np.loadtxt("mountain_scan2_no_trees.txt", dtype = float)
+# c1 = np.loadtxt("scene2_scan1.txt", dtype = float) #small cylinders
+# c2 = np.loadtxt("scene2_scan2.txt", dtype = float)
+# c1 = np.loadtxt("scene3_scan1.txt", dtype = float) #rectangles
+# c2 = np.loadtxt("scene3_scan2.txt", dtype = float)
+# c1 = np.loadtxt("scene4_scan1.txt", dtype = float) #cylinders
+# c2 = np.loadtxt("scene4_scan2.txt", dtype = float)
+# c1 = np.loadtxt("simple_room_scan1.txt", dtype = float) #for debugging DNN filter
+# c2 = np.loadtxt("simple_room_scan2.txt", dtype = float)
+# c1 = np.loadtxt("verify_geometry_scan1.txt", dtype = float) #validate  2d geometry ipynb
+# c2 = np.loadtxt("verify_geometry_scan2.txt", dtype = float)
+# c1 = np.loadtxt("mountain_scan1_no_trees.txt", dtype = float) #test
+# c2 = np.loadtxt("mountain_scan2_no_trees.txt", dtype = float)
 
-# # c1 = c1[c1[:,2] > -1.55] #ignore ground plane
-# # c2 = c2[c2[:,2] > -1.55] #ignore ground plane
+# c1 = c1[c1[:,2] > -1.55] #ignore ground plane
+# c2 = c2[c2[:,2] > -1.55] #ignore ground plane
 
-# # c1 = c1[c1[:,2] > -1.25] #ignore ground plane
-# # c2 = c2[c2[:,2] > -1.25] #ignore ground plane
+# c1 = c1[c1[:,2] > -1.25] #ignore ground plane
+# c2 = c2[c2[:,2] > -1.25] #ignore ground plane
 
-# # debug: get rid of half of the points in scan 2 (testing outlier rejection indexing)
-# # c2 = c2[c2[:,1] > 0 ]
+# debug: get rid of half of the points in scan 2 (testing outlier rejection indexing)
+# c2 = c2[c2[:,1] > 0 ]
 
-# # #add noise (if not generated when point clouds were created)
-# # np.random.seed(101)
-# c1 += 0.01*np.random.randn(np.shape(c1)[0], 3)
-# c2 += 0.01*np.random.randn(np.shape(c2)[0], 3) 
+# #add noise (if not generated when point clouds were created)
+# np.random.seed(101)
+c1 += 0.01*np.random.randn(np.shape(c1)[0], 3)
+c2 += 0.01*np.random.randn(np.shape(c2)[0], 3) 
 
-# #slightly raise each PC
-# c1[:,2] += 0.2
-# c2[:,2] += 0.2
+#slightly raise each PC
+c1[:,2] += 0.2
+c2[:,2] += 0.2
 
-# #rotate scans
-# rot = R_tf(tf.constant([0., 0., 0.05]))
-# c2 = c2 @ rot.numpy() 
+#rotate scans
+rot = R_tf(tf.constant([0., 0., 0.05]))
+c2 = c2 @ rot.numpy() 
 
-# # ------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------------
 
 
 # #tesing full trajectory before simulation for spherical ICET paper -------------------

@@ -40,7 +40,7 @@ for i in range(num_frames):
 	c1 = pcls[i]
 	c2 = pcls[i+1]
 
-	noise_scale = 0.01 #0.01
+	noise_scale = 0.005 #0.01
 	c1 += noise_scale*np.random.randn(np.shape(c1)[0], 3)
 	c2 += noise_scale*np.random.randn(np.shape(c2)[0], 3)
 
@@ -62,8 +62,8 @@ for i in range(num_frames):
 	print("\n pred_stds \n", it.pred_stds)
 	# print("\n ground truth transformation \n", np.diff(pose, axis = 0)[i])
 
-np.savetxt("ICET_pred_stds_CODD_v6.txt", ICET_pred_stds)
-np.savetxt("ICET_estimates_CODD_v6.txt", ICET_estimates)
+np.savetxt("ICET_pred_stds_CODD_v5.txt", ICET_pred_stds)
+np.savetxt("ICET_estimates_CODD_v5.txt", ICET_estimates)
 
 #v3 - basic outlier exclusion
 #v4 - using dnn filter

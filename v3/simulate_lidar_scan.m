@@ -5,8 +5,8 @@ close all
 
 %import stl
 % FileName = 'virtual_scenes/scene1.stl'; %easy scan with house 
-FileName = 'virtual_scenes/T_intersection.stl' ;
-% FileName = 'virtual_scenes/curve.stl' ;
+% FileName = 'virtual_scenes/T_intersection.stl' ;
+FileName = 'virtual_scenes/curve.stl' ;
 % FileName = 'virtual_scenes/big_curve.stl' ;
 % FileName = 'virtual_scenes/tube.stl' ;
 
@@ -136,10 +136,12 @@ ptCloud2 = rmmissing(ptCloud2);
 % writematrix(ptCloud1, "mountain_scan1_no_trees.txt", 'Delimiter', 'tab')
 % writematrix(ptCloud2, "mountain_scan2_no_trees.txt", 'Delimiter', 'tab')
 
-writematrix(ptCloud1, "T_intersection_scan1.txt", 'Delimiter', 'tab')
-writematrix(ptCloud2, "T_intersection_scan2.txt", 'Delimiter', 'tab')
-% writematrix(ptCloud1, "curve_scan1.txt", 'Delimiter', 'tab')
-% writematrix(ptCloud2, "curve_scan2.txt", 'Delimiter', 'tab')
+% writematrix(ptCloud1, "T_intersection_scan1.txt", 'Delimiter', 'tab')
+% writematrix(ptCloud2, "T_intersection_scan2.txt", 'Delimiter', 'tab')
+writematrix(ptCloud1, "curve_scan1.txt", 'Delimiter', 'tab')
+writematrix(ptCloud2, "curve_scan2.txt", 'Delimiter', 'tab')
+% writematrix(ptCloud1, "big_curve_scan1.txt", 'Delimiter', 'tab')
+% writematrix(ptCloud2, "big_curve_scan2.txt", 'Delimiter', 'tab')
 % writematrix(ptCloud1, "tube_scan1.txt", 'Delimiter', 'tab')
 % writematrix(ptCloud2, "tube_scan2.txt", 'Delimiter', 'tab')
 
