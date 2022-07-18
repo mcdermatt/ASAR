@@ -161,11 +161,11 @@ from metpy.calc import lat_lon_grid_deltas
 # c1 = np.loadtxt("scene1_scan1_squares.txt", dtype = float) #shadows
 # c2 = np.loadtxt("scene1_scan2_squares.txt", dtype = float)
 
-# c1 = np.loadtxt("T_intersection_scan1.txt", dtype = float)
-# c2 = np.loadtxt("T_intersection_scan2.txt", dtype = float)
+c1 = np.loadtxt("T_intersection_scan1.txt", dtype = float)
+c2 = np.loadtxt("T_intersection_scan2.txt", dtype = float)
 
-c1 = np.loadtxt("curve_scan1.txt", dtype = float)
-c2 = np.loadtxt("curve_scan2.txt", dtype = float)
+# c1 = np.loadtxt("curve_scan1.txt", dtype = float)
+# c2 = np.loadtxt("curve_scan2.txt", dtype = float)
 # c1 = np.loadtxt("big_curve_scan1.txt", dtype = float)
 # c2 = np.loadtxt("big_curve_scan2.txt", dtype = float)
 
