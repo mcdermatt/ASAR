@@ -44,7 +44,7 @@ class ICET():
 
 		self.min_cell_distance = 2 #0.1 #5 #2 #begin closest spherical voxel here
 		#ignore "occupied" cells with fewer than this number of pts
-		self.min_num_pts = 25 #was 50 for KITTI and Ford, need to lower for CODD 
+		self.min_num_pts = 50 #was 50 for KITTI and Ford, need to lower to 25 for CODD 
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
 		self.niter = niter
@@ -883,8 +883,8 @@ class ICET():
 		rotated = tf.matmul(axislen, tf.transpose(U, [0, 2, 1])) #new
 
 		# axislen_actual = 2*tf.math.sqrt(axislen) #theoretically correct
-		axislen_actual = 3*tf.math.sqrt(axislen) #was this (works with one edge extended detection criteria)
-		# axislen_actual = 0.1*tf.math.sqrt(axislen) #turns off extended axis pruning
+		# axislen_actual = 3*tf.math.sqrt(axislen) #was this (works with one edge extended detection criteria)
+		axislen_actual = 0.1*tf.math.sqrt(axislen) #turns off extended axis pruning
 		# print(axislen_actual)
 		rotated_actual = tf.matmul(axislen_actual, tf.transpose(U, [0, 2, 1]))
 		# print("rotated_actual", rotated_actual)

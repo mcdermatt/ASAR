@@ -163,6 +163,9 @@ from metpy.calc import lat_lon_grid_deltas
 
 c1 = np.loadtxt("T_intersection_scan1.txt", dtype = float)
 c2 = np.loadtxt("T_intersection_scan2.txt", dtype = float)
+# c1 = np.loadtxt("T_intersection_simple_scan1.txt", dtype = float)
+# c2 = np.loadtxt("T_intersection_simple_scan2.txt", dtype = float)
+
 
 # c1 = np.loadtxt("curve_scan1.txt", dtype = float)
 # c2 = np.loadtxt("curve_scan2.txt", dtype = float)
@@ -196,8 +199,8 @@ c2 = np.loadtxt("T_intersection_scan2.txt", dtype = float)
 
 # #add noise (if not generated when point clouds were created)
 # np.random.seed(101)
-c1 += 0.01*np.random.randn(np.shape(c1)[0], 3)
-c2 += 0.01*np.random.randn(np.shape(c2)[0], 3) 
+c1 += 0.02*np.random.randn(np.shape(c1)[0], 3)
+c2 += 0.02*np.random.randn(np.shape(c2)[0], 3) 
 
 #slightly raise each PC
 c1[:,2] += 0.2
@@ -234,8 +237,8 @@ c2 = c2 @ rot.numpy()
 
 # ground_truth = tf.constant([0.1799, 0., 0., -0.0094, -0.011, -0.02072]) #FULL KITTI scan 1397
 
-it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 10, 
-	draw = True, group = 2, RM = True, DNN_filter = False)#, cheat = ground_truth)
+it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 100, niter = 20, 
+	draw = True, group = 2, RM = False, DNN_filter = False)#, cheat = ground_truth)
 
 # it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 100, niter = 20, 
 # 	draw = True, group = 2, RM = False, DNN_filter = False, x0 = it1.X)

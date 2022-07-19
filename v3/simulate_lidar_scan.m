@@ -5,8 +5,9 @@ close all
 
 %import stl
 % FileName = 'virtual_scenes/scene1.stl'; %easy scan with house 
-% FileName = 'virtual_scenes/T_intersection.stl' ;
-FileName = 'virtual_scenes/curve.stl' ;
+FileName = 'virtual_scenes/T_intersection.stl' ;
+% FileName = 'virtual_scenes/T_intersection_simple.stl' ;
+% FileName = 'virtual_scenes/curve.stl' ;
 % FileName = 'virtual_scenes/big_curve.stl' ;
 % FileName = 'virtual_scenes/tube.stl' ;
 
@@ -36,7 +37,8 @@ faces = OpenFile.ConnectivityList;
 %generate extended object mesh
 mesh = extendedObjectMesh(vertices,faces);
 %rotate mesh to correct orientation
-mesh = rotate(mesh, [0, 0, 90]); %else
+% mesh = rotate(mesh, [0, 0, 90]); %else
+mesh = rotate(mesh, [180, 0, 90]); %else
 % mesh = rotate(mesh, [270, 0, 90]); %for room
 
 
@@ -64,7 +66,7 @@ ego = platform(scenario, 'Position', [0, 0, 1.72]);
 
 % target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[0 0 0],'Velocity',[0 5 0])); %no rotation
 % target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[0 0 -3],'Velocity',[5 0 0], 'AngularVelocity', [0, 0, 1.])); %with rotatation 
-target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[0 2 0],'Velocity',[5 5 0], 'AngularVelocity', [0., 0., 0.])); %with rotatation 
+target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[0 0 0],'Velocity',[2 2 0], 'AngularVelocity', [0., 0., 0.])); %with rotatation 
 % target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[-20 0 -8],'Velocity',[5 0 0], 'AngularVelocity', [0, 0, 0.0])); %mountain no trees 
 
 %NOTE: to use offcentered Position we need to have ZERO AngularVelocity!!!
@@ -74,7 +76,7 @@ target.Mesh = mesh;
 %default~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 target.Dimensions.Length = 100; 
 target.Dimensions.Width = 100;
-target.Dimensions.Height = 5; %20; %6; %18;
+target.Dimensions.Height = 12; %5; 
 %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 %height = 20 for with trees, 
 
@@ -136,10 +138,13 @@ ptCloud2 = rmmissing(ptCloud2);
 % writematrix(ptCloud1, "mountain_scan1_no_trees.txt", 'Delimiter', 'tab')
 % writematrix(ptCloud2, "mountain_scan2_no_trees.txt", 'Delimiter', 'tab')
 
-% writematrix(ptCloud1, "T_intersection_scan1.txt", 'Delimiter', 'tab')
-% writematrix(ptCloud2, "T_intersection_scan2.txt", 'Delimiter', 'tab')
-writematrix(ptCloud1, "curve_scan1.txt", 'Delimiter', 'tab')
-writematrix(ptCloud2, "curve_scan2.txt", 'Delimiter', 'tab')
+writematrix(ptCloud1, "T_intersection_scan1.txt", 'Delimiter', 'tab')
+writematrix(ptCloud2, "T_intersection_scan2.txt", 'Delimiter', 'tab')
+% writematrix(ptCloud1, "T_intersection_simple_scan1.txt", 'Delimiter', 'tab')
+% writematrix(ptCloud2, "T_intersection_simple_scan2.txt", 'Delimiter', 'tab')
+
+% writematrix(ptCloud1, "curve_scan1.txt", 'Delimiter', 'tab')
+% writematrix(ptCloud2, "curve_scan2.txt", 'Delimiter', 'tab')
 % writematrix(ptCloud1, "big_curve_scan1.txt", 'Delimiter', 'tab')
 % writematrix(ptCloud2, "big_curve_scan2.txt", 'Delimiter', 'tab')
 % writematrix(ptCloud1, "tube_scan1.txt", 'Delimiter', 'tab')
