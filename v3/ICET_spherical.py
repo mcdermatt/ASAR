@@ -572,7 +572,7 @@ class ICET():
 			self.pred_stds = tf.linalg.tensor_diag_part(tf.math.sqrt(tf.abs(self.Q)))
 
 		print("pred_stds: \n", self.pred_stds)
-		# print(" L2: \n", L2)		
+		print(" L2: \n", L2)		
 
 		#draw PC2
 		if self.draw == True:
@@ -584,10 +584,10 @@ class ICET():
 				self.draw_DNN_soln(dnnsoln, icetsoln, idx_to_draw_dnn_soln) #raw solutions
 
 
-			self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
+			# self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
 			self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
-			self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
-			self.draw_cloud(self.cloud2_tensor_OG.numpy(), pc = 3) #draw OG cloud in differnt color
+			# self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
+			self.draw_cloud(self.cloud2_tensor_OG.numpy(), pc = 2) #3 #draw OG cloud in differnt color
 			# draw identified points from scan 2 inside useful clusters
 			# for n in range(tf.shape(inside2.to_tensor())[0]):
 			# 	temp = tf.gather(self.cloud2_tensor, inside2[n]).numpy()	
@@ -596,7 +596,7 @@ class ICET():
 
 			#FOR DEBUG: we should be looking at U_i, L_i anyways...
 			#   ans == indeces of enough1 that intersect with corr (aka combined enough1, enough2)
-			self.visualize_L(tf.gather(mu1_enough, ans), U_i, L_i)
+			# self.visualize_L(tf.gather(mu1_enough, ans), U_i, L_i)
 
 			# # #for generating figure 3b in spherical ICET paper ----------
 			# #scene 1, fid = 50, with ground plane
@@ -1133,7 +1133,7 @@ class ICET():
 			U2 = rotation matrix to transform for L2 pruning 
 			"""
 
-		cutoff = 1e7 #1e4 #1e7 #TODO-> experiment with this to get a good value
+		cutoff = 1e4 #1e4 #1e7 #TODO-> experiment with this to get a good value
 
 		#do eigendecomposition
 		eigenval, eigenvec = tf.linalg.eig(HTWH)

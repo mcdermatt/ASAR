@@ -16,6 +16,8 @@ from utils import R_tf
 
 """ Script to generate Monte-Carlo results for experiment 1 of 3D-ICET paper """
 
+#NOTE: to remove extended axis removal operation, un-comment out <axislen_actual = 0.1*tf.math....> in get_U_and_L_cluster()>
+
 niter = 500 #10
 
 #scene 1
@@ -53,7 +55,7 @@ for i in range(niter):
 	rot = R_tf(random_rotation)
 	c2 = c2 @ rot.numpy() 
 
-	it = ICET(cloud1 = c1, cloud2 = c2, fid = 100, niter = 5, 
+	it = ICET(cloud1 = c1, cloud2 = c2, fid = 100, niter = 10, 
 		draw = False, group = 2, RM = False, DNN_filter = False)
 
 	# it = ICET(cloud1 = c1, cloud2 = c2, fid = 100, niter = 20, 
@@ -75,10 +77,10 @@ for i in range(niter):
 # np.save("MC_results/scene1_ICET_pred_stds_NM", ICET_pred_stds)
 
 #random initial pose
-# np.save("MC_results/scene1_ICET_estimates_v4", ICET_estimates)
-# np.save("MC_results/scene1_ICET_pred_stds_v4", ICET_pred_stds)
-np.save("MC_results/scene1_ICET_estimates_NM_v3", ICET_estimates)
-np.save("MC_results/scene1_ICET_pred_stds_NM_v3", ICET_pred_stds)
+np.save("MC_results/scene1_ICET_estimates_v5", ICET_estimates)
+np.save("MC_results/scene1_ICET_pred_stds_v5", ICET_pred_stds)
+# np.save("MC_results/scene1_ICET_estimates_NM_v4", ICET_estimates)
+# np.save("MC_results/scene1_ICET_pred_stds_NM_v4", ICET_pred_stds)
 
 #test
 # np.save("MC_results/test_ICET_estimates", ICET_estimates)
