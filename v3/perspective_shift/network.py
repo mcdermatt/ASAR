@@ -124,7 +124,7 @@ def Net(**kwargs):
     '''
     #DO MAX POOLING FOR insize//2 since we are looking at two seperate point clouds!!!!!
 
-    insize = 512 #50
+    insize = 100 #100 #512
 
     inputs = keras.Input(shape=(insize, 3)) 
 
@@ -139,10 +139,8 @@ def Net(**kwargs):
     #new way- use conv layers to auto share weights--------------
     X = tf.expand_dims(inputs, -1)
 
-    # #TEST
+    # #TEST 7/28/22 -
     # #~~~~~~~
-    # X = tf.keras.layers.Conv2D(64, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
-    # X = keras.layers.BatchNormalization()(X)
     # X = tf.keras.layers.Conv2D(64, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
     # X = keras.layers.BatchNormalization()(X)
     # #~~~~~~~
@@ -153,24 +151,30 @@ def Net(**kwargs):
     X = tf.keras.layers.Conv2D(64, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
 
-    # X = tf.keras.layers.Conv2D(128, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
-    # X = keras.layers.BatchNormalization()(X)
-
     #TODO -> figure out why this is better than 1d conv
     #This was at 512, I dropped it to increase batch size
     X = tf.keras.layers.Conv2D(256, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
-
     X = tf.reshape(X, [-1,insize,256])
+
     #worse than 2d...
     # X = tf.keras.layers.Conv1D(512, kernel_size = 1, strides = 1, padding = 'valid', activation = 'relu')(X)
     # X = keras.layers.BatchNormalization()(X)
     #------------------------------------------------------------
 
+    # #NEW 7/28/22
+    # # try doing a couple FF layers between conv and maxpool to get network to share information across point clouds
+    # # -----------------------------------------------------------
+    # # X = tf.reshape(X, [-1,insize,256]) #??
+    # X = keras.layers.Dense(units = 256, activation = 'relu')(X)
+    # X = keras.layers.BatchNormalization()(X)
+    # X = keras.layers.Dense(units = 64, activation = 'relu')(X)
+    # X = keras.layers.BatchNormalization()(X)
+    # # -----------------------------------------------------------
+
     # 1D Max Pooling 
     X = keras.layers.MaxPool1D(pool_size = int(insize/2))(X)
     
-
     #just ff -------------------------------------------------------------------------- 
     X = keras.layers.Flatten()(X)
     X = keras.layers.Dense(units = 1024, activation = 'relu')(X)
@@ -182,6 +186,16 @@ def Net(**kwargs):
     # # using conv layers----------------------------------------------------------------
     # X = tf.transpose(X, [0, 2, 1]) #test - I think this is needed to perform conv on correct axis
     # # X = keras.layers.Permute((2,1))(X) #also works
+
+    # #~~~~~~~~~~~~~~~~~~~~~~~~
+    # #NEW - Need FF layer to re-arrange points so that convolutional kernels can actually do their job??
+    # X = keras.layers.Dense(units = 256, activation = 'relu')(X)
+    # X = keras.layers.BatchNormalization()(X)
+
+    # X = keras.layers.Dense(units = 64, activation = 'relu')(X)
+    # X = keras.layers.BatchNormalization()(X)
+    # #~~~~~~~~~~~~~~~~~~~~~~~~
+
     # #conv layers help 1d a lot
     # X = keras.layers.Conv1D(filters = 4, kernel_size = 8, strides = 4, padding = 'valid', activation = 'relu')(X)
     # X = keras.layers.BatchNormalization()(X)
@@ -204,17 +218,19 @@ def Net(**kwargs):
     X = keras.layers.Dense(units = 64, activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
 
-    # output = keras.layers.Dense(units=3, activation = 'tanh')(X) #translation only
-    output = keras.layers.Dense(units=6, activation = 'tanh')(X) #translation + rotation
+    output = keras.layers.Dense(units=3, activation = 'tanh')(X) #translation only
+    # output = keras.layers.Dense(units=6, activation = 'tanh')(X) #translation + rotation
 
 
     #rescale output
     # output = output*tf.constant([15., 15., 0.03]) #was this for simple models
-    # output = output*tf.constant([30., 30., 3.]) #increased vel using real cars
-    # output = output*tf.constant([3., 3., 0.3]) #KITTI
+    output = output*tf.constant([30., 30., 3.]) #increased vel using real cars
+    # output = output*tf.constant([5., 5., 5.]) #KITTI
 
     #toilet benchmark
-    output = output*tf.constant([3., 3., 3., 3., 3., 3.])
+    # output = output*tf.constant([3., 3., 3., 3., 3., 3.])
+    # output = output*tf.constant([3., 3., 3.])
+
 
 
     model = tf.keras.Model(inputs,output)

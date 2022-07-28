@@ -6,7 +6,7 @@
 clear all 
 close all
 
-nSamples = 25; %50
+nSamples = 50; %50
 nObjects = 16; %defined in Inventor file
 epochs = 100;
 

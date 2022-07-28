@@ -10,8 +10,8 @@
 clear all 
 close all
 
-nSamples = 1000; %25;
-epochs = 2;
+nSamples = 50; %25;
+epochs = 10000;
 
 % sam1_cum = [];
 % sam2_cum = [];
@@ -26,9 +26,9 @@ for e = 1:epochs
     e
 
     %import stl
-%     roll = floor(9*rand());
+    roll = floor(9*rand());
 %     roll = 5; %cylinders 
-    roll = 2; %honda element (best car ever made)
+%     roll = 2; %honda element (best car ever made)
 %     roll = 3; %tesla model 3
 %     roll = 6; %taxi
 %     roll = 7; %vw bus
@@ -95,21 +95,24 @@ for e = 1:epochs
         mindist = 4;
     end
 
-    if roll == 9
-        F= 'C:\Users\Derm\Desktop\big\ModelNet10\toilet\train\toilet_0052.off';
-        scale = [0.6, 0.3, 2.0];
-        rot_corr = [0, 0, 90];
-        mindist = 4;
-    end
-    
-
-    OpenFile = stlread(FileName);
-    
     %get vertices, faces, and normals from stl
+    OpenFile = stlread(FileName);
     vertices = OpenFile.Points;
     faces = OpenFile.ConnectivityList;
+
+%     %test----------
+%     fn= 'C:\Users\Derm\Desktop\big\ModelNet10\toilet\train\toilet_0055.off';
+%     scale = [1., 1., 1.];
+%     rot_corr = [0, 0, 0];
+%     mindist = 4;
+%     [vertices, faces] = read_off(fn);
+%     vertices = vertices.';
+%     faces = faces.';
+%     %-------------
+
+
     
-    vel = [10*randn() 10*randn() 1*randn()];
+    vel = [10*randn() 10*randn() 0.3*randn()];
 %     rot = rad2deg(2*pi*rand());
 %     vel = [100, 0, 0];
     rot = 0;    %temp- just for demo dataset
@@ -117,7 +120,8 @@ for e = 1:epochs
     %sample random  initial position, but NOT INSIDE OBJECT
     too_close = true;
     while too_close
-        pos = [3*randn(), 3*randn, 0];    
+%         pos = [3*randn(), 3*randn, 0];
+        pos = [10*randn(), 10*randn(), 0.*randn()];
         if sqrt(pos(1)^2 + pos(2)^2) > mindist
             if sqrt((pos(1) + vel(1)*0.1 )^2 + (pos(2) + vel(2)*0.1 )^2) > mindist
                 too_close = false;
@@ -126,8 +130,8 @@ for e = 1:epochs
     end
     
     %test
-    pos = [-5.0, 5.0, 0.01];
-    vel = [100 2 0.1];
+%     pos = [-5.0, 5.0, 0.01];
+%     vel = [100 2 0.1];
 %     pos(1) = pos(1) + 1.5;
 %     true_pos1 = [true_pos1; [pos(1), pos(2), pos(3), rot]];
 
@@ -150,7 +154,7 @@ for e = 1:epochs
     sensor.RangeAccuracy = 0.0001; % was 0.01, now adding noise at end;
     sensor.AzimuthResolution = 0.4; %0.2;
     sensor.ElevationResolution = 1.2; %0.4;
-    sensor.MaxRange = 50;
+    sensor.MaxRange = 100;
     
     
     % Create a tracking scenario. Add an ego platform and a target platform.
@@ -216,18 +220,18 @@ scatter3(sam2(:,1)-0.1*vel(1), sam2(:,2)-0.1*vel(2), sam2(:,3)-0.1*vel(3), '.')
 set(gca,'XLim',[-10 10],'YLim',[-10 10],'ZLim',[-10 10])
 
 
-% %augment data by translating scan 2 (remember to adjust solution vector
-% %accordingly) -------------------------------------------------------------
-% sam1_cum = [sam1_cum; sam1_cum];
-% % temp = 5*randn(size(truth_cum)); % single random translation vector
-% % temp = -rand(size(truth_cum)).*truth_cum; %translate some fraction of truth translation vec back to registration
-% % temp = (-1.0+ 0.2*rand(size(truth_cum))).*truth_cum*0.1; %translate most of the way to correct soln
-% temp = (-1.0+ 0.1*randn(size(truth_cum))).*truth_cum*0.1; %translate to correct solution +/- some small error
-% 
-% truth_cum = [truth_cum; truth_cum + 10*temp];
-% moved_sam2 = sam2_cum + repelem(temp, nSamples ,1);
-% sam2_cum = [sam2_cum; sam2_cum + repelem(temp, nSamples ,1)]; %need to tile temp 25 times
-% %-------------------------------------------------------------------------
+%augment data by translating scan 2 (remember to adjust solution vector
+%accordingly) -------------------------------------------------------------
+sam1_cum = [sam1_cum; sam1_cum];
+% temp = 5*randn(size(truth_cum)); % single random translation vector
+% temp = -rand(size(truth_cum)).*truth_cum; %translate some fraction of truth translation vec back to registration
+% temp = (-1.0+ 0.2*rand(size(truth_cum))).*truth_cum*0.1; %translate most of the way to correct soln
+temp = (-1.0+ 0.1*randn(size(truth_cum))).*truth_cum*0.1; %translate to correct solution +/- some small error
+
+truth_cum = [truth_cum; truth_cum + 10*temp];
+moved_sam2 = sam2_cum + repelem(temp, nSamples ,1);
+sam2_cum = [sam2_cum; sam2_cum + repelem(temp, nSamples ,1)]; %need to tile temp 25 times
+%-------------------------------------------------------------------------
 % 
 % %augment data 2^4 times by rotating about vertical axis
 % for i = 1:4
@@ -267,6 +271,9 @@ set(gca,'XLim',[-10 10],'YLim',[-10 10],'ZLim',[-10 10])
 % writematrix(sam1_cum, "C:/Users/Derm/Desktop/big/pshift/scan1_10k.txt", 'Delimiter', 'tab')
 % writematrix(sam2_cum, "C:/Users/Derm/Desktop/big/pshift/scan2_10k.txt", 'Delimiter', 'tab')
 % writematrix(truth_cum, "C:/Users/Derm/Desktop/big/pshift/ground_truth_10k.txt", 'Delimiter', 'tab')
+writematrix(sam1_cum, "C:/Users/Derm/Desktop/big/pshift/scan1_10k.txt", 'Delimiter', 'tab')
+writematrix(sam2_cum, "C:/Users/Derm/Desktop/big/pshift/scan2_10k.txt", 'Delimiter', 'tab')
+writematrix(truth_cum, "C:/Users/Derm/Desktop/big/pshift/ground_truth_10k.txt", 'Delimiter', 'tab')
 
 %test scene for viz
 % writematrix(sam1_cum, "training_data/car_demo_scan1.txt", 'Delimiter', 'tab')

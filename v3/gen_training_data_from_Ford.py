@@ -9,7 +9,11 @@ import mat4py
 #TODO- should I be generating training data without the ground plane???
 
 numShifts = 5 #number of times to resample and translate each voxel each scan
-runLen = 30 #199
+runLen = 150 #199
+ptsPerCell = 50
+
+# ground_truth = np.loadtxt("E:/Ford/IJRR-Dataset-1-subset/SCANS/truth.txt")/10
+# ground_truth = tf.cast(tf.convert_to_tensor(ground_truth), tf.float32)
 
 ground_truth = np.loadtxt("E:/Ford/IJRR-Dataset-1-subset/SCANS/truth.txt")/10
 ground_truth = tf.cast(tf.convert_to_tensor(ground_truth), tf.float32)
@@ -17,8 +21,11 @@ ground_truth = tf.cast(tf.convert_to_tensor(ground_truth), tf.float32)
 for idx in range(runLen):
 	print("\n ~~~~~~~~~ Frame #", idx, "~~~~~~~~~~~~~ \n")
 
-	fn1 = 'E:/Ford/IJRR-Dataset-1-subset/SCANS/Scan%04d.mat' %(idx+1000)
-	fn2 = 'E:/Ford/IJRR-Dataset-1-subset/SCANS/Scan%04d.mat' %(idx+1001)
+	# fn1 = 'E:/Ford/IJRR-Dataset-1-subset/SCANS/Scan%04d.mat' %(idx+1000)
+	# fn2 = 'E:/Ford/IJRR-Dataset-1-subset/SCANS/Scan%04d.mat' %(idx+1001)
+
+	fn1 = 'E:/Ford/IJRR-Dataset-1/SCANS/Scan%04d.mat' %(idx+1150)
+	fn2 = 'E:/Ford/IJRR-Dataset-1/SCANS/Scan%04d.mat' %(idx+1151)
 
 	dat1 = mat4py.loadmat(fn1)
 	SCAN1 = dat1['SCAN']
@@ -49,13 +56,13 @@ for idx in range(runLen):
 
 	for j in range(numShifts):
 		#init array to store indices
-		idx1 = np.zeros([ncells ,25])
-		idx2 = np.zeros([ncells ,25])
+		idx1 = np.zeros([ncells ,ptsPerCell])
+		idx2 = np.zeros([ncells ,ptsPerCell])
 
 		#loop through each element of ragged tensor
 		for i in range(ncells):
-		    idx1[i,:] = tf.random.shuffle(enough1[i])[:25].numpy() #shuffle order and take first 25 elements
-		    idx2[i,:] = tf.random.shuffle(enough2[i])[:25].numpy() #shuffle order and take first 25 elements
+		    idx1[i,:] = tf.random.shuffle(enough1[i])[:ptsPerCell].numpy() #shuffle order and take first 25 elements
+		    idx2[i,:] = tf.random.shuffle(enough2[i])[:ptsPerCell].numpy() #shuffle order and take first 25 elements
 
 		idx1 = tf.cast(tf.convert_to_tensor(idx1), tf.int32) #indices in scan 1 of points we've selected
 		idx2 = tf.cast(tf.convert_to_tensor(idx2), tf.int32) 
@@ -70,8 +77,8 @@ for idx in range(runLen):
 		#randomly translate each sample from scan 2
 		rand = tf.constant([1., 1., 0.1])*tf.random.normal([ncells, 3])
 		#tile and apply to scan2
-		t = tf.tile(rand, [25,1])
-		t = tf.reshape(tf.transpose(t), [3,25,-1])
+		t = tf.tile(rand, [ptsPerCell,1])
+		t = tf.reshape(tf.transpose(t), [3,ptsPerCell,-1])
 		t = tf.transpose(t, [2,1,0])
 		t = tf.reshape(t, [-1, 3])
 		scan2 += t.numpy()
@@ -88,11 +95,11 @@ for idx in range(runLen):
 	print("got", tf.shape(enough2.to_tensor())[0].numpy()*numShifts, "training samples from scan", idx)
 
 #smol
-np.savetxt('perspective_shift/training_data/ICET_Ford_scan1.txt', scan1_cum)
-np.savetxt('perspective_shift/training_data/ICET_Ford_scan2.txt', scan2_cum)
-np.savetxt('perspective_shift/training_data/ICET_Ford_ground_truth.txt', rand_cum)
+# np.savetxt('perspective_shift/training_data/ICET_Ford_scan1.txt', scan1_cum)
+# np.savetxt('perspective_shift/training_data/ICET_Ford_scan2.txt', scan2_cum)
+# np.savetxt('perspective_shift/training_data/ICET_Ford_ground_truth.txt', rand_cum)
 
 #big
-# np.savetxt('C:/Users/Derm/Desktop/big/pshift/ICET_Ford_scan1.txt', scan1_cum)
-# np.savetxt('C:/Users/Derm/Desktop/big/pshift/ICET_Ford_scan2.txt', scan2_cum)
-# np.savetxt('C:/Users/Derm/Desktop/big/pshift/ICET_Ford_ground_truth.txt', rand_cum)
+np.savetxt('C:/Users/Derm/Desktop/big/pshift/ICET_Ford_scan1.txt', scan1_cum)
+np.savetxt('C:/Users/Derm/Desktop/big/pshift/ICET_Ford_scan2.txt', scan2_cum)
+np.savetxt('C:/Users/Derm/Desktop/big/pshift/ICET_Ford_ground_truth.txt', rand_cum)

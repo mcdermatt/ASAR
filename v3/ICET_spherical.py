@@ -44,7 +44,7 @@ class ICET():
 
 		self.min_cell_distance = 2 #0.1 #5 #2 #begin closest spherical voxel here
 		#ignore "occupied" cells with fewer than this number of pts
-		self.min_num_pts = 50 #was 50 for KITTI and Ford, need to lower to 25 for CODD 
+		self.min_num_pts = 50 #100 #was 50 for KITTI and Ford, need to lower to 25 for CODD 
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
 		self.niter = niter
@@ -53,8 +53,8 @@ class ICET():
 		self.DNN_filter = DNN_filter
 		self.start_filter_iter = 5 #10 #iteration to start DNN rejection filter
 		self.start_RM_iter = 5 #10 #iteration to start removing moving objects (set low to generate training data)
-		self.DNN_thresh = 0.1
-		self.RM_thresh = 0.1
+		self.DNN_thresh = 0.08
+		self.RM_thresh = 0.08
 
 		#load dnn model
 		if self.DNN_filter:
@@ -217,19 +217,19 @@ class ICET():
 		U, L = self.get_U_and_L_cluster(sigma1_enough, mu1_enough, occupied_spikes, bounds)
 
 
-		# if self.draw:
-		# 	# self.visualize_L(mu1_enough, U, L)
-		# 	self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
-		# 	# self.draw_cell(corn)
-		# 	# self.draw_car()
-		# 	# draw identified points inside useful clusters
-		# 	# for n in range(tf.shape(inside1.to_tensor())[0]):
-		# 	# 	temp = tf.gather(self.cloud1_tensor, inside1[n]).numpy()	
-		# 	# 	self.disp.append(Points(temp, c = 'green', r = 5))
-		# 	# self.visualize_L(mu1_enough, U, L)
-		# 	##for fig introducing shadowing bias problem
-		# 	# self.disp.append(Point(pos = (0,0,0), c = 'red', r = 10 )) 
-		# 	# self.disp.append(Point(pos = (0.5,0,0), c = 'blue', r = 10 )) 
+		if self.draw:
+			# self.visualize_L(mu1_enough, U, L)
+			self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
+			# self.draw_cell(corn)
+			# self.draw_car()
+			# draw identified points inside useful clusters
+			# for n in range(tf.shape(inside1.to_tensor())[0]):
+			# 	temp = tf.gather(self.cloud1_tensor, inside1[n]).numpy()	
+			# 	self.disp.append(Points(temp, c = 'green', r = 5))
+			# self.visualize_L(mu1_enough, U, L)
+			##for fig introducing shadowing bias problem
+			# self.disp.append(Point(pos = (0,0,0), c = 'red', r = 10 )) 
+			# self.disp.append(Point(pos = (0.5,0,0), c = 'blue', r = 10 )) 
 
 		for i in range(niter):
 			#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -584,10 +584,10 @@ class ICET():
 				self.draw_DNN_soln(dnnsoln, icetsoln, idx_to_draw_dnn_soln) #raw solutions
 
 
-			# self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
+			self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
 			self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
-			# self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
-			self.draw_cloud(self.cloud2_tensor_OG.numpy(), pc = 2) #3 #draw OG cloud in differnt color
+			self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
+			# self.draw_cloud(self.cloud2_tensor_OG.numpy(), pc = 3) #3 #draw OG cloud in differnt color
 			# draw identified points from scan 2 inside useful clusters
 			# for n in range(tf.shape(inside2.to_tensor())[0]):
 			# 	temp = tf.gather(self.cloud2_tensor, inside2[n]).numpy()	
@@ -883,8 +883,8 @@ class ICET():
 		rotated = tf.matmul(axislen, tf.transpose(U, [0, 2, 1])) #new
 
 		# axislen_actual = 2*tf.math.sqrt(axislen) #theoretically correct
-		# axislen_actual = 3*tf.math.sqrt(axislen) #was this (works with one edge extended detection criteria)
-		axislen_actual = 0.1*tf.math.sqrt(axislen) #turns off extended axis pruning
+		axislen_actual = 3*tf.math.sqrt(axislen) #was this (works with one edge extended detection criteria)
+		# axislen_actual = 0.1*tf.math.sqrt(axislen) #turns off extended axis pruning
 		# print(axislen_actual)
 		rotated_actual = tf.matmul(axislen_actual, tf.transpose(U, [0, 2, 1]))
 		# print("rotated_actual", rotated_actual)
@@ -1133,7 +1133,7 @@ class ICET():
 			U2 = rotation matrix to transform for L2 pruning 
 			"""
 
-		cutoff = 1e4 #1e4 #1e7 #TODO-> experiment with this to get a good value
+		cutoff = 1e7 #1e4 #1e7 #TODO-> experiment with this to get a good value
 
 		#do eigendecomposition
 		eigenval, eigenvec = tf.linalg.eig(HTWH)
