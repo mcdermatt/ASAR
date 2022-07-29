@@ -7,7 +7,7 @@ import time
 
 #NOTE: make sure tf23 conda env is actiated
 
-n = 187 #187 #110 #sample number (from x_test)
+n = 188 #187 #110 #sample number (from x_test)
 
 #init vedo and scene
 plt = Plotter(N = 1, axes = 1, bg = (1, 1, 1), interactive = True) #axis = 4

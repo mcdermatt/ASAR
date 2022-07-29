@@ -10,7 +10,7 @@
 clear all 
 close all
 
-nSamples = 50; %25;
+nSamples =  50; %25;
 epochs = 10000;
 
 % sam1_cum = [];
@@ -67,8 +67,8 @@ for e = 1:epochs
     end
     if roll == 5
         FileName = 'training_data/simple_object3.stl'; %cylinder
-        dia = 0.1 + 1.5*rand();
-        scale = [dia, dia, 10];
+%         dia = 1.5 + 1.5*rand();
+        scale = [1.5 + 2*rand(), 1.5 + 2*rand(), 10];
 %         scale = [0.5, 0.5, 10]
         rot_corr = [90, 0, 90];
         mindist = 1;
@@ -109,8 +109,6 @@ for e = 1:epochs
 %     vertices = vertices.';
 %     faces = faces.';
 %     %-------------
-
-
     
     vel = [10*randn() 10*randn() 0.3*randn()];
 %     rot = rad2deg(2*pi*rand());
@@ -121,7 +119,7 @@ for e = 1:epochs
     too_close = true;
     while too_close
 %         pos = [3*randn(), 3*randn, 0];
-        pos = [10*randn(), 10*randn(), 0.*randn()];
+        pos = [10*randn(), 10*randn(), 0.3*randn()];
         if sqrt(pos(1)^2 + pos(2)^2) > mindist
             if sqrt((pos(1) + vel(1)*0.1 )^2 + (pos(2) + vel(2)*0.1 )^2) > mindist
                 too_close = false;
@@ -152,8 +150,8 @@ for e = 1:epochs
     sensor.UpdateRate = 10;
     sensor.ElevationLimits = [-30, 10];  %[-22, 2]; 
     sensor.RangeAccuracy = 0.0001; % was 0.01, now adding noise at end;
-    sensor.AzimuthResolution = 0.4; %0.2;
-    sensor.ElevationResolution = 1.2; %0.4;
+    sensor.AzimuthResolution = 0.2; %0.2;
+    sensor.ElevationResolution = 0.4; %0.4;
     sensor.MaxRange = 100;
     
     
@@ -220,45 +218,45 @@ scatter3(sam2(:,1)-0.1*vel(1), sam2(:,2)-0.1*vel(2), sam2(:,3)-0.1*vel(3), '.')
 set(gca,'XLim',[-10 10],'YLim',[-10 10],'ZLim',[-10 10])
 
 
-%augment data by translating scan 2 (remember to adjust solution vector
-%accordingly) -------------------------------------------------------------
-sam1_cum = [sam1_cum; sam1_cum];
-% temp = 5*randn(size(truth_cum)); % single random translation vector
-% temp = -rand(size(truth_cum)).*truth_cum; %translate some fraction of truth translation vec back to registration
-% temp = (-1.0+ 0.2*rand(size(truth_cum))).*truth_cum*0.1; %translate most of the way to correct soln
-temp = (-1.0+ 0.1*randn(size(truth_cum))).*truth_cum*0.1; %translate to correct solution +/- some small error
-
-truth_cum = [truth_cum; truth_cum + 10*temp];
-moved_sam2 = sam2_cum + repelem(temp, nSamples ,1);
-sam2_cum = [sam2_cum; sam2_cum + repelem(temp, nSamples ,1)]; %need to tile temp 25 times
-%-------------------------------------------------------------------------
+% %augment data by translating scan 2 (remember to adjust solution vector
+% %accordingly) -------------------------------------------------------------
+% sam1_cum = [sam1_cum; sam1_cum];
+% % temp = 5*randn(size(truth_cum)); % single random translation vector
+% % temp = -rand(size(truth_cum)).*truth_cum; %translate some fraction of truth translation vec back to registration
+% % temp = (-1.0+ 0.2*rand(size(truth_cum))).*truth_cum*0.1; %translate most of the way to correct soln
+% temp = (-1.0+ 0.1*randn(size(truth_cum))).*truth_cum*0.1; %translate to correct solution +/- some small error
 % 
-% %augment data 2^4 times by rotating about vertical axis
-% for i = 1:4
-%     r = eul2rotm([randn()*360, 0, 0]);
-%     old1 = reshape(transpose(sam1_cum), [1, 3, size(sam1_cum, 1)]);
-%     rot1 = pagemtimes(old1, r);
-%     rot1 = transpose(reshape(rot1, [3, size(sam1_cum, 1)]));
-%     
-%     old2 = reshape(transpose(sam2_cum), [1, 3, size(sam2_cum, 1)]);
-%     rot2 = pagemtimes(old2, r);
-%     rot2 = transpose(reshape(rot2, [3, size(sam2_cum, 1)]));
-%     
-%     % scatter3(rot1(:,1), rot1(:,2), rot1(:,3))
-%     % scatter3(rot2(:,1), rot2(:,2), rot2(:,3))
-%     truth_old = reshape(transpose(truth_cum), 1, 3, size(truth_cum, 1));
-%     rot_truth = pagemtimes(truth_old, r);
-%     rot_truth = transpose(reshape(rot_truth, [3, size(truth_cum, 1)]));
-%     
-%     %append rotated stuff to OG
-%     sam1_cum = [sam1_cum; rot1];
-%     sam2_cum = [sam2_cum; rot2];
-%     truth_cum = [truth_cum; rot_truth];
-% end
+% truth_cum = [truth_cum; truth_cum + 10*temp];
+% moved_sam2 = sam2_cum + repelem(temp, nSamples ,1);
+% sam2_cum = [sam2_cum; sam2_cum + repelem(temp, nSamples ,1)]; %need to tile temp 25 times
+% %-------------------------------------------------------------------------
+% 
+%augment data 2^4 times by rotating about vertical axis
+for i = 1:4
+    r = eul2rotm([randn()*360, 0, 0]);
+    old1 = reshape(transpose(sam1_cum), [1, 3, size(sam1_cum, 1)]);
+    rot1 = pagemtimes(old1, r);
+    rot1 = transpose(reshape(rot1, [3, size(sam1_cum, 1)]));
+    
+    old2 = reshape(transpose(sam2_cum), [1, 3, size(sam2_cum, 1)]);
+    rot2 = pagemtimes(old2, r);
+    rot2 = transpose(reshape(rot2, [3, size(sam2_cum, 1)]));
+    
+    % scatter3(rot1(:,1), rot1(:,2), rot1(:,3))
+    % scatter3(rot2(:,1), rot2(:,2), rot2(:,3))
+    truth_old = reshape(transpose(truth_cum), 1, 3, size(truth_cum, 1));
+    rot_truth = pagemtimes(truth_old, r);
+    rot_truth = transpose(reshape(rot_truth, [3, size(truth_cum, 1)]));
+    
+    %append rotated stuff to OG
+    sam1_cum = [sam1_cum; rot1];
+    sam2_cum = [sam2_cum; rot2];
+    truth_cum = [truth_cum; rot_truth];
+end
 
 %last step, add gaussian noise to all range estimates
-% sam1_cum = sam1_cum + 0.01*randn(size(sam1_cum));
-% sam2_cum = sam2_cum + 0.01*randn(size(sam2_cum));
+sam1_cum = sam1_cum + 0.01*randn(size(sam1_cum));
+sam2_cum = sam2_cum + 0.01*randn(size(sam2_cum));
  
 % % %for smaller datasets (keep in git repo)
 % writematrix(sam1_cum, "training_data/scan1.txt", 'Delimiter', 'tab')
@@ -271,9 +269,9 @@ sam2_cum = [sam2_cum; sam2_cum + repelem(temp, nSamples ,1)]; %need to tile temp
 % writematrix(sam1_cum, "C:/Users/Derm/Desktop/big/pshift/scan1_10k.txt", 'Delimiter', 'tab')
 % writematrix(sam2_cum, "C:/Users/Derm/Desktop/big/pshift/scan2_10k.txt", 'Delimiter', 'tab')
 % writematrix(truth_cum, "C:/Users/Derm/Desktop/big/pshift/ground_truth_10k.txt", 'Delimiter', 'tab')
-writematrix(sam1_cum, "C:/Users/Derm/Desktop/big/pshift/scan1_10k.txt", 'Delimiter', 'tab')
-writematrix(sam2_cum, "C:/Users/Derm/Desktop/big/pshift/scan2_10k.txt", 'Delimiter', 'tab')
-writematrix(truth_cum, "C:/Users/Derm/Desktop/big/pshift/ground_truth_10k.txt", 'Delimiter', 'tab')
+% writematrix(sam1_cum, "C:/Users/Derm/Desktop/big/pshift/scan1_10k_50_samples.txt", 'Delimiter', 'tab')
+% writematrix(sam2_cum, "C:/Users/Derm/Desktop/big/pshift/scan2_10k_50_samples.txt", 'Delimiter', 'tab')
+% writematrix(truth_cum, "C:/Users/Derm/Desktop/big/pshift/ground_truth_10k_50_samples.txt", 'Delimiter', 'tab')
 
 %test scene for viz
 % writematrix(sam1_cum, "training_data/car_demo_scan1.txt", 'Delimiter', 'tab')

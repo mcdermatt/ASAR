@@ -61,8 +61,8 @@ class ICET():
 			# self.model = tf.keras.models.load_model("perspective_shift/FORDnet.kmod")  #25 sample points
 			# self.model = tf.keras.models.load_model("perspective_shift/KITTInet.kmod") #25 sample points
 			# self.model = tf.keras.models.load_model("perspective_shift/KITTInet50.kmod") #50 sample points
-			# self.model = tf.keras.models.load_model("perspective_shift/NET.kmod") #25 pts, for tests
-			self.model = tf.keras.models.load_model("perspective_shift/FULL_KITTInet4500.kmod") #25 sample points
+			self.model = tf.keras.models.load_model("perspective_shift/Net.kmod") #50 pts, updated 7/29
+			# self.model = tf.keras.models.load_model("perspective_shift/FULL_KITTInet4500.kmod") #25 sample points
 
 
 		#convert cloud1 to tesnsor
@@ -316,7 +316,7 @@ class ICET():
 			if self.DNN_filter and i >= self.start_filter_iter:
 				#DEBUG (5/2)- replaced all references of <corr> to <corr_full>
 
-				nSamplePts = 25 #50 #25
+				nSamplePts = 50 #25
 
 				print("\n ---checking for perspective shift---")
 				#get indices of rag with >= 25 elements
@@ -352,7 +352,8 @@ class ICET():
 				niter = 10
 				inputs = x_test
 				for _ in range(niter):
-					correction += self.model.predict(inputs)
+					# correction += self.model.predict(inputs) #was this for KITTI/ Ford trained model
+					correction += 0.1*self.model.predict(inputs) #need to scale if model trained on MatLab data
 					from1 = np.array([from1[:,:,0] + correction[:,0][:,None], from1[:,:,1] + correction[:,1][:,None], from1[:,:,2] + correction[:,2][:,None]])
 					from1 = np.transpose(from1, (1,2,0))
 					inputs = np.append(from1, from2, axis = 1)

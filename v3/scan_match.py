@@ -99,7 +99,7 @@ import mat4py
 # fn2 = 'E:/Ford/IJRR-Dataset-1-subset/SCANS/Scan1135.mat'
 
 #full dataset starts at 00136
-i = 1190 #1150 #1190
+i = 1200 #1150 #1190
 fn1 = 'E:/Ford/IJRR-Dataset-1/SCANS/Scan%04d.mat' %(i+75) #75 + 61 = 136
 fn2 = 'E:/Ford/IJRR-Dataset-1/SCANS/Scan%04d.mat' %(i+76) #76 + 61 = 137
 

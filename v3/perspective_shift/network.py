@@ -124,7 +124,7 @@ def Net(**kwargs):
     '''
     #DO MAX POOLING FOR insize//2 since we are looking at two seperate point clouds!!!!!
 
-    insize = 100 #100 #512
+    insize = 100 #512
 
     inputs = keras.Input(shape=(insize, 3)) 
 
@@ -177,10 +177,10 @@ def Net(**kwargs):
     
     #just ff -------------------------------------------------------------------------- 
     X = keras.layers.Flatten()(X)
-    X = keras.layers.Dense(units = 1024, activation = 'relu')(X)
-    X = keras.layers.BatchNormalization()(X)
-    X = keras.layers.Dense(units = 512, activation = 'relu')(X)
-    X = keras.layers.BatchNormalization()(X)
+    # X = keras.layers.Dense(units = 1024, activation = 'relu')(X)
+    # X = keras.layers.BatchNormalization()(X)
+    # X = keras.layers.Dense(units = 512, activation = 'relu')(X)
+    # X = keras.layers.BatchNormalization()(X)
     #----------------------------------------------------------------------------------
 
     # # using conv layers----------------------------------------------------------------

@@ -12,19 +12,19 @@ plt = Plotter(N = 1, axes = 1, bg = (1, 1, 1), interactive = True) #axis = 4
 disp = []
 
 #load model
-# model = tf.keras.models.load_model("Net.kmod") 	  #25
-model = tf.keras.models.load_model("KITTInet.kmod") #25
+model = tf.keras.models.load_model("Net.kmod") 	  #50
+# model = tf.keras.models.load_model("KITTInet.kmod") #25
 # model = tf.keras.models.load_model("KITTInet.kmod")  #50 
 
 #read in dense point cloud of car
 points_per_sample = 50 #num pts per scan - defined in MatLab script
-# d1 = np.loadtxt('training_data/car_demo_scan1.txt')
-# d2 = np.loadtxt('training_data/car_demo_scan2.txt')
-# gt = np.loadtxt('training_data/car_demo_ground_truth.txt')
-d1 = np.loadtxt('viz_scan1.txt')
-d2 = np.loadtxt('viz_scan2.txt')
-gt = np.loadtxt('viz_ground_truth.txt')
-true_pos1 = np.loadtxt('viz_true_pos1.txt')
+d1 = np.loadtxt('training_data/car_demo_scan1.txt')
+d2 = np.loadtxt('training_data/car_demo_scan2.txt')
+gt = np.loadtxt('training_data/car_demo_ground_truth.txt')
+# d1 = np.loadtxt('viz_scan1.txt')
+# d2 = np.loadtxt('viz_scan2.txt')
+# gt = np.loadtxt('viz_ground_truth.txt')
+# true_pos1 = np.loadtxt('viz_true_pos1.txt')
 scan1 = tf.reshape(tf.convert_to_tensor(d1), [-1, points_per_sample, 3])
 scan2 = tf.reshape(tf.convert_to_tensor(d2), [-1, points_per_sample, 3])
 gt = tf.convert_to_tensor(gt)

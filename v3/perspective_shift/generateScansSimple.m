@@ -109,8 +109,6 @@ for e = 1:epochs
 %     vertices = vertices.';
 %     faces = faces.';
 %     %-------------
-
-
     
     vel = [10*randn() 10*randn() 0.3*randn()];
 %     rot = rad2deg(2*pi*rand());
@@ -271,9 +269,9 @@ sam2_cum = sam2_cum + 0.01*randn(size(sam2_cum));
 % writematrix(sam1_cum, "C:/Users/Derm/Desktop/big/pshift/scan1_10k.txt", 'Delimiter', 'tab')
 % writematrix(sam2_cum, "C:/Users/Derm/Desktop/big/pshift/scan2_10k.txt", 'Delimiter', 'tab')
 % writematrix(truth_cum, "C:/Users/Derm/Desktop/big/pshift/ground_truth_10k.txt", 'Delimiter', 'tab')
-writematrix(sam1_cum, "C:/Users/Derm/Desktop/big/pshift/scan1_10k_50_samples.txt", 'Delimiter', 'tab')
-writematrix(sam2_cum, "C:/Users/Derm/Desktop/big/pshift/scan2_10k_50_samples.txt", 'Delimiter', 'tab')
-writematrix(truth_cum, "C:/Users/Derm/Desktop/big/pshift/ground_truth_10k_50_samples.txt", 'Delimiter', 'tab')
+% writematrix(sam1_cum, "C:/Users/Derm/Desktop/big/pshift/scan1_10k_50_samples.txt", 'Delimiter', 'tab')
+% writematrix(sam2_cum, "C:/Users/Derm/Desktop/big/pshift/scan2_10k_50_samples.txt", 'Delimiter', 'tab')
+% writematrix(truth_cum, "C:/Users/Derm/Desktop/big/pshift/ground_truth_10k_50_samples.txt", 'Delimiter', 'tab')
 
 %test scene for viz
 % writematrix(sam1_cum, "training_data/car_demo_scan1.txt", 'Delimiter', 'tab')
