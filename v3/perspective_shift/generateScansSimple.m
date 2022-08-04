@@ -11,7 +11,7 @@ clear all
 close all
 
 nSamples =  50; %25;
-epochs = 10000;
+epochs = 100;
 
 % sam1_cum = [];
 % sam2_cum = [];
@@ -111,9 +111,11 @@ for e = 1:epochs
 %     %-------------
     
     vel = [10*randn() 10*randn() 0.3*randn()];
-%     rot = rad2deg(2*pi*rand());
+    rot1 = rad2deg(2*pi*rand());
+    rot2 = rad2deg(2*pi*rand());
+    rot3 = rad2deg(2*pi*rand());
 %     vel = [100, 0, 0];
-    rot = 0;    %temp- just for demo dataset
+%     rot = 0;    %temp- just for demo dataset
 
     %sample random  initial position, but NOT INSIDE OBJECT
     too_close = true;
@@ -158,7 +160,7 @@ for e = 1:epochs
     % Create a tracking scenario. Add an ego platform and a target platform.
     scenario = trackingScenario;
     ego = platform(scenario, 'Position', [0, 0, 1.72]);
-    target = platform(scenario,'Trajectory',kinematicTrajectory('Position', pos,'Velocity', vel, 'Orientation', quat2rotm(eul2quat([rot, 0, 0])) )); %no rotation
+    target = platform(scenario,'Trajectory',kinematicTrajectory('Position', pos,'Velocity', vel, 'Orientation', quat2rotm(eul2quat([rot1, rot2, rot3])) ));
     % target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[10 0 0],'Velocity',[5 0 0], 'AngularVelocity', [0, 0, 0.1])); %with rotatation
 %     rotation = eul2quat([rot, 0, 90]);
 %     target.pose.Orientation = rotation;
@@ -230,7 +232,7 @@ set(gca,'XLim',[-10 10],'YLim',[-10 10],'ZLim',[-10 10])
 % moved_sam2 = sam2_cum + repelem(temp, nSamples ,1);
 % sam2_cum = [sam2_cum; sam2_cum + repelem(temp, nSamples ,1)]; %need to tile temp 25 times
 % %-------------------------------------------------------------------------
-% 
+
 %augment data 2^4 times by rotating about vertical axis
 for i = 1:4
     r = eul2rotm([randn()*360, 0, 0]);
@@ -264,19 +266,10 @@ sam2_cum = sam2_cum + 0.01*randn(size(sam2_cum));
 % writematrix(truth_cum, "training_data/ground_truth.txt", 'Delimiter', 'tab')
 % % writematrix(true_pos1, "training_data/true_pos1.txt", 'Delimiter', 'tab')
 
-
 %for larger datasets (don't save with git)
-% writematrix(sam1_cum, "C:/Users/Derm/Desktop/big/pshift/scan1_10k.txt", 'Delimiter', 'tab')
-% writematrix(sam2_cum, "C:/Users/Derm/Desktop/big/pshift/scan2_10k.txt", 'Delimiter', 'tab')
-% writematrix(truth_cum, "C:/Users/Derm/Desktop/big/pshift/ground_truth_10k.txt", 'Delimiter', 'tab')
-% writematrix(sam1_cum, "C:/Users/Derm/Desktop/big/pshift/scan1_10k_50_samples.txt", 'Delimiter', 'tab')
-% writematrix(sam2_cum, "C:/Users/Derm/Desktop/big/pshift/scan2_10k_50_samples.txt", 'Delimiter', 'tab')
-% writematrix(truth_cum, "C:/Users/Derm/Desktop/big/pshift/ground_truth_10k_50_samples.txt", 'Delimiter', 'tab')
-
-%test scene for viz
-% writematrix(sam1_cum, "training_data/car_demo_scan1.txt", 'Delimiter', 'tab')
-% writematrix(sam2_cum, "training_data/car_demo_scan2.txt", 'Delimiter', 'tab')
-% writematrix(truth_cum, "training_data/car_demo_ground_truth.txt", 'Delimiter', 'tab')
+writematrix(sam1_cum, "C:/Users/Derm/Desktop/big/pshift/scan1_1k_50_samples.txt", 'Delimiter', 'tab')
+writematrix(sam2_cum, "C:/Users/Derm/Desktop/big/pshift/scan2_1k_50_samples.txt", 'Delimiter', 'tab')
+writematrix(truth_cum, "C:/Users/Derm/Desktop/big/pshift/ground_truth_1k_50_samples.txt", 'Delimiter', 'tab')
 
 % %for debug
 % figure()

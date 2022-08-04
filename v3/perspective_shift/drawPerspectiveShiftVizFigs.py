@@ -29,13 +29,18 @@ c1 = np.loadtxt('training_data/car_demo2_scan1.txt')
 c2 = np.loadtxt('training_data/car_demo2_scan2.txt')
 gt = np.loadtxt('training_data/car_demo2_ground_truth.txt')
 
-#raw points
-disp1.append(Points(c1, c = 'red', r = rad, alpha = alph))
-disp1.append(Points(c2, c = 'blue', r = rad, alpha = alph))
+#only keep above the shoulders
+c1 = c1[c1[:,2] > -3.55]
+c2 = c2[c2[:,2] > -3.55]
 
-#match cloud means
 mean1 = np.mean(c1, axis = 0)
 mean2 = np.mean(c2, axis = 0)
+
+#raw points
+disp1.append(Points(c1, c = 'red', r = rad, alpha = alph))
+disp1.append(Points(c2 + mean1 - mean2 + np.array([0,0.5,0]), c = 'blue', r = rad, alpha = alph))
+
+#match cloud means
 disp2.append(Points(c1, c = 'red', r = rad, alpha = alph))
 disp2.append(Points(c2 + mean1 - mean2 , c = 'blue', r = rad, alpha = alph))
 
@@ -43,6 +48,6 @@ disp2.append(Points(c2 + mean1 - mean2 , c = 'blue', r = rad, alpha = alph))
 disp3.append(Points(c1, c = 'red', r = rad, alpha = alph))
 disp3.append(Points(c2 - gt/10, c = 'blue', r = rad, alpha = alph))
 
-plt.show(disp1, "Initial offset", at = 0)
+plt.show(disp1, "Initial clouds", at = 0)
 plt.show(disp2, "Matching Point Cloud Means", at = 1)
 plt.show(disp3, "Correct Translation", at = 2)

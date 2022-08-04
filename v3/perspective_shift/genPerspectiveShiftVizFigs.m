@@ -23,11 +23,11 @@ truth_cum = zeros(epochs, 3);
 %import stl
 % roll = floor(9*rand());
 %     roll = 5; %cylinders 
-    roll = 2; %honda element (best car ever made)
+%     roll = 2; %honda element (best car ever made)
 %     roll = 3; %tesla model 3
 %     roll = 6; %taxi
 %     roll = 7; %vw bus
-%     roll = 8; %dummy
+    roll = 8; %dummy
 if roll == 0
     FileName = 'training_data/simple_object1.stl';
 %     scale = [2, 2, 10];
@@ -96,10 +96,8 @@ vertices = OpenFile.Points;
 faces = OpenFile.ConnectivityList;
 
 % vel = [10*randn() 10*randn() 0.3*randn()];
-vel = [30, 0, 0];
-% rot = rad2deg(2*pi*rand());
-%     vel = [100, 0, 0];
-% rot = 45;    %temp- just for demo dataset
+% vel = [30, 0, 0]; %car
+vel = [0, 200, 0]; %human
 rot = -pi/2;
 
 %sample random  initial position, but NOT INSIDE OBJECT
@@ -107,7 +105,8 @@ too_close = true;
 while too_close
 %         pos = [3*randn(), 3*randn, 0];
 %     pos = [10*randn(), 10*randn(), 0.3*randn()];
-    pos = [0, 10, -2];
+%     pos = [0, 10, -2]; %car
+    pos = [-8, -10, -2]; %human
     if sqrt(pos(1)^2 + pos(2)^2) > mindist
         if sqrt((pos(1) + vel(1)*0.1 )^2 + (pos(2) + vel(2)*0.1 )^2) > mindist
             too_close = false;

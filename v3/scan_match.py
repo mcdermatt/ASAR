@@ -99,7 +99,7 @@ import mat4py
 # fn2 = 'E:/Ford/IJRR-Dataset-1-subset/SCANS/Scan1135.mat'
 
 #full dataset starts at 00136
-i = 1200 #1150 #1190
+i = 1341 #1150 #1190
 fn1 = 'E:/Ford/IJRR-Dataset-1/SCANS/Scan%04d.mat' %(i+75) #75 + 61 = 136
 fn2 = 'E:/Ford/IJRR-Dataset-1/SCANS/Scan%04d.mat' %(i+76) #76 + 61 = 137
 
@@ -111,8 +111,10 @@ dat2 = mat4py.loadmat(fn2)
 SCAN2 = dat2['SCAN']
 c2 = np.transpose(np.array(SCAN2['XYZ']))
 
-ground_truth = np.loadtxt("E:/Ford/IJRR-Dataset-1-subset/SCANS/truth.txt")/10
-ground_truth = tf.cast(tf.convert_to_tensor(ground_truth)[154,:], tf.float32)
+ground_truth = np.loadtxt("E:/Ford/IJRR-Dataset-1/SCANS/truth.txt")/10
+ground_truth = tf.cast(tf.convert_to_tensor(ground_truth), tf.float32)
+gt = (ground_truth[i,:] + ground_truth[i+1,:])/2 #avg between pts
+
 
 # c1 = c1[c1[:,2] > -2.2] #ignore ground plane #mounted 2.4m off ground
 # c2 = c2[c2[:,2] > -2.2] #ignore ground plane
@@ -241,8 +243,8 @@ ground_truth = tf.cast(tf.convert_to_tensor(ground_truth)[154,:], tf.float32)
 
 # ground_truth = tf.constant([0.1799, 0., 0., -0.0094, -0.011, -0.02072]) #FULL KITTI scan 1397
 
-it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 10, 
-	draw = True, group = 2, RM = True, DNN_filter = True)#, cheat = ground_truth)
+it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 15, 
+	draw = True, group = 2, RM = True, DNN_filter = True)#, cheat = gt)
 
 # it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 100, niter = 20, 
 # 	draw = True, group = 2, RM = False, DNN_filter = False, x0 = it1.X)

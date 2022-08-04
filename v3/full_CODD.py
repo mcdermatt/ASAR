@@ -62,9 +62,12 @@ for i in range(num_frames):
 	print("\n pred_stds \n", it.pred_stds)
 	# print("\n ground truth transformation \n", np.diff(pose, axis = 0)[i])
 
-np.savetxt("ICET_pred_stds_CODD_v5.txt", ICET_pred_stds)
-np.savetxt("ICET_estimates_CODD_v5.txt", ICET_estimates)
+np.savetxt("ICET_pred_stds_CODD_v7.txt", ICET_pred_stds)
+np.savetxt("ICET_estimates_CODD_v7.txt", ICET_estimates)
 
 #v3 - basic outlier exclusion
 #v4 - using dnn filter
 #v5 - 7/14 after corrections to U matrix, no dnn
+#v6 - 7/14, again
+#v7 - 7/31, with DNN
+

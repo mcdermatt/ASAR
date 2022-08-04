@@ -51,17 +51,17 @@ class ICET():
 		self.alpha = 0.75 #1 #controls alpha values when displaying ellipses
 		self.cheat = cheat
 		self.DNN_filter = DNN_filter
-		self.start_filter_iter = 5 #10 #iteration to start DNN rejection filter
-		self.start_RM_iter = 5 #10 #iteration to start removing moving objects (set low to generate training data)
-		self.DNN_thresh = 0.08
-		self.RM_thresh = 0.08
+		self.start_filter_iter = 6 #10 #iteration to start DNN rejection filter
+		self.start_RM_iter = 6 #10 #iteration to start removing moving objects (set low to generate training data)
+		self.DNN_thresh = 0.05 #0.03
+		self.RM_thresh = 0.04
 
 		#load dnn model
 		if self.DNN_filter:
-			# self.model = tf.keras.models.load_model("perspective_shift/FORDnet.kmod")  #25 sample points
+			self.model = tf.keras.models.load_model("perspective_shift/FORDNet.kmod")  #50 sample points
 			# self.model = tf.keras.models.load_model("perspective_shift/KITTInet.kmod") #25 sample points
 			# self.model = tf.keras.models.load_model("perspective_shift/KITTInet50.kmod") #50 sample points
-			self.model = tf.keras.models.load_model("perspective_shift/Net.kmod") #50 pts, updated 7/29
+			# self.model = tf.keras.models.load_model("perspective_shift/Net.kmod") #50 pts, updated 7/29
 			# self.model = tf.keras.models.load_model("perspective_shift/FULL_KITTInet4500.kmod") #25 sample points
 
 
@@ -182,12 +182,24 @@ class ICET():
 
 		rads = tf.transpose(idx_by_rag.to_tensor())
 		bounds = get_cluster(rads, mnp = self.min_num_pts)
+		# bounds = get_cluster(rads, 20) #test 8/2/22
+
+		# #test 8/2/22 (need if we are using seprate threshold for enough1 and bounds)--------
+		# inside1, npts1 = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes, bounds)
+
+		# enough1 = tf.where(npts1 > self.min_num_pts)[:,0]
+
+		# print(tf.shape(bounds))
+		# bounds = tf.gather(bounds, enough1) 
+		# print(tf.shape(bounds))
+		# print(tf.shape(occupied_spikes))
+		# occupied_spikes = tf.gather(occupied_spikes, enough1) 
+		# print(tf.shape(occupied_spikes))
+		# #-----------------------------------------------------------------------------------
+
 		corn = self.get_corners_cluster(occupied_spikes, bounds)
-		# print("occupied_spikes \n", occupied_spikes)
 		inside1, npts1 = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes, bounds)
 	
-		# print("bounds:", bounds)
-
 		#temp			
 		self.inside1 = inside1
 		self.npts1 = npts1
@@ -352,16 +364,14 @@ class ICET():
 				niter = 10
 				inputs = x_test
 				for _ in range(niter):
-					# correction += self.model.predict(inputs) #was this for KITTI/ Ford trained model
-					correction += 0.1*self.model.predict(inputs) #need to scale if model trained on MatLab data
+					correction += self.model.predict(inputs) #was this for KITTI/ Ford trained model
+					# correction += 0.1*self.model.predict(inputs) #need to scale if model trained on MatLab data
 					from1 = np.array([from1[:,:,0] + correction[:,0][:,None], from1[:,:,1] + correction[:,1][:,None], from1[:,:,2] + correction[:,2][:,None]])
 					from1 = np.transpose(from1, (1,2,0))
 					inputs = np.append(from1, from2, axis = 1)
 
 				dnnsoln = tf.convert_to_tensor(correction)
-				# dnnsoln = tf.convert_to_tensor(-correction) #TEST
 				#~~~~~~~~~~~~~~~~~~~~
-				# print(dnnsoln[:10])
 
 				#---------------------------------------------------------------
 				# for debug:
@@ -577,8 +587,8 @@ class ICET():
 
 		#draw PC2
 		if self.draw == True:
-			# if remove_moving:
-			# 	self.draw_cell(bad_idx_corn_moving, bad = True) #for debug
+			if remove_moving:
+				self.draw_cell(bad_idx_corn_moving, bad = True) #for debug
 			if self.DNN_filter:
 				self.draw_cell(bad_idx_corn_DNN, bad = 2)
 				# self.draw_DNN_soln(dnn_compact_xyz[:,:,0], it_compact_xyz[:,:,0], idx_to_draw_dnn_soln) #just in compact directions
