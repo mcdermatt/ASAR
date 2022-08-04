@@ -31,10 +31,6 @@ from utils import R2Euler, Ell, jacobian_tf, R_tf, get_cluster
 
 		#Try dynamically lowering DNN rejection threshold
 
-	#P3
-		# force top elevation bin to always be ambiguous? - not super pressing rn...
-		# for voxles that have an insufficient number of points, sweep through the corresponding spike until we find one with enough points
-
 
 class ICET():
 
@@ -54,12 +50,12 @@ class ICET():
 		self.start_filter_iter = 6 #10 #iteration to start DNN rejection filter
 		self.start_RM_iter = 6 #10 #iteration to start removing moving objects (set low to generate training data)
 		self.DNN_thresh = 0.05 #0.03
-		self.RM_thresh = 0.04
+		self.RM_thresh = 0.05
 
 		#load dnn model
 		if self.DNN_filter:
-			self.model = tf.keras.models.load_model("perspective_shift/FORDNet.kmod")  #50 sample points
-			# self.model = tf.keras.models.load_model("perspective_shift/KITTInet.kmod") #25 sample points
+			# self.model = tf.keras.models.load_model("perspective_shift/FORDNet.kmod")  #50 sample points
+			self.model = tf.keras.models.load_model("perspective_shift/FORDNetV2.kmod")  #50 sample points
 			# self.model = tf.keras.models.load_model("perspective_shift/KITTInet50.kmod") #50 sample points
 			# self.model = tf.keras.models.load_model("perspective_shift/Net.kmod") #50 pts, updated 7/29
 			# self.model = tf.keras.models.load_model("perspective_shift/FULL_KITTInet4500.kmod") #25 sample points

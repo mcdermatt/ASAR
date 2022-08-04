@@ -43,7 +43,7 @@ for i in range(num_frames):
 	SCAN2 = dat2['SCAN']
 	c2 = np.transpose(np.array(SCAN2['XYZ']))
 
-	it = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 12, draw = False, group = 2, 
+	it = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 11, draw = False, group = 2, 
 		RM = True, DNN_filter = True, x0 = initial_guess)
 
 	ICET_pred_stds[i] = it.pred_stds

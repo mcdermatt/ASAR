@@ -9,7 +9,7 @@ import mat4py
 #TODO- should I be generating training data without the ground plane???
 
 numShifts = 5 #number of times to resample and translate each voxel each scan
-runLen = 350 #199
+runLen = 2 #199
 ptsPerCell = 50
 
 # ground_truth = np.loadtxt("E:/Ford/IJRR-Dataset-1-subset/SCANS/truth.txt")/10
@@ -50,7 +50,7 @@ for idx in range(runLen):
 
 	gt = (ground_truth[idx+1150,:] + ground_truth[idx+1151,:])/2 #avg between pts
 
-	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 3, draw = False, group = 2, 
+	it = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 3, draw = False, group = 2, 
 		RM = False, DNN_filter = False, cheat = gt)
 
 	#Get ragged tensor containing all points from each scan inside each sufficient voxel
@@ -116,6 +116,11 @@ for idx in range(runLen):
 # np.savetxt('perspective_shift/training_data/ICET_Ford_ground_truth.txt', rand_cum)
 
 #big
-np.savetxt('C:/Users/Derm/Desktop/big/pshift/ICET_Ford_scan1.txt', scan1_cum)
-np.savetxt('C:/Users/Derm/Desktop/big/pshift/ICET_Ford_scan2.txt', scan2_cum)
-np.savetxt('C:/Users/Derm/Desktop/big/pshift/ICET_Ford_ground_truth.txt', rand_cum)
+# np.savetxt('C:/Users/Derm/Desktop/big/pshift/ICET_Ford_v2_scan1.txt', scan1_cum)
+# np.savetxt('C:/Users/Derm/Desktop/big/pshift/ICET_Ford_v2_scan2.txt', scan2_cum)
+# np.savetxt('C:/Users/Derm/Desktop/big/pshift/ICET_Ford_v2_ground_truth.txt', rand_cum)
+
+#for tf.data test
+np.save('C:/Users/Derm/Desktop/big/pshift/test1_scan1', scan1_cum)
+np.save('C:/Users/Derm/Desktop/big/pshift/test1_scan2', scan2_cum)
+np.save('C:/Users/Derm/Desktop/big/pshift/test1_ground_truth', rand_cum)
