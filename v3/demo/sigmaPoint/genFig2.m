@@ -10,7 +10,7 @@
 clear all 
 close all
 
-nSamples =  200; %25;
+nSamples =  1000; %25;
 epochs = 1;
 
 % sam1_cum = [];
@@ -98,7 +98,7 @@ for e = 1:epochs
 
     if roll == 11
         FileName = "C:/Users/Derm/vaRLnt/v3/demo/sigmaPoint/wall.stl"; 
-        scale = [7, 20, 15];
+        scale = [7, 20, 10];
         rot_corr = [0, 0, 90];
         mindist = 4;
     end
@@ -138,7 +138,7 @@ for e = 1:epochs
     end
     
     %test
-    pos = [-20.0, -5.0, 0.01];
+    pos = [-40.0, -40.0, 0.];
 %     vel = [100 2 0.1];
 %     pos(1) = pos(1) + 1.5;
 %     true_pos1 = [true_pos1; [pos(1), pos(2), pos(3), rot]];
@@ -159,9 +159,9 @@ for e = 1:epochs
     % set parameters of virtual lidar unit to match velodyne VLP-16
     sensor.UpdateRate = 10;
     sensor.ElevationLimits = [-30, 10];  %[-22, 2]; 
-    sensor.RangeAccuracy = 0.0001; % was 0.01, now adding noise at end;
-    sensor.AzimuthResolution = 0.2; %0.2;
-    sensor.ElevationResolution = 0.4; %0.4;
+    sensor.RangeAccuracy = 0.01; % was 0.01, now adding noise at end;
+    sensor.AzimuthResolution = 0.5; %0.2;
+    sensor.ElevationResolution = 1.; %0.4;
     sensor.MaxRange = 100;
     
     
@@ -265,8 +265,8 @@ set(gca,'XLim',[-10 10],'YLim',[-10 10],'ZLim',[-10 10])
 % end
 
 %last step, add gaussian noise to all range estimates
-sam1_cum = sam1_cum + 0.01*randn(size(sam1_cum));
-sam2_cum = sam2_cum + 0.01*randn(size(sam2_cum));
+sam1_cum = sam1_cum + 0.02*randn(size(sam1_cum));
+sam2_cum = sam2_cum + 0.02*randn(size(sam2_cum));
  
 % % %for smaller datasets (keep in git repo)
 % writematrix(sam1_cum, "training_data/scan1.txt", 'Delimiter', 'tab')
@@ -282,7 +282,7 @@ sam2_cum = sam2_cum + 0.01*randn(size(sam2_cum));
 %fig 2 for 3D paper
 writematrix(sam1_cum, "C:/Users/Derm/vaRLnt/v3/demo/sigmaPoint/s1.txt", 'Delimiter', 'tab')
 writematrix(sam2_cum, "C:/Users/Derm/vaRLnt/v3/demo/sigmaPoint/s2.txt", 'Delimiter', 'tab')
-writematrix(truth_cum, "C:/Users/Derm/vaRLnt/v3/demo/sigmaPoint/gt.txt", 'Delimiter', 'tab')
+writematrix([pos(1), pos(2), -1.72], "C:/Users/Derm/vaRLnt/v3/demo/sigmaPoint/gt.txt", 'Delimiter', 'tab')
 
 
 % %for debug
@@ -293,8 +293,8 @@ writematrix(truth_cum, "C:/Users/Derm/vaRLnt/v3/demo/sigmaPoint/gt.txt", 'Delimi
 % scatter3(moved_sam2(:,1), moved_sam2(:,2), moved_sam2(:,3))
 
 % %write scaled translated and rotated figure to new stl file for viz
-% TR = triangulation( target.Mesh.Faces, target.Mesh.Vertices);
-% stlwrite(TR, 'viz_model.stl')
+TR = triangulation( target.Mesh.Faces, target.Mesh.Vertices);
+stlwrite(TR, 'wall_scaled.stl')
 % writematrix(sam1_cum, "viz_scan1.txt", 'Delimiter', 'tab')
 % writematrix(sam2_cum, "viz_scan2.txt", 'Delimiter', 'tab')
 % writematrix(truth_cum, "viz_ground_truth.txt", 'Delimiter', 'tab')
