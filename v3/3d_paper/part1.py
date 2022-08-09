@@ -18,7 +18,7 @@ from utils import R_tf
 
 #NOTE: to remove extended axis removal operation, un-comment out <axislen_actual = 0.1*tf.math....> in get_U_and_L_cluster()>
 
-niter = 500 #10
+niter = 10 #500
 
 #scene 1
 c1_raw = np.loadtxt("T_intersection_scan1.txt", dtype = float)
@@ -37,7 +37,8 @@ for i in range(niter):
 	print("------------- Epoch ", i, "---------------")
 
 	# #add noise (if not generated when point clouds were created)
-	noise_scale = 0.02
+	# noise_scale = 0.02 #old
+	noise_scale = 0.05 
 	c1 = c1_raw + noise_scale*np.random.randn(np.shape(c1_raw)[0], 3)
 	c2 = c2_raw + noise_scale*np.random.randn(np.shape(c2_raw)[0], 3) 
 
@@ -55,7 +56,7 @@ for i in range(niter):
 	rot = R_tf(random_rotation)
 	c2 = c2 @ rot.numpy() 
 
-	it = ICET(cloud1 = c1, cloud2 = c2, fid = 100, niter = 10, 
+	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 10, 
 		draw = False, group = 2, RM = False, DNN_filter = False)
 
 	# it = ICET(cloud1 = c1, cloud2 = c2, fid = 100, niter = 20, 
@@ -77,8 +78,8 @@ for i in range(niter):
 # np.save("MC_results/scene1_ICET_pred_stds_NM", ICET_pred_stds)
 
 #random initial pose
-np.save("MC_results/scene1_ICET_estimates_v5", ICET_estimates)
-np.save("MC_results/scene1_ICET_pred_stds_v5", ICET_pred_stds)
+np.save("MC_results/scene1_ICET_estimates_v6", ICET_estimates)
+np.save("MC_results/scene1_ICET_pred_stds_v6", ICET_pred_stds)
 # np.save("MC_results/scene1_ICET_estimates_NM_v4", ICET_estimates)
 # np.save("MC_results/scene1_ICET_pred_stds_NM_v4", ICET_pred_stds)
 

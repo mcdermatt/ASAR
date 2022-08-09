@@ -10,7 +10,7 @@
 clear all 
 close all
 
-nSamples =  50; %25;
+nSamples =  200; %25;
 epochs = 1;
 
 % sam1_cum = [];
@@ -33,6 +33,7 @@ for e = 1:epochs
 %     roll = 6; %taxi
 %     roll = 7; %vw bus
 %     roll = 8; %dummy
+    roll = 11; %wall
     if roll == 0
         FileName = 'training_data/simple_object1.stl';
     %     scale = [2, 2, 10];
@@ -95,6 +96,13 @@ for e = 1:epochs
         mindist = 4;
     end
 
+    if roll == 11
+        FileName = "C:/Users/Derm/vaRLnt/v3/demo/sigmaPoint/wall.stl"; 
+        scale = [7, 20, 15];
+        rot_corr = [0, 0, 90];
+        mindist = 4;
+    end
+
     %get vertices, faces, and normals from stl
     OpenFile = stlread(FileName);
     vertices = OpenFile.Points;
@@ -111,9 +119,9 @@ for e = 1:epochs
 %     %-------------
     
     vel = [10*randn() 10*randn() 0.3*randn()];
-    rot1 = rad2deg(2*pi*rand());
-    rot2 = rad2deg(2*pi*rand());
-    rot3 = rad2deg(2*pi*rand());
+    rot1 = 0; % rad2deg(2*pi*rand());
+    rot2 = 0; %rad2deg(2*pi*rand());
+    rot3 = 0; %rad2deg(2*pi*rand());
 %     vel = [100, 0, 0];
 %     rot = 0;    %temp- just for demo dataset
 
@@ -130,7 +138,7 @@ for e = 1:epochs
     end
     
     %test
-%     pos = [-5.0, 5.0, 0.01];
+    pos = [-20.0, -5.0, 0.01];
 %     vel = [100 2 0.1];
 %     pos(1) = pos(1) + 1.5;
 %     true_pos1 = [true_pos1; [pos(1), pos(2), pos(3), rot]];
@@ -161,7 +169,7 @@ for e = 1:epochs
     scenario = trackingScenario;
     ego = platform(scenario, 'Position', [0, 0, 1.72]);
     target = platform(scenario,'Trajectory',kinematicTrajectory('Position', pos,'Velocity', vel, 'Orientation', quat2rotm(eul2quat([rot1, rot2, rot3])) ));
-    % target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[10 0 0],'Velocity',[5 0 0], 'AngularVelocity', [0, 0, 0.1])); %with rotatation
+%     target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[10 0 0],'Velocity',[5 0 0], 'AngularVelocity', [0, 0, 0.1])); %with rotatation
 %     rotation = eul2quat([rot, 0, 90]);
 %     target.pose.Orientation = rotation;
 
@@ -233,28 +241,28 @@ set(gca,'XLim',[-10 10],'YLim',[-10 10],'ZLim',[-10 10])
 % sam2_cum = [sam2_cum; sam2_cum + repelem(temp, nSamples ,1)]; %need to tile temp 25 times
 % %-------------------------------------------------------------------------
 
-%augment data 2^4 times by rotating about vertical axis
-for i = 1:4
-    r = eul2rotm([randn()*360, 0, 0]);
-    old1 = reshape(transpose(sam1_cum), [1, 3, size(sam1_cum, 1)]);
-    rot1 = pagemtimes(old1, r);
-    rot1 = transpose(reshape(rot1, [3, size(sam1_cum, 1)]));
-    
-    old2 = reshape(transpose(sam2_cum), [1, 3, size(sam2_cum, 1)]);
-    rot2 = pagemtimes(old2, r);
-    rot2 = transpose(reshape(rot2, [3, size(sam2_cum, 1)]));
-    
-    % scatter3(rot1(:,1), rot1(:,2), rot1(:,3))
-    % scatter3(rot2(:,1), rot2(:,2), rot2(:,3))
-    truth_old = reshape(transpose(truth_cum), 1, 3, size(truth_cum, 1));
-    rot_truth = pagemtimes(truth_old, r);
-    rot_truth = transpose(reshape(rot_truth, [3, size(truth_cum, 1)]));
-    
-    %append rotated stuff to OG
-    sam1_cum = [sam1_cum; rot1];
-    sam2_cum = [sam2_cum; rot2];
-    truth_cum = [truth_cum; rot_truth];
-end
+% %augment data 2^4 times by rotating about vertical axis
+% for i = 1:4
+%     r = eul2rotm([randn()*360, 0, 0]);
+%     old1 = reshape(transpose(sam1_cum), [1, 3, size(sam1_cum, 1)]);
+%     rot1 = pagemtimes(old1, r);
+%     rot1 = transpose(reshape(rot1, [3, size(sam1_cum, 1)]));
+%     
+%     old2 = reshape(transpose(sam2_cum), [1, 3, size(sam2_cum, 1)]);
+%     rot2 = pagemtimes(old2, r);
+%     rot2 = transpose(reshape(rot2, [3, size(sam2_cum, 1)]));
+%     
+%     % scatter3(rot1(:,1), rot1(:,2), rot1(:,3))
+%     % scatter3(rot2(:,1), rot2(:,2), rot2(:,3))
+%     truth_old = reshape(transpose(truth_cum), 1, 3, size(truth_cum, 1));
+%     rot_truth = pagemtimes(truth_old, r);
+%     rot_truth = transpose(reshape(rot_truth, [3, size(truth_cum, 1)]));
+%     
+%     %append rotated stuff to OG
+%     sam1_cum = [sam1_cum; rot1];
+%     sam2_cum = [sam2_cum; rot2];
+%     truth_cum = [truth_cum; rot_truth];
+% end
 
 %last step, add gaussian noise to all range estimates
 sam1_cum = sam1_cum + 0.01*randn(size(sam1_cum));
@@ -272,9 +280,9 @@ sam2_cum = sam2_cum + 0.01*randn(size(sam2_cum));
 % writematrix(truth_cum, "C:/Users/Derm/Desktop/big/pshift/ground_truth_1k_50_samples.txt", 'Delimiter', 'tab')
 
 %fig 2 for 3D paper
-writematrix(sam1_cum, "C:/Users/Derm/Desktop/big/pshift/scan1_1k_50_samples.txt", 'Delimiter', 'tab')
-writematrix(sam2_cum, "C:/Users/Derm/Desktop/big/pshift/scan2_1k_50_samples.txt", 'Delimiter', 'tab')
-writematrix(truth_cum, "C:/Users/Derm/Desktop/big/pshift/ground_truth_1k_50_samples.txt", 'Delimiter', 'tab')
+writematrix(sam1_cum, "C:/Users/Derm/vaRLnt/v3/demo/sigmaPoint/s1.txt", 'Delimiter', 'tab')
+writematrix(sam2_cum, "C:/Users/Derm/vaRLnt/v3/demo/sigmaPoint/s2.txt", 'Delimiter', 'tab')
+writematrix(truth_cum, "C:/Users/Derm/vaRLnt/v3/demo/sigmaPoint/gt.txt", 'Delimiter', 'tab')
 
 
 % %for debug

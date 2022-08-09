@@ -44,7 +44,7 @@ class ICET():
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
 		self.niter = niter
-		self.alpha = 0.75 #1 #controls alpha values when displaying ellipses
+		self.alpha = 0.5 #controls alpha values when displaying ellipses
 		self.cheat = cheat
 		self.DNN_filter = DNN_filter
 		self.start_filter_iter = 6 #10 #iteration to start DNN rejection filter
@@ -228,8 +228,8 @@ class ICET():
 		if self.draw:
 			# self.visualize_L(mu1_enough, U, L)
 			self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
-			# self.draw_cell(corn)
-			# self.draw_car()
+			self.draw_cell(corn)
+			self.draw_car()
 			# draw identified points inside useful clusters
 			# for n in range(tf.shape(inside1.to_tensor())[0]):
 			# 	temp = tf.gather(self.cloud1_tensor, inside1[n]).numpy()	
@@ -591,9 +591,9 @@ class ICET():
 				self.draw_DNN_soln(dnnsoln, icetsoln, idx_to_draw_dnn_soln) #raw solutions
 
 
-			self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
+			# self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
 			self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
-			self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
+			# self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
 			# self.draw_cloud(self.cloud2_tensor_OG.numpy(), pc = 3) #3 #draw OG cloud in differnt color
 			# draw identified points from scan 2 inside useful clusters
 			# for n in range(tf.shape(inside2.to_tensor())[0]):
@@ -603,7 +603,7 @@ class ICET():
 
 			#FOR DEBUG: we should be looking at U_i, L_i anyways...
 			#   ans == indeces of enough1 that intersect with corr (aka combined enough1, enough2)
-			# self.visualize_L(tf.gather(mu1_enough, ans), U_i, L_i)
+			self.visualize_L(tf.gather(mu1_enough, ans), U_i, L_i)
 
 			# # #for generating figure 3b in spherical ICET paper ----------
 			# #scene 1, fid = 50, with ground plane
@@ -1470,34 +1470,35 @@ class ICET():
 			for i in range(tf.shape(corners)[0]):
 				p1, p2, p3, p4, p5, p6, p7, p8 = self.s2c(corners[i]).numpy()
 
-				lineWidth = 2
+				lineWidth = 1
+				c1 = 'black'
 
 				# arc1 = shapes.Arc(center = [0,0,0], point1 = p1, point2 = p2, c = 'red')	
-				arc1 = shapes.Line(p1, p2, c = 'red', lw = lineWidth) #debug		
+				arc1 = shapes.Line(p1, p2, c = c1, lw = lineWidth) #debug		
 				self.disp.append(arc1)
 				# arc2 = shapes.Arc(center = [0,0,0], point1 = p3, point2 = p4, c = 'red')
-				arc2 = shapes.Line(p3, p4, c = 'red', lw = lineWidth) #debug
+				arc2 = shapes.Line(p3, p4, c = c1, lw = lineWidth) #debug
 				self.disp.append(arc2)
-				line1 = shapes.Line(p1, p3, c = 'red', lw = lineWidth)
+				line1 = shapes.Line(p1, p3, c = c1, lw = lineWidth)
 				self.disp.append(line1)
-				line2 = shapes.Line(p2, p4, c = 'red', lw = lineWidth) #problem here
+				line2 = shapes.Line(p2, p4, c = c1, lw = lineWidth) #problem here
 				self.disp.append(line2)
 
 				# arc3 = shapes.Arc(center = [0,0,0], point1 = p5, point2 = p6, c = 'red')		
-				arc3 = shapes.Line(p5, p6, c = 'red', lw = lineWidth) #debug
+				arc3 = shapes.Line(p5, p6, c = c1, lw = lineWidth) #debug
 				self.disp.append(arc3)
 				# arc4 = shapes.Arc(center = [0,0,0], point1 = p7, point2 = p8, c = 'red')
-				arc4 = shapes.Line(p7, p8, c = 'red', lw = lineWidth) #debug
+				arc4 = shapes.Line(p7, p8, c = c1, lw = lineWidth) #debug
 				self.disp.append(arc4)
-				line3 = shapes.Line(p5, p7, c = 'red', lw = lineWidth)
+				line3 = shapes.Line(p5, p7, c = c1, lw = lineWidth)
 				self.disp.append(line3)
-				line4 = shapes.Line(p6, p8, c = 'red', lw = lineWidth)
+				line4 = shapes.Line(p6, p8, c = c1, lw = lineWidth)
 				self.disp.append(line4)
 
-				self.disp.append(shapes.Line(p1,p5,c = 'red', lw = lineWidth))
-				self.disp.append(shapes.Line(p2,p6,c = 'red', lw = lineWidth))
-				self.disp.append(shapes.Line(p3,p7,c = 'red', lw = lineWidth))
-				self.disp.append(shapes.Line(p4,p8,c = 'red', lw = lineWidth))
+				self.disp.append(shapes.Line(p1,p5, c = c1, lw = lineWidth))
+				self.disp.append(shapes.Line(p2,p6, c = c1, lw = lineWidth))
+				self.disp.append(shapes.Line(p3,p7, c = c1, lw = lineWidth))
+				self.disp.append(shapes.Line(p4,p8, c = c1, lw = lineWidth))
 
 		if bad == True:
 			#identified as containing moving objects
@@ -1701,7 +1702,7 @@ class ICET():
 		# car = Mesh(fname).c("gray").rotate(90, axis = (0,0,1)).addShadow(z=-1.85) #old vedo
 		car = Mesh(fname).c("gray").rotate(90, axis = (0,0,1))
 		car.pos(1.4,1,-1.72)
-		car.rotate(-45, axis = (0,0,1)) #for curve scene
+		# car.rotate(-45, axis = (0,0,1)) #for curve scene
 		car.addShadow(plane = 'z', point = -1.85, c=(0.5, 0.5, 0.5))
 		# car.orientation(vector(0,np.pi/2,0)) 
 		self.disp.append(car)

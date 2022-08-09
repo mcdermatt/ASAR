@@ -7,8 +7,9 @@ close all
 % FileName = 'virtual_scenes/scene1.stl'; %easy scan with house 
 % FileName = 'virtual_scenes/T_intersection.stl' ;
 % FileName = 'virtual_scenes/T_intersection_simple.stl' ;
+FileName = 'virtual_scenes/T_intersection_noisy.stl' ;
 % FileName = 'virtual_scenes/curve.stl' ;
-FileName = 'virtual_scenes/big_curve.stl' ;
+% FileName = 'virtual_scenes/big_curve.stl' ;
 % FileName = 'virtual_scenes/tube.stl' ;
 
 % FileName = 'virtual_scenes/scene2.stl'; %round pillars on one side of road
@@ -51,7 +52,7 @@ sensor.MountingLocation = [0, 0, 0]; %AHHHHAHHHHAHHHH!!!! Why is this not defaul
 sensor.UpdateRate = 10;
 sensor.ElevationLimits =  [-24.8, 2];  % was [-22, 2]; %22
 sensor.RangeAccuracy = 0.0001; %0.03; %0.01;
-sensor.AzimuthResolution = 0.2; %0.08;
+sensor.AzimuthResolution = 0.35; %0.08;
 sensor.ElevationResolution = 0.4;
 % sensor.MaxRange = 50;
 
@@ -61,7 +62,7 @@ scenario = trackingScenario;
 
 % ego = platform(scenario, 'Position', [-9.75, -1, 0]);
 % ego = platform(scenario, 'Position', [0, 0, 1.72], 'Orientation', eul2rotm(deg2rad([0.0, 45.0, 0.0]))); %[yaw, pitch, roll]
-ego = platform(scenario, 'Position', [0, 0, 1.72]);
+ego = platform(scenario, 'Position', [-1, 0, 1.72]);
 
 
 % target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[0 0 0],'Velocity',[0 5 0])); %no rotation
@@ -141,11 +142,13 @@ ptCloud2 = rmmissing(ptCloud2);
 % writematrix(ptCloud2, "T_intersection_scan2.txt", 'Delimiter', 'tab')
 % writematrix(ptCloud1, "T_intersection_simple_scan1.txt", 'Delimiter', 'tab')
 % writematrix(ptCloud2, "T_intersection_simple_scan2.txt", 'Delimiter', 'tab')
+writematrix(ptCloud1, "T_intersection_noisy_scan1.txt", 'Delimiter', 'tab')
+writematrix(ptCloud2, "T_intersection_noisy_scan2.txt", 'Delimiter', 'tab')
 
 % writematrix(ptCloud1, "curve_scan1.txt", 'Delimiter', 'tab')
 % writematrix(ptCloud2, "curve_scan2.txt", 'Delimiter', 'tab')
-writematrix(ptCloud1, "big_curve_scan1.txt", 'Delimiter', 'tab')
-writematrix(ptCloud2, "big_curve_scan2.txt", 'Delimiter', 'tab')
+% writematrix(ptCloud1, "big_curve_scan1.txt", 'Delimiter', 'tab')
+% writematrix(ptCloud2, "big_curve_scan2.txt", 'Delimiter', 'tab')
 % writematrix(ptCloud1, "tube_scan1.txt", 'Delimiter', 'tab')
 % writematrix(ptCloud2, "tube_scan2.txt", 'Delimiter', 'tab')
 
