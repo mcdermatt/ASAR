@@ -13,7 +13,6 @@ def get_cluster(rads, thresh = 0.2, mnp = 25): #mnp = 50, thresh = 0.2
             """
 
     #TODO: try dymacally lowering <max_buffer> value as algorithm progresses
-
     max_buffer = 0.2 #0.5
     # max_buffer = 0.05 #test
 
@@ -26,6 +25,7 @@ def get_cluster(rads, thresh = 0.2, mnp = 25): #mnp = 50, thresh = 0.2
     if len(tf.shape(rads)) < 2:
         rads = rads[:,None]
 
+    OG_rads = rads #hold on to OG rads
     #replace all zeros in rads (result of converting ragged -> standard tensor) with some arbitrarily large value
     mask = tf.cast(tf.math.equal(rads, 0), tf.float32)*1000
     rads = rads + mask
@@ -48,7 +48,42 @@ def get_cluster(rads, thresh = 0.2, mnp = 25): #mnp = 50, thresh = 0.2
 
     # #find where difference jumps
     jumps = tf.where(diff > thresh)
-    # print("\n jumps \n", jumps) #[idx of jump, which spike is jumping]
+    print("\n jumps \n", jumps) #[idx of jump, which spike is jumping]
+
+    #----------------------------------------------------------------------
+    #TODO FIX BUG THAT PREVENTS VOXEL FROM BEING FORMED AROUND VERY TIGHT DISTINCT CLUSETERS OF POINTS (8/9/22)
+    #       This is happening becuase we are adding in 0 as a first element only to spikes(?) that already have jumps!
+    #           Need to add zeros to ALL spikes
+
+    #get indexes of all used spikes
+    used = jumps[:,1][None,:]
+    print("used", used)
+    biggest = tf.math.reduce_max(used, axis = 1).numpy()[0]
+    # print("biggest", biggest)
+    all_spikes = tf.cast(tf.linspace(0,biggest,biggest+1), tf.int64)[None,:] #list all spikes total
+    # print("all_spikes", all_spikes)
+
+    #find differnce
+    missing = tf.sets.difference(all_spikes, used).values[None,:]
+    print("missing", missing)
+    # z = tf.zeros(tf.shape(missing), dtype = tf.int64) #wrong...
+    z = 51*tf.ones(tf.shape(missing), dtype = tf.int64) #wrong...
+    print("z", z)
+
+    #z should be this...
+    print("OG_rads", OG_rads)
+    test = tf.gather(OG_rads, missing[0] )  #get index of last element of missing jump section
+    print(test)
+
+    missing = tf.transpose(tf.concat((z, missing), axis = 0))
+    print(missing)
+
+    #concat missing stuff back at the end of jumps
+    jumps = tf.concat((jumps, missing), axis = 0)
+    print("\n jumps after fix", jumps)
+
+    #----------------------------------------------------------------------
+
 
     #find where the first large cluster occurs in each spike
     #   using numpy here because we're not working with the full dataset and 
@@ -58,9 +93,11 @@ def get_cluster(rads, thresh = 0.2, mnp = 25): #mnp = 50, thresh = 0.2
 
         #get the indices of jumps for the ith spike
         jumps_i = tf.gather(jumps, tf.where(jumps[:,1] == i))[:,0].numpy()
-        jumps_i = np.append(np.zeros([1,2], dtype = np.int32), jumps_i, axis = 0)#need to add zeros to the beginning
-    
-        # print("jumps_i", i, " \n", jumps_i)  
+        # jumps_i = np.append(np.zeros([1,2], dtype = np.int32), jumps_i, axis = 0)#need to add zeros to the beginning
+        jumps_i = np.append(tf.constant([[0,i]], dtype = np.int32), jumps_i, axis = 0) #test
+
+        
+        print("jumps_i", i, " \n", jumps_i)  
 
         last = 0
         count = 1
@@ -104,6 +141,7 @@ def get_cluster(rads, thresh = 0.2, mnp = 25): #mnp = 50, thresh = 0.2
                 break
 
     bounds = tf.convert_to_tensor(bounds)
+    print("\n bounds", bounds)
 
     return(bounds)
 

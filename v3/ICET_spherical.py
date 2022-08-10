@@ -44,7 +44,7 @@ class ICET():
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
 		self.niter = niter
-		self.alpha = 0.5 #controls alpha values when displaying ellipses
+		self.alpha = 1 #0.5 #controls alpha values when displaying ellipses
 		self.cheat = cheat
 		self.DNN_filter = DNN_filter
 		self.start_filter_iter = 6 #10 #iteration to start DNN rejection filter
@@ -179,7 +179,6 @@ class ICET():
 		rads = tf.transpose(idx_by_rag.to_tensor())
 		bounds = get_cluster(rads, mnp = self.min_num_pts)
 		# bounds = get_cluster(rads, 20) #test 8/2/22
-
 		# #test 8/2/22 (need if we are using seprate threshold for enough1 and bounds)--------
 		# inside1, npts1 = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes, bounds)
 

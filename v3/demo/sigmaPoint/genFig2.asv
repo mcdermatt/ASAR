@@ -138,7 +138,7 @@ for e = 1:epochs
     end
     
     %test
-    pos = [-40.0, -40.0, -5.];
+    pos = [-40.0, -40.0, 0.];
 %     vel = [100 2 0.1];
 %     pos(1) = pos(1) + 1.5;
 %     true_pos1 = [true_pos1; [pos(1), pos(2), pos(3), rot]];
@@ -160,8 +160,8 @@ for e = 1:epochs
     sensor.UpdateRate = 10;
     sensor.ElevationLimits = [-30, 10];  %[-22, 2]; 
     sensor.RangeAccuracy = 0.01; % was 0.01, now adding noise at end;
-    sensor.AzimuthResolution = 0.2; %0.2;
-    sensor.ElevationResolution = 0.4; %0.4;
+    sensor.AzimuthResolution = 0.5; %0.2;
+    sensor.ElevationResolution = 1.; %0.4;
     sensor.MaxRange = 100;
     
     
@@ -266,7 +266,7 @@ set(gca,'XLim',[-10 10],'YLim',[-10 10],'ZLim',[-10 10])
 
 %last step, add gaussian noise to all range estimates
 sam1_cum = sam1_cum + 0.01*randn(size(sam1_cum));
-sam2_cum = sam2_cum + 0.01*randn(size(sam2_cum));
+sam2_cum = sam2_cum + 0.0*randn(size(sam2_cum));
  
 % % %for smaller datasets (keep in git repo)
 % writematrix(sam1_cum, "training_data/scan1.txt", 'Delimiter', 'tab')
