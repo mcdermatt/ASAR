@@ -3,7 +3,7 @@ import tensorflow as tf
 from vedo import *
 import vtk
 
-def get_cluster(rads, thresh = 0.2, mnp = 25): #mnp = 50, thresh = 0.2
+def get_cluster(rads, thresh = 0.2, mnp = 50): #mnp = 50, thresh = 0.2
     """ Identifies radial bounds which contain the first cluster in a spike 
             that is closest to the ego-vehicle 
         
@@ -48,7 +48,7 @@ def get_cluster(rads, thresh = 0.2, mnp = 25): #mnp = 50, thresh = 0.2
 
     # #find where difference jumps
     jumps = tf.where(diff > thresh)
-    print("\n jumps \n", jumps) #[idx of jump, which spike is jumping]
+    # print("\n jumps \n", jumps) #[idx of jump, which spike is jumping]
 
     #----------------------------------------------------------------------
     #TODO FIX BUG THAT PREVENTS VOXEL FROM BEING FORMED AROUND VERY TIGHT DISTINCT CLUSETERS OF POINTS (8/9/22)
@@ -57,7 +57,7 @@ def get_cluster(rads, thresh = 0.2, mnp = 25): #mnp = 50, thresh = 0.2
 
     #get indexes of all used spikes
     used = jumps[:,1][None,:]
-    print("used", used)
+    # print("used", used)
     biggest = tf.math.reduce_max(used, axis = 1).numpy()[0]
     # print("biggest", biggest)
     all_spikes = tf.cast(tf.linspace(0,biggest,biggest+1), tf.int64)[None,:] #list all spikes total
@@ -65,23 +65,30 @@ def get_cluster(rads, thresh = 0.2, mnp = 25): #mnp = 50, thresh = 0.2
 
     #find differnce
     missing = tf.sets.difference(all_spikes, used).values[None,:]
-    print("missing", missing)
+    # print("\n missing", missing)
     # z = tf.zeros(tf.shape(missing), dtype = tf.int64) #wrong...
-    z = 51*tf.ones(tf.shape(missing), dtype = tf.int64) #wrong...
-    print("z", z)
+    # z = 51*tf.ones(tf.shape(missing), dtype = tf.int64) #wrong...
+    # print("z", z)
 
     #z should be this...
-    print("OG_rads", OG_rads)
-    test = tf.gather(OG_rads, missing[0] )  #get index of last element of missing jump section
-    print(test)
+    # print("\n OG_rads", OG_rads)
+    # ends = tf.math.argmax(OG_rads, axis = 0) #wrong -> not max arg, last nonzero argument!!
+    zero = tf.constant(0, dtype = tf.float32)
+    ends = tf.math.reduce_sum(tf.cast(tf.not_equal(OG_rads, zero), tf.int64), axis = 0) #correct
+    # print("\n ends", ends)
+
+    test = tf.gather(ends, missing[0])  #get index of last element of missing jump section
+    # print("\n test", test)
+    z = test[None,:]
+    z -= 2 #fixes indexing bug
+    # print("z", z)
 
     missing = tf.transpose(tf.concat((z, missing), axis = 0))
-    print(missing)
+    # print(missing)
 
     #concat missing stuff back at the end of jumps
     jumps = tf.concat((jumps, missing), axis = 0)
-    print("\n jumps after fix", jumps)
-
+    # print("\n jumps after fix", jumps)
     #----------------------------------------------------------------------
 
 
@@ -94,10 +101,10 @@ def get_cluster(rads, thresh = 0.2, mnp = 25): #mnp = 50, thresh = 0.2
         #get the indices of jumps for the ith spike
         jumps_i = tf.gather(jumps, tf.where(jumps[:,1] == i))[:,0].numpy()
         # jumps_i = np.append(np.zeros([1,2], dtype = np.int32), jumps_i, axis = 0)#need to add zeros to the beginning
-        jumps_i = np.append(tf.constant([[0,i]], dtype = np.int32), jumps_i, axis = 0) #test
+        jumps_i = np.append(tf.constant([[0,i]], dtype = np.int32), jumps_i, axis = 0) #test 8/10/22
 
         
-        print("jumps_i", i, " \n", jumps_i)  
+        # print("jumps_i", i, " \n", jumps_i)  
 
         last = 0
         count = 1
@@ -141,7 +148,7 @@ def get_cluster(rads, thresh = 0.2, mnp = 25): #mnp = 50, thresh = 0.2
                 break
 
     bounds = tf.convert_to_tensor(bounds)
-    print("\n bounds", bounds)
+    # print("\n bounds", bounds)
 
     return(bounds)
 

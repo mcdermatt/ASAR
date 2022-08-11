@@ -128,33 +128,33 @@ from metpy.calc import lat_lon_grid_deltas
 # c2 = np.loadtxt(filename2, dtype = float)
 # # #---------------------------------------------------------------------------------------
 
-#CODD (colaborative driving dataset)----------------------------------------------------
-import h5py
-# filename = 'C:/CODD/data/m1v7p7s769.hdf5' #straight line urban(?)
-# filename = 'C:/CODD/data/m5v10p6s31.hdf5' #turn on country road
-# filename = 'C:/CODD/data/m2v7p3s333.hdf5'
-filename = 'C:/CODD/data/m10v11p6s30.hdf5' #wide road, palm trees, and traffic
+# #CODD (colaborative driving dataset)----------------------------------------------------
+# import h5py
+# # filename = 'C:/CODD/data/m1v7p7s769.hdf5' #straight line urban(?)
+# # filename = 'C:/CODD/data/m5v10p6s31.hdf5' #turn on country road
+# # filename = 'C:/CODD/data/m2v7p3s333.hdf5'
+# filename = 'C:/CODD/data/m10v11p6s30.hdf5' #wide road, palm trees, and traffic
 
-vidx = 0 #vehicle index
-idx = 121 #frame idx
+# vidx = 0 #vehicle index
+# idx = 121 #frame idx
 
-with h5py.File(filename, 'r') as hf:
-#     pcls = hf['point_cloud'][:]
-    #[frames, vehicles, points_per_cloud, 4]
-    pcls = hf['point_cloud'][:, vidx ,: , :3]
-    #[frames, points_per_cloud, rgb]
+# with h5py.File(filename, 'r') as hf:
+# #     pcls = hf['point_cloud'][:]
+#     #[frames, vehicles, points_per_cloud, 4]
+#     pcls = hf['point_cloud'][:, vidx ,: , :3]
+#     #[frames, points_per_cloud, rgb]
     
-#     pose = hf['lidar_pose'][:]
-    #[frames, vehicles, (x,y,z, rotx, roty, rotz)]
-    pose = hf['lidar_pose'][:, vidx, :]
+# #     pose = hf['lidar_pose'][:]
+#     #[frames, vehicles, (x,y,z, rotx, roty, rotz)]
+#     pose = hf['lidar_pose'][:, vidx, :]
 
-c1 = pcls[idx]
-c2 = pcls[idx+1]
+# c1 = pcls[idx]
+# c2 = pcls[idx+1]
 
-noise_scale = 0.02#0.005 #0.01 # doesn't work at 0.001
-c1 += noise_scale*np.random.randn(np.shape(c1)[0], 3)
-c2 += noise_scale*np.random.randn(np.shape(c2)[0], 3)
-#---------------------------------------------------------------------------------------
+# noise_scale = 0.02#0.005 #0.01 # doesn't work at 0.001
+# c1 += noise_scale*np.random.randn(np.shape(c1)[0], 3)
+# c2 += noise_scale*np.random.randn(np.shape(c2)[0], 3)
+# #---------------------------------------------------------------------------------------
 
 
 # # load custom point cloud geneated in matlab------------------------------------------
@@ -222,21 +222,21 @@ c2 += noise_scale*np.random.randn(np.shape(c2)[0], 3)
 # # ------------------------------------------------------------------------------------
 
 
-# #tesing full trajectory before simulation for spherical ICET paper -------------------
-# # c1 = np.loadtxt("MC_trajectories/scene1_scan17.txt", dtype = float)
-# # c2 = np.loadtxt("MC_trajectories/scene1_scan18.txt", dtype = float)
+#tesing full trajectory before simulation for spherical ICET paper -------------------
+c1 = np.loadtxt("spherical_paper/MC_trajectories/scene1_scan17.txt", dtype = float)
+c2 = np.loadtxt("spherical_paper/MC_trajectories/scene1_scan18.txt", dtype = float)
 
 # c1 = np.loadtxt("MC_trajectories/scene2_scan15.txt", dtype = float)
 # c2 = np.loadtxt("MC_trajectories/scene2_scan16.txt", dtype = float)
 
-# #add noise (if not generated when point clouds were created)
-# c1 += 0.02*np.random.randn(np.shape(c1)[0], 3)
-# c2 += 0.02*np.random.randn(np.shape(c2)[0], 3) 
+#add noise (if not generated when point clouds were created)
+c1 += 0.02*np.random.randn(np.shape(c1)[0], 3)
+c2 += 0.02*np.random.randn(np.shape(c2)[0], 3) 
 
-# #rotate scans
-# rot = R_tf(tf.constant([0., 0., 0.05]))
-# c2 = c2 @ rot.numpy() 
-# # ------------------------------------------------------------------------------------
+#rotate scans
+rot = R_tf(tf.constant([0., 0., 0.05]))
+c2 = c2 @ rot.numpy() 
+# ------------------------------------------------------------------------------------
 
 # # #single distinct cluster---------------------------------------------------------------
 # c1 = np.random.randn(3000,3)*tf.constant([0.3,0.04,0.3]) + tf.constant([0.,8.,0.])
@@ -246,8 +246,8 @@ c2 += noise_scale*np.random.randn(np.shape(c2)[0], 3)
 
 # ground_truth = tf.constant([0.1799, 0., 0., -0.0094, -0.011, -0.02072]) #FULL KITTI scan 1397
 
-it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 12, 
-	draw = True, group = 2, RM = True, DNN_filter = False)#, cheat = gt)
+it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 100, niter = 5, 
+	draw = True, group = 2, RM = False, DNN_filter = False)#, cheat = gt)
 
 # it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 100, niter = 20, 
 # 	draw = True, group = 2, RM = False, DNN_filter = False, x0 = it1.X)

@@ -40,7 +40,7 @@ class ICET():
 
 		self.min_cell_distance = 2 #0.1 #5 #2 #begin closest spherical voxel here
 		#ignore "occupied" cells with fewer than this number of pts
-		self.min_num_pts = 50 #100 #was 50 for KITTI and Ford, need to lower to 25 for CODD 
+		self.min_num_pts = 50 #was 50 for KITTI and Ford, need to lower to 25 for CODD 
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
 		self.niter = niter
@@ -602,7 +602,7 @@ class ICET():
 
 			#FOR DEBUG: we should be looking at U_i, L_i anyways...
 			#   ans == indeces of enough1 that intersect with corr (aka combined enough1, enough2)
-			self.visualize_L(tf.gather(mu1_enough, ans), U_i, L_i)
+			# self.visualize_L(tf.gather(mu1_enough, ans), U_i, L_i)
 
 			# # #for generating figure 3b in spherical ICET paper ----------
 			# #scene 1, fid = 50, with ground plane
