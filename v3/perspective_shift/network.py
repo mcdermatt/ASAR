@@ -3,6 +3,42 @@ import tensorflow.keras as keras
 from tensorflow.keras import layers
 import numpy as np
 
+def Attention(**kwargs):
+    """ Trying out attention network to replace PointNet-style encoding of input features"""
+    insize = 100
+
+    inputs = keras.Input(shape=(insize, 3)) 
+
+    X = tf.expand_dims(inputs, -1)
+    X = tf.keras.layers.Conv2D(128, [1,3], padding = 'valid', strides = [1,1], activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+    X = tf.keras.layers.Conv2D(64, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+    X = tf.reshape(X, [-1,insize,64])
+
+    X = tf.keras.layers.Attention()([X, X])
+    X = keras.layers.MaxPool1D(pool_size = int(insize/2))(X)
+
+    X = keras.layers.Flatten()(X)
+
+    X = keras.layers.Dense(units = 256, activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+    X = keras.layers.Dense(units = 128, activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+    X = keras.layers.Dense(units = 64, activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+    X = keras.layers.Dense(units = 64, activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+
+
+    output = keras.layers.Dense(units=3, activation = 'tanh')(X) #translation only
+    output = output*tf.constant([5., 5., 5.]) #KITTI
+    model = tf.keras.Model(inputs,output)
+
+    return model
+
+
+
 def Net(**kwargs):
 
     ''' Simple feedforward network
@@ -30,7 +66,7 @@ def Net(**kwargs):
     # X = keras.layers.BatchNormalization()(X)
     # #~~~~~~~
 
-    X = tf.keras.layers.Conv2D(64, [1,3], padding = 'valid', strides = [1,1], activation = 'relu')(X)
+    X = tf.keras.layers.Conv2D(128, [1,3], padding = 'valid', strides = [1,1], activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
 
     # X = tf.keras.layers.Conv2D(64, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
@@ -72,14 +108,14 @@ def Net(**kwargs):
     # X = tf.transpose(X, [0, 2, 1]) #test - I think this is needed to perform conv on correct axis
     # # X = keras.layers.Permute((2,1))(X) #also works
 
-    # #~~~~~~~~~~~~~~~~~~~~~~~~
-    # #NEW - Need FF layer to re-arrange points so that convolutional kernels can actually do their job??
-    # X = keras.layers.Dense(units = 256, activation = 'relu')(X)
-    # X = keras.layers.BatchNormalization()(X)
+    # # #~~~~~~~~~~~~~~~~~~~~~~~~
+    # ## Need FF layer to re-arrange points so that convolutional kernels can actually do their job??
+    # # X = keras.layers.Dense(units = 256, activation = 'relu')(X)
+    # # X = keras.layers.BatchNormalization()(X)
 
-    # X = keras.layers.Dense(units = 64, activation = 'relu')(X)
-    # X = keras.layers.BatchNormalization()(X)
-    # #~~~~~~~~~~~~~~~~~~~~~~~~
+    # # X = keras.layers.Dense(units = 64, activation = 'relu')(X)
+    # # X = keras.layers.BatchNormalization()(X)
+    # # #~~~~~~~~~~~~~~~~~~~~~~~~
 
     # #conv layers help 1d a lot
     # X = keras.layers.Conv1D(filters = 4, kernel_size = 8, strides = 4, padding = 'valid', activation = 'relu')(X)
@@ -101,11 +137,11 @@ def Net(**kwargs):
     X = keras.layers.BatchNormalization()(X)
 
     #NEW ---------------------------------------------------
+    X = keras.layers.Dense(units = 128, activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
     X = keras.layers.Dense(units = 64, activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
-    X = keras.layers.Dense(units = 32, activation = 'relu')(X)
-    X = keras.layers.BatchNormalization()(X)
-    X = keras.layers.Dense(units = 32, activation = 'relu')(X)
+    X = keras.layers.Dense(units = 64, activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
     #--------------------------------------------------------
 

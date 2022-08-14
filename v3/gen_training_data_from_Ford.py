@@ -8,9 +8,11 @@ import mat4py
 
 #TODO- should I be generating training data without the ground plane???
 
-numShifts = 2 #number of times to resample and translate each voxel each scan
-runLen = 10 #199
+numShifts = 20 #number of times to resample and translate each voxel each scan
+runLen = 400 #199
 ptsPerCell = 50
+
+start_idx = 850 #2700 #1050 #2150
 
 # ground_truth = np.loadtxt("E:/Ford/IJRR-Dataset-1-subset/SCANS/truth.txt")/10
 # ground_truth = tf.cast(tf.convert_to_tensor(ground_truth), tf.float32)
@@ -34,8 +36,8 @@ for idx in range(runLen):
 	# fn1 = 'E:/Ford/IJRR-Dataset-1-subset/SCANS/Scan%04d.mat' %(idx+1000)
 	# fn2 = 'E:/Ford/IJRR-Dataset-1-subset/SCANS/Scan%04d.mat' %(idx+1001)
 
-	fn1 = 'E:/Ford/IJRR-Dataset-1/SCANS/Scan%04d.mat' %(idx+1150 + 75) #TEST add 1 to get spacing correct??
-	fn2 = 'E:/Ford/IJRR-Dataset-1/SCANS/Scan%04d.mat' %(idx+1151 + 75)
+	fn1 = 'E:/Ford/IJRR-Dataset-1/SCANS/Scan%04d.mat' %(idx+start_idx + 75) #TEST add 1 to get spacing correct??
+	fn2 = 'E:/Ford/IJRR-Dataset-1/SCANS/Scan%04d.mat' %(idx+start_idx + 76)
 
 	dat1 = mat4py.loadmat(fn1)
 	SCAN1 = dat1['SCAN']
@@ -48,10 +50,19 @@ for idx in range(runLen):
 	c1 = c1[c1[:,2] > -2.2] #ignore ground plane
 	c2 = c2[c2[:,2] > -2.2] #ignore ground plane
 
-	gt = (ground_truth[idx+1150,:] + ground_truth[idx+1151,:])/2 #avg between pts
+	#was this
+	# gt = (ground_truth[idx+start_idx,:] + ground_truth[idx+start_idx + 1,:])/2 # [0.004, 0.003, 0.0006]
+	#test 
+	# gt = (ground_truth[idx+start_idx + 1,:] + ground_truth[idx + start_idx + 2,:])/2 #0.006 avg y error
+	# gt = ground_truth[idx+start_idx + 1,:] # []
+	# gt = ground_truth[idx+start_idx,:] # []
+	# gt = ground_truth[idx+start_idx-1,:] # [0.012, 0.0024, 0.0036]
+	# gt = (ground_truth[idx+start_idx -1,:] + ground_truth[idx + start_idx,:])/2 #[0.012, 0.0013, 0.0035]
+	gt = (ground_truth[idx+start_idx - 2,:] + ground_truth[idx + start_idx - 1,:])/2 #[002, 0.0004, 0.00036]
+
 
 	it = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 3, draw = False, group = 2, 
-		RM = False, DNN_filter = False, cheat = gt)
+		RM = True, DNN_filter = False, cheat = gt)
 
 	#Get ragged tensor containing all points from each scan inside each sufficient voxel
 	in1 = it.inside1
@@ -111,14 +122,22 @@ for idx in range(runLen):
 	print("got", tf.shape(enough2.to_tensor())[0].numpy()*numShifts, "training samples from scan", idx)
 
 #smol
-np.savetxt('perspective_shift/training_data/ICET_Ford_scan1.txt', scan1_cum)
-np.savetxt('perspective_shift/training_data/ICET_Ford_scan2.txt', scan2_cum)
-np.savetxt('perspective_shift/training_data/ICET_Ford_ground_truth.txt', rand_cum)
+# np.savetxt('perspective_shift/training_data/ICET_Ford_scan1.txt', scan1_cum)
+# np.savetxt('perspective_shift/training_data/ICET_Ford_scan2.txt', scan2_cum)
+# np.savetxt('perspective_shift/training_data/ICET_Ford_ground_truth.txt', rand_cum)
 
 #big
 # np.savetxt('C:/Users/Derm/Desktop/big/pshift/ICET_Ford_v2_scan1.txt', scan1_cum)
 # np.savetxt('C:/Users/Derm/Desktop/big/pshift/ICET_Ford_v2_scan2.txt', scan2_cum)
 # np.savetxt('C:/Users/Derm/Desktop/big/pshift/ICET_Ford_v2_ground_truth.txt', rand_cum)
+np.save('C:/Users/Derm/Desktop/big/pshift/ICET_Ford_v4_scan1', scan1_cum)
+np.save('C:/Users/Derm/Desktop/big/pshift/ICET_Ford_v4_scan2', scan2_cum)
+np.save('C:/Users/Derm/Desktop/big/pshift/ICET_Ford_v4_ground_truth', rand_cum)
+
+#v1 = 1050
+#v2 = 2150
+#v3 = 2700
+#v4 = 850
 
 #for tf.data test
 # np.save('C:/Users/Derm/Desktop/big/pshift/test1_scan1', scan1_cum)

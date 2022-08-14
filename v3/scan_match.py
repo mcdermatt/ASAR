@@ -91,34 +91,34 @@ from metpy.calc import lat_lon_grid_deltas
 # # ------------------------------------------------------------------------------------
 
 
-# # Ford Campus Datset------------------------------------------------------------------
-# import mat4py
+# Ford Campus Datset------------------------------------------------------------------
+import mat4py
 
-# # partial dataset starts at 1000
-# # fn1 = 'E:/Ford/IJRR-Dataset-1-subset/SCANS/Scan1134.mat'
-# # fn2 = 'E:/Ford/IJRR-Dataset-1-subset/SCANS/Scan1135.mat'
+# partial dataset starts at 1000
+# fn1 = 'E:/Ford/IJRR-Dataset-1-subset/SCANS/Scan1134.mat'
+# fn2 = 'E:/Ford/IJRR-Dataset-1-subset/SCANS/Scan1135.mat'
 
-# #full dataset starts at 00136
-# i = 1216 #1150 #1190
-# fn1 = 'E:/Ford/IJRR-Dataset-1/SCANS/Scan%04d.mat' %(i+75) #75 + 61 = 136
-# fn2 = 'E:/Ford/IJRR-Dataset-1/SCANS/Scan%04d.mat' %(i+76) #76 + 61 = 137
+#full dataset starts at 00136
+i = 1225 #1150 #1190
+fn1 = 'E:/Ford/IJRR-Dataset-1/SCANS/Scan%04d.mat' %(i+75) #75 + 61 = 136
+fn2 = 'E:/Ford/IJRR-Dataset-1/SCANS/Scan%04d.mat' %(i+76) #76 + 61 = 137
 
-# dat1 = mat4py.loadmat(fn1)
-# SCAN1 = dat1['SCAN']
-# c1 = np.transpose(np.array(SCAN1['XYZ']))
+dat1 = mat4py.loadmat(fn1)
+SCAN1 = dat1['SCAN']
+c1 = np.transpose(np.array(SCAN1['XYZ']))
 
-# dat2 = mat4py.loadmat(fn2)
-# SCAN2 = dat2['SCAN']
-# c2 = np.transpose(np.array(SCAN2['XYZ']))
+dat2 = mat4py.loadmat(fn2)
+SCAN2 = dat2['SCAN']
+c2 = np.transpose(np.array(SCAN2['XYZ']))
 
-# ground_truth = np.loadtxt("E:/Ford/IJRR-Dataset-1/SCANS/truth.txt")/10
-# ground_truth = tf.cast(tf.convert_to_tensor(ground_truth), tf.float32)
-# gt = (ground_truth[i,:] + ground_truth[i+1,:])/2 #avg between pts
+ground_truth = np.loadtxt("E:/Ford/IJRR-Dataset-1/SCANS/truth.txt")/10
+ground_truth = tf.cast(tf.convert_to_tensor(ground_truth), tf.float32)
+gt = (ground_truth[i,:] + ground_truth[i+1,:])/2 #avg between pts
 
 
-# # c1 = c1[c1[:,2] > -2.2] #ignore ground plane #mounted 2.4m off ground
-# # c2 = c2[c2[:,2] > -2.2] #ignore ground plane
-# # ------------------------------------------------------------------------------------
+# c1 = c1[c1[:,2] > -2.2] #ignore ground plane #mounted 2.4m off ground
+# c2 = c2[c2[:,2] > -2.2] #ignore ground plane
+# ------------------------------------------------------------------------------------
 
 
 # #TIERS forest dataset -----------------------------------------------------------------
@@ -222,21 +222,21 @@ from metpy.calc import lat_lon_grid_deltas
 # # ------------------------------------------------------------------------------------
 
 
-#tesing full trajectory before simulation for spherical ICET paper -------------------
-c1 = np.loadtxt("spherical_paper/MC_trajectories/scene1_scan17.txt", dtype = float)
-c2 = np.loadtxt("spherical_paper/MC_trajectories/scene1_scan18.txt", dtype = float)
+# #tesing full trajectory before simulation for spherical ICET paper -------------------
+# c1 = np.loadtxt("spherical_paper/MC_trajectories/scene1_scan17.txt", dtype = float)
+# c2 = np.loadtxt("spherical_paper/MC_trajectories/scene1_scan18.txt", dtype = float)
 
-# c1 = np.loadtxt("MC_trajectories/scene2_scan15.txt", dtype = float)
-# c2 = np.loadtxt("MC_trajectories/scene2_scan16.txt", dtype = float)
+# # c1 = np.loadtxt("MC_trajectories/scene2_scan15.txt", dtype = float)
+# # c2 = np.loadtxt("MC_trajectories/scene2_scan16.txt", dtype = float)
 
-#add noise (if not generated when point clouds were created)
-c1 += 0.02*np.random.randn(np.shape(c1)[0], 3)
-c2 += 0.02*np.random.randn(np.shape(c2)[0], 3) 
+# #add noise (if not generated when point clouds were created)
+# c1 += 0.02*np.random.randn(np.shape(c1)[0], 3)
+# c2 += 0.02*np.random.randn(np.shape(c2)[0], 3) 
 
-#rotate scans
-rot = R_tf(tf.constant([0., 0., 0.05]))
-c2 = c2 @ rot.numpy() 
-# ------------------------------------------------------------------------------------
+# #rotate scans
+# rot = R_tf(tf.constant([0., 0., 0.05]))
+# c2 = c2 @ rot.numpy() 
+# # ------------------------------------------------------------------------------------
 
 # # #single distinct cluster---------------------------------------------------------------
 # c1 = np.random.randn(3000,3)*tf.constant([0.3,0.04,0.3]) + tf.constant([0.,8.,0.])
@@ -246,8 +246,8 @@ c2 = c2 @ rot.numpy()
 
 # ground_truth = tf.constant([0.1799, 0., 0., -0.0094, -0.011, -0.02072]) #FULL KITTI scan 1397
 
-it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 100, niter = 5, 
-	draw = True, group = 2, RM = False, DNN_filter = False)#, cheat = gt)
+it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 90, niter = 10, 
+	draw = True, group = 2, RM = True, DNN_filter = False)#, cheat = gt)
 
 # it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 100, niter = 20, 
 # 	draw = True, group = 2, RM = False, DNN_filter = False, x0 = it1.X)
