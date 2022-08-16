@@ -3,6 +3,32 @@ import tensorflow.keras as keras
 from tensorflow.keras import layers
 import numpy as np
 
+# #for using PointNet package, need to run py39 conda env ________
+# import tensorflow_graphics as tfg
+# from tensorflow_graphics.nn.layer.pointnet import PointNetConv2Layer
+
+# def PointNet(**kwargs):
+#     """ Using PointNet 2D conv layer provided by ___ """
+
+#     insize = 100
+#     inputs = keras.Input(shape=(insize, 3))
+
+#     X = test_conv2(64, inputs, 1, True)
+
+#     output = keras.layers.Dense(units=3, activation = 'tanh')(X) #translation only
+#     output = output*tf.constant([5., 5., 5.]) #KITTI
+#     model = tf.keras.Model(inputs,output)
+
+#     return model
+
+# def test_conv2(input_shape, channels, momentum, training):
+#     B, N, X, _ = input_shape
+#     inputs = tf.random.uniform(input_shape)
+#     layer = PointNetConv2Layer(channels, momentum)
+#     outputs = layer(inputs, training=training)
+#     assert outputs.shape == (B, N, X, channels)
+# #_________________________________________________________________
+
 def Attention(**kwargs):
     """ Trying out attention network to replace PointNet-style encoding of input features"""
     insize = 100
@@ -66,17 +92,20 @@ def Net(**kwargs):
     # X = keras.layers.BatchNormalization()(X)
     # #~~~~~~~
 
-    X = tf.keras.layers.Conv2D(128, [1,3], padding = 'valid', strides = [1,1], activation = 'relu')(X)
+    X = tf.keras.layers.Conv2D(64, [1,3], padding = 'valid', strides = [1,1], activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
 
-    # X = tf.keras.layers.Conv2D(64, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
-    # X = keras.layers.BatchNormalization()(X)
+    X = tf.keras.layers.Conv2D(64, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+
+    #was 256
+    X = tf.keras.layers.Conv2D(64, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
 
     #TODO -> figure out why this is better than 1d conv
     #This was at 512, I dropped it to increase batch size
-    X = tf.keras.layers.Conv2D(64, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
-    X = keras.layers.BatchNormalization()(X)
-    X = tf.reshape(X, [-1,insize,64])
+    # X = tf.keras.layers.Conv2D(512, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
+    # X = keras.layers.BatchNormalization()(X)
 
     #worse than 2d...
     # X = tf.keras.layers.Conv1D(512, kernel_size = 1, strides = 1, padding = 'valid', activation = 'relu')(X)
@@ -94,7 +123,11 @@ def Net(**kwargs):
     # # -----------------------------------------------------------
 
     # 1D Max Pooling 
-    X = keras.layers.MaxPool1D(pool_size = int(insize/2))(X)
+    # X = tf.reshape(X, [-1,insize,64])
+    # X = keras.layers.MaxPool1D(pool_size = int(insize/2))(X)
+
+    # 2D Max Pooling - used by author of PointNet, not by PCR-Net(?)
+    X = keras.layers.MaxPool2D([insize//2, 1])(X)
     
     #just ff -------------------------------------------------------------------------- 
     X = keras.layers.Flatten()(X)
@@ -133,30 +166,21 @@ def Net(**kwargs):
     # X = keras.layers.Flatten()(X)    
     # #----------------------------------------------------------------------------------
     
-    X = keras.layers.Dense(units = 256, activation = 'relu')(X)
-    X = keras.layers.BatchNormalization()(X)
-
-    #NEW ---------------------------------------------------
-    X = keras.layers.Dense(units = 128, activation = 'relu')(X)
-    X = keras.layers.BatchNormalization()(X)
-    X = keras.layers.Dense(units = 64, activation = 'relu')(X)
-    X = keras.layers.BatchNormalization()(X)
-    X = keras.layers.Dense(units = 64, activation = 'relu')(X)
-    X = keras.layers.BatchNormalization()(X)
-    #--------------------------------------------------------
-
-    #OLD
-    # X = keras.layers.Dense(units = 64, activation = 'relu')(X)
+    # X = keras.layers.Dense(units = insize, activation = 'relu')(X)
     # X = keras.layers.BatchNormalization()(X)
 
+    #was 256
+    X = keras.layers.Dense(units = 64, activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+    X = keras.layers.Dense(units = 64, activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+    X = keras.layers.Dense(units = 64, activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+
+
     output = keras.layers.Dense(units=3, activation = 'tanh')(X) #translation only
-    # output = keras.layers.Dense(units=6, activation = 'tanh')(X) #translation + rotation
 
-
-    #rescale output
-    # output = output*tf.constant([15., 15., 0.03]) #was this for simple models
-    # output = output*tf.constant([30., 30., 3.]) #increased vel using real cars
-    output = output*tf.constant([5., 5., 5.]) #KITTI
+    output = output*tf.constant([5., 5., 5.]) #rescale output
 
     #toilet benchmark
     # output = output*tf.constant([3., 3., 3., 3., 3., 3.])

@@ -21,24 +21,35 @@ disp2 = [] #after 1 transformation (drawn in center)
 disp3 = [] #after niter transformations
 
 alph = 0.8
-rad = 2
+rad = 3
 
 #read in dense point cloud of car
 points_per_sample = 350 #num pts per scan - defined in MatLab script
-c1 = np.loadtxt('training_data/car_demo2_scan1.txt')
-c2 = np.loadtxt('training_data/car_demo2_scan2.txt')
-gt = np.loadtxt('training_data/car_demo2_ground_truth.txt')
 
-#only keep above the shoulders
-c1 = c1[c1[:,2] > -3.55]
-c2 = c2[c2[:,2] > -3.55]
+#actually a human
+# c1 = np.loadtxt('training_data/car_demo2_scan1.txt') 
+# c2 = np.loadtxt('training_data/car_demo2_scan2.txt')
+# gt = np.loadtxt('training_data/car_demo2_ground_truth.txt')
+# #only keep above the shoulders
+# # c1 = c1[c1[:,2] > -3.55]
+# # c2 = c2[c2[:,2] > -3.55]
+# c1 = c1[c1[:,2] > -3.3]
+# c2 = c2[c2[:,2] > -3.3]
+
+#human + wall
+c1 = np.loadtxt('figures/fig1_s1.txt') 
+c2 = np.loadtxt('figures/fig1_s2.txt')
+gt = np.loadtxt('figures/fig1_gt.txt')
+c1 = c1[c1[:,2] > -2] #remove ground plane
+c2 = c2[c2[:,2] > -2]
+
 
 mean1 = np.mean(c1, axis = 0)
 mean2 = np.mean(c2, axis = 0)
 
 #raw points
-disp1.append(Points(c1, c = 'red', r = rad, alpha = alph))
-disp1.append(Points(c2 + mean1 - mean2 + np.array([0,0.5,0]), c = 'blue', r = rad, alpha = alph))
+disp1.append(Points(c1 - np.array([0., -0.2, 0.3]), c = 'red', r = rad, alpha = alph))
+disp1.append(Points(c2 + mean1 - mean2 + np.array([0,-0.2,0.3]), c = 'blue', r = rad, alpha = alph))
 
 #match cloud means
 disp2.append(Points(c1, c = 'red', r = rad, alpha = alph))

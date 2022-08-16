@@ -10,7 +10,7 @@
 clear all 
 close all
 
-nSamples =  70000; %25;
+nSamples =  500000; %25;
 epochs = 1;
 
 % sam1_cum = [];
@@ -81,7 +81,7 @@ for e = 1:epochs
     sensor.UpdateRate = 10;
     sensor.ElevationLimits = [-35,3]; %[-30, 10];  %[-22, 2]; 
     sensor.RangeAccuracy = 0.01; % was 0.01, now adding noise at end;
-    sensor.AzimuthResolution = 0.5; %0.2;
+    sensor.AzimuthResolution = 0.25; %0.2;
     sensor.ElevationResolution = 0.5; %0.4;
     sensor.MaxRange = 25; %100;
     
