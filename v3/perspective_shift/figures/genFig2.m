@@ -10,7 +10,7 @@
 clear all 
 close all
 
-nSamples =  70000; %25;
+nSamples =  7000; %25;
 epochs = 1;
 
 % sam1_cum = [];
@@ -26,23 +26,24 @@ for e = 1:epochs
 %     e
 
     %import stl
-%     FileName = "C:/Users/Derm/vaRLnt/v3/perspective_shift/figures/wall.stl"; 
-%     scale = [7, 20, 10];
-%     rot_corr = [0, 0, 90];
-%     mindist = 4;
-%     pos = [-40.0, -40.0, -5.];
-%     vel = [10*randn() 10*randn() 0.3*randn()];
-%     true_pos1 = [true_pos1; [pos(1), pos(2), pos(3) - 5]];
-
-
-
-    FileName = "C:/Users/Derm/vaRLnt/v3/perspective_shift/figures/Assembly1.stl"; 
-    scale = [50, 50, 3];
+%     FileName = "C:/Users/Derm/vaRLnt/v3/perspective_shift/figures/wall.stl"; %simple
+    FileName = "C:/Users/Derm/vaRLnt/v3/perspective_shift/figures/wall_v2.stl"; %more detailed
+    scale = [7, 20, 10];
     rot_corr = [0, 0, 90];
     mindist = 4;
-    pos = [0, 0, -1.0];
-    vel = [100, 0, 0];
-    true_pos1 = [true_pos1; [pos(1), pos(2), pos(3) - scale(3)]];
+    pos = [-40.0, -40.0, -5.];
+    vel = [10*randn() 10*randn() 0];
+    true_pos1 = [true_pos1; [pos(1), pos(2), pos(3) - 5.2]];
+
+
+
+%     FileName = "C:/Users/Derm/vaRLnt/v3/perspective_shift/figures/Assembly1.stl"; 
+%     scale = [50, 50, 3];
+%     rot_corr = [0, 0, 90];
+%     mindist = 4;
+%     pos = [0, 0, -1.0];
+%     vel = [100, 0, 0];
+%     true_pos1 = [true_pos1; [pos(1), pos(2), pos(3) - scale(3)]];
 
     %get vertices, faces, and normals from stl
     OpenFile = stlread(FileName);
@@ -81,9 +82,9 @@ for e = 1:epochs
     sensor.UpdateRate = 10;
     sensor.ElevationLimits = [-35,3]; %[-30, 10];  %[-22, 2]; 
     sensor.RangeAccuracy = 0.01; % was 0.01, now adding noise at end;
-    sensor.AzimuthResolution = 0.5; %0.2;
-    sensor.ElevationResolution = 0.5; %0.4;
-    sensor.MaxRange = 25; %100;
+    sensor.AzimuthResolution = 0.2; %0.2;
+    sensor.ElevationResolution = 0.4; %0.4;
+    sensor.MaxRange = 100; %100;
     
     
     % Create a tracking scenario. Add an ego platform and a target platform.
@@ -145,9 +146,9 @@ scatter3(sam1(:,1), sam1(:,2), sam1(:,3), '.')
 scatter3(sam2(:,1)-0.1*vel(1), sam2(:,2)-0.1*vel(2), sam2(:,3)-0.1*vel(3), '.')
 set(gca,'XLim',[-10 10],'YLim',[-10 10],'ZLim',[-10 10])
 
-% %last step, add gaussian noise to all range estimates
-% sam1_cum = sam1_cum + 0.01*randn(size(sam1_cum));
-% sam2_cum = sam2_cum + 0.01*randn(size(sam2_cum));
+% % add gaussian noise to all range estimates
+% sam1_cum = sam1_cum + 0.02*randn(size(sam1_cum));
+% sam2_cum = sam2_cum + 0.02*randn(size(sam2_cum));
  
 % % %for smaller datasets (keep in git repo)
 % writematrix(sam1_cum, "training_data/scan1.txt", 'Delimiter', 'tab')
@@ -161,14 +162,14 @@ set(gca,'XLim',[-10 10],'YLim',[-10 10],'ZLim',[-10 10])
 % writematrix(truth_cum, "C:/Users/Derm/Desktop/big/pshift/ground_truth_1k_50_samples.txt", 'Delimiter', 'tab')
 
 %fig 2 for 3D paper
-% writematrix(sam1_cum, "C:/Users/Derm/vaRLnt/v3/perspective_shift/figures/s1.txt", 'Delimiter', 'tab')
-% writematrix(sam2_cum, "C:/Users/Derm/vaRLnt/v3/perspective_shift/figures/s2.txt", 'Delimiter', 'tab')
-% writematrix([pos(1), pos(2), pos(3)], "C:/Users/Derm/vaRLnt/v3/perspective_shift/figures/gt.txt", 'Delimiter', 'tab')
+writematrix(sam1_cum, "C:/Users/Derm/vaRLnt/v3/perspective_shift/figures/s1.txt", 'Delimiter', 'tab')
+writematrix(sam2_cum, "C:/Users/Derm/vaRLnt/v3/perspective_shift/figures/s2.txt", 'Delimiter', 'tab')
+writematrix([pos(1), pos(2), pos(3) - .2], "C:/Users/Derm/vaRLnt/v3/perspective_shift/figures/gt.txt", 'Delimiter', 'tab')
 
 %human and wall
-writematrix(sam1_cum, "C:/Users/Derm/vaRLnt/v3/perspective_shift/figures/fig1_s1.txt", 'Delimiter', 'tab')
-writematrix(sam2_cum, "C:/Users/Derm/vaRLnt/v3/perspective_shift/figures/fig1_s2.txt", 'Delimiter', 'tab')
-writematrix([vel(1), vel(2), vel(3)], "C:/Users/Derm/vaRLnt/v3/perspective_shift/figures/fig1_gt.txt", 'Delimiter', 'tab')
+% writematrix(sam1_cum, "C:/Users/Derm/vaRLnt/v3/perspective_shift/figures/fig1_s1.txt", 'Delimiter', 'tab')
+% writematrix(sam2_cum, "C:/Users/Derm/vaRLnt/v3/perspective_shift/figures/fig1_s2.txt", 'Delimiter', 'tab')
+% writematrix([vel(1), vel(2), vel(3)], "C:/Users/Derm/vaRLnt/v3/perspective_shift/figures/fig1_gt.txt", 'Delimiter', 'tab')
 
 
 % %for debug
@@ -180,5 +181,5 @@ writematrix([vel(1), vel(2), vel(3)], "C:/Users/Derm/vaRLnt/v3/perspective_shift
 
 % %write scaled translated and rotated figure to new stl file for viz
 TR = triangulation( target.Mesh.Faces, target.Mesh.Vertices);
-% stlwrite(TR, 'wall_scaled.stl')
-stlwrite(TR, 'Assembly1_scaled.stl')
+stlwrite(TR, 'wall_scaled.stl')
+% stlwrite(TR, 'Assembly1_scaled.stl')

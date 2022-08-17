@@ -11,12 +11,10 @@ import mat4py
 numShifts = 20 #number of times to resample and translate each voxel each scan
 runLen = 400 #199
 ptsPerCell = 50
-
 start_idx = 850 #2700 #1050 #2150
 
 # ground_truth = np.loadtxt("E:/Ford/IJRR-Dataset-1-subset/SCANS/truth.txt")/10
 # ground_truth = tf.cast(tf.convert_to_tensor(ground_truth), tf.float32)
-
 
 ground_truth = np.loadtxt("E:/Ford/IJRR-Dataset-1/SCANS/truth.txt")/10 #was this
 # ground_truth = np.loadtxt("E:/Ford/IJRR-Dataset-1/SCANS/truth_test.txt")/10 #truth_test has forward and lateral axis of translation flipped
