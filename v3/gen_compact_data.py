@@ -6,8 +6,8 @@ from ICET_spherical import ICET
 from utils import R_tf
 import mat4py
 
-numShifts = 20 #number of times to resample and translate each voxel each scan
-runLen = 100 #199
+numShifts = 5 #number of times to resample and translate each voxel each scan
+runLen = 5 #199
 ptsPerCell = 50
 start_idx = 850 #2700 #1050 #2150
 
@@ -79,10 +79,10 @@ for idx in range(runLen):
 		scan2 += t.numpy()
 
 		#NEW: suppress extended axis -----------------------------------
-		print("OG U", tf.shape(it.U))
+		# print("OG U", tf.shape(it.U))
 
 		LUT = tf.matmul(it.L, tf.transpose(it.U, [0,2,1]))
-		print("-- LUT", tf.shape(LUT))
+		# print("-- LUT", tf.shape(LUT))
 
 		# dz_new = tf.matmul(LUT, dnnsoln[:,:,None])
 		rand_compact = tf.matmul(LUT, rand[:,:,None])
@@ -91,14 +91,18 @@ for idx in range(runLen):
 		# print("\n LUT", tf.shape(LUT))
 		#---------------------------------------------------------------
 
+		print("before \n", np.shape(it.corn.numpy()))
+		print("after \n", it.s2c(it.corn.numpy()))
+
 		if idx*(j+1) == 0:
 			scan1_cum = scan1
 			scan2_cum = scan2
 			rand_cum = rand #old
-			# rand_cum = rand_compact_xyz
+			# rand_cum = rand_compact_xyz #only compact
 			LUT_cum = LUT.numpy()
 			L_cum = it.L.numpy()
 			U_cum = it.U.numpy()
+			corn_cum = it.corn.numpy()
 		else:
 			scan1_cum = np.append(scan1_cum, scan1, axis = 0)
 			scan2_cum = np.append(scan2_cum, scan2, axis = 0)
@@ -107,23 +111,25 @@ for idx in range(runLen):
 			LUT_cum = np.append(LUT_cum, LUT.numpy(), axis = 0)
 			U_cum = np.append(U_cum, it.U.numpy(), axis = 0)
 			L_cum = np.append(L_cum, it.L.numpy(), axis = 0)
+			corn_cum = np.append(corn_cum, it.corn.numpy(), axis = 0)
 
 
 	print("got", tf.shape(enough2.to_tensor())[0].numpy()*numShifts, "training samples from scan", idx)
 
+#small files
+np.save('perspective_shift/training_data/compact_scan1', scan1_cum)
+np.save('perspective_shift/training_data/compact_scan2', scan2_cum)
+np.save('perspective_shift/training_data/compact_ground_truth', rand_cum)
+np.save('perspective_shift/training_data/LUT', LUT_cum) #TODO - save LUT for every test sample
+np.save('perspective_shift/training_data/L', L_cum)
+np.save('perspective_shift/training_data/U', U_cum)
+np.save('perspective_shift/training_data/corn', corn_cum)
+# TODO - save cell boundaries (consider training on this later)
 
-# np.save('perspective_shift/training_data/compact_scan1', scan1_cum)
-# np.save('perspective_shift/training_data/compact_scan2', scan2_cum)
-# np.save('perspective_shift/training_data/compact_ground_truth', rand_cum)
-# np.save('perspective_shift/training_data/LUT', LUT_cum) #TODO - save LUT for every test sample
-# np.save('perspective_shift/training_data/L', L_cum)
-# np.save('perspective_shift/training_data/U', U_cum)
-# # TODO - save cell boundaries (consider training on this later)
-
-#big
-np.save('C:/Users/Derm/Desktop/big/pshift/compact_scan1', scan1_cum)
-np.save('C:/Users/Derm/Desktop/big/pshift/compact_scan2', scan2_cum)
-np.save('C:/Users/Derm/Desktop/big/pshift/compact_ground_truth', rand_cum)
-np.save('C:/Users/Derm/Desktop/big/pshift/LUT', LUT_cum) #TODO - save LUT for every test sample
-np.save('C:/Users/Derm/Desktop/big/pshift/L', L_cum)
-np.save('C:/Users/Derm/Desktop/big/pshift/U', U_cum)
+#big files
+# np.save('C:/Users/Derm/Desktop/big/pshift/compact_scan1', scan1_cum)
+# np.save('C:/Users/Derm/Desktop/big/pshift/compact_scan2', scan2_cum)
+# np.save('C:/Users/Derm/Desktop/big/pshift/compact_ground_truth', rand_cum)
+# np.save('C:/Users/Derm/Desktop/big/pshift/LUT', LUT_cum) #TODO - save LUT for every test sample
+# np.save('C:/Users/Derm/Desktop/big/pshift/L', L_cum)
+# np.save('C:/Users/Derm/Desktop/big/pshift/U', U_cum)

@@ -501,6 +501,8 @@ class ICET():
 			self.residuals = y_i - y0_i
 			self.U = U_i
 			self.L = L_i
+			# self.corn = tf.gather(corn, ans) #test
+			self.corn = tf.gather(corn, corr)
 			# self.U = U
 			# self.L = L
 			#-----------------------------------------------
