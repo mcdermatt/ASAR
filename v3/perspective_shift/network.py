@@ -63,7 +63,57 @@ def Attention(**kwargs):
 
     return model
 
+def TestNet(**kwargs):
 
+    ''' Test network passing in information on voxel boundaries and surpressing solution information in extended directions
+    '''
+    insize = 108
+
+    inputs = keras.Input(shape=(insize, 3)) 
+
+    X = inputs[:, :100]
+    bounds = inputs[:, 100:] #hold on to bounds for re-insertion after PointNet
+
+    X = tf.expand_dims(X, -1)
+
+    X = tf.keras.layers.Conv2D(64, [1,3], padding = 'valid', strides = [1,1], activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+
+    X = tf.keras.layers.Conv2D(64, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+
+    #was 256
+    X = tf.keras.layers.Conv2D(150, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+
+    # 2D Max Pooling - used by author of PointNet, not by PCR-Net(?)
+    X = keras.layers.MaxPool2D([50, 1])(X) 
+
+    # X = keras.layers.Flatten()(X)
+    # bounds = keras.layers.Flatten()(bounds)
+    # X = keras.layers.concatenate([X[:,None], bounds[:,None]], axis = -1)
+
+    X = tf.reshape(X, [-1, 100, 3])
+    X = keras.layers.concatenate([X, bounds], axis = 1)
+
+ 
+    X = keras.layers.Dense(units = 64, activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+    X = keras.layers.Dense(units = 64, activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+
+    X = keras.layers.Flatten()(X)
+
+
+    X = keras.layers.Dense(units = 64, activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+
+
+    output = keras.layers.Dense(units=3, activation = 'tanh')(X) #translation only
+    output = output*tf.constant([5., 5., 5.]) #rescale output
+    model = tf.keras.Model(inputs,output)
+
+    return model
 
 def Net(**kwargs):
 

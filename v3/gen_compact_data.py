@@ -6,8 +6,8 @@ from ICET_spherical import ICET
 from utils import R_tf
 import mat4py
 
-numShifts = 5 #number of times to resample and translate each voxel each scan
-runLen = 5 #199
+numShifts = 20 #number of times to resample and translate each voxel each scan
+runLen = 30 #199
 ptsPerCell = 50
 start_idx = 850 #2700 #1050 #2150
 
@@ -91,45 +91,49 @@ for idx in range(runLen):
 		# print("\n LUT", tf.shape(LUT))
 		#---------------------------------------------------------------
 
-		print("before \n", np.shape(it.corn.numpy()))
-		print("after \n", it.s2c(it.corn.numpy()))
+		# print("before \n", np.shape(it.corn.numpy()))
+		# print("after \n", it.s2c(it.corn.numpy()))
 
 		if idx*(j+1) == 0:
 			scan1_cum = scan1
 			scan2_cum = scan2
-			rand_cum = rand #old
-			# rand_cum = rand_compact_xyz #only compact
+			# rand_cum = rand #old - use for D2D vs DNN notebook
+			rand_cum = rand_compact_xyz #only compact
 			LUT_cum = LUT.numpy()
 			L_cum = it.L.numpy()
 			U_cum = it.U.numpy()
 			corn_cum = it.corn.numpy()
+			# corn_cum = it.s2c(it.corn.numpy()) #test
 		else:
 			scan1_cum = np.append(scan1_cum, scan1, axis = 0)
 			scan2_cum = np.append(scan2_cum, scan2, axis = 0)
-			rand_cum = np.append(rand_cum, rand, axis = 0) #old
-			# rand_cum = np.append(rand_cum, rand_compact_xyz, axis = 0) #overwrites soln with only compact component
+			# rand_cum = np.append(rand_cum, rand, axis = 0) #old - use for D2D vs DNN notebook
+			rand_cum = np.append(rand_cum, rand_compact_xyz, axis = 0) #overwrites soln with only compact component
 			LUT_cum = np.append(LUT_cum, LUT.numpy(), axis = 0)
 			U_cum = np.append(U_cum, it.U.numpy(), axis = 0)
 			L_cum = np.append(L_cum, it.L.numpy(), axis = 0)
 			corn_cum = np.append(corn_cum, it.corn.numpy(), axis = 0)
+			# corn_cum = np.append(corn_cum, it.s2c(it.corn.numpy()), axis = 0) #test
 
 
 	print("got", tf.shape(enough2.to_tensor())[0].numpy()*numShifts, "training samples from scan", idx)
 
 #small files
-np.save('perspective_shift/training_data/compact_scan1', scan1_cum)
-np.save('perspective_shift/training_data/compact_scan2', scan2_cum)
-np.save('perspective_shift/training_data/compact_ground_truth', rand_cum)
-np.save('perspective_shift/training_data/LUT', LUT_cum) #TODO - save LUT for every test sample
-np.save('perspective_shift/training_data/L', L_cum)
-np.save('perspective_shift/training_data/U', U_cum)
-np.save('perspective_shift/training_data/corn', corn_cum)
-# TODO - save cell boundaries (consider training on this later)
+# np.save('perspective_shift/training_data/compact_scan1', scan1_cum)
+# np.save('perspective_shift/training_data/compact_scan2', scan2_cum)
+# np.save('perspective_shift/training_data/compact_ground_truth', rand_cum)
+# np.save('perspective_shift/training_data/LUT', LUT_cum) 
+# np.save('perspective_shift/training_data/L', L_cum)
+# np.save('perspective_shift/training_data/U', U_cum)
+# np.save('perspective_shift/training_data/corn', corn_cum)
+#TODO - save ground truth SEPRATE from compact ground truth
 
 #big files
-# np.save('C:/Users/Derm/Desktop/big/pshift/compact_scan1', scan1_cum)
-# np.save('C:/Users/Derm/Desktop/big/pshift/compact_scan2', scan2_cum)
-# np.save('C:/Users/Derm/Desktop/big/pshift/compact_ground_truth', rand_cum)
-# np.save('C:/Users/Derm/Desktop/big/pshift/LUT', LUT_cum) #TODO - save LUT for every test sample
-# np.save('C:/Users/Derm/Desktop/big/pshift/L', L_cum)
-# np.save('C:/Users/Derm/Desktop/big/pshift/U', U_cum)
+np.save('C:/Users/Derm/Desktop/big/pshift/compact_scan1', scan1_cum)
+np.save('C:/Users/Derm/Desktop/big/pshift/compact_scan2', scan2_cum)
+np.save('C:/Users/Derm/Desktop/big/pshift/compact_ground_truth', rand_cum)
+np.save('C:/Users/Derm/Desktop/big/pshift/LUT', LUT_cum)
+np.save('C:/Users/Derm/Desktop/big/pshift/L', L_cum)
+np.save('C:/Users/Derm/Desktop/big/pshift/U', U_cum)
+np.save('C:/Users/Derm/Desktop/big/pshift/corn', corn_cum)
+#TODO - save ground truth SEPRATE from compact ground truth
