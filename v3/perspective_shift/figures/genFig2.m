@@ -10,7 +10,7 @@
 clear all 
 close all
 
-nSamples =  7000; %25;
+nSamples =  5000; %7000; %25;
 epochs = 1;
 
 % sam1_cum = [];
@@ -26,13 +26,14 @@ for e = 1:epochs
 %     e
 
     %import stl
-%     FileName = "C:/Users/Derm/vaRLnt/v3/perspective_shift/figures/wall.stl"; %simple
-    FileName = "C:/Users/Derm/vaRLnt/v3/perspective_shift/figures/wall_v2.stl"; %more detailed
+    FileName = "C:/Users/Derm/vaRLnt/v3/perspective_shift/figures/wall.stl"; %simple
+%     FileName = "C:/Users/Derm/vaRLnt/v3/perspective_shift/figures/wall_v2.stl"; %more detailed
     scale = [7, 20, 10];
     rot_corr = [0, 0, 90];
     mindist = 4;
     pos = [-40.0, -40.0, -5.];
-    vel = [10*randn() 10*randn() 0];
+%     vel = [10*randn() 10*randn() 0];
+    vel = [10, 10, 0]
     true_pos1 = [true_pos1; [pos(1), pos(2), pos(3) - 5.2]];
 
 
@@ -146,9 +147,9 @@ scatter3(sam1(:,1), sam1(:,2), sam1(:,3), '.')
 scatter3(sam2(:,1)-0.1*vel(1), sam2(:,2)-0.1*vel(2), sam2(:,3)-0.1*vel(3), '.')
 set(gca,'XLim',[-10 10],'YLim',[-10 10],'ZLim',[-10 10])
 
-% % add gaussian noise to all range estimates
-% sam1_cum = sam1_cum + 0.02*randn(size(sam1_cum));
-% sam2_cum = sam2_cum + 0.02*randn(size(sam2_cum));
+% add gaussian noise to all range estimates
+sam1_cum = sam1_cum + 0.02*randn(size(sam1_cum));
+sam2_cum = sam2_cum + 0.02*randn(size(sam2_cum));
  
 % % %for smaller datasets (keep in git repo)
 % writematrix(sam1_cum, "training_data/scan1.txt", 'Delimiter', 'tab')

@@ -7,7 +7,7 @@ from utils import R_tf
 import mat4py
 
 numShifts = 20 #number of times to resample and translate each voxel each scan
-runLen = 30 #199
+runLen = 200 #199
 ptsPerCell = 50
 start_idx = 850 #2700 #1050 #2150
 
