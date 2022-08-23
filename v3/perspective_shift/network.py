@@ -78,57 +78,23 @@ def TestNet(**kwargs):
 
     X = tf.keras.layers.Conv2D(64, [1,3], padding = 'valid', strides = [1,1], activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
-
     X = tf.keras.layers.Conv2D(64, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
 
-    #was 256
-    X = tf.keras.layers.Conv2D(150, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
+    #new
+    X = keras.layers.Conv2D(256, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
-
-    # 2D Max Pooling - used by author of PointNet, not by PCR-Net(?)
     X = keras.layers.MaxPool2D([50, 1])(X) 
-
-    X = tf.reshape(X, [-1, 100, 3])
-
-    # #test PointNet bounds---------
-    # bounds = tf.expand_dims(bounds, -1)
-    # bounds = tf.keras.layers.Conv2D(64, [1,3], padding = 'valid', strides = [1,1], activation = 'relu')(bounds)
-    # bounds = keras.layers.BatchNormalization()(bounds)
-    # bounds = tf.keras.layers.Conv2D(64, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(bounds)
-    # bounds = keras.layers.BatchNormalization()(bounds)
-
-    # bounds = tf.keras.layers.Conv2D(24, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(bounds)
-    # bounds = keras.layers.BatchNormalization()(bounds)
-
-    # bounds = keras.layers.MaxPool2D([8, 1])(bounds) 
-
-    # bounds = tf.reshape(bounds, [-1, 8, 3])
-
-    # #-----------------------------
-
- 
-    X = keras.layers.Dense(units = 16, activation = 'relu')(X)
-    X = keras.layers.BatchNormalization()(X)
-    X = keras.layers.Dense(units = 3, activation = 'relu')(X)
-    X = keras.layers.BatchNormalization()(X)
-
-    X = keras.layers.concatenate([X, bounds], axis = 1)
-
-
-    X = keras.layers.Dense(units = 32, activation = 'relu')(X)
-    X = keras.layers.BatchNormalization()(X)
-    X = keras.layers.Dense(units = 32, activation = 'relu')(X)
-    X = keras.layers.BatchNormalization()(X)
-
-
 
     X = keras.layers.Flatten()(X)
 
+    bounds = keras.layers.Flatten()(bounds)
+    X = keras.layers.concatenate([X, bounds])
 
+    X = keras.layers.Dense(units = 256, activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
     X = keras.layers.Dense(units = 64, activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
-
 
     output = keras.layers.Dense(units=3, activation = 'tanh')(X) #translation only
     output = output*tf.constant([5., 5., 5.]) #rescale output

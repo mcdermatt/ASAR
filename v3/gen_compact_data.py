@@ -119,21 +119,21 @@ for idx in range(runLen):
 	print("got", tf.shape(enough2.to_tensor())[0].numpy()*numShifts, "training samples from scan", idx)
 
 #small files
-# np.save('perspective_shift/training_data/compact_scan1', scan1_cum)
-# np.save('perspective_shift/training_data/compact_scan2', scan2_cum)
-# np.save('perspective_shift/training_data/compact_ground_truth', rand_cum)
-# np.save('perspective_shift/training_data/LUT', LUT_cum) 
-# np.save('perspective_shift/training_data/L', L_cum)
-# np.save('perspective_shift/training_data/U', U_cum)
-# np.save('perspective_shift/training_data/corn', corn_cum)
-#TODO - save ground truth SEPRATE from compact ground truth
+np.save('perspective_shift/training_data/compact_scan1', scan1_cum)
+np.save('perspective_shift/training_data/compact_scan2', scan2_cum)
+np.save('perspective_shift/training_data/compact_ground_truth', rand_cum)
+np.save('perspective_shift/training_data/LUT', LUT_cum) 
+np.save('perspective_shift/training_data/L', L_cum)
+np.save('perspective_shift/training_data/U', U_cum)
+np.save('perspective_shift/training_data/corn', corn_cum)
+# TODO - save ground truth SEPRATE from compact ground truth
 
 #big files
-np.save('C:/Users/Derm/Desktop/big/pshift/compact_scan1', scan1_cum)
-np.save('C:/Users/Derm/Desktop/big/pshift/compact_scan2', scan2_cum)
-np.save('C:/Users/Derm/Desktop/big/pshift/compact_ground_truth', rand_cum)
-np.save('C:/Users/Derm/Desktop/big/pshift/LUT', LUT_cum)
-np.save('C:/Users/Derm/Desktop/big/pshift/L', L_cum)
-np.save('C:/Users/Derm/Desktop/big/pshift/U', U_cum)
-np.save('C:/Users/Derm/Desktop/big/pshift/corn', corn_cum)
-#TODO - save ground truth SEPRATE from compact ground truth
+# np.save('C:/Users/Derm/Desktop/big/pshift/compact_scan1', scan1_cum)
+# np.save('C:/Users/Derm/Desktop/big/pshift/compact_scan2', scan2_cum)
+# np.save('C:/Users/Derm/Desktop/big/pshift/compact_ground_truth', rand_cum)
+# np.save('C:/Users/Derm/Desktop/big/pshift/LUT', LUT_cum)
+# np.save('C:/Users/Derm/Desktop/big/pshift/L', L_cum)
+# np.save('C:/Users/Derm/Desktop/big/pshift/U', U_cum)
+# np.save('C:/Users/Derm/Desktop/big/pshift/corn', corn_cum)
+# #TODO - save ground truth SEPRATE from compact ground truth
