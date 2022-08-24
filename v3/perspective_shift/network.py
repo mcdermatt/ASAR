@@ -81,8 +81,9 @@ def TestNet(**kwargs):
     X = tf.keras.layers.Conv2D(64, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
 
-    #new
     X = keras.layers.Conv2D(256, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+    X = keras.layers.Conv2D(512, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
     X = keras.layers.MaxPool2D([50, 1])(X) 
 
@@ -90,6 +91,13 @@ def TestNet(**kwargs):
 
     bounds = keras.layers.Flatten()(bounds)
     X = keras.layers.concatenate([X, bounds])
+
+
+    X = keras.layers.Dense(units = 1024, activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+
+    X = keras.layers.Dense(units = 512, activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
 
     X = keras.layers.Dense(units = 256, activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
