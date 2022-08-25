@@ -1,0 +1,40 @@
+%script for loading synthetic point clouds and registering with canned NDT
+% solver
+
+clear all
+close all
+
+scan1_fn = "MC_trajectories/scene1_scan1.txt";
+scan2_fn = "MC_trajectories/scene1_scan2.txt";
+
+scan1 = readmatrix(scan1_fn);
+scan2 = readmatrix(scan2_fn);
+
+%add noise to each PC
+scan1 = s
+
+moving = pointCloud(scan2);
+c1=uint8(zeros(moving.Count,3));
+c1(:,1)=255;
+c1(:,2)=50;
+c1(:,3)=50;
+moving.Color = c1;
+
+fixed = pointCloud(scan1);
+c2=uint8(zeros(fixed.Count,3));
+c2(:,1)=50;
+c2(:,2)=50;
+c2(:,3)=255;
+fixed.Color = c2;
+
+
+figure()
+hold on
+pcshow(fixed)
+pcshow(moving)
+
+gridstep = 1;
+
+transform_estimate = pcregisterndt(moving, fixed, gridstep, OutlierRatio=0.1);
+
+%Remove ground plane with <segmentGroundFromLidarData()>

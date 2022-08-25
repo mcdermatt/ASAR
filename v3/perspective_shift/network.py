@@ -4,8 +4,8 @@ from tensorflow.keras import layers
 import numpy as np
 
 # #for using PointNet package, need to run py39 conda env ________
-# import tensorflow_graphics as tfg
-# from tensorflow_graphics.nn.layer.pointnet import PointNetConv2Layer
+import tensorflow_graphics as tfg
+from tensorflow_graphics.nn.layer.pointnet import PointNetConv2Layer
 
 # def PointNet(**kwargs):
 #     """ Using PointNet 2D conv layer provided by ___ """
@@ -93,11 +93,11 @@ def TestNet(**kwargs):
     X = keras.layers.concatenate([X, bounds])
 
 
-    X = keras.layers.Dense(units = 1024, activation = 'relu')(X)
-    X = keras.layers.BatchNormalization()(X)
+    # X = keras.layers.Dense(units = 1024, activation = 'relu')(X)
+    # X = keras.layers.BatchNormalization()(X)
 
-    X = keras.layers.Dense(units = 512, activation = 'relu')(X)
-    X = keras.layers.BatchNormalization()(X)
+    # X = keras.layers.Dense(units = 512, activation = 'relu')(X)
+    # X = keras.layers.BatchNormalization()(X)
 
     X = keras.layers.Dense(units = 256, activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
@@ -131,12 +131,15 @@ def Net(**kwargs):
     #new way- use conv layers to auto share weights--------------
     X = tf.expand_dims(inputs, -1)
 
-    # #TEST 7/28/22 -
-    # #~~~~~~~
-    # X = tf.keras.layers.Conv2D(64, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
-    # X = keras.layers.BatchNormalization()(X)
-    # #~~~~~~~
 
+    # #test using PointNet layers------------
+    # momentum =  0.99 #0.1 #TODO: figure out what works best here??
+    # X = PointNetConv2Layer(64, momentum)(X)
+    # X = PointNetConv2Layer(64, momentum)(X)
+    # X = PointNetConv2Layer(256, momentum)(X)
+    # #--------------------------------------
+
+    #was this-------------
     X = tf.keras.layers.Conv2D(64, [1,3], padding = 'valid', strides = [1,1], activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
 
@@ -144,18 +147,21 @@ def Net(**kwargs):
     X = keras.layers.BatchNormalization()(X)
 
     #was 256
-    X = tf.keras.layers.Conv2D(64, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
+    X = tf.keras.layers.Conv2D(256, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
 
-    #TODO -> figure out why this is better than 1d conv
-    #This was at 512, I dropped it to increase batch size
-    # X = tf.keras.layers.Conv2D(512, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
-    # X = keras.layers.BatchNormalization()(X)
+    X = tf.keras.layers.Conv2D(512, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+
+    # TODO -> figure out why this is better than 1d conv
+    # This was at 512, I dropped it to increase batch size
+    X = tf.keras.layers.Conv2D(512, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+    #------------------------------------------------------------
 
     #worse than 2d...
     # X = tf.keras.layers.Conv1D(512, kernel_size = 1, strides = 1, padding = 'valid', activation = 'relu')(X)
     # X = keras.layers.BatchNormalization()(X)
-    #------------------------------------------------------------
 
     # #NEW 7/28/22
     # # try doing a couple FF layers between conv and maxpool to get network to share information across point clouds
@@ -214,10 +220,13 @@ def Net(**kwargs):
     # X = keras.layers.Dense(units = insize, activation = 'relu')(X)
     # X = keras.layers.BatchNormalization()(X)
 
-    #was 256
-    X = keras.layers.Dense(units = 64, activation = 'relu')(X)
+
+    X = keras.layers.Dense(units = 512, activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
-    X = keras.layers.Dense(units = 64, activation = 'relu')(X)
+    #was 256
+    X = keras.layers.Dense(units = 256, activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+    X = keras.layers.Dense(units = 128, activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
     X = keras.layers.Dense(units = 64, activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
