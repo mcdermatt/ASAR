@@ -62,8 +62,8 @@ for j = 1:3
         tinit = rigid3d(eul2rotm([-0.05,0,0]), [0.5,0,0]);
     
         %NDT---------------------------------------------
-        [tform, movingReg, rmse] = pcregisterndt(moving, fixed, gridstep, OutlierRatio=0.5, MaxIterations=50); %try messing with OutlierRatio
-        
+%         [tform, movingReg, rmse] = pcregisterndt(moving, fixed, gridstep, OutlierRatio=0.5, MaxIterations=50); %try messing with OutlierRatio
+    
         %------------------------------------------------
         
         %ICP---------------------------------------------
@@ -74,6 +74,18 @@ for j = 1:3
         %------------------------------------------------
         
         %LOAM ---------------------------------------------
+        gridStep = 0.5;
+
+        %convert from "Unorganized" to "Organized" point cloud for LOAM
+        horizontalResolution = 1024;
+        params = lidarParameters('HDL64E', horizontalResolution); %TODO - set for synthetic data
+        moving = pcorganize(moving, params);
+        fixed = pcorganize(fixed, params);
+
+%         movingPoints = detectLOAMFeatures(moving);
+%         fixedPoints = detectLOAMFeatures(fixed);
+
+        tform = pcregisterloam(moving,fixed,gridStep);
         
         %--------------------------------------------------
         
@@ -85,5 +97,6 @@ RMSE = sqrt(mean((ans_cum - [0.5, 0, 0, -0.05, 0, 0]).^2))
 
 %save to file
 % fn = "MC_results/traj1_cart_ICP_point2plane_NO_GP.txt";
-fn = "MC_results/traj1_cart_NDT_NO_GP.txt";
+% fn = "MC_results/traj1_cart_NDT_NO_GP.txt";
+fn = "MC_results/traj1_cart_LOAM_NO_GP.txt";
 writematrix(ans_cum, fn, 'Delimiter', 'tab')
