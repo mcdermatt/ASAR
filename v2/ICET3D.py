@@ -84,7 +84,7 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 		#subdivide second scan
 		if draw == True:
 			#referencing disp 1 here prevents re-drawing old transformations of scan2
-			E2 = subdivide_scan_tf(pp2_corrected, plt, bounds, fid, disp = disp1, draw=True, show_pc = 0, draw_grid = draw_grid, draw_ell = draw_ell,  fast_gaussian = FG)
+			E2 = subdivide_scan_tf(pp2_corrected, plt, bounds, fid, disp = disp1, draw=True, show_pc = 2, draw_grid = draw_grid, draw_ell = draw_ell,  fast_gaussian = FG)
 		else:
 			E2 = subdivide_scan_tf(pp2_corrected, plt, bounds, fid, draw=False,  fast_gaussian = FG)
 		mu2 = E2[0]

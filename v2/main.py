@@ -19,7 +19,7 @@ from ICET3D import ICET3D
 
 
 nc = 3	 #number of cycles
-mnp = 10 #50#100 #minimum number of points per voxel
+mnp = 50 #10  #minimum number of points per voxel
 D = True #draw sim
 DG = True #draw grid
 DE = True #draw ellipsoids
@@ -88,12 +88,21 @@ start = time.time()
 # cloud1 = np.loadtxt(r"C:\Users\Derm\vaRLnt\v3\MC_trajectories\scene2_scan17.txt", dtype = float)
 # cloud2 = np.loadtxt(r"C:\Users\Derm\vaRLnt\v3\MC_trajectories\scene2_scan18.txt", dtype = float)
 
-cloud1 = np.loadtxt("C:/Users/Derm/vaRLnt/v3/T_intersection_scan1.txt", dtype = float)
-cloud2 = np.loadtxt("C:/Users/Derm/vaRLnt/v3/T_intersection_scan2.txt", dtype = float)
+cloud1 = np.loadtxt(r"C:\Users\Derm\vaRLnt\v3\spherical_paper\MC_trajectories\scene1_scan1.txt", dtype = float)
+cloud2 = np.loadtxt(r"C:\Users\Derm\vaRLnt\v3\spherical_paper\MC_trajectories\scene1_scan2.txt", dtype = float)
+
+# cloud1 = np.loadtxt("C:/Users/Derm/vaRLnt/v3/T_intersection_scan1.txt", dtype = float)
+# cloud2 = np.loadtxt("C:/Users/Derm/vaRLnt/v3/T_intersection_scan2.txt", dtype = float)
 
 c1 = cloud1 + 0.02*np.random.randn(np.shape(cloud1)[0], 3)
 c2 = cloud2 + 0.02*np.random.randn(np.shape(cloud2)[0], 3)
 
+#Problem seems to be points that are on outer rings of scan
+#  -> need to remove any points in scan1 > 25m(?) from center 
+c1 = c1[c1[:,0] > -30]
+c1 = c1[c1[:,0] < 30]
+c1 = c1[c1[:,2] > -1.25] #ignore ground plane
+c2 = c2[c2[:,2] > -1.25] #ignore ground plane
 
 # # if scene == 1 ----------
 # limtest = tf.constant([-60., 60., -20., 20., -5.,5.])
@@ -108,8 +117,9 @@ c2 = cloud2 + 0.02*np.random.randn(np.shape(cloud2)[0], 3)
 # #-------------------------
 
 # # if scene == 2 --------
-limtest = tf.constant([-60., 60., -60., 60., -30.,30.])
-f = tf.constant([40,40,1]) 
+limtest = tf.constant([-60., 60., -60., 60., -10.,10.])
+# f = tf.constant([40,40,1]) #was this
+f = tf.constant([60,60,12])
 #-------------------------
 
 

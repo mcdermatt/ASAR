@@ -80,11 +80,11 @@ for idx in range(1, nframes):
 		ICET_estimates[(idx-1)*niter + i] = x_hist[-1] 
 		ICET_pred_stds[(idx-1)*niter + i] = np.sqrt(np.abs(np.diag(Q)))
 
-# np.save(r"C:\Users\Derm\vaRLnt\v3\MC_results\traj1_cart_ICET_estimates_with_GP", ICET_estimates)
-# np.save(r"C:\Users\Derm\vaRLnt\v3\MC_results\traj1_cart_ICET_pred_stds_with_GP", ICET_pred_stds)
+np.save(r"C:\Users\Derm\vaRLnt\v3\MC_results\traj1_cart_ICET_estimates_with_GP_v2", ICET_estimates)
+np.save(r"C:\Users\Derm\vaRLnt\v3\MC_results\traj1_cart_ICET_pred_stds_with_GP_v2", ICET_pred_stds)
 
-np.save(r"C:\Users\Derm\vaRLnt\v3\MC_results\traj1_cart_ICET_estimates_no_GP", ICET_estimates)
-np.save(r"C:\Users\Derm\vaRLnt\v3\MC_results\traj1_cart_ICET_pred_stds_no_GP", ICET_pred_stds)
+# np.save(r"C:\Users\Derm\vaRLnt\v3\MC_results\traj1_cart_ICET_estimates_no_GP", ICET_estimates)
+# np.save(r"C:\Users\Derm\vaRLnt\v3\MC_results\traj1_cart_ICET_pred_stds_no_GP", ICET_pred_stds)
 
 # np.save(r"C:\Users\Derm\vaRLnt\v3\MC_results\traj2_cart_ICET_estimates", ICET_estimates)
 # np.save(r"C:\Users\Derm\vaRLnt\v3\MC_results\traj2_cart_ICET_pred_stds", ICET_pred_stds)
