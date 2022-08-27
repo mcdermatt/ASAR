@@ -13,7 +13,7 @@ def get_cluster(rads, thresh = 0.2, mnp = 50): #mnp = 50, thresh = 0.2
             """
 
     #TODO: try dymacally lowering <max_buffer> value as algorithm progresses
-    max_buffer = 0.3 #0.2 #0.5
+    max_buffer = 0.2 #0.3 #0.2 #0.5
     # max_buffer = 0.05 #test
 
 

@@ -163,8 +163,10 @@ from metpy.calc import lat_lon_grid_deltas
 # c1 = np.loadtxt("scene1_scan1_squares.txt", dtype = float) #shadows
 # c2 = np.loadtxt("scene1_scan2_squares.txt", dtype = float)
 
-c1 = np.loadtxt("spherical_paper/MC_trajectories/scene1_scan1.txt", dtype = float)
-c2 = np.loadtxt("spherical_paper/MC_trajectories/scene1_scan2.txt", dtype = float)
+c1 = np.loadtxt("spherical_paper/MC_trajectories/scene1_scan21.txt", dtype = float)
+c2 = np.loadtxt("spherical_paper/MC_trajectories/scene1_scan22.txt", dtype = float)
+# c1 = c1[c1[:,2] > -1.8] #ignore ground plane
+# c2 = c2[c2[:,2] > -1.8] #ignore ground plane
 
 # c1 = np.loadtxt("T_intersection_scan1.txt", dtype = float)
 # c2 = np.loadtxt("T_intersection_scan2.txt", dtype = float)
@@ -249,7 +251,9 @@ c2 = c2 @ rot.numpy()
 
 # ground_truth = tf.constant([0.1799, 0., 0., -0.0094, -0.011, -0.02072]) #FULL KITTI scan 1397
 
-it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 90, niter = 10, 
+# x0 = tf.constant([0.25, 0, 0, 0, 0, 0])
+
+it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 30, 
 	draw = True, group = 2, RM = True, DNN_filter = False)#, cheat = gt)
 
 # it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 100, niter = 20, 

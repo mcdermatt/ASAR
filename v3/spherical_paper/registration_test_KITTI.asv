@@ -48,8 +48,8 @@ fixed.Color = c2;
 % tinit = rigid3d(eul2rotm([-0.05,0,0]), [0.5,0,0]);
 
 %NDT---------------------------------------------
-gridstep = 0.5;
-[tform, movingReg, rmse] = pcregisterndt(moving, fixed, gridstep, OutlierRatio=0.5, MaxIterations=50); %try messing with OutlierRatio
+% gridstep = 1.0;
+% [tform, movingReg, rmse] = pcregisterndt(moving, fixed, gridstep, OutlierRatio=0.5, MaxIterations=50); %try messing with OutlierRatio
 
 %------------------------------------------------
 
@@ -61,37 +61,37 @@ gridstep = 0.5;
 %------------------------------------------------
 
 % %LOAM ---------------------------------------------
-% gridStep = 1.0;
-% 
-% %convert from "Unorganized" to "Organized" point cloud for LOAM
-% horizontalResolution = 1800; %1024;
+gridStep = 1.0;
+
+%convert from "Unorganized" to "Organized" point cloud for LOAM
+horizontalResolution = 4000; %1024;
 % verticalResolution = 67.0;
 % verticalFov = [2,-24.8];
-% % params = lidarParameters('HDL64E', horizontalResolution); %TODO - set for synthetic data
 % params = lidarParameters(verticalResolution, verticalFov, horizontalResolution);
-% moving = pcorganize(moving, params);
-% fixed = pcorganize(fixed, params);
-% 
-% %using organized PCs
+params = lidarParameters('HDL64E', horizontalResolution); %TODO - set for synthetic data
+moving = pcorganize(moving, params);
+fixed = pcorganize(fixed, params);
+
+%using organized PCs
 % [tform, rmse] = pcregisterloam(moving,fixed,gridStep, "MatchingMethod","one-to-many"); 
-% 
-% % %using LOAM points~~~~~~~~~~~~~~~~~~~~~
-% % movingLOAM = detectLOAMFeatures(moving);
-% % fixedLOAM = detectLOAMFeatures(fixed);
-% % %downsample to improve registration time (no effect on accuracy)
-% % fixedLOAM = downsampleLessPlanar(fixedLOAM,gridStep);
-% % movingLOAM = downsampleLessPlanar(movingLOAM,gridStep);
-% % % [tform, rmse] = pcregisterloam(movingLOAM,fixedLOAM,"MatchingMethod","one-to-many", InitialTransform=tinit); 
-% % [tform, rmse] = pcregisterloam(movingLOAM,fixedLOAM,"MatchingMethod","one-to-one"); 
-% % %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-% 
+
+% %using LOAM points~~~~~~~~~~~~~~~~~~~~~
+movingLOAM = detectLOAMFeatures(moving);
+fixedLOAM = detectLOAMFeatures(fixed);
+%downsample to improve registration time (no effect on accuracy)
+fixedLOAM = downsampleLessPlanar(fixedLOAM,gridStep);
+movingLOAM = downsampleLessPlanar(movingLOAM,gridStep);
+% [tform, rmse] = pcregisterloam(movingLOAM,fixedLOAM,"MatchingMethod","one-to-many", InitialTransform=tinit); 
+[tform, rmse] = pcregisterloam(movingLOAM,fixedLOAM,"MatchingMethod","one-to-one"); 
+% %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 % %--------------------------------------------------
 
 figure()
 hold on
-pcshow(fixed)
-pcshow(moving)
-% pcshow(fixedLOAM.Location)
-% pcshow(movingLOAM.Location)
+% pcshow(fixed)
+% pcshow(moving)
+pcshow(fixedLOAM.Location)
+pcshow(movingLOAM.Location)
 
 ans = [tform.Translation, rotm2eul(tform.Rotation)]

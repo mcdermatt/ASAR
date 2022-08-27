@@ -48,7 +48,7 @@ class ICET():
 		self.cheat = cheat #overide for using ICET to generate training data for DNN
 		self.DNN_filter = DNN_filter
 		self.start_filter_iter = 6 #10 #iteration to start DNN rejection filter
-		self.start_RM_iter = 2 #10 #iteration to start removing moving objects (set low to generate training data)
+		self.start_RM_iter = 15 #10 #iteration to start removing moving objects (set low to generate training data)
 		self.DNN_thresh = 0.05 #0.03
 		self.RM_thresh = 0.05
 
@@ -438,40 +438,40 @@ class ICET():
 			if i < self.start_filter_iter:
 				self.before_correction = self.X
 
-			# #for debug ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-			# #to confirm correct points are being ignored
-			# bounds_good = tf.gather(bounds, corr)
-			# good_pts_rag, _ = self.get_points_in_cluster(self.cloud1_tensor_spherical, tf.gather(occupied_spikes, corr), bounds_good)
+			#for benchmarking ICP on spherical coordinates ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+			#to confirm correct points are being ignored
+			bounds_good = tf.gather(bounds, corr)
+			good_pts_rag1, _ = self.get_points_in_cluster(self.cloud1_tensor_spherical, tf.gather(occupied_spikes, corr), bounds_good)
+			good_pts_rag2, _ = self.get_points_in_cluster(self.cloud2_tensor_spherical, tf.gather(occupied_spikes, corr), bounds_good)
 
-			# if remove_moving or self.DNN_filter:
-			# 	if i >= 10:
-			# 		to_save = np.zeros([1,3])
-			# 		for z in range(good_pts_rag.bounding_shape()[0]):
-			# 			temp = tf.gather(self.cloud1_tensor, good_pts_rag[z]).numpy()
-			# 			#draw good points from scan 1-------------
-			# 			# if self.draw == True:
-			# 			# 	self.disp.append(Points(temp, c = 'green', r = 6))
-			# 			#-----------------------------------------
+			if i >= 10:
+				to_save1 = np.zeros([1,3])
+				to_save2 = np.zeros([1,3])
+				for z in range(good_pts_rag1.bounding_shape()[0]):
+					temp = tf.gather(self.cloud1_tensor, good_pts_rag1[z]).numpy()
+					#draw good points from scan 1-------------
+					# if self.draw == True:
+					# 	self.disp.append(Points(temp, c = 'green', r = 6))
+					#-----------------------------------------
+					to_save1 = np.append(to_save1, temp, axis = 0)	
+				self.cloud1_static = to_save1
+				
+				for z in range(good_pts_rag2.bounding_shape()[0]):
+					temp = tf.gather(self.cloud2_tensor, good_pts_rag2[z]).numpy()
+					to_save2 = np.append(to_save2, temp, axis = 0)
+				self.cloud2_static = to_save2
 
-			# 			#for debug: save good points from scan 1 to file ---
-			# 			# to_save 
-			# 			# print(tf.shape(temp))
-			# 			to_save = np.append(to_save, temp, axis = 0)
-			# 			# np.savetxt("cloud1_good.txt", to_save)
+				#update cloud1 and dependencies (mu1, sigma1, etc.) to remove pts form scan1 in problematic regions
+				# self.cloud1_tensor = tf.cast(tf.convert_to_tensor(to_save), tf.float32)
+				# self.cloud1_tensor_spherical = tf.cast(self.c2s(self.cloud1_tensor), tf.float32)
+				# inside1, npts1 = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes, bounds)
+				# mu1, sigma1 = self.fit_gaussian(tf.cast(self.cloud1_tensor, tf.float32), inside1, tf.cast(npts1, tf.float32))
+				# enough1 = tf.where(npts1 > self.min_num_pts)[:,0]
+				# mu1_enough = tf.gather(mu1, enough1)
+				# sigma1_enough = tf.gather(sigma1, enough1)
+				# print("enough1", enough1)
 
-			# 		self.cloud1_static = to_save
-
-			# 		#update cloud1 and dependencies (mu1, sigma1, etc.) to remove pts form scan1 in problematic regions
-			# 		# self.cloud1_tensor = tf.cast(tf.convert_to_tensor(to_save), tf.float32)
-			# 		# self.cloud1_tensor_spherical = tf.cast(self.c2s(self.cloud1_tensor), tf.float32)
-			# 		# inside1, npts1 = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes, bounds)
-			# 		# mu1, sigma1 = self.fit_gaussian(tf.cast(self.cloud1_tensor, tf.float32), inside1, tf.cast(npts1, tf.float32))
-			# 		# enough1 = tf.where(npts1 > self.min_num_pts)[:,0]
-			# 		# mu1_enough = tf.gather(mu1, enough1)
-			# 		# sigma1_enough = tf.gather(sigma1, enough1)
-			# 		# print("enough1", enough1)
-
-			# # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+			# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
 			y0_i_full = tf.gather(mu1, corr_full)
@@ -604,7 +604,7 @@ class ICET():
 
 			#FOR DEBUG: we should be looking at U_i, L_i anyways...
 			#   ans == indeces of enough1 that intersect with corr (aka combined enough1, enough2)
-			# self.visualize_L(tf.gather(mu1_enough, ans), U_i, L_i)
+			self.visualize_L(tf.gather(mu1_enough, ans), U_i, L_i)
 
 			# # #for generating figure 3b in spherical ICET paper ----------
 			# #scene 1, fid = 50, with ground plane

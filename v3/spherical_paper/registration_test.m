@@ -10,8 +10,10 @@ ans_cum = [];
 % scan1_fn = "C:/kitti/2011_09_26/2011_09_26_drive_0005_raw/velodyne_points/data/0000000008.txt";
 % scan2_fn = "C:/kitti/2011_09_26/2011_09_26_drive_0005_raw/velodyne_points/data/0000000009.txt";
 
-scan1_fn = "MC_trajectories/scene1_scan21.txt";
-scan2_fn = "MC_trajectories/scene1_scan22.txt";
+% scan1_fn = "MC_trajectories/scene1_scan2.txt";
+% scan2_fn = "MC_trajectories/scene1_scan3.txt";
+scan1_fn = "unshadowed_points/scene_1_scan_2A_no_shadows.txt";
+scan2_fn = "unshadowed_points/scene_1_scan_3B_no_shadows.txt";    
 
 scan1 = readmatrix(scan1_fn);
 scan2 = readmatrix(scan2_fn);
@@ -22,18 +24,19 @@ scan2 = scan2(:,1:3);
 
 %TODO: need to rotate scan2 relative to scan1 since rotations can't be done
 % easily in point cloud generation script
-% rotm = eul2rotm([0.05, 0, 0]);
-% scan2 = scan2*rotm;
+rotm = eul2rotm([0.05, 0, 0]);
+scan2 = scan2*rotm;
+scan2 = scan2+ [0.5, 0, 0];
 
-% %remove ground plane--------------------------
+%remove ground plane--------------------------
 % gph = -1.5; %ground plane height for KITTI
-% % gph = -1.8; %ground plane height for simulated scene 1
-% goodidx1 = find(scan1(:,3)>gph);
-% scan1 = scan1(goodidx1, :);
-% goodidx2 = find(scan2(:,3)>gph);
-% scan2 = scan2(goodidx2, :);
-% % groundPtsIdx1 = segmentGroundFromLidarData(moving); %builtin func
-% %---------------------------------------------
+gph = -1.8; %ground plane height for simulated scene 1
+goodidx1 = find(scan1(:,3)>gph);
+scan1 = scan1(goodidx1, :);
+goodidx2 = find(scan2(:,3)>gph);
+scan2 = scan2(goodidx2, :);
+% groundPtsIdx1 = segmentGroundFromLidarData(moving); %builtin func
+%---------------------------------------------
 
 % %add noise to each PC
 % noise_scale = 0.02;
@@ -57,7 +60,7 @@ fixed.Color = c2;
 gridstep = 1;
 
 % cheat initial transformation estimate
-tinit = rigid3d(eul2rotm([-0.05,0,0]), [0.5,0,0]);
+% tinit = rigid3d(eul2rotm([-0.05,0,0]), [0.5,0,0]);
 
 %NDT---------------------------------------------
 % [tform, movingReg, rmse] = pcregisterndt(moving, fixed, gridstep, OutlierRatio=0.5, MaxIterations=50); %try messing with OutlierRatio
@@ -66,8 +69,8 @@ tinit = rigid3d(eul2rotm([-0.05,0,0]), [0.5,0,0]);
 
 %ICP---------------------------------------------
 % [tform,movingReg, rmse] = pcregistericp(moving,fixed);    
-%     [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPlane');
-% [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPlane', "InitialTransform",tinit); %cheating for debug
+% [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPlane');
+% [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPlane', "InitialTransform",tinit,InlierRatio=0.1); %cheating for debug
 % [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPoint');
 %------------------------------------------------
 
@@ -91,7 +94,7 @@ fixedLOAM = detectLOAMFeatures(fixed);
 fixedLOAM = downsampleLessPlanar(fixedLOAM,gridStep);
 movingLOAM = downsampleLessPlanar(movingLOAM,gridStep);
 % [tform, rmse] = pcregisterloam(movingLOAM,fixedLOAM,"MatchingMethod","one-to-many", InitialTransform=tinit); 
-[tform, rmse] = pcregisterloam(movingLOAM,fixedLOAM,"MatchingMethod","one-to-one", "SearchRadius",1); 
+[tform, rmse] = pcregisterloam(movingLOAM,fixedLOAM,"MatchingMethod","one-to-one", "SearchRadius",0.25); 
 %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
@@ -101,11 +104,11 @@ movingLOAM = downsampleLessPlanar(movingLOAM,gridStep);
 
 figure()
 hold on
-% pcshow(fixed)
-% pcshow(moving)
-pcshow(fixedLOAM.Location) %all points 
+pcshow(fixed)
+pcshow(moving)
+% pcshow(fixedLOAM.Location) %all points 
 %TODO: plot just the points Labeled as "sharp corner"
-pcshow(movingLOAM.Location)
+% pcshow(movingLOAM.Location)
 % pcshowpair(movingLOAM, fixedLOAM)
 
 ans = [tform.Translation, rotm2eul(tform.Rotation)]
