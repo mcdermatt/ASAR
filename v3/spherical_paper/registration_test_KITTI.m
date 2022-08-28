@@ -6,10 +6,19 @@ close all
 
 ans_cum = [];
 
-scan1_fn = "C:/kitti/2011_09_26/2011_09_26_drive_0005_raw/velodyne_points/data/0000000051.txt";
-scan2_fn = "C:/kitti/2011_09_26/2011_09_26_drive_0005_raw/velodyne_points/data/0000000052.txt";
-scan1 = readmatrix(scan1_fn);
-scan2 = readmatrix(scan2_fn);
+% scan1_fn = "C:/kitti/2011_09_26/2011_09_26_drive_0005_raw/velodyne_points/data/0000000140.txt";
+% scan2_fn = "C:/kitti/2011_09_26/2011_09_26_drive_0005_raw/velodyne_points/data/0000000141.txt";
+% scan1 = readmatrix(scan1_fn);
+% scan2 = readmatrix(scan2_fn);
+
+scan1_fn = "C:/kitti/2011_09_26/2011_09_26_drive_0005_sync/velodyne_points/data/0000000140.bin";
+scan2_fn = "C:/kitti/2011_09_26/2011_09_26_drive_0005_sync/velodyne_points/data/0000000141.bin";
+
+fid1 = fopen(scan1_fn, 'w');
+fid2 = fopen(scan2_fn, 'w');
+
+scan1 = fread(fid1);
+scan2 = fread(fid2);
 
 %ignore reflectance data
 scan1 = scan1(:,1:3);
@@ -45,7 +54,7 @@ fixed.Color = c2;
 
 
 % cheat initial transformation estimate
-% tinit = rigid3d(eul2rotm([-0.05,0,0]), [0.5,0,0]);
+tinit = rigid3d(eul2rotm([0,0,0]), [0.3,0,0]);
 
 %NDT---------------------------------------------
 % gridstep = 1.0;
@@ -77,17 +86,21 @@ movingLOAM = detectLOAMFeatures(moving);
 fixedLOAM = detectLOAMFeatures(fixed);
 fixedLOAM = downsampleLessPlanar(fixedLOAM,gridStep);
 movingLOAM = downsampleLessPlanar(movingLOAM,gridStep);
-% [tform, rmse] = pcregisterloam(movingLOAM,fixedLOAM,"MatchingMethod","one-to-many", InitialTransform=tinit); 
-[tform, rmse] = pcregisterloam(movingLOAM,fixedLOAM,"MatchingMethod","one-to-many"); 
+[tform, rmse] = pcregisterloam(movingLOAM,fixedLOAM,"MatchingMethod","one-to-many", InitialTransform=tinit); 
+% [tform, rmse] = pcregisterloam(movingLOAM,fixedLOAM,"MatchingMethod","one-to-many"); 
 % %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 % %--------------------------------------------------
 
 figure()
 hold on
-% pcshow(fixed)
+pcshow(fixed)
 % pcshow(moving)
-pcshow(fixedLOAM.Location)
-pcshow(movingLOAM.Location)
+
+ptCloudOut = pctransform(moving, tform);
+pcshow(ptCloudOut)
+
+% pcshow(fixedLOAM.Location)
+% pcshow(movingLOAM.Location)
 
 ans = [tform.Translation, rotm2eul(tform.Rotation)]

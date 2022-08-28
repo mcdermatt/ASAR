@@ -6,17 +6,17 @@ close all
 
 ans_cum = [];
 
-for j = 1:1
+for j = 1:3
     for i = 1:38%40
 %         40*(j-1) + i
         38*(j-1) + i
     
     %     scan1_fn = "MC_trajectories/scene1_scan1.txt";
     %     scan2_fn = "MC_trajectories/scene1_scan2.txt";
-%         scan1_fn = "MC_trajectories/scene1_scan" + string(mod(40*(j-1) + i, 40) + 1) + ".txt";
-%         scan2_fn = "MC_trajectories/scene1_scan" + string(mod(40*(j-1) + i, 40)+2) + ".txt";    
-        scan1_fn = "unshadowed_points/scene_1_scan_" + string(mod(40*(j-1) + i, 40)) + "_no_shadows.txt";
-        scan2_fn = "unshadowed_points/scene_1_scan_" + string(mod(40*(j-1) + i, 40)+1) + "_no_shadows.txt";    
+        scan1_fn = "MC_trajectories/scene1_scan" + string(mod(40*(j-1) + i, 40) + 1) + ".txt";
+        scan2_fn = "MC_trajectories/scene1_scan" + string(mod(40*(j-1) + i, 40)+2) + ".txt";    
+%         scan1_fn = "unshadowed_points/scene_1_scan_" + string(mod(40*(j-1) + i, 40)) + "_no_shadows.txt";
+%         scan2_fn = "unshadowed_points/scene_1_scan_" + string(mod(40*(j-1) + i, 40)+1) + "_no_shadows.txt";    
 
 
         scan1 = readmatrix(scan1_fn);
@@ -38,9 +38,9 @@ for j = 1:1
         %---------------------------------------------
         
         %add noise to each PC
-%         noise_scale = 0.02;
-%         scan1 = scan1 + noise_scale*randn(size(scan1));
-%         scan2 = scan2 + noise_scale*randn(size(scan2));
+        noise_scale = 0.02;
+        scan1 = scan1 + noise_scale*randn(size(scan1));
+        scan2 = scan2 + noise_scale*randn(size(scan2));
         
         moving = pointCloud(scan2);
         c1=uint8(zeros(moving.Count,3));
@@ -69,7 +69,7 @@ for j = 1:1
 
 
         %NDT---------------------------------------------
-%         [tform, movingReg, rmse] = pcregisterndt(moving, fixed, gridstep, OutlierRatio=0)%, MaxIterations=50); %try messing with OutlierRatio
+        [tform, movingReg, rmse] = pcregisterndt(moving, fixed, gridstep, OutlierRatio=0.3)%, MaxIterations=50); %try messing with OutlierRatio
     
         %------------------------------------------------
         
@@ -78,7 +78,7 @@ for j = 1:1
 %         [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPlane');
 %         [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPoint', "InitialTransform",tinit); %cheating for debug
 %         [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPlane', "InitialTransform",tinit, InlierRatio=0.1); %cheating for debug
-        [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPlane', InlierRatio=0.8);
+%         [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPlane', InlierRatio=0.8);
         %------------------------------------------------
         
 % %         %LOAM ---------------------------------------------
@@ -136,7 +136,7 @@ RMSE = sqrt(mean((ans_cum - [0.5, 0, 0, -0.05, 0, 0]).^2))
 %save to file
 % fn = "MC_results/traj1_cart_ICP_point2plane_NO_GP.txt";
 % fn = "MC_results/traj1_cart_ICP_point2point_NO_GP.txt";
-fn = "MC_results/traj1_spherical_ICP_point2plane_NO_GP.txt";
-% fn = "MC_results/traj1_cart_NDT_NO_GP.txt";
+% fn = "MC_results/traj1_spherical_ICP_point2plane_NO_GP.txt";
+% fn = "MC_results/traj1_cart_NDT_NO_GP_v2.txt";
 % fn = "MC_results/traj1_cart_LOAM_NO_GP.txt";
-writematrix(ans_cum, fn, 'Delimiter', 'tab')
+% writematrix(ans_cum, fn, 'Delimiter', 'tab')

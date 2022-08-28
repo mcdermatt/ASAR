@@ -6,10 +6,15 @@ close all
 
 ans_cum = [];
 
-scan1_fn = "C:/kitti/2011_09_26/2011_09_26_drive_0005_raw/velodyne_points/data/0000000051.txt";
-scan2_fn = "C:/kitti/2011_09_26/2011_09_26_drive_0005_raw/velodyne_points/data/0000000052.txt";
-scan1 = readmatrix(scan1_fn);
-scan2 = readmatrix(scan2_fn);
+% scan1_fn = "C:/kitti/2011_09_26/2011_09_26_drive_0005_raw/velodyne_points/data/0000000140.txt";
+% scan2_fn = "C:/kitti/2011_09_26/2011_09_26_drive_0005_raw/velodyne_points/data/0000000141.txt";
+% scan1 = readmatrix(scan1_fn);
+% scan2 = readmatrix(scan2_fn);
+
+scan1_fn = "C:/kitti/2011_09_26/2011_09_26_drive_0005_sync/velodyne_points/data/0000000140.bin";
+scan2_fn = "C:/kitti/2011_09_26/2011_09_26_drive_0005_sync/velodyne_points/data/0000000141.bin";
+
+scan1 = fread()
 
 %ignore reflectance data
 scan1 = scan1(:,1:3);
@@ -45,7 +50,7 @@ fixed.Color = c2;
 
 
 % cheat initial transformation estimate
-% tinit = rigid3d(eul2rotm([-0.05,0,0]), [0.5,0,0]);
+tinit = rigid3d(eul2rotm([0,0,0]), [0.3,0,0]);
 
 %NDT---------------------------------------------
 % gridstep = 1.0;
@@ -64,11 +69,8 @@ fixed.Color = c2;
 gridStep = 1.0;
 
 %convert from "Unorganized" to "Organized" point cloud for LOAM
-horizontalResolution = 4000; %1024;
-% verticalResolution = 67.0;
-% verticalFov = [2,-24.8];
-% params = lidarParameters(verticalResolution, verticalFov, horizontalResolution);
-params = lidarParameters('HDL64E', horizontalResolution); %TODO - set for synthetic data
+horizontalResolution = 4000;
+params = lidarParameters('HDL64E', horizontalResolution); %TODO - debug value for horizontal resolution
 moving = pcorganize(moving, params);
 fixed = pcorganize(fixed, params);
 
@@ -78,20 +80,23 @@ fixed = pcorganize(fixed, params);
 % %using LOAM points~~~~~~~~~~~~~~~~~~~~~
 movingLOAM = detectLOAMFeatures(moving);
 fixedLOAM = detectLOAMFeatures(fixed);
-%downsample to improve registration time (no effect on accuracy)
 fixedLOAM = downsampleLessPlanar(fixedLOAM,gridStep);
 movingLOAM = downsampleLessPlanar(movingLOAM,gridStep);
-% [tform, rmse] = pcregisterloam(movingLOAM,fixedLOAM,"MatchingMethod","one-to-many", InitialTransform=tinit); 
-[tform, rmse] = pcregisterloam(movingLOAM,fixedLOAM,"MatchingMethod","one-to-one"); 
+[tform, rmse] = pcregisterloam(movingLOAM,fixedLOAM,"MatchingMethod","one-to-many", InitialTransform=tinit); 
+% [tform, rmse] = pcregisterloam(movingLOAM,fixedLOAM,"MatchingMethod","one-to-many"); 
 % %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 % %--------------------------------------------------
 
 figure()
 hold on
-% pcshow(fixed)
+pcshow(fixed)
 % pcshow(moving)
-pcshow(fixedLOAM.Location)
-pcshow(movingLOAM.Location)
+
+ptCloudOut = pctransform(moving, tform);
+pcshow(ptCloudOut)
+
+% pcshow(fixedLOAM.Location)
+% pcshow(movingLOAM.Location)
 
 ans = [tform.Translation, rotm2eul(tform.Rotation)]
