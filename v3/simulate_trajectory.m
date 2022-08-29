@@ -3,7 +3,7 @@
 clear all 
 close all
 
-runLen = 41;
+runLen = 10;
 scene = 1;
 
 %import stl
@@ -95,7 +95,7 @@ for idx = 1:runLen
 %     ptCloud = ptCloud*rot;
 
     %save to file
-    fn = "MC_trajectories/scene" + scene + "_scan" + idx + ".txt";
+    fn = "spherical_paper/MC_trajectories/scene" + scene + "_scan" + idx + "_v2.txt";
     writematrix(ptCloud, fn, 'Delimiter', 'tab')
     
     %add to plot

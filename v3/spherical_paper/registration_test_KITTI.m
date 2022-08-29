@@ -6,26 +6,25 @@ close all
 
 ans_cum = [];
 
+%raw data
 % scan1_fn = "C:/kitti/2011_09_26/2011_09_26_drive_0005_raw/velodyne_points/data/0000000140.txt";
 % scan2_fn = "C:/kitti/2011_09_26/2011_09_26_drive_0005_raw/velodyne_points/data/0000000141.txt";
-% scan1 = readmatrix(scan1_fn);
-% scan2 = readmatrix(scan2_fn);
+%synced data
+scan1_fn = "C:/kitti/2011_09_26/2011_09_26_drive_0005_sync/velodyne_points/data_text/scan115.txt";
+scan2_fn = "C:/kitti/2011_09_26/2011_09_26_drive_0005_sync/velodyne_points/data_text/scan116.txt";
+scan1 = readmatrix(scan1_fn);
+scan2 = readmatrix(scan2_fn);
 
-scan1_fn = "C:/kitti/2011_09_26/2011_09_26_drive_0005_sync/velodyne_points/data/0000000140.bin";
-scan2_fn = "C:/kitti/2011_09_26/2011_09_26_drive_0005_sync/velodyne_points/data/0000000141.bin";
+OXTS_fn = "KITTI_results/OXTS_baseline.txt";
+gt = readmatrix(OXTS_fn);
 
-fid1 = fopen(scan1_fn, 'w');
-fid2 = fopen(scan2_fn, 'w');
-
-scan1 = fread(fid1);
-scan2 = fread(fid2);
 
 %ignore reflectance data
 scan1 = scan1(:,1:3);
 scan2 = scan2(:,1:3);
 
 % %remove ground plane--------------------------
-% gph = -0.5; %ground plane height
+% % gph = -0.5; %ground plane height
 % goodidx1 = find(scan1(:,3)>-1.5);
 % scan1 = scan1(goodidx1, :);
 % goodidx2 = find(scan2(:,3)>-1.5);
@@ -54,7 +53,7 @@ fixed.Color = c2;
 
 
 % cheat initial transformation estimate
-tinit = rigid3d(eul2rotm([0,0,0]), [0.3,0,0]);
+tinit = rigid3d(eul2rotm([0,0,0]), [gt(115,1) + 0.05*randn(),0,0]);
 
 %NDT---------------------------------------------
 % gridstep = 1.0;
@@ -71,9 +70,10 @@ tinit = rigid3d(eul2rotm([0,0,0]), [0.3,0,0]);
 
 % %LOAM ---------------------------------------------
 gridStep = 1.0;
+% gridStep = 0.25;
 
 %convert from "Unorganized" to "Organized" point cloud for LOAM
-horizontalResolution = 4000;
+horizontalResolution = 2000; %4000;
 params = lidarParameters('HDL64E', horizontalResolution); %TODO - debug value for horizontal resolution
 moving = pcorganize(moving, params);
 fixed = pcorganize(fixed, params);
@@ -86,21 +86,21 @@ movingLOAM = detectLOAMFeatures(moving);
 fixedLOAM = detectLOAMFeatures(fixed);
 fixedLOAM = downsampleLessPlanar(fixedLOAM,gridStep);
 movingLOAM = downsampleLessPlanar(movingLOAM,gridStep);
-[tform, rmse] = pcregisterloam(movingLOAM,fixedLOAM,"MatchingMethod","one-to-many", InitialTransform=tinit); 
-% [tform, rmse] = pcregisterloam(movingLOAM,fixedLOAM,"MatchingMethod","one-to-many"); 
-% %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[tform, rmse] = pcregisterloam(movingLOAM,fixedLOAM,"MatchingMethod","one-to-many", InitialTransform=tinit); %works best so far
+% [tform, rmse] = pcregisterloam(movingLOAM,fixedLOAM,"MatchingMethod","one-to-one", InitialTransform=tinit); %test
 
 % %--------------------------------------------------
 
 figure()
 hold on
-pcshow(fixed)
-% pcshow(moving)
+%full PCs---------------
+% pcshow(fixed)
+% % pcshow(moving)
+% ptCloudOut = pctransform(moving, tform);
+% pcshow(ptCloudOut)
+%-----------------------
 
-ptCloudOut = pctransform(moving, tform);
-pcshow(ptCloudOut)
-
-% pcshow(fixedLOAM.Location)
-% pcshow(movingLOAM.Location)
+pcshow(fixedLOAM.Location)
+pcshow(movingLOAM.Location)
 
 ans = [tform.Translation, rotm2eul(tform.Rotation)]

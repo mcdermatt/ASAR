@@ -6,11 +6,20 @@ close all
 
 ans_cum = [];
 
+OXTS_fn = "KITTI_results/OXTS_baseline.txt";
+gt = readmatrix(OXTS_fn);
+
 for i = 1:150
     i
 
-    scan1_fn = "C:/kitti/2011_09_26/2011_09_26_drive_0005_raw/velodyne_points/data/" + sprintf( '%010d', i-1 ) + ".txt";
-    scan2_fn = "C:/kitti/2011_09_26/2011_09_26_drive_0005_raw/velodyne_points/data/" + sprintf( '%010d', i ) + ".txt";
+    %raw data
+%     scan1_fn = "C:/kitti/2011_09_26/2011_09_26_drive_0005_raw/velodyne_points/data/" + sprintf( '%010d', i-1 ) + ".txt";
+%     scan2_fn = "C:/kitti/2011_09_26/2011_09_26_drive_0005_raw/velodyne_points/data/" + sprintf( '%010d', i ) + ".txt";
+
+    %rectified data
+    scan1_fn = "C:/kitti/2011_09_26/2011_09_26_drive_0005_sync/velodyne_points/data_text/scan" + string(i -1) + ".txt";
+    scan2_fn = "C:/kitti/2011_09_26/2011_09_26_drive_0005_sync/velodyne_points/data_text/scan" + string(i) + ".txt";
+
 
     scan1 = readmatrix(scan1_fn);
     scan2 = readmatrix(scan2_fn);
@@ -20,8 +29,8 @@ for i = 1:150
     scan2 = scan2(:,1:3);
     
 %     %remove ground plane--------------------------
-%     % gph = -1.5; %ground plane height for KITTI
-%     gph = -1.8; %ground plane height for simulated scene 1
+%     gph = -1.5; %ground plane height for KITTI  
+% %     gph = -1.8; %ground plane height for simulated scene 1
 %     goodidx1 = find(scan1(:,3)>gph);
 %     scan1 = scan1(goodidx1, :);
 %     goodidx2 = find(scan2(:,3)>gph);
@@ -51,9 +60,9 @@ for i = 1:150
     gridstep = 1;
 
     % cheat initial transformation estimate
-%         tinit = rigid3d(eul2rotm([-0.05,0,0]), [0.5,0,0]);
-    tinit = rigid3d(eul2rotm([0,0,0]), [0.5 + 0.01*randn(),0,0]);
-
+%     tinit = rigid3d(eul2rotm([0,0,0]), [0.5,0,0]);
+%     tinit = rigid3d(eul2rotm([0,0,0]), [0.5 + 0.01*randn(),0,0]);
+    tinit = rigid3d(eul2rotm([0,0,0]), [gt(i,1) + 0.05*randn(), 0, 0]); %seed solution with correct soln + some noise
 
     %NDT---------------------------------------------
     [tform, movingReg, rmse] = pcregisterndt(moving, fixed, gridstep, OutlierRatio=0.3)%, MaxIterations=50); %try messing with OutlierRatio
@@ -116,4 +125,5 @@ end
 
 %save to file
 fn = "KITTI_results/KITTI_LOAM.txt";
+% fn = "KITTI_results/KITTI_LOAM_noGP.txt";
 writematrix(ans_cum, fn, 'Delimiter', 'tab')
