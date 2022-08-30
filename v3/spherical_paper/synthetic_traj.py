@@ -17,7 +17,7 @@ from utils import R_tf
  (Spherical ICET Paper) """
 
 scene = 1   #scene 1 = highway, scene 2 = mountain
-nframes = 42 #how many sequential frames to consider (num pairs = num frames - 1)
+nframes = 10 #42 #how many sequential frames to consider (num pairs = num frames - 1)
 niter = 1   #number of times to repeat each pair of scans
 
 
@@ -38,8 +38,8 @@ for idx in range(1, nframes):
 		# c2_raw = np.loadtxt("mountain_scan2_no_trees.txt", dtype = float)
 
 		#add noise (if not generated when point clouds were created)
-		c1 = c1_raw + 0.02*np.random.randn(np.shape(c1_raw)[0], 3)
-		c2 = c2_raw + 0.02*np.random.randn(np.shape(c2_raw)[0], 3) 
+		c1 = c1_raw + 0.01*np.random.randn(np.shape(c1_raw)[0], 3)
+		c2 = c2_raw + 0.01*np.random.randn(np.shape(c2_raw)[0], 3) 
 		rot = R_tf(tf.constant([0., 0., 0.05]))
 		c2 = c2 @ rot.numpy() 
 
@@ -52,7 +52,8 @@ for idx in range(1, nframes):
 		ICET_estimates[(idx-1)*niter + i] = it.X
 		ICET_pred_stds[(idx-1)*niter + i] = it.pred_stds
 
-		#to save unshadowed poitns to file for benchmarking with ICP--------
+
+		#to save unshadowed points to file for benchmarking with ICP--------
 
 		np.savetxt("unshadowed_points/scene_1_scan_" + str(idx) + "A_no_shadows.txt", it.cloud1_static)
 		np.savetxt("unshadowed_points/scene_1_scan_" + str(idx+1) + "B_no_shadows.txt", it.cloud2_static)

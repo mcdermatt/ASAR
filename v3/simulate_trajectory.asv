@@ -3,12 +3,13 @@
 clear all 
 close all
 
-runLen = 20;
-scene = 2;
+runLen = 10;
+scene = 1;
 
 %import stl
 if scene == 1
-    FileName = 'virtual_scenes/scene2.stl';         %scene 1
+%     FileName = 'virtual_scenes/scene2.stl';         %scene 1
+    FileName = 'virtual_scenes/scene2_thick.stl';         %scene 1    
 else
     FileName = 'virtual_scenes/mountain_simple.stl'; %scene 2 
 end
@@ -45,16 +46,21 @@ scenario = trackingScenario;
 
 if scene == 1
 %     ego = platform(scenario, 'Trajectory', kinematicTrajectory('Position',[-10,0,3],'Velocity',[5 0 0], 'AngularVelocity', [0, 0, 0.1], 'Acceleration', [0, 0, 0])); 
+    ego = platform(scenario,'Position',[0, 0, 0]);
+    target = platform(scenario, 'Trajectory', kinematicTrajectory('Position',[10,0,0],'Velocity',[-5 0 0], 'AngularVelocity', [0, 0, 0]));
+    % target = platform(scenario,'Position',[0, 0, 0]); %was this
+    target.Dimensions.Height = 5;
 
 end
 
 if scene == 2
 %     ego = platform(scenario, 'Trajectory', kinematicTrajectory('Position',[-10,0,3],'Velocity',[5 0 0], 'AngularVelocity', [0, 0, 0])); %was this
     ego = platform(scenario,'Position',[0, 0, 0]);
+    target = platform(scenario, 'Trajectory', kinematicTrajectory('Position',[10,0,-3],'Velocity',[-5 0 0], 'AngularVelocity', [0, 0, 0]));
+    % target = platform(scenario,'Position',[0, 0, 0]); %was this
+    target.Dimensions.Height = 20;
 end
 
-target = platform(scenario, 'Trajectory', kinematicTrajectory('Position',[10,0,-3],'Velocity',[-5 0 0], 'AngularVelocity', [0, 0, 0]));
-% target = platform(scenario,'Position',[0, 0, 0]); %was this
 
 target.Mesh = mesh;
 % show(target.Mesh)
@@ -62,7 +68,6 @@ target.Mesh = mesh;
 %default~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 target.Dimensions.Length = 100; 
 target.Dimensions.Width = 100;
-target.Dimensions.Height = 20; %6; %18;
 %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 %height = 20 for with trees, 
 
@@ -90,7 +95,7 @@ for idx = 1:runLen
 %     ptCloud = ptCloud*rot;
 
     %save to file
-    fn = "MC_trajectories/scene" + scene + "_scan" + idx + ".txt";
+    fn = "spherical_paper/MC_trajectories/scene" + scene + "_scan" + idx + "_v2.txt";
     writematrix(ptCloud, fn, 'Delimiter', 'tab')
     
     %add to plot

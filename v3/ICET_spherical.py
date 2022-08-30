@@ -7,12 +7,9 @@ from tensorflow.math import sin, cos, tan
 import tensorflow_probability as tfp
 from utils import R2Euler, Ell, jacobian_tf, R_tf, get_cluster
 
-#TODO:
 	#P1:
 		#identify bottleneck in radial binning step
 
-		# remove correspondences with mismatched rotation about the vertical axis
-		#		these will be the cells that show the most apparent perspective shift??
 
 		# remove outlier difference cells from contributing to soln
 		#	make before and after otputs and compare histograms
@@ -48,7 +45,7 @@ class ICET():
 		self.cheat = cheat #overide for using ICET to generate training data for DNN
 		self.DNN_filter = DNN_filter
 		self.start_filter_iter = 6 #10 #iteration to start DNN rejection filter
-		self.start_RM_iter = 15 #10 #iteration to start removing moving objects (set low to generate training data)
+		self.start_RM_iter = 6 #10 #iteration to start removing moving objects (set low to generate training data)
 		self.DNN_thresh = 0.05 #0.03
 		self.RM_thresh = 0.05
 
@@ -284,6 +281,19 @@ class ICET():
 					y_i_full = tf.gather(mu2, corr_full)
 
 					self.residuals_full = y_i_full - y0_i_full
+				
+					# #------------------------------------------------------------------------------------------------
+					# #Using binned mode oulier exclusion (get rid of everything outside of some range close to 0)
+					# nbins = 30
+					# edges = tf.linspace(-0.75, 0.75, nbins)
+					# bins_soln = tfp.stats.find_bins(self.residuals_full[:,0], edges)
+					# bad_idx = tf.where(bins_soln != (nbins//2 - 1))[:,0][None, :]
+
+					# bins_soln2 = tfp.stats.find_bins(self.residuals_full[:,1], edges)
+					# bad_idx2 = tf.where(bins_soln2 != (nbins//2 - 1))[:,0][None, :]
+					# bad_idx = tf.sets.union(bad_idx, bad_idx2).values
+					# #------------------------------------------------------------------------------------------------
+
 
 					#hard cutoff for outlier rejection
 					#NEW (5/7)~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -306,6 +316,29 @@ class ICET():
 					bad_idx = bidx
 					# print("bad_idx", bidx)
 					#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+					# #------------------------------------------------------------------------------------------------
+					# Compare rotation about the vertical axis between each distribution correspondance
+					s1 = tf.transpose(tf.gather(sigma1, corr), [1, 2, 0])
+					s2 = tf.transpose(tf.gather(sigma2, corr), [1, 2, 0])
+
+					self.angs1 = R2Euler(s1)[2,:]
+					self.angs2 = R2Euler(s2)[2,:]
+
+					self.res = self.angs1 - self.angs2
+
+					mean = np.mean(self.res)
+					std = np.std(self.res)
+					# bad_idx_rot = tf.where(np.abs(self.res) > mean + 1*std )[:, 0]
+
+					cutoff = 0.05 #0.1
+					bad_idx_rot = tf.where(np.abs(self.res) > cutoff)[:, 0]
+
+					# print("bad_idx_rot", bad_idx_rot)
+
+					bad_idx = tf.sets.union(bad_idx[None, :], bad_idx_rot[None, :]).values
+					# # #------------------------------------------------------------------------------------------------
+
 
 					bounds_bad = tf.gather(bounds, tf.gather(corr, bad_idx))
 					bad_idx_corn_moving = self.get_corners_cluster(tf.gather(occupied_spikes, tf.gather(corr, bad_idx)), bounds_bad)
@@ -368,13 +401,6 @@ class ICET():
 				dnnsoln = tf.convert_to_tensor(correction)
 				#~~~~~~~~~~~~~~~~~~~~
 
-				#---------------------------------------------------------------
-				# for debug:
-				#  we can pretend the dnn is perfect by setting dnn solution to 
-				#  zeros and feeding ground truth pos cheats in as initial conds:
-				# dnnsoln = tf.zeros(tf.shape(dnnsoln)) 
-				#---------------------------------------------------------------
-
 				#was this - DEBUG: think it may be creating a chicken and egg problem
 				# icetsoln = tf.gather(self.residuals, corr)
 				icetsoln = tf.math.reduce_mean(tf.gather(self.cloud1_tensor,en1), axis = 1) - tf.math.reduce_mean(tf.gather(self.cloud2_tensor,en2), axis = 1)
@@ -435,43 +461,44 @@ class ICET():
 				# self.draw_DNN_soln(dnn_compact_xyz[:,:,0], it_compact_xyz[:,:,0], tf.gather(mu1_enough, ans))
 			#----------------------------------------------
 
+			#for debug
 			if i < self.start_filter_iter:
 				self.before_correction = self.X
 
-			#for benchmarking ICP on spherical coordinates ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-			#to confirm correct points are being ignored
-			bounds_good = tf.gather(bounds, corr)
-			good_pts_rag1, _ = self.get_points_in_cluster(self.cloud1_tensor_spherical, tf.gather(occupied_spikes, corr), bounds_good)
-			good_pts_rag2, _ = self.get_points_in_cluster(self.cloud2_tensor_spherical, tf.gather(occupied_spikes, corr), bounds_good)
+			# #for benchmarking ICP on spherical coordinates ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+			# #to confirm correct points are being ignored
+			# bounds_good = tf.gather(bounds, corr)
+			# good_pts_rag1, _ = self.get_points_in_cluster(self.cloud1_tensor_spherical, tf.gather(occupied_spikes, corr), bounds_good)
+			# good_pts_rag2, _ = self.get_points_in_cluster(self.cloud2_tensor_spherical, tf.gather(occupied_spikes, corr), bounds_good)
 
-			if i >= 10:
-				to_save1 = np.zeros([1,3])
-				to_save2 = np.zeros([1,3])
-				for z in range(good_pts_rag1.bounding_shape()[0]):
-					temp = tf.gather(self.cloud1_tensor, good_pts_rag1[z]).numpy()
-					#draw good points from scan 1-------------
-					# if self.draw == True:
-					# 	self.disp.append(Points(temp, c = 'green', r = 6))
-					#-----------------------------------------
-					to_save1 = np.append(to_save1, temp, axis = 0)	
-				self.cloud1_static = to_save1
+			# if i >= 10:
+			# 	to_save1 = np.zeros([1,3])
+			# 	to_save2 = np.zeros([1,3])
+			# 	for z in range(good_pts_rag1.bounding_shape()[0]):
+			# 		temp = tf.gather(self.cloud1_tensor, good_pts_rag1[z]).numpy()
+			# 		#draw good points from scan 1-------------
+			# 		# if self.draw == True:
+			# 		# 	self.disp.append(Points(temp, c = 'green', r = 6))
+			# 		#-----------------------------------------
+			# 		to_save1 = np.append(to_save1, temp, axis = 0)	
+			# 	self.cloud1_static = to_save1
 				
-				for z in range(good_pts_rag2.bounding_shape()[0]):
-					temp = tf.gather(self.cloud2_tensor, good_pts_rag2[z]).numpy()
-					to_save2 = np.append(to_save2, temp, axis = 0)
-				self.cloud2_static = to_save2
+			# 	for z in range(good_pts_rag2.bounding_shape()[0]):
+			# 		temp = tf.gather(self.cloud2_tensor, good_pts_rag2[z]).numpy()
+			# 		to_save2 = np.append(to_save2, temp, axis = 0)
+			# 	self.cloud2_static = to_save2
 
-				#update cloud1 and dependencies (mu1, sigma1, etc.) to remove pts form scan1 in problematic regions
-				# self.cloud1_tensor = tf.cast(tf.convert_to_tensor(to_save), tf.float32)
-				# self.cloud1_tensor_spherical = tf.cast(self.c2s(self.cloud1_tensor), tf.float32)
-				# inside1, npts1 = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes, bounds)
-				# mu1, sigma1 = self.fit_gaussian(tf.cast(self.cloud1_tensor, tf.float32), inside1, tf.cast(npts1, tf.float32))
-				# enough1 = tf.where(npts1 > self.min_num_pts)[:,0]
-				# mu1_enough = tf.gather(mu1, enough1)
-				# sigma1_enough = tf.gather(sigma1, enough1)
-				# print("enough1", enough1)
+			# 	#update cloud1 and dependencies (mu1, sigma1, etc.) to remove pts form scan1 in problematic regions
+			# 	# self.cloud1_tensor = tf.cast(tf.convert_to_tensor(to_save), tf.float32)
+			# 	# self.cloud1_tensor_spherical = tf.cast(self.c2s(self.cloud1_tensor), tf.float32)
+			# 	# inside1, npts1 = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes, bounds)
+			# 	# mu1, sigma1 = self.fit_gaussian(tf.cast(self.cloud1_tensor, tf.float32), inside1, tf.cast(npts1, tf.float32))
+			# 	# enough1 = tf.where(npts1 > self.min_num_pts)[:,0]
+			# 	# mu1_enough = tf.gather(mu1, enough1)
+			# 	# sigma1_enough = tf.gather(sigma1, enough1)
+			# 	# print("enough1", enough1)
 
-			# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+			# # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
 			y0_i_full = tf.gather(mu1, corr_full)
@@ -604,7 +631,7 @@ class ICET():
 
 			#FOR DEBUG: we should be looking at U_i, L_i anyways...
 			#   ans == indeces of enough1 that intersect with corr (aka combined enough1, enough2)
-			self.visualize_L(tf.gather(mu1_enough, ans), U_i, L_i)
+			# self.visualize_L(tf.gather(mu1_enough, ans), U_i, L_i)
 
 			# # #for generating figure 3b in spherical ICET paper ----------
 			# #scene 1, fid = 50, with ground plane
