@@ -49,7 +49,7 @@ for i in range(num_frames):
 	#seed initial registration estimate
 	initial_guess = tf.constant([0, 0.1*gt[i,1] + 0.01*np.random.randn(), 0, 0, 0, 0,])
 
-	it = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 15, draw = False, group = 2, 
+	it = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 4, draw = False, group = 2, 
 		RM = True, DNN_filter = False, x0 = initial_guess)
 
 	ICET_pred_stds[i] = it.pred_stds
@@ -57,8 +57,11 @@ for i in range(num_frames):
 	initial_guess = it.X
 
 
-np.savetxt("Ford_full_pred_stds_v10.txt", ICET_pred_stds)
-np.savetxt("Ford_full_estimates_v10.txt", ICET_estimates)
+# np.savetxt("Ford_full_pred_stds_v10.txt", ICET_pred_stds)
+# np.savetxt("Ford_full_estimates_v10.txt", ICET_estimates)
+
+np.savetxt("Ford_full_pred_stds_NDT.txt", ICET_pred_stds)
+np.savetxt("Ford_full_estimates_NDT.txt", ICET_estimates)
 
 #OLD (using partial Ford dataset)
 #v1 - fid 50, dnn = 0.10, moving = 0.1

@@ -45,7 +45,7 @@ class ICET():
 		self.cheat = cheat #overide for using ICET to generate training data for DNN
 		self.DNN_filter = DNN_filter
 		self.start_filter_iter = 6 #10 #iteration to start DNN rejection filter
-		self.start_RM_iter = 6 #10 #iteration to start removing moving objects (set low to generate training data)
+		self.start_RM_iter = 2 #10 #iteration to start removing moving objects (set low to generate training data)
 		self.DNN_thresh = 0.05 #0.03
 		self.RM_thresh = 0.05
 
@@ -918,8 +918,8 @@ class ICET():
 		rotated = tf.matmul(axislen, tf.transpose(U, [0, 2, 1])) #new
 
 		# axislen_actual = 2*tf.math.sqrt(axislen) #theoretically correct
-		axislen_actual = 3*tf.math.sqrt(axislen) #was this (works with one edge extended detection criteria)
-		# axislen_actual = 0.1*tf.math.sqrt(axislen) #turns off extended axis pruning
+		# axislen_actual = 3*tf.math.sqrt(axislen) #was this (works with one edge extended detection criteria)
+		axislen_actual = 0.1*tf.math.sqrt(axislen) #turns off extended axis pruning
 		# print(axislen_actual)
 		rotated_actual = tf.matmul(axislen_actual, tf.transpose(U, [0, 2, 1]))
 		# print("rotated_actual", rotated_actual)

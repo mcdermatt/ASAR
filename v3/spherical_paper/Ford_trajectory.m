@@ -55,8 +55,8 @@ for frame = 0:3810
     tinit = rigid3d(eul2rotm([0,0,0]), [0 , 0.1*gt(frame+1,2) + 0.01*randn(), 0]);
     
     %NDT---------------------------------------------
-%     gridstep = 1.0;
-%     [tform, movingReg, rmse] = pcregisterndt(moving, fixed, gridstep, OutlierRatio=0.5, MaxIterations=50); %try messing with OutlierRatio
+    gridstep = 0.5;
+    [tform, movingReg, rmse] = pcregisterndt(moving, fixed, gridstep, OutlierRatio=0.5, MaxIterations=50); %try messing with OutlierRatio
     
     %------------------------------------------------
     
@@ -68,25 +68,25 @@ for frame = 0:3810
     %------------------------------------------------
     
     % %LOAM ---------------------------------------------
-    gridStep = 1.0;
-    % gridStep = 0.25;
-    
-    %convert from "Unorganized" to "Organized" point cloud for LOAM
-    horizontalResolution = 2000; %4000;
-    params = lidarParameters('HDL64E', horizontalResolution); %TODO - debug value for horizontal resolution
-    moving = pcorganize(moving, params);
-    fixed = pcorganize(fixed, params);
-    
-    %using organized PCs
-    % [tform, rmse] = pcregisterloam(moving,fixed,gridStep, "MatchingMethod","one-to-many"); 
-    
-    % %using LOAM points~~~~~~~~~~~~~~~~~~~~~
-    movingLOAM = detectLOAMFeatures(moving);
-    fixedLOAM = detectLOAMFeatures(fixed);
-    fixedLOAM = downsampleLessPlanar(fixedLOAM,gridStep);
-    movingLOAM = downsampleLessPlanar(movingLOAM,gridStep);
-    [tform, rmse] = pcregisterloam(movingLOAM,fixedLOAM,"MatchingMethod","one-to-many", InitialTransform=tinit, SearchRadius=10); %works best so far
-    % [tform, rmse] = pcregisterloam(movingLOAM,fixedLOAM,"MatchingMethod","one-to-one", InitialTransform=tinit); %test
+%     gridStep = 1.0;
+%     % gridStep = 0.25;
+%     
+%     %convert from "Unorganized" to "Organized" point cloud for LOAM
+%     horizontalResolution = 2000; %4000;
+%     params = lidarParameters('HDL64E', horizontalResolution); %TODO - debug value for horizontal resolution
+%     moving = pcorganize(moving, params);
+%     fixed = pcorganize(fixed, params);
+%     
+%     %using organized PCs
+%     % [tform, rmse] = pcregisterloam(moving,fixed,gridStep, "MatchingMethod","one-to-many"); 
+%     
+%     % %using LOAM points~~~~~~~~~~~~~~~~~~~~~
+%     movingLOAM = detectLOAMFeatures(moving);
+%     fixedLOAM = detectLOAMFeatures(fixed);
+%     fixedLOAM = downsampleLessPlanar(fixedLOAM,gridStep);
+%     movingLOAM = downsampleLessPlanar(movingLOAM,gridStep);
+%     [tform, rmse] = pcregisterloam(movingLOAM,fixedLOAM,"MatchingMethod","one-to-many", InitialTransform=tinit, SearchRadius=10); %works best so far
+%     % [tform, rmse] = pcregisterloam(movingLOAM,fixedLOAM,"MatchingMethod","one-to-one", InitialTransform=tinit); %test
     % %--------------------------------------------------
 
     ans = [tform.Translation, rotm2eul(tform.Rotation)]
@@ -96,6 +96,6 @@ end
 
 %save to file
 % fn = "FORD_results/ICP.txt";
-% fn = "FORD_results/NDT_cart.txt";
-fn = "FORD_results/LOAM.txt";
+fn = "FORD_results/NDT_cart_v2.txt";
+% fn = "FORD_results/LOAM.txt";
 writematrix(ans_cum, fn, 'Delimiter', 'tab')
