@@ -8,19 +8,21 @@ import tensorflow_probability as tfp
 from ICET_spherical import ICET
 import pyarrow.feather as feather
 
-num_frames = 155
+num_frames = 157 #155
 NDT_estimates = np.zeros([num_frames, 6])
 # OXTS_baseline = np.zeros([num_frames, 6])
 # ICET_pred_stds = np.zeros([num_frames, 6])
 
 
 #get ground truth to seed initial translation estimates
-gt_lidar = np.loadtxt("spherical_paper/Argoverse_results/gt_lidar.txt")
+gt_lidar = np.loadtxt("spherical_paper/Argoverse_results/suburb/gt_lidar.txt")
 dgt_lidar = np.diff(gt_lidar[:,:2], axis = 0)
 true_fwd = np.sqrt(np.sum(dgt_lidar**2, axis = 1)) #absolute movement per frame in horizontal plane
 
 
-path = "D:/sensor/train/087fec73-1a0c-399a-9292-cc2cf99dc97f/sensors/lidar/" #urabn canyon
+# path = "D:/sensor/train/087fec73-1a0c-399a-9292-cc2cf99dc97f/sensors/lidar/" #urabn canyon
+path = "D:/sensor/train/04973bcf-fc64-367c-9642-6d6c5f363b61/sensors/lidar/" #desert suburb
+
 files = os.listdir(path)
 
 fn1 = path + files[0]
@@ -38,9 +40,9 @@ for i in files[1:]:
 	pts2 = df2[['x', 'y', 'z']].to_numpy()
 
 	#save file 1 to text (for matlab benchmarking)
-	# np.savetxt("D:/argoverse_benchmarks/urban_canyon/scan" + str(count) + ".txt", pts1)
+	np.savetxt("D:/argoverse_benchmarks/suburb/scan" + str(count) + ".txt", pts1)
 
-	#remove ground plane
+	#remove ground plane (for debug)
 	ground = 0.3 
 	pts1 = pts1[pts1[:,2] > ground ]
 	pts2 = pts2[pts2[:,2] > ground ]
@@ -54,6 +56,6 @@ for i in files[1:]:
 	count += 1
 
 #save last file to text (for matlab benchmarking)
-# np.savetxt("D:/argoverse_benchmarks/urban_canyon/scan" + str(count + 1) + ".txt", pts2)
+np.savetxt("D:/argoverse_benchmarks/suburb/scan" + str(count + 1) + ".txt", pts2)
 
 np.savetxt("Argoverse_NDT_spherical_nogp.txt", NDT_estimates)

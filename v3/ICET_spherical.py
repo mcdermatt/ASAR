@@ -45,9 +45,9 @@ class ICET():
 		self.cheat = cheat #overide for using ICET to generate training data for DNN
 		self.DNN_filter = DNN_filter
 		self.start_filter_iter = 6 #10 #iteration to start DNN rejection filter
-		self.start_RM_iter = 10 #10 #iteration to start removing moving objects (set low to generate training data)
+		self.start_RM_iter = 6 #10 #iteration to start removing moving objects (set low to generate training data)
 		self.DNN_thresh = 0.05 #0.03
-		self.RM_thresh = 0.05
+		self.RM_thresh = 0.03
 
 		#load dnn model
 		if self.DNN_filter:
@@ -309,7 +309,7 @@ class ICET():
 					# residuals_compact = L_i @ U_iT @ tf.gather(self.residuals_full[:,:,None], ans) #(5/19) -> debug: should this be U_i or U_iT?
 					residuals_compact = L_i @ U_iT @ self.residuals_full[:,:,None] #correct (5/20)
 
-					self.RM_thresh = 0.03 #0.1 #0.05
+					# self.RM_thresh = 0.03 #0.1 #0.05
 					# bidx = tf.where(residuals_compact > thresh )[:,0] #TODO: consider absolute value!
 					bidx = tf.where(tf.math.abs(residuals_compact) > self.RM_thresh )[:,0]
 					# print(residuals_compact)

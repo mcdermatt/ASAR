@@ -93,13 +93,13 @@ movingLOAM = downsampleLessPlanar(movingLOAM,gridStep);
 figure()
 hold on
 %full PCs---------------
-pcshow(fixed)
-% pcshow(moving)
-ptCloudOut = pctransform(moving, tform);
-pcshow(ptCloudOut)
+% pcshow(fixed)
+% % pcshow(moving)
+% ptCloudOut = pctransform(moving, tform);
+% pcshow(ptCloudOut)
 %-----------------------
 
-% pcshow(fixedLOAM.Location)
+pcshow(fixedLOAM.Location)
 % pcshow(movingLOAM.Location)
 
 ans = [tform.Translation, rotm2eul(tform.Rotation)]
