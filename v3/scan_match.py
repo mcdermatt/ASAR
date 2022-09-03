@@ -253,7 +253,7 @@ c2 = velo2[:,:3]
 
 # x0 = tf.constant([0.25, 0, 0, 0, 0, 0])
 
-it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 10, 
+it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 90, niter = 15, 
 	draw = True, group = 2, RM = True, DNN_filter = False)#, cheat = gt)
 
 # it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 100, niter = 20, 

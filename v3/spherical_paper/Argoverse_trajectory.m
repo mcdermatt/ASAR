@@ -95,18 +95,19 @@ for frame = 0:154
     fixed = pcorganize(fixed, params);
     
     %using organized PCs
-    % [tform, rmse] = pcregisterloam(moving,fixed,gridStep, "MatchingMethod","one-to-many"); 
+%     [tform, rmse] = pcregisterloam(moving,fixed,gridStep, "MatchingMethod","one-to-one", "InitialTransform",tinit); 
+%     [tform, rmse] = pcregisterloam(moving,fixed,gridStep, "MatchingMethod","one-to-many", InitialTransform = tinit , SearchRadius=20); 
     
-    % %using LOAM points~~~~~~~~~~~~~~~~~~~~~
+    %using LOAM points~~~~~~~~~~~~~~~~~~~~~
     movingLOAM = detectLOAMFeatures(moving);
     fixedLOAM = detectLOAMFeatures(fixed);
-    fixedLOAM = downsampleLessPlanar(fixedLOAM,gridStep);
-    movingLOAM = downsampleLessPlanar(movingLOAM,gridStep);
+%     fixedLOAM = downsampleLessPlanar(fixedLOAM,gridStep);
+%     movingLOAM = downsampleLessPlanar(movingLOAM,gridStep);
     % [tform, rmse] = pcregisterloam(movingLOAM,fixedLOAM,"MatchingMethod","one-to-many", InitialTransform=tinit); %works best so far
     [tform, rmse] = pcregisterloam(movingLOAM,fixedLOAM,"MatchingMethod","one-to-one", InitialTransform=tinit, ...
         verbose = false, tolerance = [0.001, 0.05], MaxIterations=50); %test
     
-    % %--------------------------------------------------
+    %--------------------------------------------------
 
     ans = [tform.Translation, rotm2eul(tform.Rotation)]
     ans_cum = [ans_cum; ans];
@@ -114,6 +115,6 @@ for frame = 0:154
 end
 
 %save to file
-fn = "Argoverse_results/suburb/LOAM.txt";
-% fn = "Argoverse_results/LOAM.txt";
+fn = "Argoverse_results/suburb/LOAM_v2.txt";
+% fn = "Argoverse_results/Urban_Canyon/LOAM_v2.txt";
 writematrix(ans_cum, fn, 'Delimiter', 'tab')

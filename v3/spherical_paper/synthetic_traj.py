@@ -43,7 +43,7 @@ for idx in range(1, nframes):
 		rot = R_tf(tf.constant([0., 0., 0.05]))
 		c2 = c2 @ rot.numpy() 
 
-		it = ICET(cloud1 = c1, cloud2 = c2, fid = 90, niter = 10, 
+		it = ICET(cloud1 = c1, cloud2 = c2, fid = 90, niter = 25, 
 			draw = False, group = 2, RM = True, DNN_filter = False)
 
 		# it = ICET(cloud1 = c1, cloud2 = c2, fid = 100, niter = 10, 
@@ -72,10 +72,10 @@ for idx in range(1, nframes):
 
 #TODO: run again in reverse?
 
-np.save("MC_results/traj1_spherical_ICET_estimates_test", ICET_estimates)
-np.save("MC_results/traj1_spherical_ICET_pred_stds_test", ICET_pred_stds)
+# np.save("MC_results/traj1_spherical_ICET_estimates_test", ICET_estimates)
+# np.save("MC_results/traj1_spherical_ICET_pred_stds_test", ICET_pred_stds)
 
-# np.save("MC_results/traj1_spherical_NDT_estimates", ICET_estimates)
+np.save("MC_results/traj1_spherical_NDT_estimates", ICET_estimates)
 
 # np.save("MC_results/traj2_spherical_ICET_estimates", ICET_estimates)
 # np.save("MC_results/traj2_spherical_ICET_pred_stds", ICET_pred_stds)

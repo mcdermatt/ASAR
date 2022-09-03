@@ -10,8 +10,10 @@ ans_cum = [];
 % scan1_fn = "C:/kitti/2011_09_26/2011_09_26_drive_0005_raw/velodyne_points/data/0000000140.txt";
 % scan2_fn = "C:/kitti/2011_09_26/2011_09_26_drive_0005_raw/velodyne_points/data/0000000141.txt";
 %synced data
-scan1_fn = "C:/kitti/2011_09_26/2011_09_26_drive_0005_sync/velodyne_points/data_text/scan115.txt";
-scan2_fn = "C:/kitti/2011_09_26/2011_09_26_drive_0005_sync/velodyne_points/data_text/scan116.txt";
+% scan1_fn = "C:/kitti/2011_09_26/2011_09_26_drive_0005_sync/velodyne_points/data_text/scan115.txt";
+% scan2_fn = "C:/kitti/2011_09_26/2011_09_26_drive_0005_sync/velodyne_points/data_text/scan116.txt";
+scan1_fn = "E:/KITTI/drive_00_text/scan1500.txt";
+scan2_fn = "E:/KITTI/drive_00_text/scan1501.txt";
 scan1 = readmatrix(scan1_fn);
 scan2 = readmatrix(scan2_fn);
 
@@ -23,14 +25,14 @@ gt = readmatrix(OXTS_fn);
 scan1 = scan1(:,1:3);
 scan2 = scan2(:,1:3);
 
-% %remove ground plane--------------------------
-% % gph = -0.5; %ground plane height
-% goodidx1 = find(scan1(:,3)>-1.5);
-% scan1 = scan1(goodidx1, :);
-% goodidx2 = find(scan2(:,3)>-1.5);
-% scan2 = scan2(goodidx2, :);
-% % groundPtsIdx1 = segmentGroundFromLidarData(moving); %builtin func
-% %---------------------------------------------
+%remove ground plane--------------------------
+% gph = -0.5; %ground plane height
+goodidx1 = find(scan1(:,3)>-1.4);
+scan1 = scan1(goodidx1, :);
+goodidx2 = find(scan2(:,3)>-1.4);
+scan2 = scan2(goodidx2, :);
+% groundPtsIdx1 = segmentGroundFromLidarData(moving); %builtin func
+%---------------------------------------------
 
 %add noise to each PC
 % noise_scale = 0.02;
@@ -53,13 +55,15 @@ fixed.Color = c2;
 
 
 % cheat initial transformation estimate
-tinit = rigid3d(eul2rotm([0,0,0]), [gt(115,1) + 0.05*randn(),0,0]);
+% tinit = rigid3d(eul2rotm([0,0,0]), [gt(115,1) + 0.05*randn(),0,0]);
+tinit = rigid3d(eul2rotm([0,0,0]), [0.5,0,0]);
 
-%NDT---------------------------------------------
+% % NDT---------------------------------------------
 % gridstep = 1.0;
 % [tform, movingReg, rmse] = pcregisterndt(moving, fixed, gridstep, OutlierRatio=0.5, MaxIterations=50); %try messing with OutlierRatio
-
-%------------------------------------------------
+% % gridstep = 0.5;
+% % [tform, movingReg, rmse] = pcregisterndt(moving, fixed, gridstep, OutlierRatio=0.5, InitialTransform = tinit, MaxIterations=50); %try messing with OutlierRatio
+% % ------------------------------------------------
 
 %ICP---------------------------------------------
 % [tform,movingReg, rmse] = pcregistericp(moving,fixed);    
@@ -69,8 +73,8 @@ tinit = rigid3d(eul2rotm([0,0,0]), [gt(115,1) + 0.05*randn(),0,0]);
 %------------------------------------------------
 
 % %LOAM ---------------------------------------------
-gridStep = 1.0;
-% gridStep = 0.25;
+% gridStep = 1.0;
+gridStep = 3.0;
 
 %convert from "Unorganized" to "Organized" point cloud for LOAM
 horizontalResolution = 2000; %4000;
@@ -79,28 +83,28 @@ moving = pcorganize(moving, params);
 fixed = pcorganize(fixed, params);
 
 %using organized PCs
-% [tform, rmse] = pcregisterloam(moving,fixed,gridStep, "MatchingMethod","one-to-many"); 
+[tform, rmse] = pcregisterloam(moving,fixed,gridStep, "MatchingMethod","one-to-many"); 
 
-% %using LOAM points~~~~~~~~~~~~~~~~~~~~~
-movingLOAM = detectLOAMFeatures(moving);
-fixedLOAM = detectLOAMFeatures(fixed);
-fixedLOAM = downsampleLessPlanar(fixedLOAM,gridStep);
-movingLOAM = downsampleLessPlanar(movingLOAM,gridStep);
-[tform, rmse] = pcregisterloam(movingLOAM,fixedLOAM,"MatchingMethod","one-to-many", InitialTransform=tinit); %works best so far
-% [tform, rmse] = pcregisterloam(movingLOAM,fixedLOAM,"MatchingMethod","one-to-one", InitialTransform=tinit); %test
-
+% % %using LOAM points~~~~~~~~~~~~~~~~~~~~~
+% movingLOAM = detectLOAMFeatures(moving);
+% fixedLOAM = detectLOAMFeatures(fixed);
+% fixedLOAM = downsampleLessPlanar(fixedLOAM,gridStep);
+% movingLOAM = downsampleLessPlanar(movingLOAM,gridStep);
+% % [tform, rmse] = pcregisterloam(movingLOAM,fixedLOAM,"MatchingMethod","one-to-many", InitialTransform=tinit); %works best so far
+% % [tform, rmse] = pcregisterloam(movingLOAM,fixedLOAM,"MatchingMethod","one-to-one", InitialTransform=tinit); %test
+% [tform, rmse] = pcregisterloam(movingLOAM,fixedLOAM,"MatchingMethod","one-to-one"); %test
 % %--------------------------------------------------
 
 figure()
 hold on
 %full PCs---------------
-% pcshow(fixed)
-% % pcshow(moving)
-% ptCloudOut = pctransform(moving, tform);
-% pcshow(ptCloudOut)
+pcshow(fixed)
+% pcshow(moving)
+ptCloudOut = pctransform(moving, tform);
+pcshow(ptCloudOut)
 %-----------------------
 
-pcshow(fixedLOAM.Location)
-pcshow(movingLOAM.Location)
+% pcshow(fixedLOAM.Location)
+% pcshow(movingLOAM.Location)
 
 ans = [tform.Translation, rotm2eul(tform.Rotation)]

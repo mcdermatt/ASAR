@@ -23,12 +23,12 @@ scan1 = s1.SCAN.XYZ.';
 scan2 = s2.SCAN.XYZ.';
 
 % %remove ground plane--------------------------
-% % gph = -0.5; %ground plane height
-% goodidx1 = find(scan1(:,3)>-1.5);
-% scan1 = scan1(goodidx1, :);
-% goodidx2 = find(scan2(:,3)>-1.5);
-% scan2 = scan2(goodidx2, :);
-% % groundPtsIdx1 = segmentGroundFromLidarData(moving); %builtin func
+% gph = -0.5; %ground plane height
+goodidx1 = find(scan1(:,3)>-1.5);
+scan1 = scan1(goodidx1, :);
+goodidx2 = find(scan2(:,3)>-1.5);
+scan2 = scan2(goodidx2, :);
+% groundPtsIdx1 = segmentGroundFromLidarData(moving); %builtin func
 % %---------------------------------------------
 
 %add noise to each PC
@@ -84,8 +84,8 @@ fixed = pcorganize(fixed, params);
 % %using LOAM points~~~~~~~~~~~~~~~~~~~~~
 movingLOAM = detectLOAMFeatures(moving);
 fixedLOAM = detectLOAMFeatures(fixed);
-fixedLOAM = downsampleLessPlanar(fixedLOAM,gridStep);
-movingLOAM = downsampleLessPlanar(movingLOAM,gridStep);
+% fixedLOAM = downsampleLessPlanar(fixedLOAM,gridStep);
+% movingLOAM = downsampleLessPlanar(movingLOAM,gridStep);
 [tform, rmse] = pcregisterloam(movingLOAM,fixedLOAM,"MatchingMethod","one-to-many", InitialTransform=tinit, SearchRadius=10); %works best so far
 % [tform, rmse] = pcregisterloam(movingLOAM,fixedLOAM,"MatchingMethod","one-to-one", InitialTransform=tinit); %test
 % %--------------------------------------------------
@@ -93,13 +93,14 @@ movingLOAM = downsampleLessPlanar(movingLOAM,gridStep);
 figure()
 hold on
 %full PCs---------------
-% pcshow(fixed)
-% % pcshow(moving)
-% ptCloudOut = pctransform(moving, tform);
-% pcshow(ptCloudOut)
+pcshow(fixed)
+% pcshow(moving)
+ptCloudOut = pctransform(moving, tform);
+pcshow(ptCloudOut)
 %-----------------------
 
-pcshow(fixedLOAM.Location)
+% pcshow(fixedLOAM.Location)
 % pcshow(movingLOAM.Location)
 
+0.1*gt(frame,:)
 ans = [tform.Translation, rotm2eul(tform.Rotation)]

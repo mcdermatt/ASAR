@@ -10,7 +10,7 @@ ans = [0,0,0,0,0,0];
 OXTS_fn = "KITTI_results/OXTS_baseline.txt";
 gt = readmatrix(OXTS_fn);
 
-for i = 1:150%4499 %150
+for i = 1:4499 %150
     i
 
     %raw data
@@ -18,12 +18,12 @@ for i = 1:150%4499 %150
 %     scan2_fn = "C:/kitti/2011_09_26/2011_09_26_drive_0005_raw/velodyne_points/data/" + sprintf( '%010d', i ) + ".txt";
 
     %rectified data
-    scan1_fn = "C:/kitti/2011_09_26/2011_09_26_drive_0005_sync/velodyne_points/data_text/scan" + string(i -1) + ".txt";
-    scan2_fn = "C:/kitti/2011_09_26/2011_09_26_drive_0005_sync/velodyne_points/data_text/scan" + string(i) + ".txt";
+%     scan1_fn = "C:/kitti/2011_09_26/2011_09_26_drive_0005_sync/velodyne_points/data_text/scan" + string(i -1) + ".txt";
+%     scan2_fn = "C:/kitti/2011_09_26/2011_09_26_drive_0005_sync/velodyne_points/data_text/scan" + string(i) + ".txt";
 
     %4500 frame MEGA KITTI
-%     scan1_fn = "E:/KITTI/drive_00_text/scan"+ string(i -1) + ".txt";
-%     scan2_fn = "E:/KITTI/drive_00_text/scan"+ string(i) + ".txt";
+    scan1_fn = "E:/KITTI/drive_00_text/scan"+ string(i -1) + ".txt";
+    scan2_fn = "E:/KITTI/drive_00_text/scan"+ string(i) + ".txt";
 
     scan1 = readmatrix(scan1_fn);
     scan2 = readmatrix(scan2_fn);
@@ -111,7 +111,7 @@ for i = 1:150%4499 %150
     fixed = pcorganize(fixed, params);
     
     %using organized PCs
-    [tform, rmse] = pcregisterloam(moving,fixed,gridStep, "MatchingMethod","one-to-many", tolerance = [0.001, 0.05]); 
+    [tform, rmse] = pcregisterloam(moving,fixed,gridStep, "MatchingMethod","one-to-many"); 
     
 %     %using LOAM points~~~~~~~~~~~~~~~~~~~~~
 %     movingLOAM = detectLOAMFeatures(moving);
@@ -133,6 +133,5 @@ end
 % fn = "KITTI_results/KITTI_LOAM_v2.txt";
 % fn = "KITTI_results/KITTI_LOAM_noGP.txt";
 % fn = "KITTI_results/KITTI_ICP.txt";
-fn = "KITTI_results/KITTI_LOAM_v3.txt";
-% fn = "KITTI_full_results/KITTI_estimates_LOAM.txt";
+fn = "KITTI_full_results/KITTI_estimates_LOAM.txt";
 writematrix(ans_cum, fn, 'Delimiter', 'tab')

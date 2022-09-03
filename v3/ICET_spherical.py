@@ -44,10 +44,10 @@ class ICET():
 		self.alpha = 1 #0.5 #controls alpha values when displaying ellipses
 		self.cheat = cheat #overide for using ICET to generate training data for DNN
 		self.DNN_filter = DNN_filter
-		self.start_filter_iter = 6 #10 #iteration to start DNN rejection filter
-		self.start_RM_iter = 6 #10 #iteration to start removing moving objects (set low to generate training data)
+		self.start_filter_iter = 10 #10 #iteration to start DNN rejection filter
+		self.start_RM_iter = 10 #10 #iteration to start removing moving objects (set low to generate training data)
 		self.DNN_thresh = 0.05 #0.03
-		self.RM_thresh = 0.03
+		self.RM_thresh = 0.05
 
 		#load dnn model
 		if self.DNN_filter:
@@ -331,7 +331,7 @@ class ICET():
 					std = np.std(self.res)
 					# bad_idx_rot = tf.where(np.abs(self.res) > mean + 1*std )[:, 0]
 
-					cutoff = 0.05 #0.1
+					cutoff = 0.1 #0.1
 					bad_idx_rot = tf.where(np.abs(self.res) > cutoff)[:, 0]
 
 					# print("bad_idx_rot", bad_idx_rot)
