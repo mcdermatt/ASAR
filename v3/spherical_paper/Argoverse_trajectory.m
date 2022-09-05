@@ -7,8 +7,8 @@ close all
 ans_cum = [];
 
 
-% gt_lidar = readmatrix("Argoverse_results/urban_canyon/gt_lidar.txt");
-gt_lidar = readmatrix("Argoverse_results/suburb/gt_lidar.txt");
+gt_lidar = readmatrix("Argoverse_results/urban_canyon/gt_lidar.txt");
+% gt_lidar = readmatrix("Argoverse_results/suburb/gt_lidar.txt");
 gt = diff(gt_lidar(:,1:2));
 gt = sqrt(sum(gt.^2,2)); %#absolute movement per frame in horizontal plane
 
@@ -17,10 +17,10 @@ for frame = 0:154
     frame
 
     % 087fec73-1a0c-399a-9292-cc2cf99dc97f
-%     scan1_fn = "D:/argoverse_benchmarks/urban_canyon/scan" + string(frame) + ".txt";
-%     scan2_fn = "D:/argoverse_benchmarks/urban_canyon/scan" + string(frame + 1 ) + ".txt";
-    scan1_fn = "D:/argoverse_benchmarks/suburb/scan" + string(frame) + ".txt";
-    scan2_fn = "D:/argoverse_benchmarks/suburb/scan" + string(frame + 1 ) + ".txt";
+    scan1_fn = "D:/argoverse_benchmarks/urban_canyon/scan" + string(frame) + ".txt";
+    scan2_fn = "D:/argoverse_benchmarks/urban_canyon/scan" + string(frame + 1 ) + ".txt";
+%     scan1_fn = "D:/argoverse_benchmarks/suburb/scan" + string(frame) + ".txt";
+%     scan2_fn = "D:/argoverse_benchmarks/suburb/scan" + string(frame + 1 ) + ".txt";
 
     
     scan1 = readmatrix(scan1_fn);
@@ -72,42 +72,42 @@ for frame = 0:154
     %ICP---------------------------------------------
     % [tform,movingReg, rmse] = pcregistericp(moving,fixed);    
     % [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPlane');
-    % [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPlane', "InitialTransform",tinit); %cheating for debug
+    [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPlane', "InitialTransform",tinit); %cheating for debug
     % [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPoint');
     %------------------------------------------------
     
-    %LOAM ---------------------------------------------
-    gridStep = 3.0;
-    % gridStep = 4.0;
-    
-    % convert from "Unorganized" to "Organized" point cloud for LOAM
-    verticalResolution = 64;
-    horizontalResolution = 1800; %3600; %1800;
-    verticalFoV = [25, -25];
-    
-    verticalBeamAngles = flip(sort([linspace(-25,15,32), linspace(-15, 25, 32)]));
-    
-    
-    % params = lidarParameters('HDL64E', horizontalResolution); %incorrect 
-    % params = lidarParameters(verticalResolution,verticalFoV,horizontalResolution); %also incorrect??
-    params = lidarParameters(verticalBeamAngles, horizontalResolution);
-    moving = pcorganize(moving, params);
-    fixed = pcorganize(fixed, params);
-    
-    %using organized PCs
-%     [tform, rmse] = pcregisterloam(moving,fixed,gridStep, "MatchingMethod","one-to-one", "InitialTransform",tinit); 
-%     [tform, rmse] = pcregisterloam(moving,fixed,gridStep, "MatchingMethod","one-to-many", InitialTransform = tinit , SearchRadius=20); 
-    
-    %using LOAM points~~~~~~~~~~~~~~~~~~~~~
-    movingLOAM = detectLOAMFeatures(moving);
-    fixedLOAM = detectLOAMFeatures(fixed);
-%     fixedLOAM = downsampleLessPlanar(fixedLOAM,gridStep);
-%     movingLOAM = downsampleLessPlanar(movingLOAM,gridStep);
-    % [tform, rmse] = pcregisterloam(movingLOAM,fixedLOAM,"MatchingMethod","one-to-many", InitialTransform=tinit); %works best so far
-    [tform, rmse] = pcregisterloam(movingLOAM,fixedLOAM,"MatchingMethod","one-to-one", InitialTransform=tinit, ...
-        verbose = false, tolerance = [0.001, 0.05], MaxIterations=50); %test
-    
-    %--------------------------------------------------
+%     %LOAM ---------------------------------------------
+%     gridStep = 3.0;
+%     % gridStep = 4.0;
+%     
+%     % convert from "Unorganized" to "Organized" point cloud for LOAM
+%     verticalResolution = 64;
+%     horizontalResolution = 1800; %3600; %1800;
+%     verticalFoV = [25, -25];
+%     
+%     verticalBeamAngles = flip(sort([linspace(-25,15,32), linspace(-15, 25, 32)]));
+%     
+%     
+%     % params = lidarParameters('HDL64E', horizontalResolution); %incorrect 
+%     % params = lidarParameters(verticalResolution,verticalFoV,horizontalResolution); %also incorrect??
+%     params = lidarParameters(verticalBeamAngles, horizontalResolution);
+%     moving = pcorganize(moving, params);
+%     fixed = pcorganize(fixed, params);
+%     
+%     %using organized PCs
+% %     [tform, rmse] = pcregisterloam(moving,fixed,gridStep, "MatchingMethod","one-to-one", "InitialTransform",tinit); 
+% %     [tform, rmse] = pcregisterloam(moving,fixed,gridStep, "MatchingMethod","one-to-many", InitialTransform = tinit , SearchRadius=20); 
+%     
+%     %using LOAM points~~~~~~~~~~~~~~~~~~~~~
+%     movingLOAM = detectLOAMFeatures(moving);
+%     fixedLOAM = detectLOAMFeatures(fixed);
+% %     fixedLOAM = downsampleLessPlanar(fixedLOAM,gridStep);
+% %     movingLOAM = downsampleLessPlanar(movingLOAM,gridStep);
+%     % [tform, rmse] = pcregisterloam(movingLOAM,fixedLOAM,"MatchingMethod","one-to-many", InitialTransform=tinit); %works best so far
+%     [tform, rmse] = pcregisterloam(movingLOAM,fixedLOAM,"MatchingMethod","one-to-one", InitialTransform=tinit, ...
+%         verbose = false, tolerance = [0.001, 0.01], MaxIterations=50); %test
+%     
+%     %--------------------------------------------------
 
     ans = [tform.Translation, rotm2eul(tform.Rotation)]
     ans_cum = [ans_cum; ans];
@@ -115,6 +115,6 @@ for frame = 0:154
 end
 
 %save to file
-fn = "Argoverse_results/suburb/LOAM_v2.txt";
-% fn = "Argoverse_results/Urban_Canyon/LOAM_v2.txt";
+% fn = "Argoverse_results/suburb/LOAM_v3.txt";
+fn = "Argoverse_results/Urban_Canyon/ICP.txt";
 writematrix(ans_cum, fn, 'Delimiter', 'tab')

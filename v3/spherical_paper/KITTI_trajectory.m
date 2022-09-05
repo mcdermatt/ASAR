@@ -10,7 +10,7 @@ ans = [0,0,0,0,0,0];
 OXTS_fn = "KITTI_results/OXTS_baseline.txt";
 gt = readmatrix(OXTS_fn);
 
-for i = 1:150%4499 %150
+for i = 1:4499%4499 %150
     i
 
     %raw data
@@ -18,12 +18,12 @@ for i = 1:150%4499 %150
 %     scan2_fn = "C:/kitti/2011_09_26/2011_09_26_drive_0005_raw/velodyne_points/data/" + sprintf( '%010d', i ) + ".txt";
 
     %rectified data
-    scan1_fn = "C:/kitti/2011_09_26/2011_09_26_drive_0005_sync/velodyne_points/data_text/scan" + string(i -1) + ".txt";
-    scan2_fn = "C:/kitti/2011_09_26/2011_09_26_drive_0005_sync/velodyne_points/data_text/scan" + string(i) + ".txt";
+%     scan1_fn = "C:/kitti/2011_09_26/2011_09_26_drive_0005_sync/velodyne_points/data_text/scan" + string(i -1) + ".txt";
+%     scan2_fn = "C:/kitti/2011_09_26/2011_09_26_drive_0005_sync/velodyne_points/data_text/scan" + string(i) + ".txt";
 
     %4500 frame MEGA KITTI
-%     scan1_fn = "E:/KITTI/drive_00_text/scan"+ string(i -1) + ".txt";
-%     scan2_fn = "E:/KITTI/drive_00_text/scan"+ string(i) + ".txt";
+    scan1_fn = "E:/KITTI/drive_00_text/scan"+ string(i -1) + ".txt";
+    scan2_fn = "E:/KITTI/drive_00_text/scan"+ string(i) + ".txt";
 
     scan1 = readmatrix(scan1_fn);
     scan2 = readmatrix(scan2_fn);
@@ -79,7 +79,7 @@ for i = 1:150%4499 %150
 %         [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPoint', "InitialTransform",tinit); %cheating for debug
 %         [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPlane', "InitialTransform",tinit, InlierRatio=0.1); %cheating for debug
 %         [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPlane', InlierRatio=0.8);
-%     [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPlane', "InitialTransform",tinit);
+    [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPlane', "InitialTransform",tinit);
     %------------------------------------------------
     
 % %         %LOAM ---------------------------------------------
@@ -99,30 +99,30 @@ for i = 1:150%4499 %150
 % %         %--------------------------------------------------
 
 
-%     LOAM ---------------------------------------------
-%     gridStep = 1.0;
-    gridStep = 3.0;
-
-    
-    %convert from "Unorganized" to "Organized" point cloud for LOAM
-    horizontalResolution = 2000; %4000;
-    params = lidarParameters('HDL64E', horizontalResolution); %TODO - debug value for horizontal resolution
-    moving = pcorganize(moving, params);
-    fixed = pcorganize(fixed, params);
-    
-    %using organized PCs
-    [tform, rmse] = pcregisterloam(moving,fixed,gridStep, "MatchingMethod","one-to-many", tolerance = [0.001, 0.05]); 
-    
-%     %using LOAM points~~~~~~~~~~~~~~~~~~~~~
-%     movingLOAM = detectLOAMFeatures(moving);
-%     fixedLOAM = detectLOAMFeatures(fixed);
-%     fixedLOAM = downsampleLessPlanar(fixedLOAM,gridStep);
-%     movingLOAM = downsampleLessPlanar(movingLOAM,gridStep);
-%     [tform, rmse] = pcregisterloam(movingLOAM,fixedLOAM,"MatchingMethod","one-to-one"); 
-% %     [tform, rmse] = pcregisterloam(movingLOAM,fixedLOAM,"MatchingMethod","one-to-one", InitialTransform=tinit); 
-    %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    
-%     --------------------------------------------------
+% %     LOAM ---------------------------------------------
+% %     gridStep = 1.0;
+%     gridStep = 3.0;
+% 
+%     
+%     %convert from "Unorganized" to "Organized" point cloud for LOAM
+%     horizontalResolution = 2000; %4000;
+%     params = lidarParameters('HDL64E', horizontalResolution); %TODO - debug value for horizontal resolution
+%     moving = pcorganize(moving, params);
+%     fixed = pcorganize(fixed, params);
+%     
+%     %using organized PCs
+%     [tform, rmse] = pcregisterloam(moving,fixed,gridStep, "MatchingMethod","one-to-many", tolerance = [0.001, 0.05]); 
+%     
+% %     %using LOAM points~~~~~~~~~~~~~~~~~~~~~
+% %     movingLOAM = detectLOAMFeatures(moving);
+% %     fixedLOAM = detectLOAMFeatures(fixed);
+% %     fixedLOAM = downsampleLessPlanar(fixedLOAM,gridStep);
+% %     movingLOAM = downsampleLessPlanar(movingLOAM,gridStep);
+% %     [tform, rmse] = pcregisterloam(movingLOAM,fixedLOAM,"MatchingMethod","one-to-one"); 
+% % %     [tform, rmse] = pcregisterloam(movingLOAM,fixedLOAM,"MatchingMethod","one-to-one", InitialTransform=tinit); 
+%     %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+%     
+% %     --------------------------------------------------
 
     
     ans = [tform.Translation, rotm2eul(tform.Rotation)]
@@ -133,6 +133,7 @@ end
 % fn = "KITTI_results/KITTI_LOAM_v2.txt";
 % fn = "KITTI_results/KITTI_LOAM_noGP.txt";
 % fn = "KITTI_results/KITTI_ICP.txt";
-fn = "KITTI_results/KITTI_LOAM_v3.txt";
+% fn = "KITTI_results/KITTI_LOAM_v3.txt";
 % fn = "KITTI_full_results/KITTI_estimates_LOAM.txt";
+fn = "KITTI_full_results/KITTI_estimates_ICP_v2.txt";
 writematrix(ans_cum, fn, 'Delimiter', 'tab')

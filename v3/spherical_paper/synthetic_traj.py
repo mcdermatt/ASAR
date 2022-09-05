@@ -75,7 +75,7 @@ for idx in range(1, nframes):
 # np.save("MC_results/traj1_spherical_ICET_estimates_test", ICET_estimates)
 # np.save("MC_results/traj1_spherical_ICET_pred_stds_test", ICET_pred_stds)
 
-np.save("MC_results/traj1_spherical_NDT_estimates", ICET_estimates)
+np.save("MC_results/traj1_spherical_NDT_estimates_v2", ICET_estimates)
 
 # np.save("MC_results/traj2_spherical_ICET_estimates", ICET_estimates)
 # np.save("MC_results/traj2_spherical_ICET_pred_stds", ICET_pred_stds)

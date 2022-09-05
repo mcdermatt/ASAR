@@ -22,14 +22,14 @@ for frame = 0:3810
     scan1 = s1.SCAN.XYZ.';
     scan2 = s2.SCAN.XYZ.';
     
-    % %remove ground plane--------------------------
-    % gph = -0.5; %ground plane height
-    goodidx1 = find(scan1(:,3)>-1.5);
-    scan1 = scan1(goodidx1, :);
-    goodidx2 = find(scan2(:,3)>-1.5);
-    scan2 = scan2(goodidx2, :);
-    % groundPtsIdx1 = segmentGroundFromLidarData(moving); %builtin func
-    % %---------------------------------------------
+%     % %remove ground plane--------------------------
+%     % gph = -0.5; %ground plane height
+%     goodidx1 = find(scan1(:,3)>-1.5);
+%     scan1 = scan1(goodidx1, :);
+%     goodidx2 = find(scan2(:,3)>-1.5);
+%     scan2 = scan2(goodidx2, :);
+%     % groundPtsIdx1 = segmentGroundFromLidarData(moving); %builtin func
+%     % %---------------------------------------------
     
     %add noise to each PC
     % noise_scale = 0.02;
