@@ -79,6 +79,28 @@ for j = 1:3
 %         [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPoint', "InitialTransform",tinit); %cheating for debug
         [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPlane', "InitialTransform",tinit, InlierRatio=0.95); %cheating for debug
 %         [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPlane', InlierRatio=0.8);
+%         %GP-ICP~~~~~~~~~~~~~~~~~~~~~~~~~~
+%         % fit ground planes for each scan
+%         maxDistance = 0.2;
+%         referenceVector = [0,0,1];
+%         maxAngularDistance = 5;
+%         [model1,inlierIndices1,outlierIndices1] = pcfitplane(fixed, maxDistance, referenceVector, maxAngularDistance);
+%         plane1 = select(fixed, inlierIndices1); %subset of points in 1st scan on ground
+%         [model2,inlierIndices2,outlierIndices2] = pcfitplane(moving, maxDistance, referenceVector, maxAngularDistance);
+%         plane2 = select(moving, inlierIndices2); %subset of points in 2nd scan on ground
+%         figure()
+%         hold on
+%         pcshow(plane1)
+%         pcshow(plane2)
+%         %register ground planes
+%         [tform_gp,movingReg_gp, rmse_gp] = pcregistericp(plane1, plane2, 'metric', 'pointToPlane', InitialTransform=tinit);
+%         tform_gp
+%         
+%         %apply transformation in (z, pitch, roll) from ground plane registration to entire scans
+%         moving = pctransform(select(moving, outlierIndices2) , tform_gp);
+%         fixed = select(fixed, outlierIndices1);
+%         %only consider points not on ground plane
+%         [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPlane', InitialTransform=tinit);
         %------------------------------------------------
         
 % %         %LOAM ---------------------------------------------

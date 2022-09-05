@@ -63,6 +63,52 @@ def Attention(**kwargs):
 
     return model
 
+def FFNet(**kwargs):
+
+    insize = 108
+
+    inputs = keras.Input(shape=(insize, 3)) 
+    X = keras.layers.Flatten()(inputs)
+
+    
+    X = keras.layers.Dense(units = 512, activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+    X = keras.layers.Dense(units = 512, activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+    X = keras.layers.Dense(units = 512, activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+
+    X = keras.layers.Dense(units = 1024, activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+    X = keras.layers.Dense(units = 1024, activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+    X = keras.layers.Dense(units = 1024, activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+
+
+    X = keras.layers.Dense(units = 2045, activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+    X = keras.layers.Dense(units = 2048, activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+    X = keras.layers.Dense(units = 2048, activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+
+
+    X = keras.layers.Dense(units = 512, activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+    X = keras.layers.Dense(units = 256, activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+    X = keras.layers.Dense(units = 64, activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+
+
+
+    output = keras.layers.Dense(units=3, activation = 'tanh')(X) #translation only
+    output = output*tf.constant([5., 5., 5.]) #rescale output
+    model = tf.keras.Model(inputs,output)
+
+    return model
+
 def TestNet(**kwargs):
 
     ''' Test network passing in information on voxel boundaries and surpressing solution information in extended directions
@@ -71,8 +117,18 @@ def TestNet(**kwargs):
 
     inputs = keras.Input(shape=(insize, 3)) 
 
+    #was this ~~~~~~~~~~~~
     X = inputs[:, :100]
     bounds = inputs[:, 100:] #hold on to bounds for re-insertion after PointNet
+    #~~~~~~~~~~~~~~~~~~~~~
+
+    # #test~~~~~~~~~~~~~~~~~
+    # X = tf.transpose(inputs, [0, 2, 1])
+    # X = keras.layers.Dense(units = 100, activation = 'relu')(X)
+    # X = keras.layers.BatchNormalization()(X)
+    # X = tf.transpose(X, [0, 2, 1])
+    # # X = inputs[:, :100]
+    # #~~~~~~~~~~~~~~~~~~~~~
 
     X = tf.expand_dims(X, -1)
 
@@ -89,15 +145,31 @@ def TestNet(**kwargs):
 
     X = keras.layers.Flatten()(X)
 
+    #re-integrate bounds to DNN~~~~~~~~~~~~~~~~~~~~
     bounds = keras.layers.Flatten()(bounds)
     X = keras.layers.concatenate([X, bounds])
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    # #Apply simple PointNet to bouds ~~~~~~~~~~~~~~~~~
+
+    # bounds = tf.expand_dims(bounds, -1)
+
+    # bounds = tf.keras.layers.Conv2D(64, [1,3], padding = 'valid', strides = [1,1], activation = 'relu')(bounds)
+    # bounds = keras.layers.BatchNormalization()(bounds)
+    # bounds = tf.keras.layers.Conv2D(64, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(bounds)
+    # bounds = keras.layers.BatchNormalization()(bounds)
+
+    # bounds = keras.layers.Flatten()(bounds)
+
+    # X = keras.layers.concatenate([X, bounds])
+    # #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
-    # X = keras.layers.Dense(units = 1024, activation = 'relu')(X)
-    # X = keras.layers.BatchNormalization()(X)
+    X = keras.layers.Dense(units = 1024, activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
 
-    # X = keras.layers.Dense(units = 512, activation = 'relu')(X)
-    # X = keras.layers.BatchNormalization()(X)
+    X = keras.layers.Dense(units = 512, activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
 
     X = keras.layers.Dense(units = 256, activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
