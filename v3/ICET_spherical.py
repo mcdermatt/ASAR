@@ -35,9 +35,9 @@ class ICET():
 		x0 = tf.constant([0.0, 0.0, 0., 0., 0., 0.]), group = 2, RM = True,
 		DNN_filter = False, cheat = []):
 
-		self.min_cell_distance = 2 #0.1 #5 #2 #begin closest spherical voxel here
+		self.min_cell_distance = 2 #0.1 #5 #begin closest spherical voxel here
 		#ignore "occupied" cells with fewer than this number of pts
-		self.min_num_pts = 50 #was 50 for KITTI and Ford, need to lower to 25 for CODD 
+		self.min_num_pts = 25 #was 50 for KITTI and Ford, need to lower to 25 for CODD 
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
 		self.niter = niter
@@ -45,7 +45,7 @@ class ICET():
 		self.cheat = cheat #overide for using ICET to generate training data for DNN
 		self.DNN_filter = DNN_filter
 		self.start_filter_iter = 10 #10 #iteration to start DNN rejection filter
-		self.start_RM_iter = 13 #10 #iteration to start removing moving objects (set low to generate training data)
+		self.start_RM_iter = 6 #10 #iteration to start removing moving objects (set low to generate training data)
 		self.DNN_thresh = 0.05 #0.03
 		self.RM_thresh = 0.05
 
@@ -225,7 +225,7 @@ class ICET():
 			# self.visualize_L(mu1_enough, U, L)
 			self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
 			self.draw_cell(corn)
-			# self.draw_car()
+			self.draw_car()
 			# draw identified points inside useful clusters
 			# for n in range(tf.shape(inside1.to_tensor())[0]):
 			# 	temp = tf.gather(self.cloud1_tensor, inside1[n]).numpy()	
@@ -619,9 +619,9 @@ class ICET():
 				self.draw_DNN_soln(dnnsoln, icetsoln, idx_to_draw_dnn_soln) #raw solutions
 
 
-			self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
+			# self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
 			self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
-			self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
+			# self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
 			# self.draw_cloud(self.cloud2_tensor_OG.numpy(), pc = 3) #3 #draw OG cloud in differnt color
 			# draw identified points from scan 2 inside useful clusters
 			# for n in range(tf.shape(inside2.to_tensor())[0]):
@@ -723,7 +723,7 @@ class ICET():
 
 
 	def main_1(self, niter, x0):
-		""" main loop using old strategy of radial voxels"""
+		""" main loop using naive radial voxels (no dynamic radial growth applied)"""
 
 		self.X = x0
 
@@ -732,7 +732,7 @@ class ICET():
 		if self.draw:
 			corn_o = self.get_corners(o)
 			# self.draw_cell(corn_o)
-			# self.draw_car()
+			self.draw_car()
 
 		inside1, npts1 = self.get_points_inside(self.cloud1_tensor_spherical,o[:,None])		
 		mu1, sigma1 = self.fit_gaussian(self.cloud1_tensor, inside1, tf.cast(npts1, tf.float32))
@@ -740,21 +740,22 @@ class ICET():
 		mu1_enough = tf.gather(mu1, enough1)
 		sigma1_enough = tf.gather(sigma1, enough1)
 
-		#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-		## highlight points in usable cells from scan 1
+		# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		# # highlight points in usable cells from scan 1
 		# for z in enough1:
 		# 	temp = tf.gather(self.cloud1_tensor, inside1[z]).numpy()
-		# 	self.disp.append(Points(temp, c = 'green', r = 6))
-		#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		# 	self.disp.append(Points(temp, c = 'green', r = 4))
+		# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 		# print("sigma1 \n", sigma1)
-		U, L = self.get_U_and_L(sigma1_enough, mu1_enough, tf.gather(o, enough1), method = 1)
+		U, L = self.get_U_and_L(sigma1_enough, mu1_enough, tf.gather(o, enough1), method = 1) #UKFtype strategy (typical ICET)
+		# U, L = self.get_U_and_L(sigma1_enough, mu1_enough, tf.gather(o, enough1), method = 0) #simple extended axis length test (NDT override)
 		# U, L = self.get_U_and_L(sigma1, o)
 		# print("U: \n", U)
 		# print("L: \n", L)
 		if self.draw:
-			self.visualize_L(mu1_enough, U, L)
-			self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = 0.5)
+			# self.visualize_L(mu1_enough, U, L)
+			self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = 1)
 			self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
 
 		for i in range(niter):
@@ -846,14 +847,26 @@ class ICET():
 		print("pred_stds: \n", self.pred_stds)
 
 		#draw PC2
-		if self.draw == True:
-			self.draw_ell(y_i, sigma_i, pc = 2, alpha = 0.5)
-			self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
-			# self.draw_cloud(self.cloud2_tensor_OG.numpy(), pc = 3) #draw in differnt color
+		# if self.draw == True:
+		# 	self.draw_ell(y_i, sigma_i, pc = 2, alpha = 0.5)
+		# 	self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
+		# 	# self.draw_cloud(self.cloud2_tensor_OG.numpy(), pc = 3) #draw in differnt color
 			
 			# print("\n L2 \n", L2)
 			# print("\n lam \n", lam)
 			# print("\n U2 \n", U2)
+
+		#test
+		# corn_o = self.get_corners(tf.gather(o, corr)) #nope
+		# corn_o = self.get_corners(o[:,None]) #nope
+		# corn_o = self.get_corners(corr)
+		# corn_o = self.get_corners(tf.gather(o, enough1)) #nope
+		# self.draw_cell(corn_o)
+
+		# print("o \n", o)
+		# print("corr \n", corr)
+		# print("tf.gather(o,corr) \n",tf.gather(o,corr))
+
 
 	def get_points_in_cluster(self, cloud, occupied_spikes, bounds):
 		""" returns ragged tensor containing the indices of points in <cloud> in each cluster 
@@ -918,8 +931,8 @@ class ICET():
 		rotated = tf.matmul(axislen, tf.transpose(U, [0, 2, 1])) #new
 
 		# axislen_actual = 2*tf.math.sqrt(axislen) #theoretically correct
-		# axislen_actual = 3*tf.math.sqrt(axislen) #was this (works with one edge extended detection criteria)
-		axislen_actual = 0.1*tf.math.sqrt(axislen) #turns off extended axis pruning
+		axislen_actual = 3*tf.math.sqrt(axislen) #was this (works with one edge extended detection criteria)
+		# axislen_actual = 0.1*tf.math.sqrt(axislen) #turns off extended axis pruning
 		# print(axislen_actual)
 		rotated_actual = tf.matmul(axislen_actual, tf.transpose(U, [0, 2, 1]))
 		# print("rotated_actual", rotated_actual)
@@ -1080,7 +1093,9 @@ class ICET():
 			cell_width = tf.experimental.numpy.diff(r_grid)
 			# print("cell_width", cell_width)
 			# thresholds = (tf.gather(cell_width, shell)**2)/32
-			thresholds = (tf.gather(cell_width, shell)**2)/64
+			# thresholds = (tf.gather(cell_width, shell)**2)/64 #was this
+			thresholds = (tf.gather(cell_width, shell)**2) #NDT override
+
 
 			#tile to so that each threshold is repeated 3 times (for each axis)
 			thresholds = tf.reshape(tf.transpose(tf.reshape(tf.tile(thresholds[:,None], [3,1]), [3,-1])), [-1,3])[:,None]
@@ -1359,8 +1374,9 @@ class ICET():
 		thetamin = -np.pi
 		thetamax = np.pi #-  2*np.pi/self.fid_theta
 		phimin =  3*np.pi/8
-		phimax = 5*np.pi/8 
-		# print(self.grid)
+		# phimax = 5*np.pi/8 #was this
+		phimax = 7*np.pi/8 #why is this not the same as in <grid_spherical>????
+
 
 		edges_phi = tf.linspace(phimin, phimax, self.fid_phi) #was this for regular cells
 		# edges_phi, _ = tf.unique(self.grid[:,2])
@@ -1433,7 +1449,8 @@ class ICET():
 		thetamin = -np.pi
 		thetamax = np.pi #-  2*np.pi/self.fid_theta
 		phimin =  3*np.pi/8
-		phimax = 5*np.pi/8 
+		# phimax = 5*np.pi/8 #was this
+		phimax = 7*np.pi/8 #why is this not the same as in <grid_spherical>????
 
 		edges_phi = tf.linspace(phimin, phimax, self.fid_phi)
 		edges_theta = tf.linspace(thetamin, thetamax, self.fid_theta + 1)

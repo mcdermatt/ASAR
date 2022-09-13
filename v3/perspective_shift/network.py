@@ -139,16 +139,17 @@ def TestNet(**kwargs):
 
     X = keras.layers.Conv2D(256, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
-    X = keras.layers.Conv2D(512, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
-    X = keras.layers.BatchNormalization()(X)
+    # X = keras.layers.Conv2D(512, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
+    # X = keras.layers.BatchNormalization()(X)
     X = keras.layers.MaxPool2D([50, 1])(X) 
 
     X = keras.layers.Flatten()(X)
 
-    #re-integrate bounds to DNN~~~~~~~~~~~~~~~~~~~~
-    bounds = keras.layers.Flatten()(bounds)
-    X = keras.layers.concatenate([X, bounds])
-    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    #was this
+    # #re-integrate bounds to DNN~~~~~~~~~~~~~~~~~~~~
+    # bounds = keras.layers.Flatten()(bounds)
+    # X = keras.layers.concatenate([X, bounds])
+    # #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     # #Apply simple PointNet to bouds ~~~~~~~~~~~~~~~~~
 
@@ -175,6 +176,19 @@ def TestNet(**kwargs):
     X = keras.layers.BatchNormalization()(X)
     X = keras.layers.Dense(units = 64, activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
+
+    #re-integrate bounds to DNN~~~~~~~~~~~~~~~~~~~~
+    bounds = keras.layers.Flatten()(bounds)
+    #look back at origonal points
+    frame1 = keras.layers.Flatten()(inputs[:,:50])
+    X = keras.layers.concatenate([X, bounds, frame1])
+
+    X = keras.layers.Dense(units = 256, activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+    X = keras.layers.Dense(units = 64, activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
+
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     output = keras.layers.Dense(units=3, activation = 'tanh')(X) #translation only
     output = output*tf.constant([5., 5., 5.]) #rescale output

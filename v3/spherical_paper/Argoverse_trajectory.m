@@ -61,18 +61,21 @@ for frame = 0:154
     
     
     % cheat initial transformation estimate
-    tinit = rigid3d(eul2rotm([0,0,0]), [gt(frame+1) + 0.1*randn(),0,0]);
-    
+%     tinit = rigid3d(eul2rotm([0,0,0]), [gt(frame+1) + 0.1*randn(),0,0]);
+    tinit = rigid3d(eul2rotm([0,0,0]), [0,0,0]);
+
+
 % %     %NDT---------------------------------------------
-%     gridstep = 1.0;
+    gridstep = 1.0;
 %     % [tform, movingReg, rmse] = pcregisterndt(moving, fixed, gridstep, OutlierRatio=0.5, MaxIterations=50); %try messing with OutlierRatio
 %     [tform, movingReg, rmse] = pcregisterndt(moving, fixed, gridstep);
+    [tform, movingReg, rmse] = pcregisterndt(moving, fixed, gridstep, OutlierRatio=0.3, Tolerance=[0.001, 0.05], MaxIterations=50); %try messing with OutlierRatio
 % %     %------------------------------------------------
     
     %ICP---------------------------------------------
     % [tform,movingReg, rmse] = pcregistericp(moving,fixed);    
     % [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPlane');
-    [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPlane', "InitialTransform",tinit); %cheating for debug
+%     [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPlane', "InitialTransform",tinit); %cheating for debug
     % [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPoint');
 
     %GP-ICP~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -97,7 +100,8 @@ for frame = 0:154
 %     fixed = select(fixed, outlierIndices1);
 %     %only consider points not on ground plane
 %     [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPlane', InitialTransform=tinit);
-
+%     tform.Translation = tform.Translation + tform_gp.Translation;
+%     tform.Rotation = tform_gp.Rotation * tform.Rotation;
     %------------------------------------------------
     
 %     %LOAM ---------------------------------------------
@@ -140,5 +144,5 @@ end
 
 %save to file
 % fn = "Argoverse_results/suburb/LOAM_v3.txt";
-fn = "Argoverse_results/Urban_Canyon/ICP.txt";
+fn = "Argoverse_results/Urban_Canyon/NDT_test2.txt";
 writematrix(ans_cum, fn, 'Delimiter', 'tab')

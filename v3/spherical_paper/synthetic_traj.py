@@ -38,16 +38,25 @@ for idx in range(1, nframes):
 		# c2_raw = np.loadtxt("mountain_scan2_no_trees.txt", dtype = float)
 
 		#add noise (if not generated when point clouds were created)
-		c1 = c1_raw + 0.01*np.random.randn(np.shape(c1_raw)[0], 3)
-		c2 = c2_raw + 0.01*np.random.randn(np.shape(c2_raw)[0], 3) 
+		c1 = c1_raw + 0.02*np.random.randn(np.shape(c1_raw)[0], 3)
+		c2 = c2_raw + 0.02*np.random.randn(np.shape(c2_raw)[0], 3) 
 		rot = R_tf(tf.constant([0., 0., 0.05]))
 		c2 = c2 @ rot.numpy() 
 
-		it = ICET(cloud1 = c1, cloud2 = c2, fid = 90, niter = 25, 
-			draw = False, group = 2, RM = True, DNN_filter = False)
 
-		# it = ICET(cloud1 = c1, cloud2 = c2, fid = 100, niter = 10, 
-		# 	draw = False, group = 2, RM = False, DNN_filter = False, x0 = it.X)
+		## normal ICET-----------------------------------------------------
+		# it = ICET(cloud1 = c1, cloud2 = c2, fid = 90, niter = 25, 
+		# 	draw = False, group = 2, RM = True, DNN_filter = False)
+		#------------------------------------------------------------------
+
+		#using naive spherical cuboid-shaped voxles------------------------
+		x0 = tf.constant([0.5 + 0.1*np.random.randn(), 0, 0, 0, 0, 0])
+		c1 = c1[c1[:,2] > -1.55] #ignore ground plane
+		c2 = c2[c2[:,2] > -1.55] #ignore ground plane
+		it = ICET(cloud1 = c1, cloud2 = c2, fid = 40, niter = 20, 
+			draw = False, group = 1, RM = False, DNN_filter = False, x0 = x0)#, cheat = gt)
+		#------------------------------------------------------------------
+
 
 		ICET_estimates[(idx-1)*niter + i] = it.X
 		ICET_pred_stds[(idx-1)*niter + i] = it.pred_stds
@@ -70,12 +79,12 @@ for idx in range(1, nframes):
 
 
 
-#TODO: run again in reverse?
-
 # np.save("MC_results/traj1_spherical_ICET_estimates_test", ICET_estimates)
 # np.save("MC_results/traj1_spherical_ICET_pred_stds_test", ICET_pred_stds)
 
-np.save("MC_results/traj1_spherical_NDT_estimates_v2", ICET_estimates)
+# np.save("MC_results/traj1_spherical_NDT_estimates_v2", ICET_estimates)
+np.save("MC_results/traj1_naive_NDT_estimates_v2", ICET_estimates)
+
 
 # np.save("MC_results/traj2_spherical_ICET_estimates", ICET_estimates)
 # np.save("MC_results/traj2_spherical_ICET_pred_stds", ICET_pred_stds)

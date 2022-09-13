@@ -52,7 +52,7 @@ for i in range(num_frames):
 
 	#-------------------------------------------------------------------------------------------------
 	#run once to get rough estimate and remove outlier points
-	it = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 10, draw = False, group = 2, 
+	it = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 8, draw = False, group = 2, 
 		RM = True, DNN_filter = False, x0 = initial_guess)
 	ICET_pred_stds[i] = it.pred_stds
 
@@ -117,7 +117,7 @@ for i in range(num_frames):
 # np.savetxt("OXTS_baseline_v18.txt", OXTS_baseline)
 # np.savetxt("Before_correction_v18.txt", before_correction)
 
-np.savetxt("KITTI_estimates_NDT.txt", ICET_estimates)
+np.savetxt("KITTI_estimates_NDT_mnp25.txt", ICET_estimates)
 
 # np.savetxt("OXTS_baseline_gps.txt", OXTS_baseline)
 

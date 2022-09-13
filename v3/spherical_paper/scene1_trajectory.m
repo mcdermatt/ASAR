@@ -74,12 +74,12 @@ for j = 1:3
         %------------------------------------------------
         
         %ICP---------------------------------------------
-%         [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPoint',MaxIterations=50);
-%         [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPlane');
-%         [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPoint', "InitialTransform",tinit); %cheating for debug
-        [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPlane', "InitialTransform",tinit, InlierRatio=0.95); %cheating for debug
-%         [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPlane', InlierRatio=0.8);
-%         %GP-ICP~~~~~~~~~~~~~~~~~~~~~~~~~~
+% %         [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPoint',MaxIterations=50);
+% %         [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPlane');
+% %         [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPoint', "InitialTransform",tinit); %cheating for debug
+%         [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPlane', "InitialTransform",tinit, InlierRatio=0.95); %cheating for debug
+% %         [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPlane', InlierRatio=0.8);
+% %         %GP-ICP~~~~~~~~~~~~~~~~~~~~~~~~~~
 %         % fit ground planes for each scan
 %         maxDistance = 0.2;
 %         referenceVector = [0,0,1];
@@ -88,10 +88,10 @@ for j = 1:3
 %         plane1 = select(fixed, inlierIndices1); %subset of points in 1st scan on ground
 %         [model2,inlierIndices2,outlierIndices2] = pcfitplane(moving, maxDistance, referenceVector, maxAngularDistance);
 %         plane2 = select(moving, inlierIndices2); %subset of points in 2nd scan on ground
-%         figure()
-%         hold on
-%         pcshow(plane1)
-%         pcshow(plane2)
+% %         figure()
+% %         hold on
+% %         pcshow(plane1)
+% %         pcshow(plane2)
 %         %register ground planes
 %         [tform_gp,movingReg_gp, rmse_gp] = pcregistericp(plane1, plane2, 'metric', 'pointToPlane', InitialTransform=tinit);
 %         tform_gp
@@ -101,21 +101,23 @@ for j = 1:3
 %         fixed = select(fixed, outlierIndices1);
 %         %only consider points not on ground plane
 %         [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPlane', InitialTransform=tinit);
-        %------------------------------------------------
+%         tform.Translation = tform.Translation + tform_gp.Translation;
+%         tform.Rotation = tform_gp.Rotation * tform.Rotation;
+%         %------------------------------------------------
         
 % %         %LOAM ---------------------------------------------
-%         gridStep = 0.5;
-% 
-%         %convert from "Unorganized" to "Organized" point cloud for LOAM
-%         horizontalResolution = 1024;
-%         params = lidarParameters('HDL64E', horizontalResolution); %TODO - set for synthetic data
-%         moving = pcorganize(moving, params);
-%         fixed = pcorganize(fixed, params);
-% 
-% %         movingPoints = detectLOAMFeatures(moving);
-% %         fixedPoints = detectLOAMFeatures(fixed);
-% 
-%         tform = pcregisterloam(moving,fixed,gridStep);
+        gridStep = 0.5;
+
+        %convert from "Unorganized" to "Organized" point cloud for LOAM
+        horizontalResolution = 1024;
+        params = lidarParameters('HDL64E', horizontalResolution); %TODO - set for synthetic data
+        moving = pcorganize(moving, params);
+        fixed = pcorganize(fixed, params);
+
+%         movingPoints = detectLOAMFeatures(moving);
+%         fixedPoints = detectLOAMFeatures(fixed);
+
+        tform = pcregisterloam(moving,fixed,gridStep);
 %         
 % %         %--------------------------------------------------
 
@@ -158,7 +160,7 @@ RMSE = sqrt(mean((ans_cum - [0.5, 0, 0, -0.05, 0, 0]).^2))
 %save to file
 % fn = "MC_results/traj1_cart_ICP_point2plane_NO_GP.txt";
 % fn = "MC_results/traj1_cart_ICP_point2point_NO_GP.txt";
-fn = "MC_results/traj1_GPICP.txt";
+% fn = "MC_results/traj1_GPICP.txt";
 % fn = "MC_results/traj1_spherical_ICP_point2plane_NO_GP.txt";
 % fn = "MC_results/traj1_cart_NDT_NO_GP_v2.txt";
 % fn = "MC_results/traj1_cart_LOAM_NO_GP.txt";

@@ -163,10 +163,13 @@ c2 = velo2[:,:3]
 # # c1 = np.loadtxt("scene1_scan1_squares.txt", dtype = float) #shadows
 # # c2 = np.loadtxt("scene1_scan2_squares.txt", dtype = float)
 
-# c1 = np.loadtxt("spherical_paper/MC_trajectories/scene1_scan2.txt", dtype = float)
-# c2 = np.loadtxt("spherical_paper/MC_trajectories/scene1_scan3.txt", dtype = float)
+# # c1 = np.loadtxt("spherical_paper/MC_trajectories/scene1_scan2.txt", dtype = float)
+# # c2 = np.loadtxt("spherical_paper/MC_trajectories/scene1_scan3.txt", dtype = float)
 # # c1 = c1[c1[:,2] > -1.8] #ignore ground plane
 # # c2 = c2[c2[:,2] > -1.8] #ignore ground plane
+
+# c1 = np.loadtxt("spherical_paper/MC_trajectories/scene2_scan2.txt", dtype = float)
+# c2 = np.loadtxt("spherical_paper/MC_trajectories/scene2_scan3.txt", dtype = float)
 
 # # c1 = np.loadtxt("T_intersection_scan1.txt", dtype = float)
 # # c2 = np.loadtxt("T_intersection_scan2.txt", dtype = float)
@@ -199,9 +202,6 @@ c2 = velo2[:,:3]
 # # c2 = np.loadtxt("verify_geometry_scan2.txt", dtype = float)
 # # c1 = np.loadtxt("mountain_scan1_no_trees.txt", dtype = float) #test
 # # c2 = np.loadtxt("mountain_scan2_no_trees.txt", dtype = float)
-
-# # c1 = c1[c1[:,2] > -1.55] #ignore ground plane
-# # c2 = c2[c2[:,2] > -1.55] #ignore ground plane
 
 # # c1 = c1[c1[:,2] > -1.25] #ignore ground plane
 # # c2 = c2[c2[:,2] > -1.25] #ignore ground plane
@@ -251,13 +251,18 @@ c2 = velo2[:,:3]
 
 # ground_truth = tf.constant([0.1799, 0., 0., -0.0094, -0.011, -0.02072]) #FULL KITTI scan 1397
 
-# x0 = tf.constant([0.25, 0, 0, 0, 0, 0])
+x0 = tf.constant([0.5 + 0.1*np.random.randn(), 0, 0, 0, 0, 0])
 
-it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 90, niter = 15, 
-	draw = True, group = 2, RM = True, DNN_filter = False)#, cheat = gt)
+it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 5, 
+	draw = True, group = 2, RM = False, DNN_filter = False)#, cheat = gt)
 
-# it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 100, niter = 20, 
-# 	draw = True, group = 2, RM = False, DNN_filter = False, x0 = it1.X)
+
+# #test using naive spherical cuboid-shaped voxles
+# # c1 = c1[c1[:,2] > -1.55] #ignore ground plane
+# # c2 = c2[c2[:,2] > -1.55] #ignore ground plane
+# it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 5, 
+# 	draw = True, group = 1, RM = False, DNN_filter = False, x0 = x0)#, cheat = gt)
+
 
 # print("\n OXTS_ground_truth: \n", OXTS_ground_truth)
 # ViewInteractiveWidget(it1.plt.window)

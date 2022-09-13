@@ -64,10 +64,10 @@ tinit = rigid3d(eul2rotm([0,0,0]), [0 , 0.1*gt(frame,2) + offset, 0]);
 %ICP---------------------------------------------
 % [tform,movingReg, rmse] = pcregistericp(moving,fixed);    
 % [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPlane');
-[tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPlane', "InitialTransform",tinit); %cheating for debug
+% [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPlane', "InitialTransform",tinit); %cheating for debug
 % [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPoint');
 
-% %GP-ICP~~~~~~~~~~~~~~~~~~~~~~~~~~
+% % %GP-ICP~~~~~~~~~~~~~~~~~~~~~~~~~~
 % % fit ground planes for each scan
 % maxDistance = 0.2;
 % referenceVector = [0,0,1];
@@ -89,7 +89,11 @@ tinit = rigid3d(eul2rotm([0,0,0]), [0 , 0.1*gt(frame,2) + offset, 0]);
 % fixed = select(fixed, outlierIndices1);
 % %only consider points not on ground plane
 % [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPlane', InitialTransform=tinit);
-% %------------------------------------------------
+% tform.Translation = tform.Translation + tform_gp.Translation;
+% tform.Rotation = tform_gp.Rotation * tform.Rotation;
+% tform.Translation = tform.Translation + tform_gp.Translation;
+% tform.Rotation = tform_gp.Rotation * tform.Rotation;
+% % %------------------------------------------------
 
 % % %LOAM ---------------------------------------------
 % gridStep = 1.0;
@@ -114,14 +118,14 @@ tinit = rigid3d(eul2rotm([0,0,0]), [0 , 0.1*gt(frame,2) + offset, 0]);
 % % [tform, rmse] = pcregisterloam(movingLOAM,fixedLOAM,"MatchingMethod","one-to-one", InitialTransform=tinit); %test
 % % %--------------------------------------------------
 
-figure()
-hold on
-%full PCs---------------
-pcshow(fixed)
-% pcshow(moving)
-ptCloudOut = pctransform(moving, tform);
-pcshow(ptCloudOut)
-%-----------------------
+% figure()
+% hold on
+% %full PCs---------------
+% pcshow(fixed)
+% % pcshow(moving)
+% ptCloudOut = pctransform(moving, tform);
+% pcshow(ptCloudOut)
+% %-----------------------
 
 % pcshow(fixedLOAM.Location)
 % pcshow(movingLOAM.Location)

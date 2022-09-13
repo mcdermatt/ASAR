@@ -10,20 +10,20 @@ ans = [0,0,0,0,0,0];
 OXTS_fn = "KITTI_results/OXTS_baseline.txt";
 gt = readmatrix(OXTS_fn);
 
-for i = 1:4499%4499 %150
+for i = 1:150%4499 %150
     i
 
     %raw data
-%     scan1_fn = "C:/kitti/2011_09_26/2011_09_26_drive_0005_raw/velodyne_points/data/" + sprintf( '%010d', i-1 ) + ".txt";
-%     scan2_fn = "C:/kitti/2011_09_26/2011_09_26_drive_0005_raw/velodyne_points/data/" + sprintf( '%010d', i ) + ".txt";
+    scan1_fn = "C:/kitti/2011_09_26/2011_09_26_drive_0005_raw/velodyne_points/data/" + sprintf( '%010d', i-1 ) + ".txt";
+    scan2_fn = "C:/kitti/2011_09_26/2011_09_26_drive_0005_raw/velodyne_points/data/" + sprintf( '%010d', i ) + ".txt";
 
     %rectified data
 %     scan1_fn = "C:/kitti/2011_09_26/2011_09_26_drive_0005_sync/velodyne_points/data_text/scan" + string(i -1) + ".txt";
 %     scan2_fn = "C:/kitti/2011_09_26/2011_09_26_drive_0005_sync/velodyne_points/data_text/scan" + string(i) + ".txt";
 
-    %4500 frame MEGA KITTI
-    scan1_fn = "E:/KITTI/drive_00_text/scan"+ string(i -1) + ".txt";
-    scan2_fn = "E:/KITTI/drive_00_text/scan"+ string(i) + ".txt";
+%     %4500 frame MEGA KITTI
+%     scan1_fn = "E:/KITTI/drive_00_text/scan"+ string(i -1) + ".txt";
+%     scan2_fn = "E:/KITTI/drive_00_text/scan"+ string(i) + ".txt";
 
     scan1 = readmatrix(scan1_fn);
     scan2 = readmatrix(scan2_fn);
@@ -69,7 +69,7 @@ for i = 1:4499%4499 %150
 %     tinit = rigid3d(eul2rotm([0,0,0]), [gt(i,1) + 0.05*randn(), 0, 0]); %seed solution with correct soln + some noise
 
 %     %NDT---------------------------------------------
-%     [tform, movingReg, rmse] = pcregisterndt(moving, fixed, gridstep, OutlierRatio=0.3);%, MaxIterations=50); %try messing with OutlierRatio
+    [tform, movingReg, rmse] = pcregisterndt(moving, fixed, gridstep, OutlierRatio=0.3, Tolerance=[0.001, 0.05], MaxIterations=50); %try messing with OutlierRatio
 % 
 %     %------------------------------------------------
     
@@ -79,7 +79,7 @@ for i = 1:4499%4499 %150
 %         [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPoint', "InitialTransform",tinit); %cheating for debug
 %         [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPlane', "InitialTransform",tinit, InlierRatio=0.1); %cheating for debug
 %         [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPlane', InlierRatio=0.8);
-    [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPlane', "InitialTransform",tinit);
+%     [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPlane', "InitialTransform",tinit);
 
     %GP-ICP~~~~~~~~~~~~~~~~~~~~~~~~~~
 %     % fit ground planes for each scan
@@ -103,7 +103,8 @@ for i = 1:4499%4499 %150
 %     fixed = select(fixed, outlierIndices1);
 %     %only consider points not on ground plane
 %     [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPlane', InitialTransform=tinit);
-
+%     tform.Translation = tform.Translation + tform_gp.Translation;
+%     tform.Rotation = tform_gp.Rotation * tform.Rotation;
     %------------------------------------------------
     
 % %         %LOAM ---------------------------------------------
@@ -158,6 +159,7 @@ end
 % fn = "KITTI_results/KITTI_LOAM_noGP.txt";
 % fn = "KITTI_results/KITTI_ICP.txt";
 % fn = "KITTI_results/KITTI_LOAM_v3.txt";
+fn = "KITTI_results/NDT_test.txt";
 % fn = "KITTI_full_results/KITTI_estimates_LOAM.txt";
-fn = "KITTI_full_results/KITTI_estimates_ICP_v2.txt";
+% fn = "KITTI_full_results/KITTI_estimates_ICP_v2.txt";
 writematrix(ans_cum, fn, 'Delimiter', 'tab')

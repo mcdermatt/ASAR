@@ -93,6 +93,8 @@ tinit = rigid3d(eul2rotm([0,0,0]), [0.5,0,0]);
 % fixed = select(fixed, outlierIndices1);
 % %only consider points not on ground plane
 % [tform,movingReg, rmse] = pcregistericp(moving,fixed, 'metric', 'pointToPlane', InitialTransform=tinit);
+% tform.Translation = tform.Translation + tform_gp.Translation;
+% tform.Rotation = tform_gp.Rotation * tform.Rotation;
 %------------------------------------------------
 
 % %LOAM ---------------------------------------------
