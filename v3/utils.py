@@ -3,7 +3,7 @@ import tensorflow as tf
 from vedo import *
 import vtk
 
-def get_cluster(rads, thresh = 0.5, mnp = 50): #mnp = 50, thresh = 0.2
+def get_cluster(rads, thresh = 0.5, mnp = 100): #mnp = 50, thresh = 0.2
     """ Identifies radial bounds which contain the first cluster in a spike 
             that is closest to the ego-vehicle 
         

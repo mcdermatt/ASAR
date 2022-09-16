@@ -37,7 +37,7 @@ class ICET():
 
 		self.min_cell_distance = 2 #0.1 #5 #begin closest spherical voxel here
 		#ignore "occupied" cells with fewer than this number of pts
-		self.min_num_pts = 25 #was 50 for KITTI and Ford, need to lower to 25 for CODD 
+		self.min_num_pts = 100 #was 50 for KITTI and Ford, need to lower to 25 for CODD 
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
 		self.niter = niter
@@ -190,8 +190,9 @@ class ICET():
 		# #-----------------------------------------------------------------------------------
 
 		corn = self.get_corners_cluster(occupied_spikes, bounds)
-		inside1, npts1 = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes, bounds)
-	
+		inside1, npts1 = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes, bounds)	
+		# print(npts1)
+
 		#temp			
 		self.inside1 = inside1
 		self.npts1 = npts1
@@ -621,7 +622,7 @@ class ICET():
 
 			# self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
 			self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
-			# self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
+			self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
 			# self.draw_cloud(self.cloud2_tensor_OG.numpy(), pc = 3) #3 #draw OG cloud in differnt color
 			# draw identified points from scan 2 inside useful clusters
 			# for n in range(tf.shape(inside2.to_tensor())[0]):

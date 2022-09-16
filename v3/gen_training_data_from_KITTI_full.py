@@ -9,9 +9,9 @@ from ICET_spherical import ICET
 from utils import R_tf, R2Euler
 from metpy.calc import lat_lon_grid_deltas
 
-numShifts = 5 #number of times to resample and translate each voxel each scan
-runLen = 400 #4500
-npts = 25 #50 
+numShifts = 20 #number of times to resample and translate each voxel each scan
+runLen = 10 #400 #4500
+npts = 100 #50 
 
 # init KITTI dataset
 basedir = "E:/KITTI/dataset/"
@@ -27,7 +27,7 @@ mat_full = np.reshape(full_poses, [-1,3,4])
 Rmat = tf.convert_to_tensor(mat_full[:,:,:3])
 euls = R2Euler(Rmat)
 
-for idx in range(runLen):
+for idx in range(100, 100 + runLen):
 
 	print("\n ~~~~~~~~~~~~~~~~~~ Scan ",  idx," ~~~~~~~~~~~~~~~~~~~~~~~~~ \n")
 
@@ -36,8 +36,8 @@ for idx in range(runLen):
 	velo2 = dataset.get_velo(idx+1) # Each scan is a Nx4 array of [x,y,z,reflectance]
 	c2 = velo2[:,:3]
 
-	# c1 = c1[c1[:,2] > -1.5] #ignore ground plane
-	# c2 = c2[c2[:,2] > -1.5] #ignore ground plane
+	c1 = c1[c1[:,2] > -1.5] #ignore ground plane
+	c2 = c2[c2[:,2] > -1.5] #ignore ground plane
 
 	#get change in rotation
 	drot = euls[:,idx+1] - euls[:,idx]
@@ -51,20 +51,21 @@ for idx in range(runLen):
 	OXTS_ground_truth[2] = 0
 	OXTS_ground_truth = tf.cast(tf.convert_to_tensor(OXTS_ground_truth), tf.float32)
 
-	#randomly switch order of scans to minimize bias ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-	roll = np.random.rand()
-	if roll > 0.5: 
-		c1_temp = c1
-		c1 = c2
-		c2 = c1_temp
-		OXTS_ground_truth = -OXTS_ground_truth
-	#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	# bug here??
+	# #randomly switch order of scans to minimize bias ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	# roll = np.random.rand()
+	# if roll > 0.5: 
+	# 	c1_temp = c1.copy()
+	# 	c1 = c2
+	# 	c2 = c1_temp
+	# 	OXTS_ground_truth = -OXTS_ground_truth
+	# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-	shift_scale = 0.003 #standard deviation by which to shift the grid BEFORE SAMPLING corresponding segments of the point cloud
-	shift = tf.cast(tf.constant([shift_scale*tf.random.normal([1]).numpy()[0], shift_scale*tf.random.normal([1]).numpy()[0], 0.2*shift_scale*tf.random.normal([1]).numpy()[0], 0, 0, 0]), tf.float32)
+	# shift_scale = 0.003 #standard deviation by which to shift the grid BEFORE SAMPLING corresponding segments of the point cloud
+	# shift = tf.cast(tf.constant([shift_scale*tf.random.normal([1]).numpy()[0], shift_scale*tf.random.normal([1]).numpy()[0], 0.2*shift_scale*tf.random.normal([1]).numpy()[0], 0, 0, 0]), tf.float32)
 
 	it = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 2, draw = False, group = 2, 
-		RM = False, DNN_filter = False, cheat = OXTS_ground_truth+shift)
+		RM = False, DNN_filter = False, cheat = OXTS_ground_truth)#+shift)
 
 	#Get ragged tensor containing all points from each scan inside each sufficient voxel
 	in1 = it.inside1
@@ -100,13 +101,13 @@ for idx in range(runLen):
 		scan2 = tf.reshape(from2, [-1, 3]).numpy()
 
 		#randomly translate each sample from scan 2
-		# rand = tf.constant([1., 1., 0.1])*tf.random.normal([ncells, 3]) #larger initial offset
-		rand = tf.constant([0.1, 0.1, 0.01])*tf.random.normal([ncells, 3]) #much tighter initial offset
+		rand = tf.constant([1., 1., 0.1])*tf.random.normal([ncells, 3]) #larger initial offset
+		# rand = tf.constant([0.1, 0.1, 0.01])*tf.random.normal([ncells, 3]) #much tighter initial offset
 
-		#only apply rand to compact directions ~~~~~~~~~~~~~~
-		rand = it.L @ tf.transpose(it.U, [0,2,1]) @ rand[:,:,None]
-		rand = tf.squeeze(rand)
-		#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		# #only apply rand to compact directions ~~~~~~~~~~~~~~
+		# rand = it.L @ tf.transpose(it.U, [0,2,1]) @ rand[:,:,None]
+		# rand = tf.squeeze(rand)
+		# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 		#tile and apply to scan2
 		t = tf.tile(rand, [npts,1])
@@ -115,7 +116,7 @@ for idx in range(runLen):
 		t = tf.reshape(t, [-1, 3])
 		scan2 += t.numpy()
 
-		full_soln_vec = rand + shift[:3]
+		full_soln_vec = rand #+ shift[:3]
 		# compact_soln_vec = it.L @ tf.transpose(it.U, [0,2,1]) @ full_soln_vec[:,:,None] #remove extended axis
 		# compact_soln_vec = tf.matmul(it.U, compact_soln_vec) #project back to XYZ
 		# compact_soln_vec = compact_soln_vec[:,:,0] #get rid of extra dimension
@@ -141,10 +142,10 @@ for idx in range(runLen):
 		# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 		#initialize array to store data on first iteration
-		if idx*(j+1) == 0:
+		if idx*(j+1) == 100:
 			scan1_cum = scan1
 			scan2_cum = scan2
-			soln_cum = rand + shift[:3]
+			soln_cum = rand #+ shift[:3]
 		else:
 			scan1_cum = np.append(scan1_cum, scan1, axis = 0)
 			scan2_cum = np.append(scan2_cum, scan2, axis = 0)
@@ -162,6 +163,9 @@ for idx in range(runLen):
 # np.savetxt('C:/Users/Derm/Desktop/big/pshift/ICET_KITTI_FULL_ground_truth_to400.txt', soln_cum)
 
 #direct to npy
-np.save("C:/Users/Derm/Desktop/big/pshift/ICET_KITTI_FULL_scan1_to400", scan1_cum)
-np.save("C:/Users/Derm/Desktop/big/pshift/ICET_KITTI_FULL_scan2_to400", scan2_cum)
-np.save("C:/Users/Derm/Desktop/big/pshift/ICET_KITTI_FULL_ground_truth_to400", soln_cum)
+# np.save("C:/Users/Derm/Desktop/big/pshift/ICET_KITTI_FULL_scan1_to400", scan1_cum)
+# np.save("C:/Users/Derm/Desktop/big/pshift/ICET_KITTI_FULL_scan2_to400", scan2_cum)
+# np.save("C:/Users/Derm/Desktop/big/pshift/ICET_KITTI_FULL_ground_truth_to400", soln_cum)
+np.save('D:/TrainingData/KITTI_scan1_100pts', scan1_cum)
+np.save('D:/TrainingData/KITTI_scan2_100pts', scan2_cum)
+np.save('D:/TrainingData/KITTI_ground_truth_100pts', soln_cum)

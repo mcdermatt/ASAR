@@ -10,8 +10,8 @@
 clear all 
 close all
 
-nSamples =  50; %25;
-epochs = 100;
+nSamples =  100; %25;
+epochs = 10000;
 
 % sam1_cum = [];
 % sam2_cum = [];
@@ -267,9 +267,13 @@ sam2_cum = sam2_cum + 0.01*randn(size(sam2_cum));
 % % writematrix(true_pos1, "training_data/true_pos1.txt", 'Delimiter', 'tab')
 
 %for larger datasets (don't save with git)
-writematrix(sam1_cum, "C:/Users/Derm/Desktop/big/pshift/scan1_1k_50_samples.txt", 'Delimiter', 'tab')
-writematrix(sam2_cum, "C:/Users/Derm/Desktop/big/pshift/scan2_1k_50_samples.txt", 'Delimiter', 'tab')
-writematrix(truth_cum, "C:/Users/Derm/Desktop/big/pshift/ground_truth_1k_50_samples.txt", 'Delimiter', 'tab')
+% writematrix(sam1_cum, "C:/Users/Derm/Desktop/big/pshift/scan1_1k_50_samples.txt", 'Delimiter', 'tab')
+% writematrix(sam2_cum, "C:/Users/Derm/Desktop/big/pshift/scan2_1k_50_samples.txt", 'Delimiter', 'tab')
+% writematrix(truth_cum, "C:/Users/Derm/Desktop/big/pshift/ground_truth_1k_50_samples.txt", 'Delimiter', 'tab')
+writematrix(sam1_cum, "D:/TrainingData/simulated_scan1_100pts.txt", 'Delimiter', 'tab')
+writematrix(sam2_cum, "D:/TrainingData/simulated_scan2_100pts.txt", 'Delimiter', 'tab')
+writematrix(truth_cum, "D:/TrainingData/simulated_ground_truth_100pts.txt", 'Delimiter', 'tab')
+
 
 % %for debug
 % figure()

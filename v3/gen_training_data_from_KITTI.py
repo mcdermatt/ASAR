@@ -9,9 +9,9 @@ from ICET_spherical import ICET
 from utils import R_tf
 from metpy.calc import lat_lon_grid_deltas
 
-numShifts = 5 #number of times to resample and translate each voxel each scan
-runLen = 150
-npts = 25 #50 
+numShifts = 20 #5 #number of times to resample and translate each voxel each scan
+runLen = 150 #150
+npts = 100 #50 
 
 # init KITTI dataset
 basedir = 'C:/kitti/'
@@ -33,11 +33,11 @@ for idx in range(runLen):
 	poses1 = dataset.oxts[idx+1] #<- ID of 2nd scan
 	dt = 0.1037 #mean time between lidar samples
 	OXTS_ground_truth = tf.constant([poses1.packet.vf*dt, -poses1.packet.vl*dt, poses1.packet.vu*dt, poses1.packet.wf*dt, poses1.packet.wl*dt, poses1.packet.wu*dt])
-	shift_scale = 0.1 #standard deviation by which to shift the grid BEFORE SAMPLING corresponding segments of the point cloud
+	shift_scale = 0.0 #standard deviation by which to shift the grid BEFORE SAMPLING corresponding segments of the point cloud
 	shift = tf.cast(tf.constant([shift_scale*tf.random.normal([1]).numpy()[0], shift_scale*tf.random.normal([1]).numpy()[0], 0.2*shift_scale*tf.random.normal([1]).numpy()[0], 0, 0, 0]), tf.float32)
 
-	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 12, draw = False, group = 2, 
-		RM = True, DNN_filter = False, cheat = OXTS_ground_truth+shift)
+	it = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 2, draw = False, group = 2, 
+		RM = False, DNN_filter = False, cheat = OXTS_ground_truth+shift)
 
 	#Get ragged tensor containing all points from each scan inside each sufficient voxel
 	in1 = it.inside1
@@ -109,11 +109,14 @@ for idx in range(runLen):
 	print("got", tf.shape(enough2.to_tensor())[0].numpy()*numShifts, "training samples from scan", idx)
 
 #smol
-np.savetxt('perspective_shift/training_data/ICET_KITTI_scan1_25_shifted.txt', scan1_cum)
-np.savetxt('perspective_shift/training_data/ICET_KITTI_scan2_25_shifted.txt', scan2_cum)
-np.savetxt('perspective_shift/training_data/ICET_KITTI_ground_truth_25_shifted.txt', soln_cum)
+# np.savetxt('perspective_shift/training_data/ICET_KITTI_scan1_25_shifted.txt', scan1_cum)
+# np.savetxt('perspective_shift/training_data/ICET_KITTI_scan2_25_shifted.txt', scan2_cum)
+# np.savetxt('perspective_shift/training_data/ICET_KITTI_ground_truth_25_shifted.txt', soln_cum)
 
 #big
 # np.savetxt('C:/Users/Derm/Desktop/big/pshift/ICET_KITTI_scan1_50_shifted.txt', scan1_cum)
 # np.savetxt('C:/Users/Derm/Desktop/big/pshift/ICET_KITTI_scan2_50_shifted.txt', scan2_cum)
 # np.savetxt('C:/Users/Derm/Desktop/big/pshift/ICET_KITTI_ground_truth_50_shifted.txt', soln_cum)
+np.save('D:/TrainingData/KITTI_scan1_100pts', scan1_cum)
+np.save('D:/TrainingData/KITTI_scan2_100pts', scan2_cum)
+np.save('D:/TrainingData/KITTI_ground_truth_100pts', soln_cum)

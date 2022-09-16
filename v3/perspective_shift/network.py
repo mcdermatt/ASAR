@@ -202,7 +202,7 @@ def Net(**kwargs):
     '''
     #DO MAX POOLING FOR insize//2 since we are looking at two seperate point clouds!!!!!
 
-    insize = 100 #512
+    insize = 200 #100 #512
 
     inputs = keras.Input(shape=(insize, 3)) 
 
@@ -236,13 +236,13 @@ def Net(**kwargs):
     X = tf.keras.layers.Conv2D(256, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
 
-    X = tf.keras.layers.Conv2D(512, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
-    X = keras.layers.BatchNormalization()(X)
+    # X = tf.keras.layers.Conv2D(512, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
+    # X = keras.layers.BatchNormalization()(X)
 
-    # TODO -> figure out why this is better than 1d conv
-    # This was at 512, I dropped it to increase batch size
-    X = tf.keras.layers.Conv2D(512, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
-    X = keras.layers.BatchNormalization()(X)
+    # # TODO -> figure out why this is better than 1d conv
+    # # This was at 512, I dropped it to increase batch size
+    # X = tf.keras.layers.Conv2D(512, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
+    # X = keras.layers.BatchNormalization()(X)
     #------------------------------------------------------------
 
     #worse than 2d...
@@ -307,8 +307,8 @@ def Net(**kwargs):
     # X = keras.layers.BatchNormalization()(X)
 
 
-    X = keras.layers.Dense(units = 512, activation = 'relu')(X)
-    X = keras.layers.BatchNormalization()(X)
+    # X = keras.layers.Dense(units = 512, activation = 'relu')(X)
+    # X = keras.layers.BatchNormalization()(X)
     #was 256
     X = keras.layers.Dense(units = 256, activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)

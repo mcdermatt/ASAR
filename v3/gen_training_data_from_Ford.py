@@ -6,15 +6,15 @@ from ICET_spherical import ICET
 from utils import R_tf
 import mat4py
 
-#TODO- should I be generating training data without the ground plane???
+#NOTE: after looking at results of multiple differnet point cloud registration algorithms on the Ford Dataset, 
+#		it is clear that there are obvious errors in the "ground truth" position. 
+#		Frames 650-790 seem to be at least within 1cm of true states (too simple)
+#		1320-1430 also good (more complex terrain)
 
-numShifts = 20 #number of times to resample and translate each voxel each scan
-runLen = 400 #199
-ptsPerCell = 50
-start_idx = 850 #2700 #1050 #2150
-
-# ground_truth = np.loadtxt("E:/Ford/IJRR-Dataset-1-subset/SCANS/truth.txt")/10
-# ground_truth = tf.cast(tf.convert_to_tensor(ground_truth), tf.float32)
+numShifts = 5 #20 #number of times to resample and translate each voxel each scan
+runLen = 10 #300
+ptsPerCell = 100
+start_idx = 1130 #1310
 
 ground_truth = np.loadtxt("E:/Ford/IJRR-Dataset-1/SCANS/truth.txt")/10 #was this
 # ground_truth = np.loadtxt("E:/Ford/IJRR-Dataset-1/SCANS/truth_test.txt")/10 #truth_test has forward and lateral axis of translation flipped
@@ -31,11 +31,10 @@ print("\n gt", tf.shape(ground_truth))
 for idx in range(runLen):
 	print("\n ~~~~~~~~~ Frame #", idx, "~~~~~~~~~~~~~ \n")
 
-	# fn1 = 'E:/Ford/IJRR-Dataset-1-subset/SCANS/Scan%04d.mat' %(idx+1000)
-	# fn2 = 'E:/Ford/IJRR-Dataset-1-subset/SCANS/Scan%04d.mat' %(idx+1001)
+	fn1 = 'E:/Ford/IJRR-Dataset-1/SCANS/Scan%04d.mat' %(idx+start_idx + 75)
+	# fn2 = 'E:/Ford/IJRR-Dataset-1/SCANS/Scan%04d.mat' %(idx+start_idx + 76) #was this
+	fn2 = 'E:/Ford/IJRR-Dataset-1/SCANS/Scan%04d.mat' %(idx+start_idx + 78) #test
 
-	fn1 = 'E:/Ford/IJRR-Dataset-1/SCANS/Scan%04d.mat' %(idx+start_idx + 75) #TEST add 1 to get spacing correct??
-	fn2 = 'E:/Ford/IJRR-Dataset-1/SCANS/Scan%04d.mat' %(idx+start_idx + 76)
 
 	dat1 = mat4py.loadmat(fn1)
 	SCAN1 = dat1['SCAN']
@@ -48,19 +47,20 @@ for idx in range(runLen):
 	c1 = c1[c1[:,2] > -2.2] #ignore ground plane
 	c2 = c2[c2[:,2] > -2.2] #ignore ground plane
 
-	#was this
-	# gt = (ground_truth[idx+start_idx,:] + ground_truth[idx+start_idx + 1,:])/2 # [0.004, 0.003, 0.0006]
-	#test 
-	# gt = (ground_truth[idx+start_idx + 1,:] + ground_truth[idx + start_idx + 2,:])/2 #0.006 avg y error
-	# gt = ground_truth[idx+start_idx + 1,:] # []
-	# gt = ground_truth[idx+start_idx,:] # []
-	# gt = ground_truth[idx+start_idx-1,:] # [0.012, 0.0024, 0.0036]
-	# gt = (ground_truth[idx+start_idx -1,:] + ground_truth[idx + start_idx,:])/2 #[0.012, 0.0013, 0.0035]
-	gt = (ground_truth[idx+start_idx - 2,:] + ground_truth[idx + start_idx - 1,:])/2 #[002, 0.0004, 0.00036]
+	# gt = (ground_truth[idx+start_idx - 2,:] + ground_truth[idx + start_idx - 1,:])/2 #for transformation between subsequent frames
+
+	#test
+	gt1 = (ground_truth[idx+start_idx - 2,:] + ground_truth[idx + start_idx - 1,:])/2
+	gt2 = (ground_truth[idx+start_idx - 1,:] + ground_truth[idx + start_idx,:])/2
+	gt3 = (ground_truth[idx+start_idx,:] + ground_truth[idx + start_idx + 1,:])/2
+	gt = gt1 + gt2 + gt3
 
 
+	# it = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 3, draw = False, group = 2, 
+	# 	RM = True, DNN_filter = False, cheat = gt)
+	#test
 	it = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 3, draw = False, group = 2, 
-		RM = True, DNN_filter = False, cheat = gt)
+		RM = False, DNN_filter = False, cheat = gt)
 
 	#Get ragged tensor containing all points from each scan inside each sufficient voxel
 	in1 = it.inside1
@@ -105,6 +105,15 @@ for idx in range(runLen):
 		t = tf.reshape(t, [-1, 3])
 		scan2 += t.numpy()
 
+		#randomly flip scan1 and scan2 -----------------
+		#doing this to prevent systemic bias in perspective shift form forward motion
+		if np.random.randn() > 0:
+			temp = scan2.copy()
+			scan2 = scan1
+			scan1 = temp
+			rand = -rand
+		#-----------------------------------------------
+
 		if idx*(j+1) == 0:
 			scan1_cum = scan1
 			scan2_cum = scan2
@@ -128,9 +137,12 @@ for idx in range(runLen):
 # np.savetxt('C:/Users/Derm/Desktop/big/pshift/ICET_Ford_v2_scan1.txt', scan1_cum)
 # np.savetxt('C:/Users/Derm/Desktop/big/pshift/ICET_Ford_v2_scan2.txt', scan2_cum)
 # np.savetxt('C:/Users/Derm/Desktop/big/pshift/ICET_Ford_v2_ground_truth.txt', rand_cum)
-np.save('C:/Users/Derm/Desktop/big/pshift/ICET_Ford_v4_scan1', scan1_cum)
-np.save('C:/Users/Derm/Desktop/big/pshift/ICET_Ford_v4_scan2', scan2_cum)
-np.save('C:/Users/Derm/Desktop/big/pshift/ICET_Ford_v4_ground_truth', rand_cum)
+np.save('D:/TrainingData/Ford_scan1_100pts', scan1_cum)
+np.save('D:/TrainingData/Ford_scan2_100pts', scan2_cum)
+np.save('D:/TrainingData/Ford_ground_truth_100pts', rand_cum)
+# np.save('D:/TrainingData/Ford_scan1_100pts_large_displacement', scan1_cum)
+# np.save('D:/TrainingData/Ford_scan2_100pts_large_displacement', scan2_cum)
+# np.save('D:/TrainingData/Ford_ground_truth_100pts_large_displacement', rand_cum)
 
 #v1 = 1050
 #v2 = 2150
