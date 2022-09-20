@@ -7,7 +7,7 @@ from utils import R_tf
 import mat4py
 
 numShifts = 20 #number of times to resample and translate each voxel each scan
-runLen = 200 #199
+runLen = 2 #199
 ptsPerCell = 50
 start_idx = 850 #2700 #1050 #2150
 
@@ -34,8 +34,8 @@ for idx in range(runLen):
 
 	gt = (ground_truth[idx+start_idx - 2,:] + ground_truth[idx + start_idx - 1,:])/2
 
-	it = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 3, draw = False, group = 2, 
-		RM = True, DNN_filter = False, cheat = gt)
+	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 2, draw = False, group = 2, 
+		RM = False, DNN_filter = False, cheat = gt)
 
 	#Get ragged tensor containing all points from each scan inside each sufficient voxel
 	in1 = it.inside1
@@ -119,13 +119,13 @@ for idx in range(runLen):
 	print("got", tf.shape(enough2.to_tensor())[0].numpy()*numShifts, "training samples from scan", idx)
 
 #small files
-np.save('perspective_shift/training_data/compact_scan1', scan1_cum)
-np.save('perspective_shift/training_data/compact_scan2', scan2_cum)
-np.save('perspective_shift/training_data/compact_ground_truth', rand_cum)
-np.save('perspective_shift/training_data/LUT', LUT_cum) 
-np.save('perspective_shift/training_data/L', L_cum)
-np.save('perspective_shift/training_data/U', U_cum)
-np.save('perspective_shift/training_data/corn', corn_cum)
+# np.save('perspective_shift/training_data/compact_scan1', scan1_cum)
+# np.save('perspective_shift/training_data/compact_scan2', scan2_cum)
+# np.save('perspective_shift/training_data/compact_ground_truth', rand_cum)
+# np.save('perspective_shift/training_data/LUT', LUT_cum) 
+# np.save('perspective_shift/training_data/L', L_cum)
+# np.save('perspective_shift/training_data/U', U_cum)
+# np.save('perspective_shift/training_data/corn', corn_cum)
 # TODO - save ground truth SEPRATE from compact ground truth
 
 #big files
@@ -136,4 +136,11 @@ np.save('perspective_shift/training_data/corn', corn_cum)
 # np.save('C:/Users/Derm/Desktop/big/pshift/L', L_cum)
 # np.save('C:/Users/Derm/Desktop/big/pshift/U', U_cum)
 # np.save('C:/Users/Derm/Desktop/big/pshift/corn', corn_cum)
-# #TODO - save ground truth SEPRATE from compact ground truth
+
+np.save('D:/TrainingData/compact/compact_scan1', scan1_cum)
+np.save('D:/TrainingData/compact/compact_scan2', scan2_cum)
+np.save('D:/TrainingData/compact/compact_ground_truth', rand_cum)
+np.save('D:/TrainingData/compact/LUT', LUT_cum)
+np.save('D:/TrainingData/compact/L', L_cum)
+np.save('D:/TrainingData/compact/U', U_cum)
+np.save('D:/TrainingData/compact/corn', corn_cum)
