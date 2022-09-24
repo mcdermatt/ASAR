@@ -4,10 +4,10 @@ clear all
 close all
 
 %import stl
-% FileName = 'virtual_scenes/scene1.stl'; %easy scan with house 
+FileName = 'virtual_scenes/scene1.stl'; %easy scan with house 
 % FileName = 'virtual_scenes/T_intersection.stl' ;
 % FileName = 'virtual_scenes/T_intersection_simple.stl' ;
-FileName = 'virtual_scenes/T_intersection_noisy.stl' ;
+% FileName = 'virtual_scenes/T_intersection_noisy.stl' ;
 % FileName = 'virtual_scenes/curve.stl' ;
 % FileName = 'virtual_scenes/big_curve.stl' ;
 % FileName = 'virtual_scenes/tube.stl' ;
@@ -37,6 +37,7 @@ faces = OpenFile.ConnectivityList;
 
 %generate extended object mesh
 mesh = extendedObjectMesh(vertices,faces);
+
 %rotate mesh to correct orientation
 % mesh = rotate(mesh, [0, 0, 90]); %else
 mesh = rotate(mesh, [180, 0, 90]); %else
@@ -51,7 +52,7 @@ sensor.MountingLocation = [0, 0, 0]; %AHHHHAHHHHAHHHH!!!! Why is this not defaul
 % set parameters of virtual lidar unit to match velodyne VLP-16
 sensor.UpdateRate = 10;
 sensor.ElevationLimits =  [-24.8, 2];  % was [-22, 2]; %22
-sensor.RangeAccuracy = 0.0001; %0.03; %0.01;
+sensor.RangeAccuracy = 0.02; %0.03; %0.01;
 sensor.AzimuthResolution = 0.35; %0.08;
 sensor.ElevationResolution = 0.4;
 % sensor.MaxRange = 50;
@@ -67,7 +68,7 @@ ego = platform(scenario, 'Position', [-1, 0, 1.72]);
 
 % target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[0 0 0],'Velocity',[0 5 0])); %no rotation
 % target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[0 0 -3],'Velocity',[5 0 0], 'AngularVelocity', [0, 0, 1.])); %with rotatation 
-target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[0 0 -2],'Velocity',[2 2 0], 'AngularVelocity', [0., 0., 0.])); %with rotatation 
+target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[0 -20 -2],'Velocity',[20 0 0], 'AngularVelocity', [0., 0., 0.])); %with rotatation 
 % target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[-20 0 -8],'Velocity',[5 0 0], 'AngularVelocity', [0, 0, 0.0])); %mountain no trees 
 
 %NOTE: to use offcentered Position we need to have ZERO AngularVelocity!!!
@@ -109,9 +110,9 @@ time = scenario.SimulationTime;
 [ptCloud2, config, clusters] = sensor(tgtmeshes, time);
 
 figure()
+hold on
 axis equal
 plot3(ptCloud1(:,1),ptCloud1(:,2),ptCloud1(:,3),'.')
-hold on
 plot3(ptCloud2(:,1),ptCloud2(:,2),ptCloud2(:,3),'.')
 
 %remove all NaNss
@@ -142,8 +143,8 @@ ptCloud2 = rmmissing(ptCloud2);
 % writematrix(ptCloud2, "T_intersection_scan2.txt", 'Delimiter', 'tab')
 % writematrix(ptCloud1, "T_intersection_simple_scan1.txt", 'Delimiter', 'tab')
 % writematrix(ptCloud2, "T_intersection_simple_scan2.txt", 'Delimiter', 'tab')
-writematrix(ptCloud1, "T_intersection_noisy_scan1.txt", 'Delimiter', 'tab')
-writematrix(ptCloud2, "T_intersection_noisy_scan2.txt", 'Delimiter', 'tab')
+% writematrix(ptCloud1, "T_intersection_noisy_scan1.txt", 'Delimiter', 'tab')
+% writematrix(ptCloud2, "T_intersection_noisy_scan2.txt", 'Delimiter', 'tab')
 
 % writematrix(ptCloud1, "curve_scan1.txt", 'Delimiter', 'tab')
 % writematrix(ptCloud2, "curve_scan2.txt", 'Delimiter', 'tab')

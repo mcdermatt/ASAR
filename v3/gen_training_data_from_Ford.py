@@ -11,9 +11,9 @@ import mat4py
 #		Frames 650-790 seem to be at least within 1cm of true states (too simple)
 #		1320-1430 also good (more complex terrain)
 
-numShifts = 5 #20 #number of times to resample and translate each voxel each scan
-runLen = 10 #300
-ptsPerCell = 100
+numShifts = 10 #20 #number of times to resample and translate each voxel each scan
+runLen = 300 #300
+ptsPerCell = 50
 start_idx = 1130 #1310
 
 ground_truth = np.loadtxt("E:/Ford/IJRR-Dataset-1/SCANS/truth.txt")/10 #was this
@@ -58,9 +58,14 @@ for idx in range(runLen):
 
 	# it = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 3, draw = False, group = 2, 
 	# 	RM = True, DNN_filter = False, cheat = gt)
+
+	shift_scale = 0.0 #standard deviation by which to shift the grid BEFORE SAMPLING corresponding segments of the point cloud
+	shift = tf.cast(tf.constant([shift_scale*tf.random.normal([1]).numpy()[0], shift_scale*tf.random.normal([1]).numpy()[0], 0.2*shift_scale*tf.random.normal([1]).numpy()[0], 0, 0, 0]), tf.float32)
 	#test
-	it = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 3, draw = False, group = 2, 
-		RM = False, DNN_filter = False, cheat = gt)
+	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 3, draw = False, group = 2, 
+		RM = False, DNN_filter = False, cheat = gt+shift)
+
+
 
 	#Get ragged tensor containing all points from each scan inside each sufficient voxel
 	in1 = it.inside1
@@ -117,13 +122,11 @@ for idx in range(runLen):
 		if idx*(j+1) == 0:
 			scan1_cum = scan1
 			scan2_cum = scan2
-			# rand_cum = rand + gt[:3] #wrong
-			rand_cum = rand #new 8/3
+			rand_cum = rand - shift[:3]
 		else:
 			scan1_cum = np.append(scan1_cum, scan1, axis = 0)
 			scan2_cum = np.append(scan2_cum, scan2, axis = 0)
-			# rand_cum = np.append(rand_cum, rand + gt[:3], axis = 0) #wrong
-			rand_cum = np.append(rand_cum, rand, axis = 0)  #new 8/3
+			rand_cum = np.append(rand_cum, rand - shift[:3], axis = 0)  #new 8/3
  
 
 	print("got", tf.shape(enough2.to_tensor())[0].numpy()*numShifts, "training samples from scan", idx)
@@ -137,12 +140,13 @@ for idx in range(runLen):
 # np.savetxt('C:/Users/Derm/Desktop/big/pshift/ICET_Ford_v2_scan1.txt', scan1_cum)
 # np.savetxt('C:/Users/Derm/Desktop/big/pshift/ICET_Ford_v2_scan2.txt', scan2_cum)
 # np.savetxt('C:/Users/Derm/Desktop/big/pshift/ICET_Ford_v2_ground_truth.txt', rand_cum)
-np.save('D:/TrainingData/Ford_scan1_100pts', scan1_cum)
-np.save('D:/TrainingData/Ford_scan2_100pts', scan2_cum)
-np.save('D:/TrainingData/Ford_ground_truth_100pts', rand_cum)
-# np.save('D:/TrainingData/Ford_scan1_100pts_large_displacement', scan1_cum)
-# np.save('D:/TrainingData/Ford_scan2_100pts_large_displacement', scan2_cum)
-# np.save('D:/TrainingData/Ford_ground_truth_100pts_large_displacement', rand_cum)
+# np.save('D:/TrainingData/Ford_scan1_100pts', scan1_cum)
+# np.save('D:/TrainingData/Ford_scan2_100pts', scan2_cum)
+# np.save('D:/TrainingData/Ford_ground_truth_100pts', rand_cum)
+#1130 - 1430
+np.save('D:/TrainingData/Ford_scan1_50pts_large_displacement', scan1_cum)
+np.save('D:/TrainingData/Ford_scan2_50pts_large_displacement', scan2_cum)
+np.save('D:/TrainingData/Ford_ground_truth_50pts_large_displacement', rand_cum)
 
 #v1 = 1050
 #v2 = 2150

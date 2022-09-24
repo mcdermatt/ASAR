@@ -37,7 +37,7 @@ class ICET():
 
 		self.min_cell_distance = 2 #0.1 #5 #begin closest spherical voxel here
 		#ignore "occupied" cells with fewer than this number of pts
-		self.min_num_pts = 100 #was 50 for KITTI and Ford, need to lower to 25 for CODD 
+		self.min_num_pts = 50 #50 #was 50 for KITTI and Ford, need to lower to 25 for CODD 
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
 		self.niter = niter
@@ -193,7 +193,6 @@ class ICET():
 		inside1, npts1 = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes, bounds)	
 		# print(npts1)
 
-		#temp			
 		self.inside1 = inside1
 		self.npts1 = npts1
 		self.bounds = bounds

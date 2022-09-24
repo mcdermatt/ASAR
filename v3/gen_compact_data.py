@@ -7,7 +7,7 @@ from utils import R_tf
 import mat4py
 
 numShifts = 20 #number of times to resample and translate each voxel each scan
-runLen = 2 #199
+runLen = 200 #199
 ptsPerCell = 50
 start_idx = 850 #2700 #1050 #2150
 
@@ -69,7 +69,7 @@ for idx in range(runLen):
 		scan2 = tf.reshape(from2, [-1, 3]).numpy()
 
 		#randomly translate each sample from scan 2
-		rand = tf.constant([1., 1., 0.1])*tf.random.normal([ncells, 3])
+		rand = tf.constant([1., 1., 1.])*tf.random.normal([ncells, 3])
 		# rand = tf.constant([0.001, 0.001, 0.001])*tf.random.normal([ncells, 3]) #test
 		#tile and apply to scan2
 		t = tf.tile(rand, [ptsPerCell,1])

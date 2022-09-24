@@ -322,7 +322,7 @@ def Net(**kwargs):
     '''
     #DO MAX POOLING FOR insize//2 since we are looking at two seperate point clouds!!!!!
 
-    insize = 512 #1024 #512 #100 #200
+    insize = 100 #1024 #512 #100 #200
 
     inputs = keras.Input(shape=(insize, 3)) 
 
@@ -346,6 +346,11 @@ def Net(**kwargs):
     # #--------------------------------------
 
     #was this-------------
+    #bruh moment ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # X = tf.keras.layers.Conv2D(64, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
+    # X = keras.layers.BatchNormalization()(X)
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # code for PCR-NET says to start with [1,3] kernel, however, code in learning3d (also published by Sarode) starts with 1x1
     X = tf.keras.layers.Conv2D(64, [1,3], padding = 'valid', strides = [1,1], activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
 
@@ -385,6 +390,7 @@ def Net(**kwargs):
 
     # 2D Max Pooling - used by author of PointNet, not by PCR-Net(?)
     X = keras.layers.MaxPool2D([insize//2, 1])(X)
+    # X = keras.layers.AveragePooling2D([insize//2, 1])(X) #TODO: test this
     
     #just ff -------------------------------------------------------------------------- 
     X = keras.layers.Flatten()(X)
@@ -441,12 +447,12 @@ def Net(**kwargs):
 
 
     #translation only
-    # output = keras.layers.Dense(units=3, activation = 'tanh')(X)
-    # output = output*tf.constant([5., 5., 5.]) #rescale output
+    output = keras.layers.Dense(units=3, activation = 'tanh')(X)
+    output = output*tf.constant([5., 5., 5.]) #rescale output
 
     # #6DOF (for toilet benchmark)
-    output = keras.layers.Dense(units=6, activation = 'tanh')(X)
-    output = output*tf.constant([3., 3., 3., 3., 3., 3.])
+    # output = keras.layers.Dense(units=6, activation = 'tanh')(X)
+    # output = output*tf.constant([3., 3., 3., 3., 3., 3.])
 
 
 

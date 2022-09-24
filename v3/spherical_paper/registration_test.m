@@ -31,13 +31,13 @@ scan2 = scan2*rotm;
 % scan2 = scan2+ [0.5, 0, 0];
 
 % %remove ground plane (simple z test)--------
-% % gph = -1.5; %ground plane height for KITTI
-% gph = -1.8; %ground plane height for simulated scene 1
-% goodidx1 = find(scan1(:,3)>gph);
-% scan1 = scan1(goodidx1, :);
-% goodidx2 = find(scan2(:,3)>gph);
-% scan2 = scan2(goodidx2, :);
-% % groundPtsIdx1 = segmentGroundFromLidarData(moving); %builtin func
+% gph = -1.5; %ground plane height for KITTI
+gph = -1.8; %ground plane height for simulated scene 1
+goodidx1 = find(scan1(:,3)>gph);
+scan1 = scan1(goodidx1, :);
+goodidx2 = find(scan2(:,3)>gph);
+scan2 = scan2(goodidx2, :);
+% groundPtsIdx1 = segmentGroundFromLidarData(moving); %builtin func
 % %---------------------------------------------
 
 % %add noise to each PC
@@ -64,11 +64,10 @@ fixed.Color = c2;
 offset = 0.1*randn();
 tinit = rigid3d(eul2rotm([0,0,0]), [0.5 + offset,0,0]);
 
-% %NDT---------------------------------------------
-% gridstep = 1;
-% [tform, movingReg, rmse] = pcregisterndt(moving, fixed, gridstep, OutlierRatio=0.5, MaxIterations=50); %try messing with OutlierRatio
-% 
-% %------------------------------------------------
+%NDT---------------------------------------------
+gridstep = 1;
+[tform, movingReg, rmse] = pcregisterndt(moving, fixed, gridstep, OutlierRatio=0.5, MaxIterations=50); %try messing with OutlierRatio
+%------------------------------------------------
 
 %ICP---------------------------------------------
 % vanilla ICP registration
@@ -106,31 +105,31 @@ tinit = rigid3d(eul2rotm([0,0,0]), [0.5 + offset,0,0]);
 % tform.Rotation = tform_gp.Rotation * tform.Rotation;
 % %------------------------------------------------
 
-% %LOAM ---------------------------------------------
-% gridStep = 0.5;
-gridStep = 1.0;
-
-%convert from "Unorganized" to "Organized" point cloud for LOAM
-horizontalResolution = 1800; %1024;
-verticalResolution = 67.0;
-verticalFov = [2,-24.8];
-% params = lidarParameters('HDL64E', 4000); %for KITTI
-params = lidarParameters(verticalResolution, verticalFov, horizontalResolution); %for synthetic data
-moving = pcorganize(moving, params);
-fixed = pcorganize(fixed, params);
-% [tform, rmse] = pcregisterloam(moving,fixed,gridStep, "MatchingMethod","one-to-many", SearchRadius=3.0, Tolerance=[0.001, 0.05]); %using organized PCs
-
-% %using LOAM points~~~~~~~~~~~~~~~~~~~~~
-movingLOAM = detectLOAMFeatures(moving);
-fixedLOAM = detectLOAMFeatures(fixed);
-fixedLOAM = downsampleLessPlanar(fixedLOAM,gridStep);
-movingLOAM = downsampleLessPlanar(movingLOAM,gridStep);
-% [tform, rmse] = pcregisterloam(movingLOAM,fixedLOAM,"MatchingMethod","one-to-many", InitialTransform=tinit, Tolerance=[0.001, 0.05], Verbose=false); 
-[tform, rmse] = pcregisterloam(movingLOAM,fixedLOAM,"MatchingMethod","one-to-many", "SearchRadius",3, ...
-    InitialTransform=tinit, Tolerance=[0.001, 0.05], verbose = false, MaxIterations=50); 
-% %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-% %--------------------------------------------------
+% % %LOAM ---------------------------------------------
+% % gridStep = 0.5;
+% gridStep = 1.0;
+% 
+% %convert from "Unorganized" to "Organized" point cloud for LOAM
+% horizontalResolution = 1800; %1024;
+% verticalResolution = 67.0;
+% verticalFov = [2,-24.8];
+% % params = lidarParameters('HDL64E', 4000); %for KITTI
+% params = lidarParameters(verticalResolution, verticalFov, horizontalResolution); %for synthetic data
+% moving = pcorganize(moving, params);
+% fixed = pcorganize(fixed, params);
+% % [tform, rmse] = pcregisterloam(moving,fixed,gridStep, "MatchingMethod","one-to-many", SearchRadius=3.0, Tolerance=[0.001, 0.05]); %using organized PCs
+% 
+% % %using LOAM points~~~~~~~~~~~~~~~~~~~~~
+% movingLOAM = detectLOAMFeatures(moving);
+% fixedLOAM = detectLOAMFeatures(fixed);
+% fixedLOAM = downsampleLessPlanar(fixedLOAM,gridStep);
+% movingLOAM = downsampleLessPlanar(movingLOAM,gridStep);
+% % [tform, rmse] = pcregisterloam(movingLOAM,fixedLOAM,"MatchingMethod","one-to-many", InitialTransform=tinit, Tolerance=[0.001, 0.05], Verbose=false); 
+% [tform, rmse] = pcregisterloam(movingLOAM,fixedLOAM,"MatchingMethod","one-to-many", "SearchRadius",3, ...
+%     InitialTransform=tinit, Tolerance=[0.001, 0.05], verbose = false, MaxIterations=50); 
+% % %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+% 
+% % %--------------------------------------------------
 
 figure()
 hold on
