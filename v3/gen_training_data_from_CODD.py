@@ -1,3 +1,4 @@
+import pykitti #DEBUG: need to imoport PyKitti for dependencies(?)
 import numpy as np
 import tensorflow as tf
 from tensorflow.math import sin, cos, tan
@@ -13,7 +14,7 @@ ptsPerCell = 50
 
 # filename = 'C:/CODD/data/m1v7p7s769.hdf5' #straight line urban
 # filename = 'C:/CODD/data/m10v11p6s30.hdf5' #wide road, palm trees, and traffic
-filename = 'C:/CODD/data/m2v7p3s333.hdf5' #complex geometries
+filename = '/media/derm/06EF-127D/CODD/data/m2v7p3s333.hdf5' #complex geometries
 
 
 vidx = 1 #set vehicle index
@@ -54,7 +55,7 @@ for idx in range(runLen):
 	shift_scale = 0.0 #standard deviation by which to shift the grid BEFORE SAMPLING corresponding segments of the point cloud
 	shift = tf.cast(tf.constant([shift_scale*tf.random.normal([1]).numpy()[0], shift_scale*tf.random.normal([1]).numpy()[0], 0.2*shift_scale*tf.random.normal([1]).numpy()[0], 0, 0, 0]), tf.float32)
 	#test
-	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 1, draw = False, group = 2, 
+	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 2, draw = False, group = 2, 
 		RM = False, DNN_filter = False, cheat = gt+shift)
 
 
@@ -122,6 +123,13 @@ for idx in range(runLen):
 
 	print("got", tf.shape(enough2.to_tensor())[0].numpy()*numShifts, "training samples from scan", idx)
 
-np.save('D:/TrainingData/CODD_v2_scan1_50pts', scan1_cum)
-np.save('D:/TrainingData/CODD_v2_scan2_50pts', scan2_cum)
-np.save('D:/TrainingData/CODD_v2_ground_truth_50pts', rand_cum)
+
+#windows
+# np.save('D:/TrainingData/CODD_v2_scan1_50pts', scan1_cum)
+# np.save('D:/TrainingData/CODD_v2_scan2_50pts', scan2_cum)
+# np.save('D:/TrainingData/CODD_v2_ground_truth_50pts', rand_cum)
+
+#Ubuntu
+np.save('/media/derm/06EF-127D/TrainingData/CODD_scan1_50pts', scan1_cum)
+np.save('/media/derm/06EF-127D/TrainingData/CODD_scan2_50pts', scan2_cum)
+np.save('/media/derm/06EF-127D/TrainingData/CODD_ground_truth_50pts', rand_cum)

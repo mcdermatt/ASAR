@@ -4,8 +4,8 @@ from tensorflow.keras import layers
 import numpy as np
 
 # #for using PointNet package, need to run py39 conda env ________
-import tensorflow_graphics as tfg
-from tensorflow_graphics.nn.layer.pointnet import PointNetConv2Layer
+# import tensorflow_graphics as tfg
+# from tensorflow_graphics.nn.layer.pointnet import PointNetConv2Layer
 
 # def PointNet(**kwargs):
 #     """ Using PointNet 2D conv layer provided by ___ """

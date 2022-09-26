@@ -9,12 +9,13 @@ from ICET_spherical import ICET
 from utils import R_tf
 from metpy.calc import lat_lon_grid_deltas
 
-numShifts = 20 #5 #number of times to resample and translate each voxel each scan
+numShifts = 10 #5 #number of times to resample and translate each voxel each scan
 runLen = 150 #150
-npts = 100 #50 
+npts = 50 #50 
 
 # init KITTI dataset
-basedir = 'C:/kitti/'
+# basedir = 'C:/kitti/' #windows
+basedir = '/media/derm/06EF-127D/KITTI'
 date = '2011_09_26'
 drive = '0005'# urban dataset used in 3D-ICET paper 
 dataset = pykitti.raw(basedir, date, drive)
@@ -114,9 +115,6 @@ for idx in range(runLen):
 # np.savetxt('perspective_shift/training_data/ICET_KITTI_ground_truth_25_shifted.txt', soln_cum)
 
 #big
-# np.savetxt('C:/Users/Derm/Desktop/big/pshift/ICET_KITTI_scan1_50_shifted.txt', scan1_cum)
-# np.savetxt('C:/Users/Derm/Desktop/big/pshift/ICET_KITTI_scan2_50_shifted.txt', scan2_cum)
-# np.savetxt('C:/Users/Derm/Desktop/big/pshift/ICET_KITTI_ground_truth_50_shifted.txt', soln_cum)
-np.save('D:/TrainingData/KITTI_scan1_100pts', scan1_cum)
-np.save('D:/TrainingData/KITTI_scan2_100pts', scan2_cum)
-np.save('D:/TrainingData/KITTI_ground_truth_100pts', soln_cum)
+np.save('/media/derm/06EF-127D/TrainingData/KITTI_scan1_50pts', scan1_cum)
+np.save('/media/derm/06EF-127D/TrainingData/KITTI_scan2_50pts', scan2_cum)
+np.save('/media/derm/06EF-127D/TrainingData/KITTI_ground_truth_50pts', soln_cum)
