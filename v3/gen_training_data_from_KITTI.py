@@ -3,6 +3,17 @@
 import pykitti
 import numpy as np
 import tensorflow as tf
+
+#limit GPU memory ------------------------------------------------
+gpus = tf.config.experimental.list_physical_devices('GPU')
+print(gpus)
+if gpus:
+  try:
+    tf.config.experimental.set_virtual_device_configuration(gpus[0], [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=4096)])
+  except RuntimeError as e:
+    print(e)
+#-----------------------------------------------------------------
+
 from tensorflow.math import sin, cos, tan
 import tensorflow_probability as tfp
 from ICET_spherical import ICET
@@ -10,14 +21,16 @@ from utils import R_tf
 from metpy.calc import lat_lon_grid_deltas
 
 numShifts = 10 #5 #number of times to resample and translate each voxel each scan
-runLen = 150 #150
+runLen = 250 #150
 npts = 50 #50 
 
 # init KITTI dataset
 # basedir = 'C:/kitti/' #windows
-basedir = '/media/derm/06EF-127D/KITTI'
+basedir = '/media/derm/06EF-127D1/KITTI'
 date = '2011_09_26'
-drive = '0005'# urban dataset used in 3D-ICET paper 
+# drive = '0005'# urban dataset used in 3D-ICET paper 
+drive = '0091'# urban dataset, 341 frames, shopping center, some pedestians (using up to 250 for train, 250+ for test)
+# drive = '0095'# urban dataset, 267 frames, tight road, minimal other vehicles 
 dataset = pykitti.raw(basedir, date, drive)
 
 for idx in range(runLen):
@@ -115,6 +128,6 @@ for idx in range(runLen):
 # np.savetxt('perspective_shift/training_data/ICET_KITTI_ground_truth_25_shifted.txt', soln_cum)
 
 #big
-np.save('/media/derm/06EF-127D/TrainingData/KITTI_scan1_50pts', scan1_cum)
-np.save('/media/derm/06EF-127D/TrainingData/KITTI_scan2_50pts', scan2_cum)
-np.save('/media/derm/06EF-127D/TrainingData/KITTI_ground_truth_50pts', soln_cum)
+np.save('/media/derm/06EF-127D1/TrainingData/KITTI_0091v2_scan1_50pts', scan1_cum)
+np.save('/media/derm/06EF-127D1/TrainingData/KITTI_0091v2_scan2_50pts', scan2_cum)
+np.save('/media/derm/06EF-127D1/TrainingData/KITTI_0091v2_ground_truth_50pts', soln_cum)

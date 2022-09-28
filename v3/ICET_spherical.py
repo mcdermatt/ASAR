@@ -35,25 +35,25 @@ class ICET():
 		x0 = tf.constant([0.0, 0.0, 0., 0., 0., 0.]), group = 2, RM = True,
 		DNN_filter = False, cheat = []):
 
-		self.min_cell_distance = 2 #0.1 #5 #begin closest spherical voxel here
+		self.min_cell_distance = 1 #2 #begin closest spherical voxel here
 		#ignore "occupied" cells with fewer than this number of pts
-		self.min_num_pts = 50 #50 #was 50 for KITTI and Ford, need to lower to 25 for CODD 
+		self.min_num_pts = 50 #was 50 for KITTI and Ford, need to lower to 25 for CODD 
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
 		self.niter = niter
 		self.alpha = 1 #0.5 #controls alpha values when displaying ellipses
 		self.cheat = cheat #overide for using ICET to generate training data for DNN
 		self.DNN_filter = DNN_filter
-		self.start_filter_iter = 10 #10 #iteration to start DNN rejection filter
+		self.start_filter_iter = 6 #10 #iteration to start DNN rejection filter
 		self.start_RM_iter = 6 #10 #iteration to start removing moving objects (set low to generate training data)
 		self.DNN_thresh = 0.05 #0.03
-		self.RM_thresh = 0.05
+		self.RM_thresh = 0.1
 
 		#load dnn model
 		if self.DNN_filter:
 			# self.model = tf.keras.models.load_model("perspective_shift/FORDNet.kmod")  #50 sample points
-			self.model = tf.keras.models.load_model("perspective_shift/FORDNetV2.kmod")  #50 sample points
-			# self.model = tf.keras.models.load_model("perspective_shift/KITTInet50.kmod") #50 sample points
+			# self.model = tf.keras.models.load_model("perspective_shift/FORDNetV2.kmod")  #50 sample points
+			self.model = tf.keras.models.load_model("perspective_shift/KITTInet.kmod") #50 sample points
 			# self.model = tf.keras.models.load_model("perspective_shift/Net.kmod") #50 pts, updated 7/29
 			# self.model = tf.keras.models.load_model("perspective_shift/FULL_KITTInet4500.kmod") #25 sample points
 
@@ -225,7 +225,7 @@ class ICET():
 			# self.visualize_L(mu1_enough, U, L)
 			self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
 			self.draw_cell(corn)
-			self.draw_car()
+			# self.draw_car()
 			# draw identified points inside useful clusters
 			# for n in range(tf.shape(inside1.to_tensor())[0]):
 			# 	temp = tf.gather(self.cloud1_tensor, inside1[n]).numpy()	
