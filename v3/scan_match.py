@@ -29,8 +29,9 @@ date = '2011_09_26'
 # urban dataset used in 3D-ICET paper 
 # drive = '0005'
 # drive = '0091'
-drive = '0117'
-idx = 160
+# drive = '0117'
+drive ='0071'
+idx = 100
 
 #test with aiodrive
 # drive = 'aiodrive'

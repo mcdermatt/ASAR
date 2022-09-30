@@ -31,7 +31,8 @@ date = '2011_09_26'
 # drive = '0005'# urban dataset used in 3D-ICET paper 
 # drive = '0091'# urban dataset, 341 frames, shopping center, some pedestians (using up to 250 for train, 250+ for test)
 # drive = '0095'# urban dataset, 267 frames, tight road, minimal other vehicles 
-drive = '0117' #mixed, trees and sharp turns for 659 frames
+# drive = '0117' #mixed, trees and sharp turns for 659 frames
+drive = '0071' #1058 frames, crowded shopping center
 dataset = pykitti.raw(basedir, date, drive)
 
 for idx in range(runLen):
@@ -52,7 +53,7 @@ for idx in range(runLen):
 	shift = tf.cast(tf.constant([shift_scale*tf.random.normal([1]).numpy()[0], shift_scale*tf.random.normal([1]).numpy()[0], 0.2*shift_scale*tf.random.normal([1]).numpy()[0], 0, 0, 0]), tf.float32)
 
 	it = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 2, draw = False, group = 2, 
-		RM = False, DNN_filter = False, cheat = OXTS_ground_truth+shift)
+		RM = True, DNN_filter = False, cheat = OXTS_ground_truth+shift)
 
 	#Get ragged tensor containing all points from each scan inside each sufficient voxel
 	in1 = it.inside1
@@ -129,6 +130,8 @@ for idx in range(runLen):
 # np.savetxt('perspective_shift/training_data/ICET_KITTI_ground_truth_25_shifted.txt', soln_cum)
 
 #big
-np.save('/media/derm/06EF-127D1/TrainingData/KITTI_0117_scan1_50pts', scan1_cum)
-np.save('/media/derm/06EF-127D1/TrainingData/KITTI_0117_scan2_50pts', scan2_cum)
-np.save('/media/derm/06EF-127D1/TrainingData/KITTI_0117_ground_truth_50pts', soln_cum)
+np.save('/media/derm/06EF-127D1/TrainingData/KITTI_0071v2_scan1_50pts', scan1_cum)
+np.save('/media/derm/06EF-127D1/TrainingData/KITTI_0071v2_scan2_50pts', scan2_cum)
+np.save('/media/derm/06EF-127D1/TrainingData/KITTI_0071v2_ground_truth_50pts', soln_cum)
+
+#0071v2 - removed moving objects at thresh of 0.1
