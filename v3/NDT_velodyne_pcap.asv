@@ -7,34 +7,18 @@ close all
 fn = "D:/volpe/2021-03-10-16-43-50_Velodyne-VLP-16-Data_garminSignage.pcap";
 veloReader = velodyneFileReader(fn, "VLP16");
 
-
-%testing out MatLab Point Cloud Player Utility
-% xlimits = [-60 60];
-% ylimits = [-60 60];
-% zlimits = [-20 20];
-% player = pcplayer(xlimits,ylimits,zlimits);
-% while(hasFrame(veloReader) && player.isOpen() && (veloReader.CurrentTime < veloReader.StartTime + seconds(1000)))
-%     ptCloudObj = readFrame(veloReader);
-%     view(player,ptCloudObj.Location,ptCloudObj.Intensity);
-%     pause(0.01);
-% end
-
 ans_cum = [];
 i = 1;
-
 fixed = veloReader.readFrame()
 moving = veloReader.readFrame()
+%remove ground plane
+[~,fixed,ground_fixed] = segmentGroundSMRF(fixed,MaxWindowRadius=5,ElevationThreshold=0.1,ElevationScale=0.25);
+[~,moving,ground_moving] = segmentGroundSMRF(moving,MaxWindowRadius=5,ElevationThreshold=0.1,ElevationScale=0.25);
 
-while(hasFrame(veloReader) && (veloReader.CurrentTime < veloReader.StartTime + seconds(10)))
+
+% while(hasFrame(veloReader) && (veloReader.CurrentTime < veloReader.StartTime + seconds(10)))
+while(hasFrame(veloReader))
     i   
-
-    %remove ground plane
-%     gph = -1.8; %ground plane height for simulated scene 1
-%     goodidx1 = find(scan1(:,3)>gph);
-%     scan1 = scan1(goodidx1, :);
-%     goodidx2 = find(scan2(:,3)>gph);
-%     scan2 = scan2(goodidx2, :);
-%     % groundPtsIdx1 = segmentGroundFromLidarData(moving); %builtin func
     
     %add noise to each PC
 %     noise_scale = 0.02;
@@ -44,22 +28,21 @@ while(hasFrame(veloReader) && (veloReader.CurrentTime < veloReader.StartTime + s
     
     %NDT---------------------------------------------
     gridstep = 1;
-    [tform, movingReg, rmse] = pcregisterndt(moving, fixed, gridstep, OutlierRatio=0.3)%, MaxIterations=50); %try messing with OutlierRatio    
+    [tform, movingReg, rmse] = pcregisterndt(moving, fixed, gridstep);%    
     %------------------------------------------------
 
-    ans = [tform.Translation, rotm2eul(tform.Rotation)]
+    ans = [tform.Translation, rotm2eul(tform.Rotation)];
     ans_cum = [ans_cum; ans];
     
-    
-    veloReader.CurrentTime
+    fixed = moving; %make 2nd frame from last registration the new keyframe
+    moving = veloReader.readFrame();
+    [~,moving,ground_moving] = segmentGroundSMRF(moving,MaxWindowRadius=5,ElevationThreshold=0.1,ElevationScale=0.25); %remove ground plane
 
-    fixed = moving; %
-
-
+%     veloReader.CurrentTime
     i = i + 1;
 
 end
 
 %save to file
-fn = "NDT_results_signage.txt";
+fn = "NDT_results__signage.txt";
 writematrix(ans_cum, fn, 'Delimiter', 'tab')

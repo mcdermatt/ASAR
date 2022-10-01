@@ -27,9 +27,13 @@ while(hasFrame(veloReader))
 %     
     
     %NDT---------------------------------------------
-    gridstep = 1;
-    [tform, movingReg, rmse] = pcregisterndt(moving, fixed, gridstep);%    
-    %------------------------------------------------
+    gridstep = 0.5;
+    if i == 1
+        [tform, movingReg, rmse] = pcregisterndt(moving, fixed, gridstep);%    
+    else
+        [tform, movingReg, rmse] = pcregisterndt(moving, fixed, gridstep, "InitialTransform", tform, Tolerance=[0.001, 0.005]); %use output of last sim as input for next
+    end
+        %------------------------------------------------
 
     ans = [tform.Translation, rotm2eul(tform.Rotation)];
     ans_cum = [ans_cum; ans];
@@ -44,5 +48,5 @@ while(hasFrame(veloReader))
 end
 
 %save to file
-fn = "NDT_results_signage.txt";
+fn = "NDT_results_initialguess_signage.txt";
 writematrix(ans_cum, fn, 'Delimiter', 'tab')
