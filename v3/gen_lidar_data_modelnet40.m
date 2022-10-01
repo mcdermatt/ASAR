@@ -1,11 +1,5 @@
-%script for simulating lidar scans of input base stl scene (generated using
-%autodesk inventor)
-
-%USES INDIVIDUAL OBJECT FILES
-
-%TODO - augment translation by moving PC's generally closer to the correct
-% solution - this mimics how the iterative implementation will help solve
-% We want to make the basin of attraction as regular as possible
+%generate lidar training data from ModelNet40 dataset
+%TODO: fix broken OFF files
 
 clear all 
 close all
@@ -13,92 +7,31 @@ close all
 nSamples =  50; %25;
 epochs = 10000;
 
-% sam1_cum = [];
-% sam2_cum = [];
-% truth_cum = [];
 true_pos1 = [];
-
 sam1_cum = zeros(epochs*nSamples, 3);
 sam2_cum = zeros(epochs*nSamples, 3);
 truth_cum = zeros(epochs, 3);
 
 for e = 1:epochs
     e
-
-    %import stl
-    roll = floor(9*rand());
-%     roll = 5; %cylinders 
-%     roll = 2; %honda element (best car ever made)
-%     roll = 3; %tesla model 3
-%     roll = 6; %taxi
-%     roll = 7; %vw bus
-%     roll = 8; %dummy
-    if roll == 0
-        FileName = 'training_data/simple_object1.stl';
-    %     scale = [2, 2, 10];
-          scale = [0.3+2*rand(), 0.3+2*rand(), 1+5*rand()];
+    try
+        %import .off file---------
+        %get list of all sub-directories within ModelNet40 dir
+        listing = dir('D:/ModelNet40/');
+        roll1 = ceil(40*rand); %randomly choose an object type
+        object_type = listing(roll1+1).name; %need to add 2 since first elements are "." and ".."
+        roll2 = ceil(9*rand);
+        filename = "D:/ModelNet40/" + object_type + '/train/' + object_type + "_000" + string(roll2) + ".off";
+%         filename = "D:/ModelNet40/" + object_type + '/train/' + object_type + "_0001.off" %for debug
+    %     filename = "D:/ModelNet40/airplane/train/airplane_0006.off" %for debug
+        [vertices, faces] = read_off(filename);
+        vertices = vertices.';
+        faces = faces.';
+        scale = [0.3+2*rand(), 0.3+2*rand(), 1+5*rand()];
         rot_corr = [90, 0, 90];
         mindist = 3.5;
+        %-------------------------
     end
-    if roll == 1
-        FileName = 'training_data/simple_object2.stl';
-    % %     scale = [.2, 0.5, 3];
-          scale = [0.1+2*rand(), 0.1+2*rand(), 1+5*rand()];
-        rot_corr = [90, 0, 90];
-        mindist = 4;
-    end
-    if roll == 2
-        FileName = 'training_data/car1.stl';
-        scale = [4.23, 1.79, 1.82];
-        rot_corr = [90, 0, 90]; %corrective rotation to orient model wheels down
-        mindist = 4;
-    end
-    if roll == 3
-        FileName = 'training_data/car2.stl';
-        scale = [4.7, 2.09, 1.45];
-        rot_corr = [90, 0, 0];
-        mindist = 5;
-    end
-    if roll == 4
-        FileName = 'training_data/bus1.stl';
-        scale = [12.2, 2.23, 3.5];
-        rot_corr = [90, 0, 90];
-        mindist = 8;
-    end
-    if roll == 5
-        FileName = 'training_data/simple_object3.stl'; %cylinder
-%         dia = 1.5 + 1.5*rand();
-        scale = [1.5 + 2*rand(), 1.5 + 2*rand(), 10];
-%         scale = [0.5, 0.5, 10]
-        rot_corr = [90, 0, 90];
-        mindist = 1;
-    end
-   
-    if roll == 6
-        FileName = 'training_data/Taxi.stl';
-        scale = [2, 5, 1.5];
-        rot_corr = [0, 0, 0];
-        mindist = 3;
-    end
-
-    if roll == 7
-        FileName = 'training_data/VW_Bus.stl'; 
-        scale = [2, 6, 2.5];
-        rot_corr = [0, 0, 0];
-        mindist = 3;
-    end
-
-    if roll == 8
-        FileName = 'training_data/dummy.stl'; 
-        scale = [0.6, 0.3, 2.0];
-        rot_corr = [0, 0, 90];
-        mindist = 4;
-    end
-
-    %get vertices, faces, and normals from stl
-    OpenFile = stlread(FileName);
-    vertices = OpenFile.Points;
-    faces = OpenFile.ConnectivityList;
 
 %     %test----------
 %     fn= 'C:\Users\Derm\Desktop\big\ModelNet10\toilet\train\toilet_0055.off';
@@ -114,8 +47,6 @@ for e = 1:epochs
     rot1 = rad2deg(2*pi*rand());
     rot2 = rad2deg(2*pi*rand());
     rot3 = rad2deg(2*pi*rand());
-%     vel = [100, 0, 0];
-%     rot = 0;    %temp- just for demo dataset
 
     %sample random  initial position, but NOT INSIDE OBJECT
     too_close = true;
@@ -128,17 +59,8 @@ for e = 1:epochs
             end
         end
     end
-    
-    %test
-%     pos = [-5.0, 5.0, 0.01];
-%     vel = [100 2 0.1];
-%     pos(1) = pos(1) + 1.5;
-%     true_pos1 = [true_pos1; [pos(1), pos(2), pos(3), rot]];
 
     true_pos1 = [true_pos1; [pos(1), pos(2), pos(3)]];
-
-%     pos = [2, 1, 0];
-%     vel = [0, -10, 0];
 
     mesh = extendedObjectMesh(vertices,faces);     %generate extended object mesh
     mesh = rotate(mesh, rot_corr);     %rotate mesh to correct orientation (provided by each mesh)
@@ -161,17 +83,11 @@ for e = 1:epochs
     scenario = trackingScenario;
     ego = platform(scenario, 'Position', [0, 0, 1.72]);
     target = platform(scenario,'Trajectory',kinematicTrajectory('Position', pos,'Velocity', vel, 'Orientation', quat2rotm(eul2quat([rot1, rot2, rot3])) ));
-    % target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[10 0 0],'Velocity',[5 0 0], 'AngularVelocity', [0, 0, 0.1])); %with rotatation
-%     rotation = eul2quat([rot, 0, 90]);
-%     target.pose.Orientation = rotation;
 
     target.Mesh = mesh;
     target.Dimensions.Length = scale(1); 
     target.Dimensions.Width = scale(2);
     target.Dimensions.Height = scale(3);
-%     target.pose();
-
-%     show(target.Mesh)
     
     % Obtain the mesh of the target viewed from the ego platform after advancing the scenario one step forward.
     advance(scenario);
@@ -185,8 +101,6 @@ for e = 1:epochs
     tgtmeshes = targetMeshes(ego);
     time = scenario.SimulationTime;
     [ptCloud2, config, clusters] = sensor(tgtmeshes, time);
-    
-%     figur-ptCloud2(:,1),ptCloud2(:,2),ptCloud2(:,3),'.')
     
     %remove all NaNss
     ptCloud1 = rmmissing(ptCloud1);
@@ -267,15 +181,11 @@ sam2_cum = sam2_cum + 0.01*randn(size(sam2_cum));
 % % writematrix(true_pos1, "training_data/true_pos1.txt", 'Delimiter', 'tab')
 
 %for larger datasets (don't save with git)
-% writematrix(sam1_cum, "C:/Users/Derm/Desktop/big/pshift/scan1_1k_50_samples.txt", 'Delimiter', 'tab')
-% writematrix(sam2_cum, "C:/Users/Derm/Desktop/big/pshift/scan2_1k_50_samples.txt", 'Delimiter', 'tab')
-% writematrix(truth_cum, "C:/Users/Derm/Desktop/big/pshift/ground_truth_1k_50_samples.txt", 'Delimiter', 'tab')
-writematrix(sam1_cum, "D:/TrainingData/simulated_scan1_50pts.txt", 'Delimiter', 'tab')
-writematrix(sam2_cum, "D:/TrainingData/simulated_scan2_50pts.txt", 'Delimiter', 'tab')
-writematrix(truth_cum, "D:/TrainingData/simulated_ground_truth_50pts.txt", 'Delimiter', 'tab')
+writematrix(sam1_cum, "D:/TrainingData/ModelNet40/50pts_scan1_320k.txt", 'Delimiter', 'tab')
+writematrix(sam2_cum, "D:/TrainingData/ModelNet40/50pts_scan2_320k.txt", 'Delimiter', 'tab')
+writematrix(truth_cum, "D:/TrainingData/ModelNet40/50pts_ground_truth_320k.txt", 'Delimiter', 'tab')
 
-
-% %for debug
+%for debug
 figure()
 hold on
 scatter3(sam1(:,1), sam1(:,2), sam1(:,3))
