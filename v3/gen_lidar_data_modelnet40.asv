@@ -4,8 +4,8 @@
 clear all 
 close all
 
-nSamples =  50; %25;
-epochs = 1000;
+nSamples =  250; %25;
+epochs = 100;
 
 true_pos1 = [];
 sam1_cum = zeros(epochs*nSamples, 3);
@@ -35,7 +35,7 @@ for e = 1:epochs
         faces = faces.';
         scale = [0.3+2*rand(), 0.3+2*rand(), 1+5*rand()];
         rot_corr = [90, 0, 90];
-        mindist = 4;
+        mindist = 3.5;
         %-------------------------
     catch
         "bad"
@@ -82,7 +82,7 @@ for e = 1:epochs
     % set parameters of virtual lidar unit to match velodyne VLP-16
     sensor.UpdateRate = 10;
     sensor.ElevationLimits = [-30, 10];  %[-22, 2]; 
-    sensor.RangeAccuracy = 0.001; % was 0.01, now adding noise at end;
+    sensor.RangeAccuracy = 0.0001; % was 0.01, now adding noise at end;
     sensor.AzimuthResolution = 0.2; %0.2;
     sensor.ElevationResolution = 0.4; %0.4;
     sensor.MaxRange = 100;
@@ -190,9 +190,9 @@ sam2_cum = sam2_cum + 0.01*randn(size(sam2_cum));
 % % writematrix(true_pos1, "training_data/true_pos1.txt", 'Delimiter', 'tab')
 
 %for larger datasets (don't save with git)
-writematrix(sam1_cum, "D:/TrainingData/ModelNet40/50pts_scan1_32k.txt", 'Delimiter', 'tab')
-writematrix(sam2_cum, "D:/TrainingData/ModelNet40/50pts_scan2_32k.txt", 'Delimiter', 'tab')
-writematrix(truth_cum, "D:/TrainingData/ModelNet40/50pts_ground_truth_32k.txt", 'Delimiter', 'tab')
+writematrix(sam1_cum, "D:/TrainingData/ModelNet40/250pts_scan1_3200.txt", 'Delimiter', 'tab')
+writematrix(sam2_cum, "D:/TrainingData/ModelNet40/50pts_scan2_3200.txt", 'Delimiter', 'tab')
+writematrix(truth_cum, "D:/TrainingData/ModelNet40/50pts_ground_truth_32.txt", 'Delimiter', 'tab')
 
 %for debug
 figure()
