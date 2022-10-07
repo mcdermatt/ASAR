@@ -65,38 +65,38 @@ def Attention(**kwargs):
 
 def FFNet(**kwargs):
 
-    insize = 108
+    insize = 200
 
     inputs = keras.Input(shape=(insize, 3)) 
     X = keras.layers.Flatten()(inputs)
 
     
-    X = keras.layers.Dense(units = 512, activation = 'relu')(X)
-    X = keras.layers.BatchNormalization()(X)
-    X = keras.layers.Dense(units = 512, activation = 'relu')(X)
-    X = keras.layers.BatchNormalization()(X)
-    X = keras.layers.Dense(units = 512, activation = 'relu')(X)
-    X = keras.layers.BatchNormalization()(X)
+    # X = keras.layers.Dense(units = 512, activation = 'relu')(X)
+    # X = keras.layers.BatchNormalization()(X)
+    # X = keras.layers.Dense(units = 512, activation = 'relu')(X)
+    # X = keras.layers.BatchNormalization()(X)
+    # X = keras.layers.Dense(units = 512, activation = 'relu')(X)
+    # X = keras.layers.BatchNormalization()(X)
 
-    X = keras.layers.Dense(units = 1024, activation = 'relu')(X)
-    X = keras.layers.BatchNormalization()(X)
-    X = keras.layers.Dense(units = 1024, activation = 'relu')(X)
-    X = keras.layers.BatchNormalization()(X)
-    X = keras.layers.Dense(units = 1024, activation = 'relu')(X)
-    X = keras.layers.BatchNormalization()(X)
-
-
-    X = keras.layers.Dense(units = 2045, activation = 'relu')(X)
-    X = keras.layers.BatchNormalization()(X)
-    X = keras.layers.Dense(units = 2048, activation = 'relu')(X)
-    X = keras.layers.BatchNormalization()(X)
-    X = keras.layers.Dense(units = 2048, activation = 'relu')(X)
-    X = keras.layers.BatchNormalization()(X)
+    # X = keras.layers.Dense(units = 1024, activation = 'relu')(X)
+    # X = keras.layers.BatchNormalization()(X)
+    # X = keras.layers.Dense(units = 1024, activation = 'relu')(X)
+    # X = keras.layers.BatchNormalization()(X)
+    # X = keras.layers.Dense(units = 1024, activation = 'relu')(X)
+    # X = keras.layers.BatchNormalization()(X)
 
 
-    X = keras.layers.Dense(units = 512, activation = 'relu')(X)
-    X = keras.layers.BatchNormalization()(X)
-    X = keras.layers.Dense(units = 256, activation = 'relu')(X)
+    # X = keras.layers.Dense(units = 2045, activation = 'relu')(X)
+    # X = keras.layers.BatchNormalization()(X)
+    # X = keras.layers.Dense(units = 2048, activation = 'relu')(X)
+    # X = keras.layers.BatchNormalization()(X)
+    # X = keras.layers.Dense(units = 2048, activation = 'relu')(X)
+    # X = keras.layers.BatchNormalization()(X)
+
+
+    # X = keras.layers.Dense(units = 512, activation = 'relu')(X)
+    # X = keras.layers.BatchNormalization()(X)
+    X = keras.layers.Dense(units = 64, activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
     X = keras.layers.Dense(units = 64, activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
@@ -585,7 +585,7 @@ def smallNet(**kwargs):
     X = tf.expand_dims(inputs, -1)
 
     # code for PCR-NET says to start with [1,3] kernel, however, code in learning3d (also published by Sarode) starts with 1x1
-    X = tf.keras.layers.Conv2D(64, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
+    X = tf.keras.layers.Conv2D(64, [1,3], padding = 'valid', strides = [1,1], activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
 
     X = tf.keras.layers.Conv2D(64, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
