@@ -21,8 +21,8 @@ from utils import R_tf
 from metpy.calc import lat_lon_grid_deltas
 
 numShifts = 10 #5 #number of times to resample and translate each voxel each scan
-runLen = 650
-npts = 50 #50 
+runLen = 50
+npts = 100 #50 
 
 # init KITTI dataset
 # basedir = 'C:/kitti/' #windows
@@ -130,8 +130,8 @@ for idx in range(runLen):
 # np.savetxt('perspective_shift/training_data/ICET_KITTI_ground_truth_25_shifted.txt', soln_cum)
 
 #big
-np.save('/media/derm/06EF-127D1/TrainingData/KITTI_0071v2_scan1_50pts', scan1_cum)
-np.save('/media/derm/06EF-127D1/TrainingData/KITTI_0071v2_scan2_50pts', scan2_cum)
-np.save('/media/derm/06EF-127D1/TrainingData/KITTI_0071v2_ground_truth_50pts', soln_cum)
+np.save('/media/derm/06EF-127D1/TrainingData/KITTI_0071_scan1_100pts', scan1_cum)
+np.save('/media/derm/06EF-127D1/TrainingData/KITTI_0071_scan2_100pts', scan2_cum)
+np.save('/media/derm/06EF-127D1/TrainingData/KITTI_0071_ground_truth_100pts', soln_cum)
 
 #0071v2 - removed moving objects at thresh of 0.1

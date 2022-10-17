@@ -37,7 +37,7 @@ class ICET():
 
 		self.min_cell_distance = 1 #2 #begin closest spherical voxel here
 		#ignore "occupied" cells with fewer than this number of pts
-		self.min_num_pts = 50 #was 50 for KITTI and Ford, need to lower to 25 for CODD 
+		self.min_num_pts = 100 #was 50 for KITTI and Ford, need to lower to 25 for CODD 
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
 		self.niter = niter
@@ -47,7 +47,7 @@ class ICET():
 		self.start_filter_iter = 6 #10 #iteration to start DNN rejection filter
 		self.start_RM_iter = 1 #10 #iteration to start removing moving objects (set low to generate training data)
 		self.DNN_thresh = 0.05 #0.03
-		self.RM_thresh = 0.1
+		self.RM_thresh = 0.2
 
 		#load dnn model
 		if self.DNN_filter:
