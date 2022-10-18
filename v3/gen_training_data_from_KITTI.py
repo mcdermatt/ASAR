@@ -21,34 +21,47 @@ from utils import R_tf
 from metpy.calc import lat_lon_grid_deltas
 
 numShifts = 10 #5 #number of times to resample and translate each voxel each scan
-runLen = 50
+runLen = 200
 npts = 100 #50 
+skip3 = True #only consider each third point cloud (increase perspective shift bias)
 
 # init KITTI dataset
 # basedir = 'C:/kitti/' #windows
 basedir = '/media/derm/06EF-127D1/KITTI'
 date = '2011_09_26'
 # drive = '0005'# urban dataset used in 3D-ICET paper 
-# drive = '0091'# urban dataset, 341 frames, shopping center, some pedestians (using up to 250 for train, 250+ for test)
+drive = '0091'# urban dataset, 341 frames, shopping center, some pedestians (using up to 250 for train, 250+ for test)
 # drive = '0095'# urban dataset, 267 frames, tight road, minimal other vehicles 
 # drive = '0117' #mixed, trees and sharp turns for 659 frames
-drive = '0071' #1058 frames, crowded shopping center
+# drive = '0071' #1058 frames, crowded shopping center
 dataset = pykitti.raw(basedir, date, drive)
 
 for idx in range(runLen):
 	velo1 = dataset.get_velo(idx) # Each scan is a Nx4 array of [x,y,z,reflectance]
 	c1 = velo1[:,:3]
-	velo2 = dataset.get_velo(idx+1) # Each scan is a Nx4 array of [x,y,z,reflectance]
+	if skip3 == True:
+		velo2 = dataset.get_velo(idx+3) # Each scan is a Nx4 array of [x,y,z,reflectance]
+	else:
+		velo2 = dataset.get_velo(idx+1)
 	c2 = velo2[:,:3]
 	c1 = c1[c1[:,2] > -1.5] #ignore ground plane
 	c2 = c2[c2[:,2] > -1.5] #ignore ground plane
 	# c1 = c1[c1[:,2] > -2.] #ignore reflections
 	# c2 = c2[c2[:,2] > -2.] #ignore reflections
 
+	dt = 0.1037 #mean time between lidar samples
 	poses0 = dataset.oxts[idx] #<- ID of 1st scan
 	poses1 = dataset.oxts[idx+1] #<- ID of 2nd scan
-	dt = 0.1037 #mean time between lidar samples
-	OXTS_ground_truth = tf.constant([poses1.packet.vf*dt, -poses1.packet.vl*dt, poses1.packet.vu*dt, poses1.packet.wf*dt, poses1.packet.wl*dt, poses1.packet.wu*dt])
+	if skip3 == False:
+		OXTS_ground_truth = tf.constant([poses1.packet.vf*dt, -poses1.packet.vl*dt, poses1.packet.vu*dt, poses1.packet.wf*dt, poses1.packet.wl*dt, poses1.packet.wu*dt])
+	else:
+		poses2 = dataset.oxts[idx+2]
+		poses3 = dataset.oxts[idx+3]
+		gt1 = tf.constant([poses1.packet.vf*dt, -poses1.packet.vl*dt, poses1.packet.vu*dt, poses1.packet.wf*dt, poses1.packet.wl*dt, poses1.packet.wu*dt])
+		gt2 = tf.constant([poses2.packet.vf*dt, -poses2.packet.vl*dt, poses2.packet.vu*dt, poses2.packet.wf*dt, poses2.packet.wl*dt, poses2.packet.wu*dt])
+		gt3 = tf.constant([poses3.packet.vf*dt, -poses3.packet.vl*dt, poses3.packet.vu*dt, poses3.packet.wf*dt, poses3.packet.wl*dt, poses3.packet.wu*dt])
+		OXTS_ground_truth = gt1 + gt2 + gt3
+
 	shift_scale = 0.0 #standard deviation by which to shift the grid BEFORE SAMPLING corresponding segments of the point cloud
 	shift = tf.cast(tf.constant([shift_scale*tf.random.normal([1]).numpy()[0], shift_scale*tf.random.normal([1]).numpy()[0], 0.2*shift_scale*tf.random.normal([1]).numpy()[0], 0, 0, 0]), tf.float32)
 
@@ -130,8 +143,9 @@ for idx in range(runLen):
 # np.savetxt('perspective_shift/training_data/ICET_KITTI_ground_truth_25_shifted.txt', soln_cum)
 
 #big
-np.save('/media/derm/06EF-127D1/TrainingData/KITTI_0071_scan1_100pts', scan1_cum)
-np.save('/media/derm/06EF-127D1/TrainingData/KITTI_0071_scan2_100pts', scan2_cum)
-np.save('/media/derm/06EF-127D1/TrainingData/KITTI_0071_ground_truth_100pts', soln_cum)
+np.save('/media/derm/06EF-127D1/TrainingData/KITTI_0091_scan1_100pts_skip3', scan1_cum)
+np.save('/media/derm/06EF-127D1/TrainingData/KITTI_0091_scan2_100pts_skip3', scan2_cum)
+np.save('/media/derm/06EF-127D1/TrainingData/KITTI_0091_ground_truth_100pts_skip3', soln_cum)
 
-#0071v2 - removed moving objects at thresh of 0.1
+#0071_100pts - 500 frames ---> rm > 0.2
+#		Note: 71 has lots of pedestrians
