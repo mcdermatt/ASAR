@@ -3,13 +3,15 @@
 import pykitti
 import numpy as np
 import tensorflow as tf
+import trimesh
 
 #limit GPU memory ------------------------------------------------
 gpus = tf.config.experimental.list_physical_devices('GPU')
 print(gpus)
 if gpus:
   try:
-    tf.config.experimental.set_virtual_device_configuration(gpus[0], [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=4096)])
+    memlim = 4*1024
+    tf.config.experimental.set_virtual_device_configuration(gpus[0], [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=memlim)])
   except RuntimeError as e:
     print(e)
 #-----------------------------------------------------------------
@@ -21,48 +23,49 @@ from utils import R_tf
 from metpy.calc import lat_lon_grid_deltas
 
 numShifts = 10 #5 #number of times to resample and translate each voxel each scan
-runLen = 200
-start_idx = 800
+noise_scale = 0.005 #add gaussian noise to each point
+start_idx = 700 #1150 for town 02
+runLen = 350
 npts = 100 #50 
-skip3 = True #only consider each third point cloud (increase perspective shift bias)
 
+fpl = np.loadtxt("/home/derm/KITTICARLA/dataset/Town01/generated/full_poses_lidar.txt") #full poses lidar
+
+#create rotation and translation vectors
+R = np.array([[fpl[:,0], fpl[:,1], fpl[:,2]],
+              [fpl[:,4], fpl[:,5], fpl[:,6]],
+              [fpl[:,8], fpl[:,9], fpl[:,10]]]).T
+
+T = np.array([fpl[:,3], fpl[:,7], fpl[:,11]]).T
+vel = np.diff(T.T)
 
 for idx in range(runLen):
 	
-	s1_fn = '/home/derm/KITTICARLA/dataset/Town02/generated/frames/frame_%04d.ply' %(idx+start_idx)
+	skip = int(3*np.random.randn())
 
+	s1_fn = '/home/derm/KITTICARLA/dataset/Town01/generated/frames/frame_%04d.ply' %(start_idx + idx)
+	s2_fn = '/home/derm/KITTICARLA/dataset/Town01/generated/frames/frame_%04d.ply' %(start_idx + idx + skip)
 
+	dat1 = trimesh.load(s1_fn)
+	dat2 = trimesh.load(s2_fn)
 
-	velo1 = dataset.get_velo(idx) # Each scan is a Nx4 array of [x,y,z,reflectance]
-	c1 = velo1[:,:3]
-	if skip3 == True:
-		velo2 = dataset.get_velo(idx+3) # Each scan is a Nx4 array of [x,y,z,reflectance]
-	else:
-		velo2 = dataset.get_velo(idx+1)
-	c2 = velo2[:,:3]
-	c1 = c1[c1[:,2] > -1.5] #ignore ground plane
-	c2 = c2[c2[:,2] > -1.5] #ignore ground plane
-	# c1 = c1[c1[:,2] > -2.] #ignore reflections
-	# c2 = c2[c2[:,2] > -2.] #ignore reflections
+	c1 = dat1.vertices
+	c1 = c1[c1[:,2] > -1.65]
+	c1 = c1.dot(R[(idx)*100])
+	c1 += noise_scale*np.random.randn(np.shape(c1)[0],3)
 
-	dt = 0.1037 #mean time between lidar samples
-	poses0 = dataset.oxts[idx] #<- ID of 1st scan
-	poses1 = dataset.oxts[idx+1] #<- ID of 2nd scan
-	if skip3 == False:
-		OXTS_ground_truth = tf.constant([poses1.packet.vf*dt, -poses1.packet.vl*dt, poses1.packet.vu*dt, poses1.packet.wf*dt, poses1.packet.wl*dt, poses1.packet.wu*dt])
-	else:
-		poses2 = dataset.oxts[idx+2]
-		poses3 = dataset.oxts[idx+3]
-		gt1 = tf.constant([poses1.packet.vf*dt, -poses1.packet.vl*dt, poses1.packet.vu*dt, poses1.packet.wf*dt, poses1.packet.wl*dt, poses1.packet.wu*dt])
-		gt2 = tf.constant([poses2.packet.vf*dt, -poses2.packet.vl*dt, poses2.packet.vu*dt, poses2.packet.wf*dt, poses2.packet.wl*dt, poses2.packet.wu*dt])
-		gt3 = tf.constant([poses3.packet.vf*dt, -poses3.packet.vl*dt, poses3.packet.vu*dt, poses3.packet.wf*dt, poses3.packet.wl*dt, poses3.packet.wu*dt])
-		OXTS_ground_truth = gt1 + gt2 + gt3
+	c2 = dat2.vertices
+	c2 = c2[c2[:,2] > -1.65]
+	c2 = c2.dot(R[(idx+skip)*100])
+	# c2 = c2 + vel[:,(idx+skip)*100]*100*skip #transform c2 to overlay with c1
+	c2 = c2 + (vel[:,(idx+skip)*100] + vel[:,(idx)*100])*50*skip #transform c2 to overlay with c1
+	c2 += noise_scale*np.random.randn(np.shape(c2)[0],3)
 
-	shift_scale = 0.0 #standard deviation by which to shift the grid BEFORE SAMPLING corresponding segments of the point cloud
+	shift_scale = 0.05 #standard deviation by which to shift the grid BEFORE SAMPLING corresponding segments of the point cloud
 	shift = tf.cast(tf.constant([shift_scale*tf.random.normal([1]).numpy()[0], shift_scale*tf.random.normal([1]).numpy()[0], 0.2*shift_scale*tf.random.normal([1]).numpy()[0], 0, 0, 0]), tf.float32)
 
-	it = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 2, draw = False, group = 2, 
-		RM = True, DNN_filter = False, cheat = OXTS_ground_truth+shift)
+	x0 = tf.constant([0., 0., 0., 0., 0., 0.])
+	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 2, draw = False, group = 2, 
+		RM = False, DNN_filter = False, cheat = x0+shift)
 
 	#Get ragged tensor containing all points from each scan inside each sufficient voxel
 	in1 = it.inside1
@@ -118,30 +121,14 @@ for idx in range(runLen):
 		if idx*(j+1) == 0:
 			scan1_cum = scan1
 			scan2_cum = scan2
-			soln_cum = rand + shift[:3]
+			soln_cum = soln
 		else:
 			scan1_cum = np.append(scan1_cum, scan1, axis = 0)
 			scan2_cum = np.append(scan2_cum, scan2, axis = 0)
 			soln_cum = np.append(soln_cum, soln, axis = 0)
 
-		#test
-		# print("\n full_soln_vec:", tf.shape(full_soln_vec))
-		# print("\n compact_soln_vec:", tf.shape(compact_soln_vec))
-		# print("t", tf.shape(t))
-		# print("U_i", tf.shape(it.U))
-
-
 	print("got", tf.shape(enough2.to_tensor())[0].numpy()*numShifts, "training samples from scan", idx)
 
-#smol
-# np.savetxt('perspective_shift/training_data/ICET_KITTI_scan1_25_shifted.txt', scan1_cum)
-# np.savetxt('perspective_shift/training_data/ICET_KITTI_scan2_25_shifted.txt', scan2_cum)
-# np.savetxt('perspective_shift/training_data/ICET_KITTI_ground_truth_25_shifted.txt', soln_cum)
-
-#big
-np.save('/media/derm/06EF-127D1/TrainingData/KITTI_0091_scan1_100pts_skip3', scan1_cum)
-np.save('/media/derm/06EF-127D1/TrainingData/KITTI_0091_scan2_100pts_skip3', scan2_cum)
-np.save('/media/derm/06EF-127D1/TrainingData/KITTI_0091_ground_truth_100pts_skip3', soln_cum)
-
-#0071_100pts - 500 frames ---> rm > 0.2
-#		Note: 71 has lots of pedestrians
+np.save('/media/derm/06EF-127D1/TrainingData/KITTI_CARLA_01_scan1_100pts', scan1_cum)
+np.save('/media/derm/06EF-127D1/TrainingData/KITTI_CARLA_01_scan2_100pts', scan2_cum)
+np.save('/media/derm/06EF-127D1/TrainingData/KITTI_CARLA_01_ground_truth_100pts', soln_cum)
