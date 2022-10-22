@@ -24,11 +24,15 @@ from metpy.calc import lat_lon_grid_deltas
 
 numShifts = 10 #5 #number of times to resample and translate each voxel each scan
 noise_scale = 0.005 #add gaussian noise to each point
-start_idx = 700 #1150 for town 02
-runLen = 350
+start_idx = 2300 #Town1
+# start_idx = 1400 #Town3
+runLen = 400
 npts = 100 #50 
 
 fpl = np.loadtxt("/home/derm/KITTICARLA/dataset/Town01/generated/full_poses_lidar.txt") #full poses lidar
+pl = "/home/derm/KITTICARLA/dataset/Town01/generated/poses_lidar.ply"
+datposes = trimesh.load(pl)
+true_traj = datposes.vertices
 
 #create rotation and translation vectors
 R = np.array([[fpl[:,0], fpl[:,1], fpl[:,2]],
@@ -40,7 +44,8 @@ vel = np.diff(T.T)
 
 for idx in range(runLen):
 	
-	skip = int(3*np.random.randn())
+	skip = int(5*np.random.randn())
+	print(skip)
 
 	s1_fn = '/home/derm/KITTICARLA/dataset/Town01/generated/frames/frame_%04d.ply' %(start_idx + idx)
 	s2_fn = '/home/derm/KITTICARLA/dataset/Town01/generated/frames/frame_%04d.ply' %(start_idx + idx + skip)
@@ -49,23 +54,24 @@ for idx in range(runLen):
 	dat2 = trimesh.load(s2_fn)
 
 	c1 = dat1.vertices
-	c1 = c1[c1[:,2] > -1.65]
-	c1 = c1.dot(R[(idx)*100])
+	c1 = c1[c1[:,2] > -1.5]
+	c1 = c1.dot(R[(start_idx + idx)*100])
 	c1 += noise_scale*np.random.randn(np.shape(c1)[0],3)
 
 	c2 = dat2.vertices
-	c2 = c2[c2[:,2] > -1.65]
-	c2 = c2.dot(R[(idx+skip)*100])
+	c2 = c2[c2[:,2] > -1.5]
+	c2 = c2.dot(R[(start_idx + idx+skip)*100])
 	# c2 = c2 + vel[:,(idx+skip)*100]*100*skip #transform c2 to overlay with c1
-	c2 = c2 + (vel[:,(idx+skip)*100] + vel[:,(idx)*100])*50*skip #transform c2 to overlay with c1
+	# c2 = c2 + (vel[:,(idx+skip)*100] + vel[:,(idx)*100])*50*skip #transform c2 to overlay with c1
+	c2 += true_traj[(start_idx + idx+skip)*100] - true_traj[(start_idx + idx)*100] #works better(?)
 	c2 += noise_scale*np.random.randn(np.shape(c2)[0],3)
 
 	shift_scale = 0.05 #standard deviation by which to shift the grid BEFORE SAMPLING corresponding segments of the point cloud
 	shift = tf.cast(tf.constant([shift_scale*tf.random.normal([1]).numpy()[0], shift_scale*tf.random.normal([1]).numpy()[0], 0.2*shift_scale*tf.random.normal([1]).numpy()[0], 0, 0, 0]), tf.float32)
 
 	x0 = tf.constant([0., 0., 0., 0., 0., 0.])
-	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 2, draw = False, group = 2, 
-		RM = False, DNN_filter = False, cheat = x0+shift)
+	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 3, draw = False, group = 2, 
+		RM = True, DNN_filter = False, cheat = x0+shift)
 
 	#Get ragged tensor containing all points from each scan inside each sufficient voxel
 	in1 = it.inside1
