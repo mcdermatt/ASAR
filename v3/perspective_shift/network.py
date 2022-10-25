@@ -493,7 +493,7 @@ def bestNet(**kwargs):
 
     '''  best network structure so far 7/31/22 '''
     
-    insize = 100 #512
+    insize = 200 #512
 
     inputs = keras.Input(shape=(insize, 3)) 
 
@@ -593,8 +593,8 @@ def bestNet(**kwargs):
 
     #rescale output
     # output = output*tf.constant([15., 15., 0.03]) #was this for simple models
-    output = output*tf.constant([30., 30., 3.]) #increased vel using real cars
-    # output = output*tf.constant([5., 5., 5.]) #KITTI
+    # output = output*tf.constant([3., 3., 3.]) #increased vel using real cars
+    output = output*tf.constant([5., 5., 5.]) #KITTI
 
     #toilet benchmark
     # output = output*tf.constant([3., 3., 3., 3., 3., 3.])
