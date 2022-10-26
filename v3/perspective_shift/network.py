@@ -477,7 +477,9 @@ def Net(**kwargs):
 
     #translation only
     output = keras.layers.Dense(units=3, activation = 'tanh')(X)
-    output = output*tf.constant([5., 5., 5.]) #rescale output
+    # output = output*tf.constant([5., 5., 5.]) #rescale output
+    output = output*tf.constant([3., 3., 3.]) #test
+
 
     # #6DOF (for toilet benchmark)
     # output = keras.layers.Dense(units=6, activation = 'tanh')(X)
