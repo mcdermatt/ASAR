@@ -28,10 +28,11 @@ date = '2011_09_26'
 
 # urban dataset used in 3D-ICET paper 
 # drive = '0005'
-# drive = '0091'
+drive = '0091' #Matt's favorite
 # drive = '0117'
-drive ='0071'
+# drive ='0071'
 idx = 100
+skip = 1
 
 #test with aiodrive
 # drive = 'aiodrive'
@@ -54,7 +55,7 @@ dataset = pykitti.raw(basedir, date, drive)
 
 velo1 = dataset.get_velo(idx) # Each scan is a Nx4 array of [x,y,z,reflectance]
 c1 = velo1[:,:3]
-velo2 = dataset.get_velo(idx+1) # Each scan is a Nx4 array of [x,y,z,reflectance]
+velo2 = dataset.get_velo(idx+skip) # Each scan is a Nx4 array of [x,y,z,reflectance]
 c2 = velo2[:,:3]
 # c1 = c1[c1[:,2] > -1.5] #ignore ground plane
 # c2 = c2[c2[:,2] > -1.5] #ignore ground plane
@@ -66,7 +67,7 @@ c2 = velo2[:,:3]
 
 poses0 = dataset.oxts[idx] #<- ID of 1st scan
 poses1 = dataset.oxts[idx+1] #<- ID of 2nd scan
-dt = 0.1037 #mean time between lidar samples
+dt = skip*0.1037 #mean time between lidar samples
 OXTS_ground_truth = tf.constant([poses1.packet.vf*dt, -poses1.packet.vl*dt, poses1.packet.vu*dt, poses1.packet.wf*dt, poses1.packet.wl*dt, poses1.packet.wu*dt])
 # ------------------------------------------------------------------------------------
 
@@ -271,8 +272,8 @@ OXTS_ground_truth = tf.constant([poses1.packet.vf*dt, -poses1.packet.vl*dt, pose
 
 # x0 = tf.constant([0.5 + 0.1*np.random.randn(), 0, 0, 0, 0, 0])
 
-it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 5, 
-	draw = True, group = 2, RM = False, DNN_filter = False)
+it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 7, 
+	draw = True, group = 2, RM = True, DNN_filter = True)
 
 
 # #test using naive spherical cuboid-shaped voxles
@@ -282,5 +283,5 @@ it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 5,
 # 	draw = True, group = 1, RM = False, DNN_filter = False, x0 = x0)#, cheat = gt)
 
 
-# print("\n OXTS_ground_truth: \n", OXTS_ground_truth)
+print("\n OXTS_ground_truth: \n", OXTS_ground_truth)
 # ViewInteractiveWidget(it1.plt.window)

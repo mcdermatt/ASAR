@@ -44,16 +44,17 @@ class ICET():
 		self.alpha = 1 #0.5 #controls alpha values when displaying ellipses
 		self.cheat = cheat #overide for using ICET to generate training data for DNN
 		self.DNN_filter = DNN_filter
-		self.start_filter_iter = 6 #10 #iteration to start DNN rejection filter
-		self.start_RM_iter = 2 #10 #iteration to start removing moving objects (set low to generate training data)
+		self.start_filter_iter = 5 #10 #iteration to start DNN rejection filter
+		self.start_RM_iter = 5 #10 #iteration to start removing moving objects (set low to generate training data)
 		self.DNN_thresh = 0.05 #0.03
-		self.RM_thresh = 0.3
+		self.RM_thresh = 0.2
 
 		#load dnn model
 		if self.DNN_filter:
+			self.model = tf.keras.models.load_model("perspective_shift/KITTINet100.kmod") #BEST
 			# self.model = tf.keras.models.load_model("perspective_shift/FORDNet.kmod")  #50 sample points
 			# self.model = tf.keras.models.load_model("perspective_shift/FORDNetV2.kmod")  #50 sample points
-			self.model = tf.keras.models.load_model("perspective_shift/KITTInet.kmod") #50 sample points
+			# self.model = tf.keras.models.load_model("perspective_shift/KITTInet.kmod") #50 sample points
 			# self.model = tf.keras.models.load_model("perspective_shift/Net.kmod") #50 pts, updated 7/29
 			# self.model = tf.keras.models.load_model("perspective_shift/FULL_KITTInet4500.kmod") #25 sample points
 
@@ -356,7 +357,7 @@ class ICET():
 			if self.DNN_filter and i >= self.start_filter_iter:
 				#DEBUG (5/2)- replaced all references of <corr> to <corr_full>
 
-				nSamplePts = 50 #25
+				nSamplePts = 100 #50
 
 				print("\n ---checking for perspective shift---")
 				#get indices of rag with >= 25 elements
