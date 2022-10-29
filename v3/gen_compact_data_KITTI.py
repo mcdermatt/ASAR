@@ -20,9 +20,10 @@ from metpy.calc import lat_lon_grid_deltas
 
 
 numShifts = 10 #5 #number of times to resample and translate each voxel each scan
-startidx = 250
-runLen = 10 #150
-npts = 50 #50 
+startidx = 0
+runLen = 300 #150
+npts = 100 #50 
+skip3 = True 
 
 # init KITTI dataset
 # basedir = 'C:/kitti/' #windows
@@ -30,7 +31,7 @@ basedir = '/media/derm/06EF-127D1/KITTI'
 date = '2011_09_26'
 # drive = '0005'# urban dataset used in 3D-ICET paper 
 drive = '0091'# urban dataset, 341 frames, shopping center, some pedestians (using up to 250 for train, 250+ for test)
-# drive = '0095'# urban dataset, 267 frames, tight road, minimal other vehicles 
+# drive = '0095'# urban dataset, 267 frames, tight road, minimal other vehicles #start 250
 dataset = pykitti.raw(basedir, date, drive)
 
 for idx in range(startidx, startidx+runLen):
@@ -38,7 +39,10 @@ for idx in range(startidx, startidx+runLen):
 
 	velo1 = dataset.get_velo(idx) # Each scan is a Nx4 array of [x,y,z,reflectance]
 	c1 = velo1[:,:3]
-	velo2 = dataset.get_velo(idx+1) # Each scan is a Nx4 array of [x,y,z,reflectance]
+	if skip3 == True:
+		velo2 = dataset.get_velo(idx+3) # Each scan is a Nx4 array of [x,y,z,reflectance]
+	else:
+		velo2 = dataset.get_velo(idx+1)
 	c2 = velo2[:,:3]
 	c1 = c1[c1[:,2] > -1.5] #ignore ground plane
 	c2 = c2[c2[:,2] > -1.5] #ignore ground plane
@@ -48,7 +52,18 @@ for idx in range(startidx, startidx+runLen):
 	poses0 = dataset.oxts[idx] #<- ID of 1st scan
 	poses1 = dataset.oxts[idx+1] #<- ID of 2nd scan
 	dt = 0.1037 #mean time between lidar samples
-	OXTS_ground_truth = tf.constant([poses1.packet.vf*dt, -poses1.packet.vl*dt, poses1.packet.vu*dt, poses1.packet.wf*dt, poses1.packet.wl*dt, poses1.packet.wu*dt])
+
+	if skip3 == False:
+		OXTS_ground_truth = tf.constant([poses1.packet.vf*dt, -poses1.packet.vl*dt, poses1.packet.vu*dt, poses1.packet.wf*dt, poses1.packet.wl*dt, poses1.packet.wu*dt])
+	else:
+		poses2 = dataset.oxts[idx+2]
+		poses3 = dataset.oxts[idx+3]
+		gt1 = tf.constant([poses1.packet.vf*dt, -poses1.packet.vl*dt, poses1.packet.vu*dt, poses1.packet.wf*dt, poses1.packet.wl*dt, poses1.packet.wu*dt])
+		gt2 = tf.constant([poses2.packet.vf*dt, -poses2.packet.vl*dt, poses2.packet.vu*dt, poses2.packet.wf*dt, poses2.packet.wl*dt, poses2.packet.wu*dt])
+		gt3 = tf.constant([poses3.packet.vf*dt, -poses3.packet.vl*dt, poses3.packet.vu*dt, poses3.packet.wf*dt, poses3.packet.wl*dt, poses3.packet.wu*dt])
+		OXTS_ground_truth = gt1 + gt2 + gt3
+
+
 	shift_scale = 0.0 #standard deviation by which to shift the grid BEFORE SAMPLING corresponding segments of the point cloud
 	shift = tf.cast(tf.constant([shift_scale*tf.random.normal([1]).numpy()[0], shift_scale*tf.random.normal([1]).numpy()[0], 0.2*shift_scale*tf.random.normal([1]).numpy()[0], 0, 0, 0]), tf.float32)
 
@@ -87,14 +102,15 @@ for idx in range(startidx, startidx+runLen):
 		scan2 = tf.reshape(from2, [-1, 3]).numpy()
 
 		#randomly translate each sample from scan 2
-		rand = tf.constant([1., 1., 1.])*tf.random.normal([ncells, 3])
-		# rand = tf.constant([0.001, 0.001, 0.001])*tf.random.normal([ncells, 3]) #test
+		rand = tf.constant([1.0, 1.0, 0.1])*tf.random.normal([ncells, 3])
 		#tile and apply to scan2
 		t = tf.tile(rand, [npts,1])
 		t = tf.reshape(tf.transpose(t), [3,npts,-1])
 		t = tf.transpose(t, [2,1,0])
 		t = tf.reshape(t, [-1, 3])
 		scan2 += t.numpy()
+
+		rand += shift[:3]
 
 		#NEW: suppress extended axis -----------------------------------
 		# print("OG U", tf.shape(it.U))
@@ -141,20 +157,24 @@ for idx in range(startidx, startidx+runLen):
 	print("got", tf.shape(enough2.to_tensor())[0].numpy()*numShifts, "training samples from scan", idx)
 
 #small files
-np.save('perspective_shift/training_data/compact_scan1', scan1_cum)
-np.save('perspective_shift/training_data/compact_scan2', scan2_cum)
-np.save('perspective_shift/training_data/compact_ground_truth', rand_cum_compact)
-np.save('perspective_shift/training_data/ground_truth', rand_cum)
-np.save('perspective_shift/training_data/LUT', LUT_cum) 
-np.save('perspective_shift/training_data/L', L_cum)
-np.save('perspective_shift/training_data/U', U_cum)
-np.save('perspective_shift/training_data/corn', corn_cum)
+# np.save('perspective_shift/training_data/compact_scan1', scan1_cum)
+# np.save('perspective_shift/training_data/compact_scan2', scan2_cum)
+# np.save('perspective_shift/training_data/compact_ground_truth', rand_cum_compact)
+# np.save('perspective_shift/training_data/ground_truth', rand_cum)
+# np.save('perspective_shift/training_data/LUT', LUT_cum) 
+# np.save('perspective_shift/training_data/L', L_cum)
+# np.save('perspective_shift/training_data/U', U_cum)
+# np.save('perspective_shift/training_data/corn', corn_cum)
 
-# np.save('/media/derm/06EF-127D1/TrainingData/compact/compact_scan1', scan1_cum)
-# np.save('/media/derm/06EF-127D1/TrainingData/compact/compact_scan2', scan2_cum)
-# np.save('/media/derm/06EF-127D1/TrainingData/compact/compact_ground_truth', rand_cum_compact)
-# np.save('/media/derm/06EF-127D1/TrainingData/compact/ground_truth', rand_cum)
-# np.save('/media/derm/06EF-127D1/TrainingData/compact/LUT', LUT_cum)
-# np.save('/media/derm/06EF-127D1/TrainingData/compact/L', L_cum)
-# np.save('/media/derm/06EF-127D1/TrainingData/compact/U', U_cum)
-# np.save('/media/derm/06EF-127D1/TrainingData/compact/corn', corn_cum)
+#big files
+np.save('/media/derm/06EF-127D1/TrainingData/compact/0091_compact_scan1', scan1_cum)
+np.save('/media/derm/06EF-127D1/TrainingData/compact/0091_compact_scan2', scan2_cum)
+np.save('/media/derm/06EF-127D1/TrainingData/compact/0091_compact_ground_truth', rand_cum_compact)
+np.save('/media/derm/06EF-127D1/TrainingData/compact/0091_ground_truth', rand_cum)
+np.save('/media/derm/06EF-127D1/TrainingData/compact/0091_LUT', LUT_cum)
+np.save('/media/derm/06EF-127D1/TrainingData/compact/0091_L', L_cum)
+np.save('/media/derm/06EF-127D1/TrainingData/compact/0091_U', U_cum)
+np.save('/media/derm/06EF-127D1/TrainingData/compact/0091_corn', corn_cum)
+
+#0091: 0-300, skip3
+#0095: 75-175, skip3

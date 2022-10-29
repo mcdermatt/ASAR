@@ -21,16 +21,16 @@ from utils import R_tf
 from metpy.calc import lat_lon_grid_deltas
 
 numShifts = 10 #5 #number of times to resample and translate each voxel each scan
-runLen = 200
+runLen = 150
 npts = 100 #50 
-skip3 = True #only consider each third point cloud (increase perspective shift bias)
+skip3 = False #only consider each third point cloud (increase perspective shift bias)
 
 # init KITTI dataset
 # basedir = 'C:/kitti/' #windows
 basedir = '/media/derm/06EF-127D1/KITTI'
 date = '2011_09_26'
-# drive = '0005'# urban dataset used in 3D-ICET paper 
-drive = '0091'# urban dataset, 341 frames, shopping center, some pedestians (using up to 250 for train, 250+ for test)
+drive = '0005'# urban dataset used in 3D-ICET paper 
+# drive = '0091'# urban dataset, 341 frames, shopping center, some pedestians (using up to 250 for train, 250+ for test)
 # drive = '0095'# urban dataset, 267 frames, tight road, minimal other vehicles 
 # drive = '0117' #mixed, trees and sharp turns for 659 frames
 # drive = '0071' #1058 frames, crowded shopping center
@@ -128,13 +128,6 @@ for idx in range(runLen):
 			scan2_cum = np.append(scan2_cum, scan2, axis = 0)
 			soln_cum = np.append(soln_cum, soln, axis = 0)
 
-		#test
-		# print("\n full_soln_vec:", tf.shape(full_soln_vec))
-		# print("\n compact_soln_vec:", tf.shape(compact_soln_vec))
-		# print("t", tf.shape(t))
-		# print("U_i", tf.shape(it.U))
-
-
 	print("got", tf.shape(enough2.to_tensor())[0].numpy()*numShifts, "training samples from scan", idx)
 
 #smol
@@ -143,9 +136,9 @@ for idx in range(runLen):
 # np.savetxt('perspective_shift/training_data/ICET_KITTI_ground_truth_25_shifted.txt', soln_cum)
 
 #big
-np.save('/media/derm/06EF-127D1/TrainingData/KITTI_0091_scan1_100pts_skip3', scan1_cum)
-np.save('/media/derm/06EF-127D1/TrainingData/KITTI_0091_scan2_100pts_skip3', scan2_cum)
-np.save('/media/derm/06EF-127D1/TrainingData/KITTI_0091_ground_truth_100pts_skip3', soln_cum)
+np.save('/media/derm/06EF-127D1/TrainingData/KITTI_0005_scan1_100pts', scan1_cum)
+np.save('/media/derm/06EF-127D1/TrainingData/KITTI_0005_scan2_100pts', scan2_cum)
+np.save('/media/derm/06EF-127D1/TrainingData/KITTI_0005_ground_truth_100pts', soln_cum)
 
 #0071_100pts - 500 frames ---> rm > 0.2
 #		Note: 71 has lots of pedestrians
