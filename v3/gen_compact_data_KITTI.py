@@ -22,8 +22,8 @@ from metpy.calc import lat_lon_grid_deltas
 
 numShifts = 10 #5 #number of times to resample and translate each voxel each scan
 noise_scale = 0.005 #add gaussian noise to each point
-start_idx = 2300
-runLen = 400 #150
+start_idx = 1400
+runLen = 300
 npts = 100 #50 
 skip3 = True 
 
@@ -38,8 +38,8 @@ skip3 = True
 # --------------------------------------------------------------------------
 
 #init KC -----------------------------------------------------
-fpl = np.loadtxt("/home/derm/KITTICARLA/dataset/Town01/generated/full_poses_lidar.txt") #full poses lidar
-pl = "/home/derm/KITTICARLA/dataset/Town01/generated/poses_lidar.ply"
+fpl = np.loadtxt("/home/derm/KITTICARLA/dataset/Town03/generated/full_poses_lidar.txt") #full poses lidar
+pl = "/home/derm/KITTICARLA/dataset/Town03/generated/poses_lidar.ply"
 datposes = trimesh.load(pl)
 true_traj = datposes.vertices
 #create rotation and translation vectors
@@ -93,30 +93,30 @@ for idx in range(start_idx, start_idx+runLen):
 	skip = int(3*np.random.randn())
 	print(skip)
 
-	s1_fn = '/home/derm/KITTICARLA/dataset/Town01/generated/frames/frame_%04d.ply' %(idx)
-	s2_fn = '/home/derm/KITTICARLA/dataset/Town01/generated/frames/frame_%04d.ply' %(idx + skip)
+	s1_fn = '/home/derm/KITTICARLA/dataset/Town03/generated/frames/frame_%04d.ply' %(idx)
+	s2_fn = '/home/derm/KITTICARLA/dataset/Town03/generated/frames/frame_%04d.ply' %(idx + skip)
 
 	dat1 = trimesh.load(s1_fn)
 	dat2 = trimesh.load(s2_fn)
 
 	c1 = dat1.vertices
 	c1 = c1[c1[:,2] > -1.5]
-	c1 = c1.dot(R[(start_idx + idx)*100])
+	c1 = c1.dot(R[(idx)*100])
 	c1 += noise_scale*np.random.randn(np.shape(c1)[0],3)
 
 	c2 = dat2.vertices
 	c2 = c2[c2[:,2] > -1.5]
-	c2 = c2.dot(R[(start_idx + idx+skip)*100])
+	c2 = c2.dot(R[(idx+skip)*100])
 	# c2 = c2 + vel[:,(idx+skip)*100]*100*skip #transform c2 to overlay with c1
 	# c2 = c2 + (vel[:,(idx+skip)*100] + vel[:,(idx)*100])*50*skip #transform c2 to overlay with c1
-	c2 += true_traj[(start_idx + idx+skip)*100] - true_traj[(start_idx + idx)*100] #works better(?)
+	c2 += true_traj[(idx+skip)*100] - true_traj[(idx)*100] #works better(?)
 	c2 += noise_scale*np.random.randn(np.shape(c2)[0],3)
 
 	shift_scale = 0.0 #standard deviation by which to shift the grid BEFORE SAMPLING corresponding segments of the point cloud
 	shift = tf.cast(tf.constant([shift_scale*tf.random.normal([1]).numpy()[0], shift_scale*tf.random.normal([1]).numpy()[0], 0.2*shift_scale*tf.random.normal([1]).numpy()[0], 0, 0, 0]), tf.float32)
 
 	x0 = tf.constant([0., 0., 0., 0., 0., 0.])
-	it = ICET(cloud1 = c1, cloud2 = c2, fid = 60, niter = 1, draw = False, group = 2, 
+	it = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 1, draw = False, group = 2, 
 		RM = False, DNN_filter = False, cheat = x0+shift)
 	# --------------------------------------------------------------------------
 
@@ -217,16 +217,17 @@ for idx in range(start_idx, start_idx+runLen):
 # np.save('perspective_shift/training_data/corn', corn_cum)
 
 #big files
-np.save('/media/derm/06EF-127D1/TrainingData/compact/KCtown1_compact_scan1', scan1_cum)
-np.save('/media/derm/06EF-127D1/TrainingData/compact/KCtown1_compact_scan2', scan2_cum)
-np.save('/media/derm/06EF-127D1/TrainingData/compact/KCtown1_compact_ground_truth', rand_cum_compact)
-np.save('/media/derm/06EF-127D1/TrainingData/compact/KCtown1_ground_truth', rand_cum)
-np.save('/media/derm/06EF-127D1/TrainingData/compact/KCtown1_LUT', LUT_cum)
-np.save('/media/derm/06EF-127D1/TrainingData/compact/KCtown1_L', L_cum)
-np.save('/media/derm/06EF-127D1/TrainingData/compact/KCtown1_U', U_cum)
-np.save('/media/derm/06EF-127D1/TrainingData/compact/KCtown1_corn', corn_cum)
+np.save('/media/derm/06EF-127D1/TrainingData/compact/KCtown3_compact_scan1', scan1_cum)
+np.save('/media/derm/06EF-127D1/TrainingData/compact/KCtown3_compact_scan2', scan2_cum)
+np.save('/media/derm/06EF-127D1/TrainingData/compact/KCtown3_compact_ground_truth', rand_cum_compact)
+np.save('/media/derm/06EF-127D1/TrainingData/compact/KCtown3_ground_truth', rand_cum)
+np.save('/media/derm/06EF-127D1/TrainingData/compact/KCtown3_LUT', LUT_cum)
+np.save('/media/derm/06EF-127D1/TrainingData/compact/KCtown3_L', L_cum)
+np.save('/media/derm/06EF-127D1/TrainingData/compact/KCtown3_U', U_cum)
+np.save('/media/derm/06EF-127D1/TrainingData/compact/KCtown3_corn', corn_cum)
 
 #0091: 0-300, skip3
 #0095: 75-175, skip3
 #KCtown3: 1400-1700, 
+#KCtown2: 3200-3600, skip ~ N(0,3)
 #KCtown1: 2300-2700
