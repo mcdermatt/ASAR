@@ -1,6 +1,7 @@
 import pykitti
 import numpy as np
 import tensorflow as tf
+import trimesh
 
 #limit GPU memory ------------------------------------------------
 gpus = tf.config.experimental.list_physical_devices('GPU')
@@ -20,55 +21,104 @@ from metpy.calc import lat_lon_grid_deltas
 
 
 numShifts = 10 #5 #number of times to resample and translate each voxel each scan
-startidx = 0
-runLen = 300 #150
+noise_scale = 0.005 #add gaussian noise to each point
+start_idx = 2300
+runLen = 400 #150
 npts = 100 #50 
 skip3 = True 
 
-# init KITTI dataset
-# basedir = 'C:/kitti/' #windows
-basedir = '/media/derm/06EF-127D1/KITTI'
-date = '2011_09_26'
-# drive = '0005'# urban dataset used in 3D-ICET paper 
-drive = '0091'# urban dataset, 341 frames, shopping center, some pedestians (using up to 250 for train, 250+ for test)
-# drive = '0095'# urban dataset, 267 frames, tight road, minimal other vehicles #start 250
-dataset = pykitti.raw(basedir, date, drive)
+# # init KITTI dataset-----------------------------------------
+# # basedir = 'C:/kitti/' #windows
+# basedir = '/media/derm/06EF-127D1/KITTI'
+# date = '2011_09_26'
+# # drive = '0005'# urban dataset used in 3D-ICET paper 
+# drive = '0091'# urban dataset, 341 frames, shopping center, some pedestians (using up to 250 for train, 250+ for test)
+# # drive = '0095'# urban dataset, 267 frames, tight road, minimal other vehicles #start 250
+# dataset = pykitti.raw(basedir, date, drive)
+# --------------------------------------------------------------------------
 
-for idx in range(startidx, startidx+runLen):
+#init KC -----------------------------------------------------
+fpl = np.loadtxt("/home/derm/KITTICARLA/dataset/Town01/generated/full_poses_lidar.txt") #full poses lidar
+pl = "/home/derm/KITTICARLA/dataset/Town01/generated/poses_lidar.ply"
+datposes = trimesh.load(pl)
+true_traj = datposes.vertices
+#create rotation and translation vectors
+R = np.array([[fpl[:,0], fpl[:,1], fpl[:,2]],
+              [fpl[:,4], fpl[:,5], fpl[:,6]],
+              [fpl[:,8], fpl[:,9], fpl[:,10]]]).T
+
+T = np.array([fpl[:,3], fpl[:,7], fpl[:,11]]).T
+vel = np.diff(T.T)
+# --------------------------------------------------------------------------
+
+
+for idx in range(start_idx, start_idx+runLen):
 	print("\n ~~~~~~~~~ Frame #", idx, "~~~~~~~~~~~~~ \n")
 
-	velo1 = dataset.get_velo(idx) # Each scan is a Nx4 array of [x,y,z,reflectance]
-	c1 = velo1[:,:3]
-	if skip3 == True:
-		velo2 = dataset.get_velo(idx+3) # Each scan is a Nx4 array of [x,y,z,reflectance]
-	else:
-		velo2 = dataset.get_velo(idx+1)
-	c2 = velo2[:,:3]
-	c1 = c1[c1[:,2] > -1.5] #ignore ground plane
-	c2 = c2[c2[:,2] > -1.5] #ignore ground plane
-	# c1 = c1[c1[:,2] > -2.] #ignore reflections
-	# c2 = c2[c2[:,2] > -2.] #ignore reflections
 
-	poses0 = dataset.oxts[idx] #<- ID of 1st scan
-	poses1 = dataset.oxts[idx+1] #<- ID of 2nd scan
-	dt = 0.1037 #mean time between lidar samples
+	# # KITTI --------------------------------------------------------------------------
+	# velo1 = dataset.get_velo(idx) # Each scan is a Nx4 array of [x,y,z,reflectance]
+	# c1 = velo1[:,:3]
+	# if skip3 == True:
+	# 	velo2 = dataset.get_velo(idx+3) # Each scan is a Nx4 array of [x,y,z,reflectance]
+	# else:
+	# 	velo2 = dataset.get_velo(idx+1)
+	# c2 = velo2[:,:3]
+	# c1 = c1[c1[:,2] > -1.5] #ignore ground plane
+	# c2 = c2[c2[:,2] > -1.5] #ignore ground plane
+	# # c1 = c1[c1[:,2] > -2.] #ignore reflections
+	# # c2 = c2[c2[:,2] > -2.] #ignore reflections
 
-	if skip3 == False:
-		OXTS_ground_truth = tf.constant([poses1.packet.vf*dt, -poses1.packet.vl*dt, poses1.packet.vu*dt, poses1.packet.wf*dt, poses1.packet.wl*dt, poses1.packet.wu*dt])
-	else:
-		poses2 = dataset.oxts[idx+2]
-		poses3 = dataset.oxts[idx+3]
-		gt1 = tf.constant([poses1.packet.vf*dt, -poses1.packet.vl*dt, poses1.packet.vu*dt, poses1.packet.wf*dt, poses1.packet.wl*dt, poses1.packet.wu*dt])
-		gt2 = tf.constant([poses2.packet.vf*dt, -poses2.packet.vl*dt, poses2.packet.vu*dt, poses2.packet.wf*dt, poses2.packet.wl*dt, poses2.packet.wu*dt])
-		gt3 = tf.constant([poses3.packet.vf*dt, -poses3.packet.vl*dt, poses3.packet.vu*dt, poses3.packet.wf*dt, poses3.packet.wl*dt, poses3.packet.wu*dt])
-		OXTS_ground_truth = gt1 + gt2 + gt3
+	# poses0 = dataset.oxts[idx] #<- ID of 1st scan
+	# poses1 = dataset.oxts[idx+1] #<- ID of 2nd scan
+	# dt = 0.1037 #mean time between lidar samples
 
+	# if skip3 == False:
+	# 	OXTS_ground_truth = tf.constant([poses1.packet.vf*dt, -poses1.packet.vl*dt, poses1.packet.vu*dt, poses1.packet.wf*dt, poses1.packet.wl*dt, poses1.packet.wu*dt])
+	# else:
+	# 	poses2 = dataset.oxts[idx+2]
+	# 	poses3 = dataset.oxts[idx+3]
+	# 	gt1 = tf.constant([poses1.packet.vf*dt, -poses1.packet.vl*dt, poses1.packet.vu*dt, poses1.packet.wf*dt, poses1.packet.wl*dt, poses1.packet.wu*dt])
+	# 	gt2 = tf.constant([poses2.packet.vf*dt, -poses2.packet.vl*dt, poses2.packet.vu*dt, poses2.packet.wf*dt, poses2.packet.wl*dt, poses2.packet.wu*dt])
+	# 	gt3 = tf.constant([poses3.packet.vf*dt, -poses3.packet.vl*dt, poses3.packet.vu*dt, poses3.packet.wf*dt, poses3.packet.wl*dt, poses3.packet.wu*dt])
+	# 	OXTS_ground_truth = gt1 + gt2 + gt3
+	# shift_scale = 0.0 #standard deviation by which to shift the grid BEFORE SAMPLING corresponding segments of the point cloud
+	# shift = tf.cast(tf.constant([shift_scale*tf.random.normal([1]).numpy()[0], shift_scale*tf.random.normal([1]).numpy()[0], 0.2*shift_scale*tf.random.normal([1]).numpy()[0], 0, 0, 0]), tf.float32)
+
+	# it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 3, draw = False, group = 2, 
+				# RM = False, DNN_filter = False, cheat = OXTS_ground_truth+shift)
+	# # --------------------------------------------------------------------------
+
+	# KITTI-CARLA ---------------------------------------------------------------------
+	skip = int(3*np.random.randn())
+	print(skip)
+
+	s1_fn = '/home/derm/KITTICARLA/dataset/Town01/generated/frames/frame_%04d.ply' %(idx)
+	s2_fn = '/home/derm/KITTICARLA/dataset/Town01/generated/frames/frame_%04d.ply' %(idx + skip)
+
+	dat1 = trimesh.load(s1_fn)
+	dat2 = trimesh.load(s2_fn)
+
+	c1 = dat1.vertices
+	c1 = c1[c1[:,2] > -1.5]
+	c1 = c1.dot(R[(start_idx + idx)*100])
+	c1 += noise_scale*np.random.randn(np.shape(c1)[0],3)
+
+	c2 = dat2.vertices
+	c2 = c2[c2[:,2] > -1.5]
+	c2 = c2.dot(R[(start_idx + idx+skip)*100])
+	# c2 = c2 + vel[:,(idx+skip)*100]*100*skip #transform c2 to overlay with c1
+	# c2 = c2 + (vel[:,(idx+skip)*100] + vel[:,(idx)*100])*50*skip #transform c2 to overlay with c1
+	c2 += true_traj[(start_idx + idx+skip)*100] - true_traj[(start_idx + idx)*100] #works better(?)
+	c2 += noise_scale*np.random.randn(np.shape(c2)[0],3)
 
 	shift_scale = 0.0 #standard deviation by which to shift the grid BEFORE SAMPLING corresponding segments of the point cloud
 	shift = tf.cast(tf.constant([shift_scale*tf.random.normal([1]).numpy()[0], shift_scale*tf.random.normal([1]).numpy()[0], 0.2*shift_scale*tf.random.normal([1]).numpy()[0], 0, 0, 0]), tf.float32)
 
-	it = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 2, draw = False, group = 2, 
-		RM = False, DNN_filter = False, cheat = OXTS_ground_truth+shift)
+	x0 = tf.constant([0., 0., 0., 0., 0., 0.])
+	it = ICET(cloud1 = c1, cloud2 = c2, fid = 60, niter = 1, draw = False, group = 2, 
+		RM = False, DNN_filter = False, cheat = x0+shift)
+	# --------------------------------------------------------------------------
 
 	#Get ragged tensor containing all points from each scan inside each sufficient voxel
 	in1 = it.inside1
@@ -77,7 +127,7 @@ for idx in range(startidx, startidx+runLen):
 	npts2 = it.npts2
 	corr = it.corr #indices of bins that have enough points from scan1 and scan2
 
-	#get indices of rag with >= 25 elements
+	#get indices of rag with >= n elements
 	ncells = tf.shape(corr)[0].numpy() #num of voxels with sufficent number of points
 	enough1 = tf.gather(in1, corr)
 	enough2 = tf.gather(in2, corr)
@@ -128,7 +178,7 @@ for idx in range(startidx, startidx+runLen):
 		# print("before \n", np.shape(it.corn.numpy()))
 		# print("after \n", it.s2c(it.corn.numpy()))
 
-		if idx*(j+1) == startidx:
+		if idx*(j+1) == start_idx:
 			scan1_cum = scan1
 			scan2_cum = scan2
 			rand_cum = rand #old - use for D2D vs DNN notebook
@@ -167,14 +217,16 @@ for idx in range(startidx, startidx+runLen):
 # np.save('perspective_shift/training_data/corn', corn_cum)
 
 #big files
-np.save('/media/derm/06EF-127D1/TrainingData/compact/0091_compact_scan1', scan1_cum)
-np.save('/media/derm/06EF-127D1/TrainingData/compact/0091_compact_scan2', scan2_cum)
-np.save('/media/derm/06EF-127D1/TrainingData/compact/0091_compact_ground_truth', rand_cum_compact)
-np.save('/media/derm/06EF-127D1/TrainingData/compact/0091_ground_truth', rand_cum)
-np.save('/media/derm/06EF-127D1/TrainingData/compact/0091_LUT', LUT_cum)
-np.save('/media/derm/06EF-127D1/TrainingData/compact/0091_L', L_cum)
-np.save('/media/derm/06EF-127D1/TrainingData/compact/0091_U', U_cum)
-np.save('/media/derm/06EF-127D1/TrainingData/compact/0091_corn', corn_cum)
+np.save('/media/derm/06EF-127D1/TrainingData/compact/KCtown1_compact_scan1', scan1_cum)
+np.save('/media/derm/06EF-127D1/TrainingData/compact/KCtown1_compact_scan2', scan2_cum)
+np.save('/media/derm/06EF-127D1/TrainingData/compact/KCtown1_compact_ground_truth', rand_cum_compact)
+np.save('/media/derm/06EF-127D1/TrainingData/compact/KCtown1_ground_truth', rand_cum)
+np.save('/media/derm/06EF-127D1/TrainingData/compact/KCtown1_LUT', LUT_cum)
+np.save('/media/derm/06EF-127D1/TrainingData/compact/KCtown1_L', L_cum)
+np.save('/media/derm/06EF-127D1/TrainingData/compact/KCtown1_U', U_cum)
+np.save('/media/derm/06EF-127D1/TrainingData/compact/KCtown1_corn', corn_cum)
 
 #0091: 0-300, skip3
 #0095: 75-175, skip3
+#KCtown3: 1400-1700, 
+#KCtown1: 2300-2700

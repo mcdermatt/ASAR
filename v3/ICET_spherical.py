@@ -45,7 +45,7 @@ class ICET():
 		self.cheat = cheat #overide for using ICET to generate training data for DNN
 		self.DNN_filter = DNN_filter
 		self.start_filter_iter = 5 #10 #iteration to start DNN rejection filter
-		self.start_RM_iter = 5 #10 #iteration to start removing moving objects (set low to generate training data)
+		self.start_RM_iter = 1 #10 #iteration to start removing moving objects (set low to generate training data)
 		self.DNN_thresh = 0.05 #0.03
 		self.RM_thresh = 0.2
 
