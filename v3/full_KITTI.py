@@ -9,12 +9,26 @@ import tensorflow_probability as tfp
 from ICET_spherical import ICET
 from metpy.calc import lat_lon_grid_deltas
 
+#limit GPU memory ------------------------------------------------
+gpus = tf.config.experimental.list_physical_devices('GPU')
+print(gpus)
+if gpus:
+  try:
+    memlim = 4*1024
+    tf.config.experimental.set_virtual_device_configuration(gpus[0], [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=memlim)])
+  except RuntimeError as e:
+    print(e)
+#-----------------------------------------------------------------
 
-num_frames = 150
-
-basedir = 'C:/kitti/'
+# basedir = 'C:/kitti/'
+basedir = '/media/derm/06EF-127D1/KITTI'
 date = '2011_09_26'
-drive = '0005'
+# drive = '0005'
+# num_frames = 150
+# drive = '0095'
+# num_frames = 260
+drive = '0027'
+num_frames = 185
 dataset = pykitti.raw(basedir, date, drive)
 
 ICET_estimates = np.zeros([num_frames, 6])
@@ -22,7 +36,9 @@ OXTS_baseline = np.zeros([num_frames, 6])
 ICET_pred_stds = np.zeros([num_frames, 6])
 before_correction = np.zeros([num_frames, 6])
 
-initial_guess = tf.constant([0., 0., 0., 0., 0., 0.])
+# initial_guess = tf.constant([0., 0., 0., 0., 0., 0.])
+initial_guess = tf.constant([1.5, 0, 0, 0, 0, 0])
+
 
 for i in range(num_frames):
 
@@ -52,8 +68,8 @@ for i in range(num_frames):
 
 	#-------------------------------------------------------------------------------------------------
 	#run once to get rough estimate and remove outlier points
-	it = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 8, draw = False, group = 2, 
-		RM = True, DNN_filter = False, x0 = initial_guess)
+	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 20, draw = False, group = 2, 
+		RM = True, DNN_filter = True, x0 = initial_guess)
 	ICET_pred_stds[i] = it.pred_stds
 
 	#run again to re-converge with outliers removed
@@ -112,14 +128,13 @@ for i in range(num_frames):
 	# print("\n solution from ICET \n", ICET_estimates[i])
 	print("\n solution from GPS/INS \n", OXTS_baseline[i])
 
-# np.savetxt("ICET_pred_stds_v18.txt", ICET_pred_stds)
 # np.savetxt("ICET_estimates_v18.txt", ICET_estimates)
 # np.savetxt("OXTS_baseline_v18.txt", OXTS_baseline)
 # np.savetxt("Before_correction_v18.txt", before_correction)
 
-np.savetxt("KITTI_estimates_NDT_mnp25.txt", ICET_estimates)
-
-# np.savetxt("OXTS_baseline_gps.txt", OXTS_baseline)
+np.savetxt("perspective_shift/sim_results/KITTI_0027_CompactNet_5cmThresh.txt", ICET_estimates)
+np.savetxt("perspective_shift/sim_results/KITTI_0027_pred_stds_5cmThresh.txt", ICET_pred_stds)
+# np.savetxt("perspective_shift/sim_results/KITTI_0027_OXTS_baseline_gps.txt", OXTS_baseline)
 
 #v3 - using new clustering 30-100-150, 
 #v4 - with moving objects removed {50}, with ground plane, sigma thresh = 2

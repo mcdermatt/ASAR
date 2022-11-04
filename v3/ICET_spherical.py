@@ -37,21 +37,22 @@ class ICET():
 
 		self.min_cell_distance = 2 #2 #begin closest spherical voxel here
 		#ignore "occupied" cells with fewer than this number of pts
-		self.min_num_pts = 25 #was 50 for KITTI and Ford, need to lower to 25 for CODD 
+		self.min_num_pts = 100 #was 50 for KITTI and Ford, need to lower to 25 for CODD 
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
 		self.niter = niter
-		self.alpha = 1 #0.5 #controls alpha values when displaying ellipses
+		self.alpha = 0.2 #0.5 #controls alpha values when displaying ellipses
 		self.cheat = cheat #overide for using ICET to generate training data for DNN
 		self.DNN_filter = DNN_filter
-		self.start_filter_iter = 5 #10 #iteration to start DNN rejection filter
-		self.start_RM_iter = 4 #10 #iteration to start removing moving objects (set low to generate training data)
+		self.start_filter_iter = 15 #10 #iteration to start DNN rejection filter
+		self.start_RM_iter = 15 #10 #iteration to start removing moving objects (set low to generate training data)
 		self.DNN_thresh = 0.05 #0.03
-		self.RM_thresh = 0.2
+		self.RM_thresh = 0.5
 
 		#load dnn model
 		if self.DNN_filter:
-			self.model = tf.keras.models.load_model("perspective_shift/KITTINet100.kmod") #BEST
+			self.model = tf.keras.models.load_model("perspective_shift/CompactNet.kmod", compile = False) #need flag to avoid importing custom loss func
+			# self.model = tf.keras.models.load_model("perspective_shift/KITTINet100.kmod") #BEST
 			# self.model = tf.keras.models.load_model("perspective_shift/FORDNet.kmod")  #50 sample points
 			# self.model = tf.keras.models.load_model("perspective_shift/FORDNetV2.kmod")  #50 sample points
 			# self.model = tf.keras.models.load_model("perspective_shift/KITTInet.kmod") #50 sample points
@@ -390,7 +391,7 @@ class ICET():
 
 				#Iterative~~~~~~~~~~~~
 				correction = 0
-				niter = 10
+				niter = 5
 				inputs = x_test
 				for _ in range(niter):
 					correction += self.model.predict(inputs) #was this for KITTI/ Ford trained model
@@ -868,6 +869,31 @@ class ICET():
 		# print("o \n", o)
 		# print("corr \n", corr)
 		# print("tf.gather(o,corr) \n",tf.gather(o,corr))
+
+
+	# def compact_loss(self, y_true_extra, y_pred):
+	# 	"""Neet to define for use with """
+
+	# 	#Here, we take in LUT as part of y_true that we disect inside this loss function
+	# 	y_true = y_true_extra[:,:,0] #ahahahahahah messed up my indexing here!
+	# 	ULUT = y_true_extra[:,:,1:]
+
+	# 	compact_dnn = tf.matmul(ULUT, y_pred[:,:,None])
+	# 	compact_true = tf.matmul(ULUT, y_true[:,:,None])
+	# 	loss_compact = (tf.math.reduce_mean(tf.math.abs(compact_dnn - compact_true), axis = 0)**2 )[:,0]    
+	# 	loss_compact = tf.math.sqrt(loss_compact)
+
+	# 	print(compact_dnn)
+	# 	print(y_true[:,:,None])
+
+	# 	#take average of compact loss and total loss to try and balance out training
+	# 	loss_total = (tf.math.reduce_mean(tf.math.abs(y_pred[:,:,None] - y_true[:,:,None]), axis = 0)**2 )[:,0]
+	# 	loss_total = tf.math.sqrt(loss_total)
+
+	# 	loss = (loss_compact + loss_total) / 2
+	# 	#     loss = loss_compact
+	# 	#     loss = loss_compact*0.25 + loss_total*(0.75)    
+	# 	return loss
 
 
 	def get_points_in_cluster(self, cloud, occupied_spikes, bounds):

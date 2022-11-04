@@ -10,7 +10,8 @@ gpus = tf.config.experimental.list_physical_devices('GPU')
 print(gpus)
 if gpus:
   try:
-    tf.config.experimental.set_virtual_device_configuration(gpus[0], [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=4096)])
+    memlim = 4*1024
+    tf.config.experimental.set_virtual_device_configuration(gpus[0], [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=memlim)])
   except RuntimeError as e:
     print(e)
 #-----------------------------------------------------------------
@@ -28,10 +29,11 @@ date = '2011_09_26'
 
 # urban dataset used in 3D-ICET paper 
 # drive = '0005'
-drive = '0091' #Matt's favorite
+drive = '0027'
+# drive = '0091' #Matt's favorite
 # drive = '0117'
 # drive ='0071'
-idx = 100
+idx = 0
 skip = 1
 
 #test with aiodrive
@@ -270,10 +272,10 @@ OXTS_ground_truth = tf.constant([poses1.packet.vf*dt, -poses1.packet.vl*dt, pose
 
 # ground_truth = tf.constant([0.1799, 0., 0., -0.0094, -0.011, -0.02072]) #FULL KITTI scan 1397
 
-# x0 = tf.constant([0.5 + 0.1*np.random.randn(), 0, 0, 0, 0, 0])
+x0 = tf.constant([1.5, 0, 0, 0, 0, 0])
 
-it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 7, 
-	draw = True, group = 2, RM = True, DNN_filter = True)
+it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 20, 
+	draw = True, group = 2, RM = True, DNN_filter = True, x0 = x0)
 
 
 # #test using naive spherical cuboid-shaped voxles
