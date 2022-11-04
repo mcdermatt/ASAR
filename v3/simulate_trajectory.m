@@ -4,14 +4,15 @@ clear all
 close all
 
 runLen = 10;
-scene = 1;
+scene = 2;
 
 %import stl
 if scene == 1
 %     FileName = 'virtual_scenes/scene2.stl';         %scene 1
     FileName = 'virtual_scenes/scene2_thick.stl';         %scene 1    
 else
-    FileName = 'virtual_scenes/mountain_simple.stl'; %scene 2 
+%     FileName = 'virtual_scenes/mountain_simple.stl'; %scene 2 
+    FileName = 'virtual_scenes/forest1.stl';
 end
 
 OpenFile = stlread(FileName);
@@ -23,8 +24,8 @@ faces = OpenFile.ConnectivityList;
 %generate extended object mesh
 mesh = extendedObjectMesh(vertices,faces);
 %rotate mesh to correct orientation
-mesh = rotate(mesh, [0, 0, 90]); %else
-% mesh = rotate(mesh, [270, 0, 90]); %for room
+% mesh = rotate(mesh, [0, 0, 90]); %else
+mesh = rotate(mesh, [270, 0, 90]); %for room
 
 
 %init lidar unit
@@ -55,10 +56,10 @@ end
 
 if scene == 2
 %     ego = platform(scenario, 'Trajectory', kinematicTrajectory('Position',[-10,0,3],'Velocity',[5 0 0], 'AngularVelocity', [0, 0, 0])); %was this
-    ego = platform(scenario,'Position',[0, 0, 0]);
-    target = platform(scenario, 'Trajectory', kinematicTrajectory('Position',[10,0,-3],'Velocity',[-5 0 0], 'AngularVelocity', [0, 0, 0]));
+    ego = platform(scenario,'Position',[-2, 0, 1.72]);
+    target = platform(scenario, 'Trajectory', kinematicTrajectory('Position',[0,0,0],'Velocity',[-40 0 0], 'AngularVelocity', [0, 0, 0]));
     % target = platform(scenario,'Position',[0, 0, 0]); %was this
-    target.Dimensions.Height = 20;
+    target.Dimensions.Height = 7;
 end
 
 
@@ -95,7 +96,8 @@ for idx = 1:runLen
 %     ptCloud = ptCloud*rot;
 
     %save to file
-    fn = "spherical_paper/MC_trajectories/scene" + scene + "_scan" + idx + "_v2.txt";
+%     fn = "spherical_paper/MC_trajectories/scene" + scene + "_scan" + idx + "_v2.txt";
+    fn = "perspective_shift/MC_trajectories/forest1_scan" + idx + ".txt";
     writematrix(ptCloud, fn, 'Delimiter', 'tab')
     
     %add to plot

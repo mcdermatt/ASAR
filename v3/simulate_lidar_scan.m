@@ -4,13 +4,14 @@ clear all
 close all
 
 %import stl
-FileName = 'virtual_scenes/scene1.stl'; %easy scan with house 
+% FileName = 'virtual_scenes/scene1.stl'; %easy scan with house 
 % FileName = 'virtual_scenes/T_intersection.stl' ;
 % FileName = 'virtual_scenes/T_intersection_simple.stl' ;
 % FileName = 'virtual_scenes/T_intersection_noisy.stl' ;
 % FileName = 'virtual_scenes/curve.stl' ;
 % FileName = 'virtual_scenes/big_curve.stl' ;
 % FileName = 'virtual_scenes/tube.stl' ;
+FileName = 'virtual_scenes/forest1.stl';
 
 % FileName = 'virtual_scenes/scene2.stl'; %round pillars on one side of road
 % FileName = 'virtual_scenes/scene2_thick.stl'; %squared pillars
@@ -40,8 +41,8 @@ mesh = extendedObjectMesh(vertices,faces);
 
 %rotate mesh to correct orientation
 % mesh = rotate(mesh, [0, 0, 90]); %else
-mesh = rotate(mesh, [180, 0, 90]); %else
-% mesh = rotate(mesh, [270, 0, 90]); %for room
+% mesh = rotate(mesh, [180, 0, 90]); %else
+mesh = rotate(mesh, [270, 0, 90]); %for room
 
 
 %init lidar unit
@@ -68,7 +69,7 @@ ego = platform(scenario, 'Position', [-1, 0, 1.72]);
 
 % target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[0 0 0],'Velocity',[0 5 0])); %no rotation
 % target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[0 0 -3],'Velocity',[5 0 0], 'AngularVelocity', [0, 0, 1.])); %with rotatation 
-target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[0 -20 -2],'Velocity',[20 0 0], 'AngularVelocity', [0., 0., 0.])); %with rotatation 
+target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[0 0 0],'Velocity',[20 0 0], 'AngularVelocity', [0., 0., 0.])); %with rotatation 
 % target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[-20 0 -8],'Velocity',[5 0 0], 'AngularVelocity', [0, 0, 0.0])); %mountain no trees 
 
 %NOTE: to use offcentered Position we need to have ZERO AngularVelocity!!!
@@ -78,7 +79,7 @@ target.Mesh = mesh;
 %default~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 target.Dimensions.Length = 100; 
 target.Dimensions.Width = 100;
-target.Dimensions.Height = 12; %5; 
+target.Dimensions.Height = 7; %12; 
 %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 %height = 20 for with trees, 
 

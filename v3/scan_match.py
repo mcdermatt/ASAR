@@ -178,74 +178,77 @@ from metpy.calc import lat_lon_grid_deltas
 # #---------------------------------------------------------------------------------------
 
 
-# # load custom point cloud geneated in matlab------------------------------------------
-# # c1 = np.loadtxt("scene1_scan1.txt", dtype = float) #shadows
-# # c2 = np.loadtxt("scene1_scan2.txt", dtype = float)
-# # c1 = np.loadtxt("scene1_scan1_squares.txt", dtype = float) #shadows
-# # c2 = np.loadtxt("scene1_scan2_squares.txt", dtype = float)
+# load custom point cloud geneated in matlab------------------------------------------
+# c1 = np.loadtxt("scene1_scan1.txt", dtype = float) #shadows
+# c2 = np.loadtxt("scene1_scan2.txt", dtype = float)
+# c1 = np.loadtxt("scene1_scan1_squares.txt", dtype = float) #shadows
+# c2 = np.loadtxt("scene1_scan2_squares.txt", dtype = float)
 
-# # c1 = np.loadtxt("spherical_paper/MC_trajectories/scene1_scan2.txt", dtype = float)
-# # c2 = np.loadtxt("spherical_paper/MC_trajectories/scene1_scan3.txt", dtype = float)
-# # c1 = c1[c1[:,2] > -1.8] #ignore ground plane
-# # c2 = c2[c2[:,2] > -1.8] #ignore ground plane
+# c1 = np.loadtxt("spherical_paper/MC_trajectories/scene1_scan2.txt", dtype = float)
+# c2 = np.loadtxt("spherical_paper/MC_trajectories/scene1_scan3.txt", dtype = float)
+# c1 = c1[c1[:,2] > -1.8] #ignore ground plane
+# c2 = c2[c2[:,2] > -1.8] #ignore ground plane
 
 # c1 = np.loadtxt("spherical_paper/MC_trajectories/scene2_scan2.txt", dtype = float)
 # c2 = np.loadtxt("spherical_paper/MC_trajectories/scene2_scan3.txt", dtype = float)
 
-# # c1 = np.loadtxt("T_intersection_scan1.txt", dtype = float)
-# # c2 = np.loadtxt("T_intersection_scan2.txt", dtype = float)
-# # c1 = np.loadtxt("T_intersection_simple_scan1.txt", dtype = float)
-# # c2 = np.loadtxt("T_intersection_simple_scan2.txt", dtype = float)
-# # c1 = np.loadtxt("T_intersection_noisy_scan1.txt", dtype = float)
-# # c2 = np.loadtxt("T_intersection_noisy_scan1.txt", dtype = float)
+c1 = np.loadtxt("perspective_shift/MC_trajectories/forest1_scan1.txt", dtype = float)
+c2 = np.loadtxt("perspective_shift/MC_trajectories/forest1_scan2.txt", dtype = float)
 
-# # c1 = np.loadtxt("curve_scan1.txt", dtype = float)
-# # c2 = np.loadtxt("curve_scan2.txt", dtype = float)
-# # c1 = np.loadtxt("big_curve_scan1.txt", dtype = float)
-# # c2 = np.loadtxt("big_curve_scan2.txt", dtype = float)
+# c1 = np.loadtxt("T_intersection_scan1.txt", dtype = float)
+# c2 = np.loadtxt("T_intersection_scan2.txt", dtype = float)
+# c1 = np.loadtxt("T_intersection_simple_scan1.txt", dtype = float)
+# c2 = np.loadtxt("T_intersection_simple_scan2.txt", dtype = float)
+# c1 = np.loadtxt("T_intersection_noisy_scan1.txt", dtype = float)
+# c2 = np.loadtxt("T_intersection_noisy_scan1.txt", dtype = float)
 
-# # c1 = np.loadtxt("tube_scan1.txt", dtype = float)
-# # c2 = np.loadtxt("tube_scan2.txt", dtype = float)
+# c1 = np.loadtxt("curve_scan1.txt", dtype = float)
+# c2 = np.loadtxt("curve_scan2.txt", dtype = float)
+# c1 = np.loadtxt("big_curve_scan1.txt", dtype = float)
+# c2 = np.loadtxt("big_curve_scan2.txt", dtype = float)
 
-# # c1 = np.loadtxt("plane_scan1.txt", dtype = float)
-# # c2 = np.loadtxt("plane_scan2.txt", dtype = float)
+# c1 = np.loadtxt("tube_scan1.txt", dtype = float)
+# c2 = np.loadtxt("tube_scan2.txt", dtype = float)
+
+# c1 = np.loadtxt("plane_scan1.txt", dtype = float)
+# c2 = np.loadtxt("plane_scan2.txt", dtype = float)
 
 
-# # c1 = np.loadtxt("scene2_scan1.txt", dtype = float) #small cylinders
-# # c2 = np.loadtxt("scene2_scan2.txt", dtype = float)
-# # c1 = np.loadtxt("scene3_scan1.txt", dtype = float) #rectangles
-# # c2 = np.loadtxt("scene3_scan2.txt", dtype = float)
-# # c1 = np.loadtxt("scene4_scan1.txt", dtype = float) #cylinders
-# # c2 = np.loadtxt("scene4_scan2.txt", dtype = float)
-# # c1 = np.loadtxt("simple_room_scan1.txt", dtype = float) #for debugging DNN filter
-# # c2 = np.loadtxt("simple_room_scan2.txt", dtype = float)
-# # c1 = np.loadtxt("verify_geometry_scan1.txt", dtype = float) #validate  2d geometry ipynb
-# # c2 = np.loadtxt("verify_geometry_scan2.txt", dtype = float)
-# # c1 = np.loadtxt("mountain_scan1_no_trees.txt", dtype = float) #test
-# # c2 = np.loadtxt("mountain_scan2_no_trees.txt", dtype = float)
+# c1 = np.loadtxt("scene2_scan1.txt", dtype = float) #small cylinders
+# c2 = np.loadtxt("scene2_scan2.txt", dtype = float)
+# c1 = np.loadtxt("scene3_scan1.txt", dtype = float) #rectangles
+# c2 = np.loadtxt("scene3_scan2.txt", dtype = float)
+# c1 = np.loadtxt("scene4_scan1.txt", dtype = float) #cylinders
+# c2 = np.loadtxt("scene4_scan2.txt", dtype = float)
+# c1 = np.loadtxt("simple_room_scan1.txt", dtype = float) #for debugging DNN filter
+# c2 = np.loadtxt("simple_room_scan2.txt", dtype = float)
+# c1 = np.loadtxt("verify_geometry_scan1.txt", dtype = float) #validate  2d geometry ipynb
+# c2 = np.loadtxt("verify_geometry_scan2.txt", dtype = float)
+# c1 = np.loadtxt("mountain_scan1_no_trees.txt", dtype = float) #test
+# c2 = np.loadtxt("mountain_scan2_no_trees.txt", dtype = float)
 
-# # c1 = c1[c1[:,2] > -1.25] #ignore ground plane
-# # c2 = c2[c2[:,2] > -1.25] #ignore ground plane
+c1 = c1[c1[:,2] > -2.] #ignore ground plane
+c2 = c2[c2[:,2] > -2.] #ignore ground plane
 
-# # debug: get rid of half of the points in scan 2 (testing outlier rejection indexing)
-# # c2 = c2[c2[:,1] > 0 ]
+# debug: get rid of half of the points in scan 2 (testing outlier rejection indexing)
+# c2 = c2[c2[:,1] > 0 ]
 
-# # #add noise (if not generated when point clouds were created)
-# # np.random.seed(101)
-# c1 += 0.02*np.random.randn(np.shape(c1)[0], 3)
-# c2 += 0.02*np.random.randn(np.shape(c2)[0], 3) 
+# #add noise (if not generated when point clouds were created)
+# np.random.seed(101)
+c1 += 0.005*np.random.randn(np.shape(c1)[0], 3)
+c2 += 0.005*np.random.randn(np.shape(c2)[0], 3) 
 
 # #slightly raise each PC
 # c1[:,2] += 0.2
 # c2[:,2] += 0.2
 
-# #translate
-# # c2 += np.array([0, 0.5, 0])
-# #rotate
+#translate
+# c2 += np.array([0, 0.5, 0])
+#rotate
 # rot = R_tf(tf.constant([0., 0., 0.05]))
 # c2 = c2 @ rot.numpy() 
 
-# # ------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------------
 
 
 # #tesing full trajectory before simulation for spherical ICET paper -------------------
@@ -272,52 +275,52 @@ from metpy.calc import lat_lon_grid_deltas
 
 
 
-#KITTI CARLA -------------------------------------------------------------------------------
-import trimesh
+# #KITTI CARLA -------------------------------------------------------------------------------
+# import trimesh
 
-idx = 150
-noise_scale = 0.005
+# idx = 150
+# noise_scale = 0.005
 
-fpl = np.loadtxt("/home/derm/KITTICARLA/dataset/Town07/generated/full_poses_lidar.txt") #full poses lidar
-pl = "/home/derm/KITTICARLA/dataset/Town07/generated/poses_lidar.ply"
-datposes = trimesh.load(pl)
-true_traj = datposes.vertices
-#create rotation and translation vectors
-R = np.array([[fpl[:,0], fpl[:,1], fpl[:,2]],
-              [fpl[:,4], fpl[:,5], fpl[:,6]],
-              [fpl[:,8], fpl[:,9], fpl[:,10]]]).T
+# fpl = np.loadtxt("/home/derm/KITTICARLA/dataset/Town07/generated/full_poses_lidar.txt") #full poses lidar
+# pl = "/home/derm/KITTICARLA/dataset/Town07/generated/poses_lidar.ply"
+# datposes = trimesh.load(pl)
+# true_traj = datposes.vertices
+# #create rotation and translation vectors
+# R = np.array([[fpl[:,0], fpl[:,1], fpl[:,2]],
+#               [fpl[:,4], fpl[:,5], fpl[:,6]],
+#               [fpl[:,8], fpl[:,9], fpl[:,10]]]).T
 
-T = np.array([fpl[:,3], fpl[:,7], fpl[:,11]]).T
-vel = np.diff(T.T)
+# T = np.array([fpl[:,3], fpl[:,7], fpl[:,11]]).T
+# vel = np.diff(T.T)
 
 
-print("\n vel \n", np.shape(vel))
+# print("\n vel \n", np.shape(vel))
 
-skip = 1
+# skip = 1
 
-s1_fn = '/home/derm/KITTICARLA/dataset/Town07/generated/frames/frame_%04d.ply' %(idx)
-s2_fn = '/home/derm/KITTICARLA/dataset/Town07/generated/frames/frame_%04d.ply' %(idx + skip)
+# s1_fn = '/home/derm/KITTICARLA/dataset/Town07/generated/frames/frame_%04d.ply' %(idx)
+# s2_fn = '/home/derm/KITTICARLA/dataset/Town07/generated/frames/frame_%04d.ply' %(idx + skip)
 
-dat1 = trimesh.load(s1_fn)
-dat2 = trimesh.load(s2_fn)
+# dat1 = trimesh.load(s1_fn)
+# dat2 = trimesh.load(s2_fn)
 
-c1 = dat1.vertices
-# c1 = c1.dot(R[(idx)*100])
-c1 += noise_scale*np.random.randn(np.shape(c1)[0],3)
+# c1 = dat1.vertices
+# # c1 = c1.dot(R[(idx)*100])
+# c1 += noise_scale*np.random.randn(np.shape(c1)[0],3)
 
-c2 = dat2.vertices
-# c2 = c2.dot(R[(idx+skip)*100])
-# c2 += true_traj[(idx+skip)*100] - true_traj[(idx)*100] #works better(?)
-c2 += noise_scale*np.random.randn(np.shape(c2)[0],3)
-c1 = c1[c1[:,2] > -1.5]
-c2 = c2[c2[:,2] > -1.5]
-OXTS_ground_truth = true_traj[(idx+skip)*100] - true_traj[(idx)*100]
-# -------------------------------------------------------------------------------------
+# c2 = dat2.vertices
+# # c2 = c2.dot(R[(idx+skip)*100])
+# # c2 += true_traj[(idx+skip)*100] - true_traj[(idx)*100] #works better(?)
+# c2 += noise_scale*np.random.randn(np.shape(c2)[0],3)
+# c1 = c1[c1[:,2] > -1.5]
+# c2 = c2[c2[:,2] > -1.5]
+# OXTS_ground_truth = true_traj[(idx+skip)*100] - true_traj[(idx)*100]
+# # -------------------------------------------------------------------------------------
 
 
 # ground_truth = tf.constant([0.1799, 0., 0., -0.0094, -0.011, -0.02072]) #FULL KITTI scan 1397
 
-x0 = tf.constant([0.25, 0, 0, 0, 0, 0])
+x0 = tf.constant([4.0, 0, 0, 0, 0, 0])
 
 it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 20, 
 	draw = True, group = 2, RM = True, DNN_filter = True, x0 = x0)
