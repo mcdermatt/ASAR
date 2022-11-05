@@ -57,7 +57,7 @@ end
 if scene == 2
 %     ego = platform(scenario, 'Trajectory', kinematicTrajectory('Position',[-10,0,3],'Velocity',[5 0 0], 'AngularVelocity', [0, 0, 0])); %was this
     ego = platform(scenario,'Position',[-2, 0, 1.72]);
-    target = platform(scenario, 'Trajectory', kinematicTrajectory('Position',[0,0,0],'Velocity',[-40 0 0], 'AngularVelocity', [0, 0, 0]));
+    target = platform(scenario, 'Trajectory', kinematicTrajectory('Position',[20,0,0],'Velocity',[-40 0 0], 'AngularVelocity', [0, 0, 0]));
     % target = platform(scenario,'Position',[0, 0, 0]); %was this
     target.Dimensions.Height = 7;
 end
@@ -97,7 +97,7 @@ for idx = 1:runLen
 
     %save to file
 %     fn = "spherical_paper/MC_trajectories/scene" + scene + "_scan" + idx + "_v2.txt";
-    fn = "perspective_shift/MC_trajectories/forest1_scan" + idx + ".txt";
+    fn = "perspective_shift/figures/MC_trajectories/forest1_scan" + idx + ".txt";
     writematrix(ptCloud, fn, 'Delimiter', 'tab')
     
     %add to plot

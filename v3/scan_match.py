@@ -192,8 +192,8 @@ from metpy.calc import lat_lon_grid_deltas
 # c1 = np.loadtxt("spherical_paper/MC_trajectories/scene2_scan2.txt", dtype = float)
 # c2 = np.loadtxt("spherical_paper/MC_trajectories/scene2_scan3.txt", dtype = float)
 
-c1 = np.loadtxt("perspective_shift/MC_trajectories/forest1_scan1.txt", dtype = float)
-c2 = np.loadtxt("perspective_shift/MC_trajectories/forest1_scan2.txt", dtype = float)
+c1 = np.loadtxt("perspective_shift/figures/MC_trajectories/forest1_scan1.txt", dtype = float)
+c2 = np.loadtxt("perspective_shift/figures/MC_trajectories/forest1_scan2.txt", dtype = float)
 
 # c1 = np.loadtxt("T_intersection_scan1.txt", dtype = float)
 # c2 = np.loadtxt("T_intersection_scan2.txt", dtype = float)
@@ -320,7 +320,7 @@ c2 += 0.005*np.random.randn(np.shape(c2)[0], 3)
 
 # ground_truth = tf.constant([0.1799, 0., 0., -0.0094, -0.011, -0.02072]) #FULL KITTI scan 1397
 
-x0 = tf.constant([4.0, 0, 0, 0, 0, 0])
+x0 = tf.constant([1.5, 0, 0, 0, 0, 0])
 
 it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 20, 
 	draw = True, group = 2, RM = True, DNN_filter = True, x0 = x0)

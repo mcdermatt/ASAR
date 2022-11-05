@@ -11,7 +11,7 @@ close all
 % FileName = 'virtual_scenes/curve.stl' ;
 % FileName = 'virtual_scenes/big_curve.stl' ;
 % FileName = 'virtual_scenes/tube.stl' ;
-FileName = 'virtual_scenes/forest1.stl';
+% FileName = 'virtual_scenes/forest1.stl';
 
 % FileName = 'virtual_scenes/scene2.stl'; %round pillars on one side of road
 % FileName = 'virtual_scenes/scene2_thick.stl'; %squared pillars
@@ -21,7 +21,7 @@ FileName = 'virtual_scenes/forest1.stl';
 % FileName = 'virtual_scenes/scene4.stl'; % cylinders w/ occlusion
 % FileName = 'virtual_scenes/scene5.stl'; % rectangles w/0 occlusion
 % FileName = 'virtual_scenes/scene6.stl'; % cylinders w/0 occlusion
-% FileName = 'virtual_scenes/scene7.stl'; % skinny cylinders w/0 occlusion
+FileName = 'virtual_scenes/scene7.stl'; % skinny cylinders w/0 occlusion
 % FileName = 'virtual_scenes/large_room1.stl'; % no back wall
 % FileName = 'virtual_scenes/large_room2.stl'; % with back wall
 % FileName = 'virtual_scenes/verify_geometry.stl'; %use with /perspective_shift/geometry ipynb
@@ -64,12 +64,12 @@ scenario = trackingScenario;
 
 % ego = platform(scenario, 'Position', [-9.75, -1, 0]);
 % ego = platform(scenario, 'Position', [0, 0, 1.72], 'Orientation', eul2rotm(deg2rad([0.0, 45.0, 0.0]))); %[yaw, pitch, roll]
-ego = platform(scenario, 'Position', [-1, 0, 1.72]);
+ego = platform(scenario, 'Position', [0, 0, 1.72]);
 
 
 % target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[0 0 0],'Velocity',[0 5 0])); %no rotation
 % target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[0 0 -3],'Velocity',[5 0 0], 'AngularVelocity', [0, 0, 1.])); %with rotatation 
-target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[0 0 0],'Velocity',[20 0 0], 'AngularVelocity', [0., 0., 0.])); %with rotatation 
+target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[0 0 0],'Velocity',[0 20 0], 'AngularVelocity', [0., 0., 0.])); %with rotatation 
 % target = platform(scenario,'Trajectory',kinematicTrajectory('Position',[-20 0 -8],'Velocity',[5 0 0], 'AngularVelocity', [0, 0, 0.0])); %mountain no trees 
 
 %NOTE: to use offcentered Position we need to have ZERO AngularVelocity!!!
