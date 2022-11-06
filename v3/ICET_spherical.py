@@ -45,13 +45,13 @@ class ICET():
 		self.cheat = cheat #overide for using ICET to generate training data for DNN
 		self.DNN_filter = DNN_filter
 		self.start_filter_iter = 15 #10 #iteration to start DNN rejection filter
-		self.start_RM_iter = 15 #10 #iteration to start removing moving objects (set low to generate training data)
-		self.DNN_thresh = 0.02 #0.03
-		self.RM_thresh = 0.125
+		self.start_RM_iter = 10 #10 #iteration to start removing moving objects (set low to generate training data)
+		self.DNN_thresh = 0.05 #0.03
+		self.RM_thresh = 0.25
 
 		#load dnn model
 		if self.DNN_filter:
-			self.model = tf.keras.models.load_model("CompactNet.kmod", compile = False) #need flag to avoid importing custom loss func
+			self.model = tf.keras.models.load_model("perspective_shift/CompactNet.kmod", compile = False) #need flag to avoid importing custom loss func
 			# self.model = tf.keras.models.load_model("perspective_shift/KITTINet100.kmod") #BEST
 			# self.model = tf.keras.models.load_model("perspective_shift/FORDNet.kmod")  #50 sample points
 			# self.model = tf.keras.models.load_model("perspective_shift/FORDNetV2.kmod")  #50 sample points
