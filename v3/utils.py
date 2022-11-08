@@ -13,8 +13,8 @@ def get_cluster(rads, thresh = 0.5, mnp = 100): #mnp = 50, thresh = 0.2
             """
 
     #TODO: try dymacally lowering <max_buffer> value as algorithm progresses
-    # max_buffer = 0.2 #was this
-    max_buffer = 0.5 #test
+    max_buffer = 0.2 #was this
+    # max_buffer = 0.5 #test
 
 
     #notes for spherical ICET MC 

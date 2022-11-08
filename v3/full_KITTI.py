@@ -6,19 +6,21 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.math import sin, cos, tan
 import tensorflow_probability as tfp
-from ICET_spherical import ICET
-from metpy.calc import lat_lon_grid_deltas
 
 #limit GPU memory ------------------------------------------------
 gpus = tf.config.experimental.list_physical_devices('GPU')
 print(gpus)
 if gpus:
   try:
-    memlim = 2*1024
+    memlim = 4*1024
     tf.config.experimental.set_virtual_device_configuration(gpus[0], [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=memlim)])
   except RuntimeError as e:
     print(e)
 #-----------------------------------------------------------------
+
+from ICET_spherical import ICET
+from metpy.calc import lat_lon_grid_deltas
+import trimesh
 
 # # init KITTI dataset-----------------------------------------
 # basedir = 'C:/kitti/'
@@ -28,22 +30,26 @@ date = '2011_09_26'
 # num_frames = 150
 # drive = '0095'
 # num_frames = 260
-# drive = '0027'
-# num_frames = 185
+drive = '0027'
+num_frames = 185
 # drive = '0095'
 # num_frames = 250
 # drive = '0070'
 # num_frames = 250
-drive = '0071'
-num_frames = 150
+# drive = '0071'
+# num_frames = 150
 dataset = pykitti.raw(basedir, date, drive)
 # --------------------------------------------------------------------------
 
 # #init KC -----------------------------------------------------
-# fpl = np.loadtxt("/home/derm/KITTICARLA/dataset/Town03/generated/full_poses_lidar.txt") #full poses lidar
-# pl = "/home/derm/KITTICARLA/dataset/Town03/generated/poses_lidar.ply"
+# fpl = np.loadtxt("/home/derm/KITTICARLA/dataset/Town07/generated/full_poses_lidar.txt") #full poses lidar
+# pl = "/home/derm/KITTICARLA/dataset/Town07/generated/poses_lidar.ply"
 # datposes = trimesh.load(pl)
 # true_traj = datposes.vertices
+
+# num_frames = 100
+# noise_scale = 0.02
+
 # #create rotation and translation vectors
 # R = np.array([[fpl[:,0], fpl[:,1], fpl[:,2]],
 #               [fpl[:,4], fpl[:,5], fpl[:,6]],
@@ -57,10 +63,10 @@ ICET_estimates = np.zeros([num_frames, 6])
 OXTS_baseline = np.zeros([num_frames, 6])
 ICET_pred_stds = np.zeros([num_frames, 6])
 before_correction = np.zeros([num_frames, 6])
-
-initial_guess = tf.constant([0., 0., 0., 0., 0., 0.])
+initial_guess = tf.constant([1.0, 0., 0., 0., 0., 0.])
 
 for i in range(num_frames):
+# for i in range(0,num_frames,3): #skip3
 
 	print("\n ~~~~~~~~~~~~~~~~~~ Epoch ",  i," ~~~~~~~~~~~~~~~~~~~~~~~~~ \n")
 
@@ -83,39 +89,43 @@ for i in range(num_frames):
 	c2 = c2[c2[:,2] > -1.5] #ignore ground plane
 
 	# run once to get rough estimate and remove outlier points
-	it = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 22, draw = False, group = 2, 
-		RM = True, DNN_filter = True, x0 = initial_guess)
-	ICET_pred_stds[i] = it.pred_stds
+	it = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 8, draw = False, group = 2, 
+		RM = False, DNN_filter = False, x0 = initial_guess)
+	ICET_pred_stds[i] = it.pred_stds 
 
-	#run again to re-converge with outliers removed
+	# run again to re-converge with outliers removed
 	# it = ICET(cloud1 = it.cloud1_static, cloud2 = c2, fid = 70, niter = 20, draw = False, group = 2, RM = False)
 	# -------------------------------------------------------------------------------------------------
 
 	# # KITTI-CARLA ---------------------------------------------------------------------
-	# skip = int(3*np.random.randn())
+	# # skip = int(3*np.random.randn())
+	# skip = 1
 	# print(skip)
 
-	# s1_fn = '/home/derm/KITTICARLA/dataset/Town03/generated/frames/frame_%04d.ply' %(idx)
-	# s2_fn = '/home/derm/KITTICARLA/dataset/Town03/generated/frames/frame_%04d.ply' %(idx + skip)
+	# s1_fn = '/home/derm/KITTICARLA/dataset/Town07/generated/frames/frame_%04d.ply' %(i + 1050)
+	# s2_fn = '/home/derm/KITTICARLA/dataset/Town07/generated/frames/frame_%04d.ply' %(i + 1050 + skip)
 
 	# dat1 = trimesh.load(s1_fn)
 	# dat2 = trimesh.load(s2_fn)
 
 	# c1 = dat1.vertices
-	# c1 = c1.dot(R[(idx)*100])
+	# # c1 = c1.dot(R[(i)*100])
 	# c1 += noise_scale*np.random.randn(np.shape(c1)[0],3)
 
 	# c2 = dat2.vertices
-	# c2 = c2.dot(R[(idx+skip)*100])
-	# c2 += true_traj[(idx+skip)*100] - true_traj[(idx)*100] #works better(?)
+	# # c2 = c2.dot(R[(i+skip)*100])
+	# # c2 += true_traj[(i+skip)*100] - true_traj[(i)*100] #works better(?)
 	# c2 += noise_scale*np.random.randn(np.shape(c2)[0],3)
 
 	# # c1 = c1[c1[:,2] > -1.5]
 	# # c2 = c2[c2[:,2] > -1.5]
 
-	# initial_guess = tf.constant([0., 0., 0., 0., 0., 0.])
-	# it = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 20, draw = False, group = 2, 
+	# initial_guess = tf.constant([0.5, 0., 0., 0., 0., 0.])
+	# it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 10, draw = False, group = 2, 
 	# 	RM = True, DNN_filter = True, x0 = initial_guess)
+
+	# OXTS_ground_truth = true_traj[(i+skip+1050)*100] - true_traj[(i+1050)*100]
+	# # OXTS_baseline[i] = OXTS_ground_truth
 	# # --------------------------------------------------------------------------
 
 
@@ -129,7 +139,7 @@ for i in range(num_frames):
 	ICET_estimates[i] = it.X #* (dataset.timestamps[i+1] - dataset.timestamps[i]).microseconds/(10e5)/0.1
 	before_correction[i] = it.before_correction
 
-	initial_guess = it.X
+	# initial_guess = it.X
 
 	# -------------------------------
 	poses0 = dataset.oxts[i] 
@@ -137,6 +147,10 @@ for i in range(num_frames):
 	dt = 0.1
 	## dt = (dataset.timestamps[i+1] - dataset.timestamps[i]).microseconds/(10e5)
 	OXTS_baseline[i] = np.array([[poses1.packet.vf*dt, poses1.packet.vl*dt, poses1.packet.vu*dt, -poses1.packet.wf*dt, -poses1.packet.wl*dt, -poses1.packet.wu*dt]]) #test
+
+	initial_guess = OXTS_baseline[i]
+	initial_guess[0]  += 0.2*np.random.randn()
+	initial_guess = tf.cast(initial_guess, tf.float32)
 	# -------------------------------
 
 
@@ -178,10 +192,12 @@ for i in range(num_frames):
 	# print("\n solution from ICET \n", ICET_estimates[i])
 	print("\n solution from GPS/INS \n", OXTS_baseline[i])
 
-np.savetxt("perspective_shift/sim_results/KITTI_0071_noDNN.txt", before_correction)
-np.savetxt("perspective_shift/sim_results/KITTI_0071_CompactNet_5cmThresh.txt", ICET_estimates)
-np.savetxt("perspective_shift/sim_results/KITTI_0071_pred_stds_5cmThresh.txt", ICET_pred_stds)
-np.savetxt("perspective_shift/sim_results/KITTI_0071_OXTS_baseline_gps.txt", OXTS_baseline)
+# np.savetxt("perspective_shift/sim_results/KITTI_0027v2_noDNN.txt", before_correction)
+# np.savetxt("perspective_shift/sim_results/KITTI_0027v2_CompactNet_3cmThresh.txt", ICET_estimates)
+# np.savetxt("perspective_shift/sim_results/KITTI_0027v2_pred_stds_3cmThresh.txt", ICET_pred_stds)
+# np.savetxt("perspective_shift/sim_results/KC_Town7_gt.txt", OXTS_baseline)
+np.savetxt("perspective_shift/sim_results/KITTI_0027_noFilter.txt", ICET_estimates)
+
 
 #v3 - using new clustering 30-100-150, 
 #v4 - with moving objects removed {50}, with ground plane, sigma thresh = 2

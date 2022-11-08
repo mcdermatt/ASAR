@@ -35,23 +35,24 @@ class ICET():
 		x0 = tf.constant([0.0, 0.0, 0., 0., 0., 0.]), group = 2, RM = True,
 		DNN_filter = False, cheat = []):
 
-		self.min_cell_distance = 2 #2 #begin closest spherical voxel here
+		self.min_cell_distance = 2 #begin closest spherical voxel here
 		#ignore "occupied" cells with fewer than this number of pts
 		self.min_num_pts = 100 #was 50 for KITTI and Ford, need to lower to 25 for CODD 
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
 		self.niter = niter
-		self.alpha = 0.5 #0.5 #controls alpha values when displaying ellipses
+		self.alpha = 0.3 #0.5 #controls alpha values when displaying ellipses
 		self.cheat = cheat #overide for using ICET to generate training data for DNN
 		self.DNN_filter = DNN_filter
-		self.start_filter_iter = 15 #10 #iteration to start DNN rejection filter
-		self.start_RM_iter = 10 #10 #iteration to start removing moving objects (set low to generate training data)
-		self.DNN_thresh = 0.05 #0.03
-		self.RM_thresh = 0.25
+		self.start_filter_iter = 8 #10 #iteration to start DNN rejection filter
+		self.start_RM_iter = 6 #10 #iteration to start removing moving objects (set low to generate training data)
+		self.DNN_thresh = 0.06 #0.03
+		self.RM_thresh = 0.425
 
 		#load dnn model
 		if self.DNN_filter:
-			self.model = tf.keras.models.load_model("perspective_shift/CompactNet.kmod", compile = False) #need flag to avoid importing custom loss func
+			# self.model = tf.keras.models.load_model("perspective_shift/CompactNet.kmod", compile = False) #need flag to avoid importing custom loss func
+			self.model = tf.keras.models.load_model("perspective_shift/combinedNet.kmod")
 			# self.model = tf.keras.models.load_model("perspective_shift/KITTINet100.kmod") #BEST
 			# self.model = tf.keras.models.load_model("perspective_shift/FORDNet.kmod")  #50 sample points
 			# self.model = tf.keras.models.load_model("perspective_shift/FORDNetV2.kmod")  #50 sample points
@@ -227,7 +228,7 @@ class ICET():
 			# self.visualize_L(mu1_enough, U, L)
 			self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
 			self.draw_cell(corn)
-			# self.draw_car()
+			self.draw_car()
 			# draw identified points inside useful clusters
 			# for n in range(tf.shape(inside1.to_tensor())[0]):
 			# 	temp = tf.gather(self.cloud1_tensor, inside1[n]).numpy()	
@@ -614,12 +615,12 @@ class ICET():
 
 		#draw PC2
 		if self.draw == True:
-			if remove_moving:
-				self.draw_cell(bad_idx_corn_moving, bad = True) #for debug
 			if self.DNN_filter:
 				self.draw_cell(bad_idx_corn_DNN, bad = 2)
 				# self.draw_DNN_soln(dnn_compact_xyz[:,:,0], it_compact_xyz[:,:,0], idx_to_draw_dnn_soln) #just in compact directions
 				self.draw_DNN_soln(dnnsoln, icetsoln, idx_to_draw_dnn_soln) #raw solutions
+			if remove_moving:
+				self.draw_cell(bad_idx_corn_moving, bad = True) #for debug
 
 
 			# self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
@@ -1766,12 +1767,12 @@ class ICET():
 		if pc == 3:
 			color = [0.5, 0.8, 0.5]
 		
-		c = Points(points, c = color, r = 3, alpha = 0.8) #r = 4
+		c = Points(points, c = color, r = 2., alpha = 1.) #r = 4
 		self.disp.append(c)
 
 	def draw_car(self):
 		# (used for making presentation graphics)
-		fname = "C:/Users/Derm/honda.vtk"
+		fname = "honda.stl"
 		# car = Mesh(fname).c("gray").rotate(90, axis = (0,0,1)).addShadow(z=-1.85) #old vedo
 		car = Mesh(fname).c("gray").rotate(90, axis = (0,0,1))
 		car.pos(1.4,1,-1.72)
@@ -1782,11 +1783,11 @@ class ICET():
 		#draw sphere at location of sensor
 		# self.disp.append(Points(np.array([[0,0,0]]), c = [0.9,0.9,0.5], r = 10))
 
-		fname = "C:/Users/Derm/lidar.stl"
-		velodyne = Mesh(fname).c("gray").rotate(90, axis = (1,0,0)).scale(0.001)
-		velodyne.rotate(180, axis = (0,1,0))
-		velodyne.pos(0,0.1,0.01)
-		velodyne.addShadow(plane = 'z', point = -0.08, c = (0.2, 0.2, 0.2))
-		self.disp.append(velodyne)
+		# fname = "C:/Users/Derm/lidar.stl"
+		# velodyne = Mesh(fname).c("gray").rotate(90, axis = (1,0,0)).scale(0.001)
+		# velodyne.rotate(180, axis = (0,1,0))
+		# velodyne.pos(0,0.1,0.01)
+		# velodyne.addShadow(plane = 'z', point = -0.08, c = (0.2, 0.2, 0.2))
+		# self.disp.append(velodyne)
 
 		# print(car.rot)

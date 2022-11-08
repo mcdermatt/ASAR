@@ -28,14 +28,14 @@ basedir = '/media/derm/06EF-127D1/KITTI'
 date = '2011_09_26'
 
 # urban dataset used in 3D-ICET paper 
-# drive = '0005'
-# drive = '0027'
-# drive = '0091' #Matt's favorite
+# drive = '0005' #life in the big city
+drive = '0027' #wooded highway - doing really well here!??!
+# drive = '0091' #Matt's favorite- don't use for testing though, we trained here!
 # drive = '0095'
 # drive = '0117'
 # drive = '0070'
-drive ='0071'
-idx = 90
+# drive ='0071'
+idx = 35
 skip = 1
 
 #test with aiodrive
@@ -280,11 +280,12 @@ OXTS_ground_truth = tf.constant([poses1.packet.vf*dt, -poses1.packet.vl*dt, pose
 # #KITTI CARLA -------------------------------------------------------------------------------
 # import trimesh
 
-# idx = 50
-# noise_scale = 0.005
+# idx = 1050
+# noise_scale = 0.02
+# town = "Town07"
 
-# fpl = np.loadtxt("/home/derm/KITTICARLA/dataset/Town07/generated/full_poses_lidar.txt") #full poses lidar
-# pl = "/home/derm/KITTICARLA/dataset/Town07/generated/poses_lidar.ply"
+# fpl = np.loadtxt("/home/derm/KITTICARLA/dataset/" + town + "/generated/full_poses_lidar.txt") #full poses lidar
+# pl = "/home/derm/KITTICARLA/dataset/" + town + "/generated/poses_lidar.ply"
 # datposes = trimesh.load(pl)
 # true_traj = datposes.vertices
 # #create rotation and translation vectors
@@ -298,10 +299,10 @@ OXTS_ground_truth = tf.constant([poses1.packet.vf*dt, -poses1.packet.vl*dt, pose
 
 # print("\n vel \n", np.shape(vel))
 
-# skip = 1
+# skip = 3
 
-# s1_fn = '/home/derm/KITTICARLA/dataset/Town07/generated/frames/frame_%04d.ply' %(idx)
-# s2_fn = '/home/derm/KITTICARLA/dataset/Town07/generated/frames/frame_%04d.ply' %(idx + skip)
+# s1_fn = '/home/derm/KITTICARLA/dataset/' + town + '/generated/frames/frame_%04d.ply' %(idx)
+# s2_fn = '/home/derm/KITTICARLA/dataset/' + town + '/generated/frames/frame_%04d.ply' %(idx + skip)
 
 # dat1 = trimesh.load(s1_fn)
 # dat2 = trimesh.load(s2_fn)
@@ -314,8 +315,8 @@ OXTS_ground_truth = tf.constant([poses1.packet.vf*dt, -poses1.packet.vl*dt, pose
 # # c2 = c2.dot(R[(idx+skip)*100])
 # # c2 += true_traj[(idx+skip)*100] - true_traj[(idx)*100] #works better(?)
 # c2 += noise_scale*np.random.randn(np.shape(c2)[0],3)
-# c1 = c1[c1[:,2] > -1.5]
-# c2 = c2[c2[:,2] > -1.5]
+# # c1 = c1[c1[:,2] > -1.5]
+# # c2 = c2[c2[:,2] > -1.5]
 # OXTS_ground_truth = true_traj[(idx+skip)*100] - true_traj[(idx)*100]
 # # -------------------------------------------------------------------------------------
 
@@ -324,7 +325,7 @@ OXTS_ground_truth = tf.constant([poses1.packet.vf*dt, -poses1.packet.vl*dt, pose
 
 x0 = tf.constant([1., 0., 0., 0., 0., 0.])
 
-it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 22, 
+it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 14, 
 	draw = True, group = 2, RM = True, DNN_filter = True, x0 = x0)
 
 
