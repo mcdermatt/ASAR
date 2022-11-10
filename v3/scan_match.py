@@ -10,7 +10,7 @@ gpus = tf.config.experimental.list_physical_devices('GPU')
 print(gpus)
 if gpus:
   try:
-    memlim = 4*1024
+    memlim = 2*1024
     tf.config.experimental.set_virtual_device_configuration(gpus[0], [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=memlim)])
   except RuntimeError as e:
     print(e)
@@ -22,7 +22,7 @@ from ICET_spherical import ICET
 from utils import R_tf
 from metpy.calc import lat_lon_grid_deltas
 
-# KITTI sample dataset -----------------------------------------------------------------
+# KITTI sample dataset -------------------------------------------
 # basedir = 'C:/kitti/'
 basedir = '/media/derm/06EF-127D1/KITTI'
 date = '2011_09_26'
@@ -35,7 +35,7 @@ drive = '0027' #wooded highway - doing really well here!??!
 # drive = '0117'
 # drive = '0070'
 # drive ='0071'
-idx = 35
+idx = 110
 skip = 1
 
 #test with aiodrive
@@ -325,7 +325,7 @@ OXTS_ground_truth = tf.constant([poses1.packet.vf*dt, -poses1.packet.vl*dt, pose
 
 x0 = tf.constant([1., 0., 0., 0., 0., 0.])
 
-it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 14, 
+it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 9, 
 	draw = True, group = 2, RM = True, DNN_filter = True, x0 = x0)
 
 

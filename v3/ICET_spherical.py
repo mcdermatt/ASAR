@@ -35,7 +35,7 @@ class ICET():
 		x0 = tf.constant([0.0, 0.0, 0., 0., 0., 0.]), group = 2, RM = True,
 		DNN_filter = False, cheat = []):
 
-		self.min_cell_distance = 2 #begin closest spherical voxel here
+		self.min_cell_distance = 4#2 #begin closest spherical voxel here
 		#ignore "occupied" cells with fewer than this number of pts
 		self.min_num_pts = 100 #was 50 for KITTI and Ford, need to lower to 25 for CODD 
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
@@ -46,13 +46,14 @@ class ICET():
 		self.DNN_filter = DNN_filter
 		self.start_filter_iter = 8 #10 #iteration to start DNN rejection filter
 		self.start_RM_iter = 6 #10 #iteration to start removing moving objects (set low to generate training data)
-		self.DNN_thresh = 0.06 #0.03
-		self.RM_thresh = 0.425
+		self.DNN_thresh = 0.15 #0.03
+		self.RM_thresh = 0.5
 
 		#load dnn model
 		if self.DNN_filter:
 			# self.model = tf.keras.models.load_model("perspective_shift/CompactNet.kmod", compile = False) #need flag to avoid importing custom loss func
-			self.model = tf.keras.models.load_model("perspective_shift/combinedNet.kmod")
+			self.model = tf.keras.models.load_model("perspective_shift/ForestNet.kmod")
+			# self.model = tf.keras.models.load_model("perspective_shift/combinedNet.kmod") #used for graphs in v1 arXiv submission
 			# self.model = tf.keras.models.load_model("perspective_shift/KITTINet100.kmod") #BEST
 			# self.model = tf.keras.models.load_model("perspective_shift/FORDNet.kmod")  #50 sample points
 			# self.model = tf.keras.models.load_model("perspective_shift/FORDNetV2.kmod")  #50 sample points
@@ -246,7 +247,6 @@ class ICET():
 				print("using state estimate form OXTS")
 			#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-			print("\n estimated solution vector X: \n", self.X)
 			#transform cartesian point cloud 2 by estimated solution vector X
 			t = self.X[:3]
 			rot = R_tf(-self.X[3:])
@@ -258,6 +258,7 @@ class ICET():
 
 			#find points from scan 2 that fall inside clusters
 			inside2, npts2 = self.get_points_in_cluster(self.cloud2_tensor_spherical, occupied_spikes, bounds)
+			# print(npts2)
 
 			#temp			
 			self.inside2 = inside2
@@ -392,7 +393,7 @@ class ICET():
 
 				#Iterative~~~~~~~~~~~~
 				correction = 0
-				niter = 5
+				niter = 2
 				inputs = x_test
 				for _ in range(niter):
 					correction += self.model.predict(inputs) #was this for KITTI/ Ford trained model
@@ -407,7 +408,6 @@ class ICET():
 				#was this - DEBUG: think it may be creating a chicken and egg problem
 				# icetsoln = tf.gather(self.residuals, corr)
 				icetsoln = tf.math.reduce_mean(tf.gather(self.cloud1_tensor,en1), axis = 1) - tf.math.reduce_mean(tf.gather(self.cloud2_tensor,en2), axis = 1)
-				# print(icetsoln[:10])
 
 				#Signs need to be flipped
 				icetsoln = -icetsoln
@@ -439,6 +439,10 @@ class ICET():
 				# dnn_compact_xyz = tf.matmul(tf.transpose(U_i, [0,2,1]), dnn_compact)
 
 				# print(it_compact_xyz - dnn_compact_xyz)
+
+				# TEST 11/9/22 - remove ambiguous axis suppression of DNN solution on non-oblate clouds------
+				dnn_compact_xyz = dnnsoln[:,:,None]
+				#--------------------------------------------------------------------------------------------
 
 				#find where the largest difference in residuals are
 				# self.DNN_thresh = 0.05 #0.05 #0.1
@@ -606,6 +610,8 @@ class ICET():
 
 			self.X += dx
 
+			print("\n estimated solution vector X: \n", self.X)
+
 			#get output covariance matrix
 			self.Q = tf.linalg.pinv(HTWH)
 			self.pred_stds = tf.linalg.tensor_diag_part(tf.math.sqrt(tf.abs(self.Q)))
@@ -623,7 +629,7 @@ class ICET():
 				self.draw_cell(bad_idx_corn_moving, bad = True) #for debug
 
 
-			# self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
+			self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
 			self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
 			self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
 			# self.draw_cloud(self.cloud2_tensor_OG.numpy(), pc = 3) #3 #draw OG cloud in differnt color
@@ -1767,7 +1773,7 @@ class ICET():
 		if pc == 3:
 			color = [0.5, 0.8, 0.5]
 		
-		c = Points(points, c = color, r = 2., alpha = 1.) #r = 4
+		c = Points(points, c = color, r = 2.5, alpha = 1.) #r = 4
 		self.disp.append(c)
 
 	def draw_car(self):

@@ -89,8 +89,8 @@ for i in range(num_frames):
 	c2 = c2[c2[:,2] > -1.5] #ignore ground plane
 
 	# run once to get rough estimate and remove outlier points
-	it = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 8, draw = False, group = 2, 
-		RM = False, DNN_filter = False, x0 = initial_guess)
+	it = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 9, draw = False, group = 2, 
+		RM = True, DNN_filter = True, x0 = initial_guess)
 	ICET_pred_stds[i] = it.pred_stds 
 
 	# run again to re-converge with outliers removed
@@ -139,7 +139,7 @@ for i in range(num_frames):
 	ICET_estimates[i] = it.X #* (dataset.timestamps[i+1] - dataset.timestamps[i]).microseconds/(10e5)/0.1
 	before_correction[i] = it.before_correction
 
-	# initial_guess = it.X
+	initial_guess = it.X
 
 	# -------------------------------
 	poses0 = dataset.oxts[i] 
@@ -148,9 +148,9 @@ for i in range(num_frames):
 	## dt = (dataset.timestamps[i+1] - dataset.timestamps[i]).microseconds/(10e5)
 	OXTS_baseline[i] = np.array([[poses1.packet.vf*dt, poses1.packet.vl*dt, poses1.packet.vu*dt, -poses1.packet.wf*dt, -poses1.packet.wl*dt, -poses1.packet.wu*dt]]) #test
 
-	initial_guess = OXTS_baseline[i]
-	initial_guess[0]  += 0.2*np.random.randn()
-	initial_guess = tf.cast(initial_guess, tf.float32)
+	# initial_guess = OXTS_baseline[i]
+	# initial_guess[0]  += 0.2*np.random.randn()
+	# initial_guess = tf.cast(initial_guess, tf.float32)
 	# -------------------------------
 
 
@@ -192,11 +192,11 @@ for i in range(num_frames):
 	# print("\n solution from ICET \n", ICET_estimates[i])
 	print("\n solution from GPS/INS \n", OXTS_baseline[i])
 
-# np.savetxt("perspective_shift/sim_results/KITTI_0027v2_noDNN.txt", before_correction)
-# np.savetxt("perspective_shift/sim_results/KITTI_0027v2_CompactNet_3cmThresh.txt", ICET_estimates)
-# np.savetxt("perspective_shift/sim_results/KITTI_0027v2_pred_stds_3cmThresh.txt", ICET_pred_stds)
+np.savetxt("perspective_shift/sim_results/KITTI_0027v3_noDNN.txt", before_correction)
+np.savetxt("perspective_shift/sim_results/KITTI_0027v3_CompactNet_3cmThresh.txt", ICET_estimates)
+np.savetxt("perspective_shift/sim_results/KITTI_0027v3_pred_stds_3cmThresh.txt", ICET_pred_stds)
 # np.savetxt("perspective_shift/sim_results/KC_Town7_gt.txt", OXTS_baseline)
-np.savetxt("perspective_shift/sim_results/KITTI_0027_noFilter.txt", ICET_estimates)
+# np.savetxt("perspective_shift/sim_results/KITTI_0027_noFilter.txt", ICET_estimates)
 
 
 #v3 - using new clustering 30-100-150, 
