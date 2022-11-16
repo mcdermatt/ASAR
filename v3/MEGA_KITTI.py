@@ -6,20 +6,35 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.math import sin, cos, tan
 import tensorflow_probability as tfp
+
+#limit GPU memory ------------------------------------------------
+gpus = tf.config.experimental.list_physical_devices('GPU')
+print(gpus)
+if gpus:
+  try:
+    memlim = 4*1024
+    tf.config.experimental.set_virtual_device_configuration(gpus[0], [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=memlim)])
+  except RuntimeError as e:
+    print(e)
+#-----------------------------------------------------------------
+
 from ICET_spherical import ICET
 from metpy.calc import lat_lon_grid_deltas
 
 
-num_frames = 4500
+num_frames = 799
 
-basedir = "E:/KITTI/dataset/"
+basepath = '/media/derm/06EF-127D1/KITTI'
 date = "2011_09_26"
-drive = '00' #urban
-dataset = pykitti.raw(basedir, date, drive)
+# drive = '00' #urban
+drive = '03' #trees
+#drive = '09' #small town + woods on steep hill
+dataset = pykitti.odometry(basepath, drive)
 
-
-NDT_estimates = np.zeros([num_frames, 6])
+ICET_estimates = np.zeros([num_frames, 6])
 initial_guess = tf.constant([0., 0., 0., 0., 0., 0.])
+before_correction = np.zeros([num_frames, 6])
+ICET_pred_stds = np.zeros([num_frames, 6])
 
 for i in range(num_frames):
 
@@ -36,22 +51,25 @@ for i in range(num_frames):
 	# c2 = c2[c2[:,2] > -2.] #ignore reflections
 
 
-	it = ICET(cloud1 = c1, cloud2 = c2, fid = 90, niter = 15, draw = False, group = 2, 
-		RM = True, DNN_filter = False, x0 = initial_guess)
+	it = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 9, draw = False, group = 2, 
+		RM = True, DNN_filter = True, x0 = initial_guess)
 	
-	NDT_estimates[i] = it.X #* (dataset.timestamps[i+1] - dataset.timestamps[i]).microseconds/(10e5)/0.1
+	ICET_estimates[i] = it.X
+	before_correction[i] = it.before_correction
+	ICET_pred_stds[i] = it.pred_stds
 
-	initial_guess = it.X
-
+	# initial_guess = it.X
 	#sanity check so things don't explode:
-	if initial_guess[0] < 0:
-		initial_guess = tf.constant([0., 0., 0., 0., 0., 0.])
+	# if initial_guess[0] < 0:
+	# 	initial_guess = tf.constant([0., 0., 0., 0., 0., 0.])
 
 
 	#save text file of point clouds so we can run the other benchmarks with MatLab
 	# np.savetxt("E:/KITTI/drive_00_text/scan" + str(i) + ".txt", c1)
 
 	#periodically save so we don't lose everything...
-	if i % 100 == 0:
+	if i % 10 == 0:
 		print("saving...")
-		np.savetxt("KITTI_estimates_NDT_spherical_TEST.txt", NDT_estimates)
+		np.savetxt("perspective_shift/sim_results/KITTI_03_noDNN.txt", before_correction)
+		np.savetxt("perspective_shift/sim_results/KITTI_03_CompactNet.txt", ICET_estimates)
+		np.savetxt("perspective_shift/sim_results/KITTI_03_pred_stds.txt", ICET_pred_stds)

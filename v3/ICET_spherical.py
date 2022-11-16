@@ -10,23 +10,11 @@ from utils import R2Euler, Ell, jacobian_tf, R_tf, get_cluster
 	#P1:
 		#identify bottleneck in radial binning step
 
-
 		# remove outlier difference cells from contributing to soln
 		#	make before and after otputs and compare histograms
-		# QUESTION- When looking for outlier differences in "converged" cells should I be weighting
-		#			errors by distance from ego-vehicle?
-
-		# instead of assuming gaussian fit for residuals, just bin errrors and only try to fit soln estimate to mode bin???
-
-		# try to just save the not occluded, not moving points (found after i == 10) and do a fit with those...
-
-		# don't consider residuals between cells that have information excluded in the useful direction
 		
 	#P2:
 		# figure out why <get_occupied()> always includes cell 0 at the end - it's because there are points outside reachable space
-		# Normalize minimum number of points per cell by radial distance from ego-vehicle
-
-		#Try dynamically lowering DNN rejection threshold
 
 
 class ICET():
@@ -35,7 +23,9 @@ class ICET():
 		x0 = tf.constant([0.0, 0.0, 0., 0., 0., 0.]), group = 2, RM = True,
 		DNN_filter = False, cheat = []):
 
-		self.min_cell_distance = 4#2 #begin closest spherical voxel here
+		self.st = time.time() #start time (for debug)
+
+		self.min_cell_distance = 2 #begin closest spherical voxel here
 		#ignore "occupied" cells with fewer than this number of pts
 		self.min_num_pts = 100 #was 50 for KITTI and Ford, need to lower to 25 for CODD 
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
@@ -46,14 +36,16 @@ class ICET():
 		self.DNN_filter = DNN_filter
 		self.start_filter_iter = 8 #10 #iteration to start DNN rejection filter
 		self.start_RM_iter = 6 #10 #iteration to start removing moving objects (set low to generate training data)
-		self.DNN_thresh = 0.15 #0.03
+		self.DNN_thresh = 0.09 #0.03
 		self.RM_thresh = 0.5
+
+		before = time.time()
 
 		#load dnn model
 		if self.DNN_filter:
 			# self.model = tf.keras.models.load_model("perspective_shift/CompactNet.kmod", compile = False) #need flag to avoid importing custom loss func
-			self.model = tf.keras.models.load_model("perspective_shift/ForestNet.kmod")
-			# self.model = tf.keras.models.load_model("perspective_shift/combinedNet.kmod") #used for graphs in v1 arXiv submission
+			# self.model = tf.keras.models.load_model("perspective_shift/ForestNet.kmod")
+			self.model = tf.keras.models.load_model("perspective_shift/combinedNet.kmod") #used for graphs in v1 arXiv submission
 			# self.model = tf.keras.models.load_model("perspective_shift/KITTINet100.kmod") #BEST
 			# self.model = tf.keras.models.load_model("perspective_shift/FORDNet.kmod")  #50 sample points
 			# self.model = tf.keras.models.load_model("perspective_shift/FORDNetV2.kmod")  #50 sample points
@@ -61,6 +53,8 @@ class ICET():
 			# self.model = tf.keras.models.load_model("perspective_shift/Net.kmod") #50 pts, updated 7/29
 			# self.model = tf.keras.models.load_model("perspective_shift/FULL_KITTInet4500.kmod") #25 sample points
 
+		print("\n loading model took", time.time() - before, "\n total: ",  time.time() - self.st)
+		before = time.time()
 
 		#convert cloud1 to tesnsor
 		self.cloud1_tensor = tf.cast(tf.convert_to_tensor(cloud1), tf.float32)
@@ -93,6 +87,9 @@ class ICET():
 		self.grid_spherical( draw = False )
 
 		self.cloud1_static = None #placeholder for returning inlier points after moving point exclusion routine
+
+		print("\n converting to spherical took", time.time() - before, "\n total: ",  time.time() - self.st)
+		before = time.time()
 
 		# #-----------------------------------------------------------
 		# #debug - draw points within a single occupied cell  
@@ -145,6 +142,8 @@ class ICET():
 
 	def main_2(self, niter, x0, remove_moving = True):
 		""" Main loop using new radial clustering strategy """
+
+		before = time.time()
 
 		self.X = x0
 		self.before_correction = x0
@@ -213,6 +212,8 @@ class ICET():
 		# #seems like the cause of this is not deleting points outside the observation cone of the vehicle
 		# #___________________________________________________________________
 
+		print("\n getting spherical grid", time.time() - before, "\n total: ",  time.time() - self.st)
+		before = time.time()
 
 		#fit gaussian
 		mu1, sigma1 = self.fit_gaussian(self.cloud1_tensor, inside1, tf.cast(npts1, tf.float32))
@@ -224,6 +225,7 @@ class ICET():
 		#standard U and L method does not work with new grouping strategy
 		U, L = self.get_U_and_L_cluster(sigma1_enough, mu1_enough, occupied_spikes, bounds)
 
+		print("\n fit_gaussian for scan 1", time.time() - before, "\n total: ",  time.time() - self.st)
 
 		if self.draw:
 			# self.visualize_L(mu1_enough, U, L)
@@ -246,6 +248,8 @@ class ICET():
 				self.X = self.cheat
 				print("using state estimate form OXTS")
 			#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+			before = time.time()
 
 			#transform cartesian point cloud 2 by estimated solution vector X
 			t = self.X[:3]
@@ -273,6 +277,10 @@ class ICET():
 			#get correspondences
 			corr = tf.sets.intersection(enough1[None,:], enough2[None,:]).values
 			corr_full = tf.sets.intersection(enough1[None,:], enough2[None,:]).values
+
+			print("\n ~~~~~~~~~~~~~~ \n fit_gaussian for scan 2", time.time() - before, "\n total: ",  time.time() - self.st, "\n ~~~~~~~~~~~~~~")
+			before = time.time()
+
 
 			#----------------------------------------------
 			if remove_moving:  
@@ -353,6 +361,9 @@ class ICET():
 					#temp
 					self.U_i = U_i
 					self.L_i = L_i
+
+					print("\n ~~~~~~~~~~~~~~ \n removed moving", time.time() - before, "\n total: ",  time.time() - self.st, "\n ~~~~~~~~~~~~~~")
+					before = time.time()
 			#----------------------------------------------
 
 			#----------------------------------------------
@@ -419,11 +430,9 @@ class ICET():
 				both = tf.sets.intersection(enough1[None,:], corr_full[None,:]).values
 				ans = tf.where(enough1[:,None] == both)[:,0]
 				
-				#test moving these here
 				U_i = tf.gather(U, ans)
 				L_i = tf.gather(L, ans)
-				U_i_dnn = U_i #debug
-				#was this
+				U_i_dnn = U_i
 				LUT = tf.matmul(L_i, tf.transpose(U_i, [0,2,1]))
 				dz_new = tf.matmul(LUT, dnnsoln[:,:,None])
 				it_compact = tf.matmul(LUT, icetsoln[:,:,None])
@@ -431,21 +440,11 @@ class ICET():
 				dnn_compact = tf.matmul(LUT, dnnsoln[:,:,None])
 				dnn_compact_xyz = tf.matmul(U_i, dnn_compact)
 
-				#test 5/2
-				# LU = tf.matmul(L_i, U_i) 
-				# it_compact = tf.matmul(LU, icetsoln[:,:,None])
-				# it_compact_xyz = tf.matmul(tf.transpose(U_i, [0,2,1]), it_compact)
-				# dnn_compact = tf.matmul(LU, dnnsoln[:,:,None])
-				# dnn_compact_xyz = tf.matmul(tf.transpose(U_i, [0,2,1]), dnn_compact)
-
-				# print(it_compact_xyz - dnn_compact_xyz)
-
 				# TEST 11/9/22 - remove ambiguous axis suppression of DNN solution on non-oblate clouds------
 				dnn_compact_xyz = dnnsoln[:,:,None]
 				#--------------------------------------------------------------------------------------------
 
 				#find where the largest difference in residuals are
-				# self.DNN_thresh = 0.05 #0.05 #0.1
 				bad_idx = tf.where(tf.math.abs(it_compact_xyz - dnn_compact_xyz) > self.DNN_thresh)[:,0]
 				bad_idx = tf.unique(bad_idx)[0] #get rid of repeated indices
 				# print("bad_idx", bad_idx)
@@ -466,7 +465,11 @@ class ICET():
 			
 				idx_to_draw_dnn_soln = tf.gather(mu1_enough, ans)
 				# self.draw_DNN_soln(dnn_compact_xyz[:,:,0], it_compact_xyz[:,:,0], tf.gather(mu1_enough, ans))
+
+				print("\n ~~~~~~~~~~~~~~ \n DNN Filter", time.time() - before, "\n total: ",  time.time() - self.st, "\n ~~~~~~~~~~~~~~")
+				before = time.time()
 			#----------------------------------------------
+			
 
 			#for debug
 			if i < self.start_filter_iter:
@@ -615,6 +618,11 @@ class ICET():
 			#get output covariance matrix
 			self.Q = tf.linalg.pinv(HTWH)
 			self.pred_stds = tf.linalg.tensor_diag_part(tf.math.sqrt(tf.abs(self.Q)))
+
+			print("\n ~~~~~~~~~~~~~~ \n correcting solution estimate", time.time() - before, "\n total: ",  time.time() - self.st, "\n ~~~~~~~~~~~~~~")
+			before = time.time()
+
+
 
 		print("pred_stds: \n", self.pred_stds)
 		print(" L2: \n", L2)		
@@ -1368,10 +1376,10 @@ class ICET():
 	def fit_gaussian(self, cloud, rag, npts):
 		""" fits 3D gaussian distribution to each elelment of 
 			rag, which cointains indices of points in cloud """
+
 		st = time.time()
 
 		coords = tf.gather(cloud, rag)
-		mu = tf.math.reduce_mean(coords, axis=1)
 		#for debug ------
 		# self.disp.append(Points( mu.numpy(), c = 'b', r = 20 ))
 		#----------------
@@ -1379,17 +1387,43 @@ class ICET():
 		xpos = tf.gather(cloud[:,0], rag)
 		ypos = tf.gather(cloud[:,1], rag)
 		zpos = tf.gather(cloud[:,2], rag)
-		# print(xpos)
 		# print("mux",mu[:,0])
+		# print("took", time.time()-st, "s to tf.gather")
+		st = time.time()
 
-		xx = tf.math.reduce_sum(tf.math.square(xpos - mu[:,0][:,None] ), axis = 1)/npts
-		yy = tf.math.reduce_sum(tf.math.square(ypos - mu[:,1][:,None] ), axis = 1)/npts
-		zz = tf.math.reduce_sum(tf.math.square(zpos - mu[:,2][:,None] ), axis = 1)/npts
+		# #~~~~~~~~~~
+		# #old (works but slow(?))
+		# mu = tf.math.reduce_mean(coords, axis=1)
+		# print("mu", tf.shape(mu))
+		# print("mu[:,0][:,None]", tf.shape(mu[:,0][:,None]))
+		# # print("xpos", tf.shape(xpos))
+		# xx = tf.math.reduce_sum(tf.math.square(xpos - mu[:,0][:,None] ), axis = 1)/npts
+		# yy = tf.math.reduce_sum(tf.math.square(ypos - mu[:,1][:,None] ), axis = 1)/npts
+		# zz = tf.math.reduce_sum(tf.math.square(zpos - mu[:,2][:,None] ), axis = 1)/npts
+		# xy = tf.math.reduce_sum( (xpos - mu[:,0][:,None])*(ypos - mu[:,1][:,None]), axis = 1)/npts  #+
+		# xz = tf.math.reduce_sum( (xpos - mu[:,0][:,None])*(zpos - mu[:,2][:,None]), axis = 1)/npts #-
+		# yz = tf.math.reduce_sum( (ypos - mu[:,1][:,None])*(zpos - mu[:,2][:,None]), axis = 1)/npts #-
+		# #~~~~~~~~~~
 
-		xy = tf.math.reduce_sum( (xpos - mu[:,0][:,None])*(ypos - mu[:,1][:,None]), axis = 1)/npts  #+
-		xz = tf.math.reduce_sum( (xpos - mu[:,0][:,None])*(zpos - mu[:,2][:,None]), axis = 1)/npts #-
-		yz = tf.math.reduce_sum( (ypos - mu[:,1][:,None])*(zpos - mu[:,2][:,None]), axis = 1)/npts #-
+		#~~~~~~~~~~
+		#new
+		# mu_new = tf.math.reduce_mean(coords, axis=1)[:,None]
+		# print("mu_new", tf.shape(mu_new))
+		# print("mu[:,:,0]", tf.shape(mu_new[:,:,0]))
 
+		mu = tf.math.reduce_mean(coords, axis=1)[:,None]
+		xx = tf.math.reduce_sum(tf.math.square(xpos - mu[:,:,0] ), axis = 1)/npts
+		yy = tf.math.reduce_sum(tf.math.square(ypos - mu[:,:,1] ), axis = 1)/npts
+		zz = tf.math.reduce_sum(tf.math.square(zpos - mu[:,:,2] ), axis = 1)/npts
+		xy = tf.math.reduce_sum( (xpos - mu[:,:,0])*(ypos - mu[:,:,1]), axis = 1)/npts  #+
+		xz = tf.math.reduce_sum( (xpos - mu[:,:,0])*(zpos - mu[:,:,2]), axis = 1)/npts #-
+		yz = tf.math.reduce_sum( (ypos - mu[:,:,1])*(zpos - mu[:,:,2]), axis = 1)/npts #-
+
+		# print("npts", tf.shape(npts))
+		# print("xx", tf.shape(xx))
+		# print("mu", tf.shape(mu))
+		# print("took", time.time()-st, "s to get xx,yy,zz...")
+		#~~~~~~~~~~
 
 		sigma = tf.Variable([xx, xy, xz,
 							 xy, yy, yz,
@@ -1397,8 +1431,8 @@ class ICET():
 		sigma = tf.reshape(tf.transpose(sigma), (tf.shape(sigma)[1] ,3,3))
 		# print("sigma", sigma)
 
-		# print("took", time.time()-st, "s to fit gaussians to each cell")
-		return(mu, sigma)
+		# return(mu, sigma) 
+		return(mu[:,0,:], sigma) #for new
 
 
 	def get_points_inside(self, cloud, cells):

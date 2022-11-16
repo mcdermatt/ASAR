@@ -30,8 +30,10 @@ date = '2011_09_26'
 # num_frames = 150
 # drive = '0095'
 # num_frames = 260
-drive = '0027'
-num_frames = 185
+# drive = '0027'
+# num_frames = 185
+drive = '0028'
+num_frames = 100
 # drive = '0095'
 # num_frames = 250
 # drive = '0070'
@@ -192,11 +194,11 @@ for i in range(num_frames):
 	# print("\n solution from ICET \n", ICET_estimates[i])
 	print("\n solution from GPS/INS \n", OXTS_baseline[i])
 
-np.savetxt("perspective_shift/sim_results/KITTI_0027v3_noDNN.txt", before_correction)
-np.savetxt("perspective_shift/sim_results/KITTI_0027v3_CompactNet_3cmThresh.txt", ICET_estimates)
-np.savetxt("perspective_shift/sim_results/KITTI_0027v3_pred_stds_3cmThresh.txt", ICET_pred_stds)
-# np.savetxt("perspective_shift/sim_results/KC_Town7_gt.txt", OXTS_baseline)
-# np.savetxt("perspective_shift/sim_results/KITTI_0027_noFilter.txt", ICET_estimates)
+np.savetxt("perspective_shift/sim_results/KITTI_0028_noDNN.txt", before_correction)
+np.savetxt("perspective_shift/sim_results/KITTI_0028_CompactNet_3cmThresh.txt", ICET_estimates)
+np.savetxt("perspective_shift/sim_results/KITTI_0028_pred_stds.txt", ICET_pred_stds)
+np.savetxt("perspective_shift/sim_results/KITTI_0028_OXTS_baseline_gps.txt", OXTS_baseline)
+# np.savetxt("perspective_shift/sim_results/KITTI_0027_noFilterv5.txt", ICET_estimates)
 
 
 #v3 - using new clustering 30-100-150, 
