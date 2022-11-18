@@ -51,8 +51,8 @@ for i in range(num_frames):
 	# c2 = c2[c2[:,2] > -2.] #ignore reflections
 
 
-	it = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 9, draw = False, group = 2, 
-		RM = True, DNN_filter = True, x0 = initial_guess)
+	it = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 10, draw = False, group = 2, 
+		RM = True, DNN_filter = False, x0 = initial_guess)
 	
 	ICET_estimates[i] = it.X
 	before_correction[i] = it.before_correction
@@ -70,6 +70,8 @@ for i in range(num_frames):
 	#periodically save so we don't lose everything...
 	if i % 10 == 0:
 		print("saving...")
-		np.savetxt("perspective_shift/sim_results/KITTI_03_noDNN.txt", before_correction)
-		np.savetxt("perspective_shift/sim_results/KITTI_03_CompactNet.txt", ICET_estimates)
-		np.savetxt("perspective_shift/sim_results/KITTI_03_pred_stds.txt", ICET_pred_stds)
+		np.savetxt("perspective_shift/sim_results/KITTI_03_raw.txt", before_correction)
+		np.savetxt("perspective_shift/sim_results/KITTI_03_RMpt1_v2.txt", ICET_estimates)
+		# np.savetxt("perspective_shift/sim_results/KITTI_03_noDNN.txt", before_correction)
+		# np.savetxt("perspective_shift/sim_results/KITTI_03_CompactNet.txt", ICET_estimates)
+		# np.savetxt("perspective_shift/sim_results/KITTI_03_pred_stds.txt", ICET_pred_stds)

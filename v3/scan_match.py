@@ -79,21 +79,21 @@ from metpy.calc import lat_lon_grid_deltas
 # full KITTI dataset (uses different formatting incompable with PyKitti)--------------
 #files are 80gb so remember to plug in the external hard drive!
 basepath = '/media/derm/06EF-127D1/KITTI'
-# sequence = '03' #forest
-sequence = '09' #trees and small town
+sequence = '03' #forest
+# sequence = '09' #trees and small town
 # dataset = pykitti.raw(basedir, date, drive)
 
 dataset = pykitti.odometry(basepath, sequence)
 
-idx = 400 #300 good
+idx = 678 #300 good
 
 velo1 = dataset.get_velo(idx) # Each scan is a Nx4 array of [x,y,z,reflectance]
 c1 = velo1[:,:3]
 velo2 = dataset.get_velo(idx+1) # Each scan is a Nx4 array of [x,y,z,reflectance]
 c2 = velo2[:,:3]
 
-c1 = c1[c1[:,2] > -1.3] #ignore ground plane
-c2 = c2[c2[:,2] > -1.3] #ignore ground plane
+# c1 = c1[c1[:,2] > -1.3] #ignore ground plane
+# c2 = c2[c2[:,2] > -1.3] #ignore ground plane
 
 # #TEST: add gaussian noise to all points
 # noise_scale = 0.01
@@ -328,8 +328,8 @@ c2 = c2[c2[:,2] > -1.3] #ignore ground plane
 
 x0 = tf.constant([1., 0., 0., 0., 0., 0.])
 
-it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 9, 
-	draw = False, group = 2, RM = True, DNN_filter = False, x0 = x0)
+it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 10, 
+	draw = True, group = 2, RM = False, DNN_filter = True, x0 = x0)
 
 
 # #test using naive spherical cuboid-shaped voxles

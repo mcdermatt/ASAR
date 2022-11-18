@@ -34,10 +34,10 @@ class ICET():
 		self.alpha = 0.3 #0.5 #controls alpha values when displaying ellipses
 		self.cheat = cheat #overide for using ICET to generate training data for DNN
 		self.DNN_filter = DNN_filter
-		self.start_filter_iter = 8 #10 #iteration to start DNN rejection filter
-		self.start_RM_iter = 6 #10 #iteration to start removing moving objects (set low to generate training data)
-		self.DNN_thresh = 0.09 #0.03
-		self.RM_thresh = 0.5
+		self.start_filter_iter = 7 #10 #iteration to start DNN rejection filter
+		self.start_RM_iter = 7 #10 #iteration to start removing moving objects (set low to generate training data)
+		self.DNN_thresh = 0.08 #0.03
+		self.RM_thresh = 0.1
 
 		before = time.time()
 
@@ -306,6 +306,36 @@ class ICET():
 					# bad_idx = tf.sets.union(bad_idx, bad_idx2).values
 					# #------------------------------------------------------------------------------------------------
 
+					# #------------------------------------------------------------------------------------------------
+					# #Using Gaussian n-sigma outlier exclusion on translation
+					# mu_x = tf.math.reduce_mean(metric1)
+					# sigma_x = tf.math.reduce_std(metric1)
+					
+					# # #just x------------
+					# # bad_idx = tf.where( tf.math.abs(metric1) > mu_x + 2*sigma_x )[:, 0]
+					# # #------------------
+
+					# #x and y---------
+					# bad_idx = tf.where( tf.math.abs(metric1) > mu_x + 1.5*sigma_x )[:,0][None, :]
+					# # print(" \n bad_idx1", bad_idx)
+
+					# mu_y = tf.math.reduce_mean(metric2)
+					# sigma_y = tf.math.reduce_std(metric2)
+					# bad_idx2 = tf.where( tf.math.abs(metric2) > mu_y + 	1.5*sigma_y )[:,0][None, :]
+					# # print("\n bad_idx2", bad_idx2)
+					# bad_idx = tf.sets.union(bad_idx, bad_idx2).values
+
+					# #if using rotation too
+					# # self.bad_idx = bad_idx
+					# # self.bad_idx_rot = bad_idx_rot
+					# # bad_idx = tf.sets.union(bad_idx[None, :], bad_idx_rot[None, :]).values 
+					# #-----------------
+
+					# # print("corr \n", corr)
+					# # print("bad idx", bad_idx)
+					# # print(tf.gather(it.dx_i[:,0], bad_idx))
+					# # print(tf.gather(occupied_spikes, corr))
+					# #------------------------------------------------------------------------------------------------
 
 					#hard cutoff for outlier rejection
 					#NEW (5/7)~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -441,7 +471,7 @@ class ICET():
 				dnn_compact_xyz = tf.matmul(U_i, dnn_compact)
 
 				# TEST 11/9/22 - remove ambiguous axis suppression of DNN solution on non-oblate clouds------
-				dnn_compact_xyz = dnnsoln[:,:,None]
+				# dnn_compact_xyz = dnnsoln[:,:,None]
 				#--------------------------------------------------------------------------------------------
 
 				#find where the largest difference in residuals are
