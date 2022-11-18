@@ -308,6 +308,9 @@ class ICET():
 
 					# #------------------------------------------------------------------------------------------------
 					# #Using Gaussian n-sigma outlier exclusion on translation
+
+					# metric1 = self.residuals_full[:,0]
+					# metric2 = self.residuals_full[:,1]
 					# mu_x = tf.math.reduce_mean(metric1)
 					# sigma_x = tf.math.reduce_std(metric1)
 					
@@ -316,12 +319,12 @@ class ICET():
 					# # #------------------
 
 					# #x and y---------
-					# bad_idx = tf.where( tf.math.abs(metric1) > mu_x + 1.5*sigma_x )[:,0][None, :]
+					# bad_idx = tf.where( tf.math.abs(metric1) > mu_x + 2.0*sigma_x )[:,0][None, :]
 					# # print(" \n bad_idx1", bad_idx)
 
 					# mu_y = tf.math.reduce_mean(metric2)
 					# sigma_y = tf.math.reduce_std(metric2)
-					# bad_idx2 = tf.where( tf.math.abs(metric2) > mu_y + 	1.5*sigma_y )[:,0][None, :]
+					# bad_idx2 = tf.where( tf.math.abs(metric2) > mu_y + 	2.0*sigma_y )[:,0][None, :]
 					# # print("\n bad_idx2", bad_idx2)
 					# bad_idx = tf.sets.union(bad_idx, bad_idx2).values
 
@@ -332,7 +335,7 @@ class ICET():
 					# #-----------------
 
 					# # print("corr \n", corr)
-					# # print("bad idx", bad_idx)
+					# print("bad idx", bad_idx)
 					# # print(tf.gather(it.dx_i[:,0], bad_idx))
 					# # print(tf.gather(occupied_spikes, corr))
 					# #------------------------------------------------------------------------------------------------

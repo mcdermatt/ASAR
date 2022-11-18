@@ -329,7 +329,7 @@ c2 = velo2[:,:3]
 x0 = tf.constant([1., 0., 0., 0., 0., 0.])
 
 it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 10, 
-	draw = True, group = 2, RM = False, DNN_filter = True, x0 = x0)
+	draw = True, group = 2, RM = True, DNN_filter = False, x0 = x0)
 
 
 # #test using naive spherical cuboid-shaped voxles

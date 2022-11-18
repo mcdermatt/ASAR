@@ -70,8 +70,8 @@ for i in range(num_frames):
 	#periodically save so we don't lose everything...
 	if i % 10 == 0:
 		print("saving...")
-		np.savetxt("perspective_shift/sim_results/KITTI_03_raw.txt", before_correction)
-		np.savetxt("perspective_shift/sim_results/KITTI_03_RMpt1_v2.txt", ICET_estimates)
+		# np.savetxt("perspective_shift/sim_results/KITTI_03_raw.txt", before_correction)
+		np.savetxt("perspective_shift/sim_results/KITTI_03_2sigma.txt", ICET_estimates)
 		# np.savetxt("perspective_shift/sim_results/KITTI_03_noDNN.txt", before_correction)
 		# np.savetxt("perspective_shift/sim_results/KITTI_03_CompactNet.txt", ICET_estimates)
 		# np.savetxt("perspective_shift/sim_results/KITTI_03_pred_stds.txt", ICET_pred_stds)
