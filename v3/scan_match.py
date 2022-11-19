@@ -22,86 +22,86 @@ from ICET_spherical import ICET
 from utils import R_tf
 from metpy.calc import lat_lon_grid_deltas
 
-# # KITTI sample dataset -------------------------------------------
-# # basedir = 'C:/kitti/'
-# basedir = '/media/derm/06EF-127D1/KITTI'
-# date = '2011_09_26'
+# KITTI sample dataset -------------------------------------------
+# basedir = 'C:/kitti/'
+basedir = '/media/derm/06EF-127D1/KITTI'
+date = '2011_09_26'
 
-# # urban dataset used in 3D-ICET paper 
-# # drive = '0005' #life in the big city
+# urban dataset used in 3D-ICET paper 
+drive = '0005' #life in the big city
 # drive = '0027' #wooded highway - doing really well here!??!
-# # drive = '0091' #Matt's favorite- don't use for testing though, we trained here!
-# # drive = '0095'
-# # drive = '0117'
-# # drive = '0070'
-# # drive ='0071'
-# idx = 110
-# skip = 1
+# drive = '0091' #Matt's favorite- don't use for testing though, we trained here!
+# drive = '0095'
+# drive = '0117'
+# drive = '0070'
+# drive ='0071'
+idx = 55
+skip = 1
 
-# #test with aiodrive
-# # drive = 'aiodrive'
-# # idx = 1
+#test with aiodrive
+# drive = 'aiodrive'
+# idx = 1
 
-# #alternate dataset with fewer moving objects?
-# # drive = '0009'
-# # idx = 245
-# # drive = '0093'
-# # idx = 220
+#alternate dataset with fewer moving objects?
+# drive = '0009'
+# idx = 245
+# drive = '0093'
+# idx = 220
 
+dataset = pykitti.raw(basedir, date, drive)
+
+# basedir = "E:/KITTI/dataset/"
+# date = "2011_09_26"
+# drive = '01'
 # dataset = pykitti.raw(basedir, date, drive)
 
-# # basedir = "E:/KITTI/dataset/"
-# # date = "2011_09_26"
-# # drive = '01'
-# # dataset = pykitti.raw(basedir, date, drive)
-
-# # idx = 0
-
-# velo1 = dataset.get_velo(idx) # Each scan is a Nx4 array of [x,y,z,reflectance]
-# c1 = velo1[:,:3]
-# velo2 = dataset.get_velo(idx+skip) # Each scan is a Nx4 array of [x,y,z,reflectance]
-# c2 = velo2[:,:3]
-# c1 = c1[c1[:,2] > -1.5] #ignore ground plane
-# c2 = c2[c2[:,2] > -1.5] #ignore ground plane
-# # c1 = c1[c1[:,2] > -2.] #ignore reflections
-# # c2 = c2[c2[:,2] > -2.] #ignore reflections
-
-# #load previously processed cloud 1
-# # c1 = np.loadtxt("cloud1_good.txt")
-
-# poses0 = dataset.oxts[idx] #<- ID of 1st scan
-# poses1 = dataset.oxts[idx+1] #<- ID of 2nd scan
-# # dt = skip*0.1037 #mean time between lidar samples
-# dt = skip*0.10 #mean time between lidar samples
-# OXTS_ground_truth = tf.constant([poses1.packet.vf*dt, -poses1.packet.vl*dt, poses1.packet.vu*dt, poses1.packet.wf*dt, poses1.packet.wl*dt, poses1.packet.wu*dt])
-# # ------------------------------------------------------------------------------------
-
-# full KITTI dataset (uses different formatting incompable with PyKitti)--------------
-#files are 80gb so remember to plug in the external hard drive!
-basepath = '/media/derm/06EF-127D1/KITTI'
-sequence = '03' #forest
-# sequence = '09' #trees and small town
-# dataset = pykitti.raw(basedir, date, drive)
-
-dataset = pykitti.odometry(basepath, sequence)
-
-idx = 678 #300 good
+# idx = 0
 
 velo1 = dataset.get_velo(idx) # Each scan is a Nx4 array of [x,y,z,reflectance]
 c1 = velo1[:,:3]
-velo2 = dataset.get_velo(idx+1) # Each scan is a Nx4 array of [x,y,z,reflectance]
+velo2 = dataset.get_velo(idx+skip) # Each scan is a Nx4 array of [x,y,z,reflectance]
 c2 = velo2[:,:3]
+# c1 = c1[c1[:,2] > -1.5] #ignore ground plane
+# c2 = c2[c2[:,2] > -1.5] #ignore ground plane
+# c1 = c1[c1[:,2] > -2.] #ignore reflections
+# c2 = c2[c2[:,2] > -2.] #ignore reflections
 
-# c1 = c1[c1[:,2] > -1.3] #ignore ground plane
-# c2 = c2[c2[:,2] > -1.3] #ignore ground plane
+#load previously processed cloud 1
+# c1 = np.loadtxt("cloud1_good.txt")
 
-# #TEST: add gaussian noise to all points
-# noise_scale = 0.01
-# c1 += noise_scale*np.random.randn(np.shape(c1)[0], 3)
-# c2 += noise_scale*np.random.randn(np.shape(c2)[0], 3)
-
-#read from the OXTS text file directly instead of messing with PyKitti file formats...
+poses0 = dataset.oxts[idx] #<- ID of 1st scan
+poses1 = dataset.oxts[idx+1] #<- ID of 2nd scan
+# dt = skip*0.1037 #mean time between lidar samples
+dt = skip*0.10 #mean time between lidar samples
+OXTS_ground_truth = tf.constant([poses1.packet.vf*dt, -poses1.packet.vl*dt, poses1.packet.vu*dt, poses1.packet.wf*dt, poses1.packet.wl*dt, poses1.packet.wu*dt])
 # ------------------------------------------------------------------------------------
+
+# # full KITTI dataset (uses different formatting incompable with PyKitti)--------------
+# #files are 80gb so remember to plug in the external hard drive!
+# basepath = '/media/derm/06EF-127D1/KITTI'
+# sequence = '03' #forest
+# # sequence = '09' #trees and small town
+# # dataset = pykitti.raw(basedir, date, drive)
+
+# dataset = pykitti.odometry(basepath, sequence)
+
+# idx = 678 #300 good
+
+# velo1 = dataset.get_velo(idx) # Each scan is a Nx4 array of [x,y,z,reflectance]
+# c1 = velo1[:,:3]
+# velo2 = dataset.get_velo(idx+1) # Each scan is a Nx4 array of [x,y,z,reflectance]
+# c2 = velo2[:,:3]
+
+# # c1 = c1[c1[:,2] > -1.3] #ignore ground plane
+# # c2 = c2[c2[:,2] > -1.3] #ignore ground plane
+
+# # #TEST: add gaussian noise to all points
+# # noise_scale = 0.01
+# # c1 += noise_scale*np.random.randn(np.shape(c1)[0], 3)
+# # c2 += noise_scale*np.random.randn(np.shape(c2)[0], 3)
+
+# #read from the OXTS text file directly instead of messing with PyKitti file formats...
+# # ------------------------------------------------------------------------------------
 
 # # RAW KITTI dataset ------------------------------------------------------------------
 # i = 110

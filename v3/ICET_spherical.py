@@ -81,8 +81,8 @@ class ICET():
 		self.cloud1_tensor = tf.gather(self.cloud1_tensor, not_too_close1)
 		not_too_close2 = tf.where(self.cloud2_tensor_spherical[:,0] > self.min_cell_distance)[:,0]
 		self.cloud2_tensor_spherical = tf.gather(self.cloud2_tensor_spherical, not_too_close2)
-		self.cloud2_tensor = tf.gather(self.cloud2_tensor, not_too_close2)
 		self.cloud2_tensor_OG = tf.gather(self.cloud2_tensor, not_too_close2) #better to remove too close points from OG
+		self.cloud2_tensor = tf.gather(self.cloud2_tensor, not_too_close2)
 
 		self.grid_spherical( draw = False )
 
@@ -1424,38 +1424,34 @@ class ICET():
 		# print("took", time.time()-st, "s to tf.gather")
 		st = time.time()
 
-		#~~~~~~~~~~
-		#old (works but slow(?))
-		mu = tf.math.reduce_mean(coords, axis=1)
-		# print("mu", tf.shape(mu))
-		# print("mu[:,0][:,None]", tf.shape(mu[:,0][:,None]))
-		# print("xpos", tf.shape(xpos))
-		xx = tf.math.reduce_sum(tf.math.square(xpos - mu[:,0][:,None] ), axis = 1)/npts
-		yy = tf.math.reduce_sum(tf.math.square(ypos - mu[:,1][:,None] ), axis = 1)/npts
-		zz = tf.math.reduce_sum(tf.math.square(zpos - mu[:,2][:,None] ), axis = 1)/npts
-		xy = tf.math.reduce_sum( (xpos - mu[:,0][:,None])*(ypos - mu[:,1][:,None]), axis = 1)/npts  #+
-		xz = tf.math.reduce_sum( (xpos - mu[:,0][:,None])*(zpos - mu[:,2][:,None]), axis = 1)/npts #-
-		yz = tf.math.reduce_sum( (ypos - mu[:,1][:,None])*(zpos - mu[:,2][:,None]), axis = 1)/npts #-
-		#~~~~~~~~~~
+		# #~~~~~~~~~~
+		# #old (works but slow(?))
+		# mu = tf.math.reduce_mean(coords, axis=1)
+		# # print("mu", tf.shape(mu))
+		# # print("mu[:,0][:,None]", tf.shape(mu[:,0][:,None]))
+		# # print("xpos", tf.shape(xpos))
+		# xx = tf.math.reduce_sum(tf.math.square(xpos - mu[:,0][:,None] ), axis = 1)/npts
+		# yy = tf.math.reduce_sum(tf.math.square(ypos - mu[:,1][:,None] ), axis = 1)/npts
+		# zz = tf.math.reduce_sum(tf.math.square(zpos - mu[:,2][:,None] ), axis = 1)/npts
+		# xy = tf.math.reduce_sum( (xpos - mu[:,0][:,None])*(ypos - mu[:,1][:,None]), axis = 1)/npts  #+
+		# xz = tf.math.reduce_sum( (xpos - mu[:,0][:,None])*(zpos - mu[:,2][:,None]), axis = 1)/npts #-
+		# yz = tf.math.reduce_sum( (ypos - mu[:,1][:,None])*(zpos - mu[:,2][:,None]), axis = 1)/npts #-
+		# #~~~~~~~~~~
 
 		# #~~~~~~~~~~
-		# #new
-		# # mu_new = tf.math.reduce_mean(coords, axis=1)[:,None]
-		# # print("mu_new", tf.shape(mu_new))
-		# # print("mu[:,:,0]", tf.shape(mu_new[:,:,0]))
+		#new method downsampling to first n points in each ragged tensor -- MUCH FASTER!!!
+		mu = tf.math.reduce_mean(coords, axis = 1)[:,None]
+		idx = tf.range(self.min_num_pts)
+		xpos = tf.gather(xpos, idx, axis = 1)
+		ypos = tf.gather(ypos, idx, axis = 1)
+		zpos = tf.gather(zpos, idx, axis = 1)
 
-		# mu = tf.math.reduce_mean(coords, axis=1)[:,None]
-		# xx = tf.math.reduce_sum(tf.math.square(xpos - mu[:,:,0] ), axis = 1)/npts
-		# yy = tf.math.reduce_sum(tf.math.square(ypos - mu[:,:,1] ), axis = 1)/npts
-		# zz = tf.math.reduce_sum(tf.math.square(zpos - mu[:,:,2] ), axis = 1)/npts
-		# xy = tf.math.reduce_sum( (xpos - mu[:,:,0])*(ypos - mu[:,:,1]), axis = 1)/npts  #+
-		# xz = tf.math.reduce_sum( (xpos - mu[:,:,0])*(zpos - mu[:,:,2]), axis = 1)/npts #-
-		# yz = tf.math.reduce_sum( (ypos - mu[:,:,1])*(zpos - mu[:,:,2]), axis = 1)/npts #-
-
-		# # print("npts", tf.shape(npts))
-		# # print("xx", tf.shape(xx))
-		# # print("mu", tf.shape(mu))
-		# # print("took", time.time()-st, "s to get xx,yy,zz...")
+		xx = tf.math.reduce_sum(tf.math.square(xpos - mu[:,:,0] ), axis = 1)/npts
+		yy = tf.math.reduce_sum(tf.math.square(ypos - mu[:,:,1] ), axis = 1)/npts
+		zz = tf.math.reduce_sum(tf.math.square(zpos - mu[:,:,2] ), axis = 1)/npts
+		xy = tf.math.reduce_sum( (xpos - mu[:,:,0])*(ypos - mu[:,:,1]), axis = 1)/npts  #+
+		xz = tf.math.reduce_sum( (xpos - mu[:,:,0])*(zpos - mu[:,:,2]), axis = 1)/npts #-
+		yz = tf.math.reduce_sum( (ypos - mu[:,:,1])*(zpos - mu[:,:,2]), axis = 1)/npts #-
 		# #~~~~~~~~~~
 
 		sigma = tf.Variable([xx, xy, xz,
@@ -1466,8 +1462,8 @@ class ICET():
 
 		# print("took", time.time()-st, "s to fit fit_gaussian")
 
-		return(mu, sigma)  #old
-		# return(mu[:,0,:], sigma) #for new
+		# return(mu, sigma)  #old
+		return(mu[:,0,:], sigma) #for new
 
 
 	def get_points_inside(self, cloud, cells):
