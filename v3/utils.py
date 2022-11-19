@@ -2,6 +2,7 @@ import numpy as np
 import tensorflow as tf
 from vedo import *
 import vtk
+import time
 
 def get_cluster(rads, thresh = 0.5, mnp = 100): #mnp = 50, thresh = 0.2
     """ Identifies radial bounds which contain the first cluster in a spike 
@@ -11,15 +12,11 @@ def get_cluster(rads, thresh = 0.5, mnp = 100): #mnp = 50, thresh = 0.2
         thresh = must be this close to nearest neighbor to be considered part of a cluster
         mnp = minimum number of points a cluster must contain to be considered
             """
+    before = time.time()
 
     #TODO: try dymacally lowering <max_buffer> value as algorithm progresses
     max_buffer = 0.2 #was this
     # max_buffer = 0.5 #test
-
-
-    #notes for spherical ICET MC 
-    #  0.1 -> mountain
-    #  0.2 -> shadows (need slightly longer basin of attraction to grab on to wall)
 
     #fix dimensions
     if len(tf.shape(rads)) < 2:
@@ -150,6 +147,7 @@ def get_cluster(rads, thresh = 0.5, mnp = 100): #mnp = 50, thresh = 0.2
     bounds = tf.convert_to_tensor(bounds)
     # print("\n bounds", bounds)
 
+    print("\n getting cluster took", time.time() - before,"seconds !!!")
     return(bounds)
 
 

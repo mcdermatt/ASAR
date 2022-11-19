@@ -57,8 +57,13 @@ class ICET():
 		before = time.time()
 
 		#convert cloud1 to tesnsor
-		self.cloud1_tensor = tf.cast(tf.convert_to_tensor(cloud1), tf.float32)
-		self.cloud2_tensor = tf.cast(tf.convert_to_tensor(cloud2), tf.float32)
+		# self.cloud1_tensor = tf.cast(tf.convert_to_tensor(cloud1), tf.float32)
+		# self.cloud2_tensor = tf.cast(tf.convert_to_tensor(cloud2), tf.float32)
+		#debug(needed for efficient gaussian fitting later on...??)
+		self.cloud1_tensor = tf.random.shuffle(tf.cast(tf.convert_to_tensor(cloud1), tf.float32))
+		self.cloud2_tensor = tf.random.shuffle(tf.cast(tf.convert_to_tensor(cloud2), tf.float32))
+		print("\n shuffling and converting to tensor took ", time.time() - before, "\n total: ",  time.time() - self.st)
+		before = time.time()
 
 		if self.draw == True:
 			self.plt = Plotter(N = 1, axes = 4, bg = (1, 1, 1), interactive = True) #axis = 1
@@ -176,25 +181,20 @@ class ICET():
 		idx_by_rag = tf.gather(cloud[:,0], rag)
 
 
-		rads = tf.transpose(idx_by_rag.to_tensor())
-		bounds = get_cluster(rads, mnp = self.min_num_pts)
+		rads = tf.transpose(idx_by_rag.to_tensor()) 
+		bounds = get_cluster(rads, mnp = self.min_num_pts) #largest bottleneck here
 		# bounds = get_cluster(rads, 20) #test 8/2/22
 		# #test 8/2/22 (need if we are using seprate threshold for enough1 and bounds)--------
 		# inside1, npts1 = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes, bounds)
-
 		# enough1 = tf.where(npts1 > self.min_num_pts)[:,0]
-
-		# print(tf.shape(bounds))
-		# bounds = tf.gather(bounds, enough1) 
-		# print(tf.shape(bounds))
-		# print(tf.shape(occupied_spikes))
-		# occupied_spikes = tf.gather(occupied_spikes, enough1) 
-		# print(tf.shape(occupied_spikes))
 		# #-----------------------------------------------------------------------------------
 
 		corn = self.get_corners_cluster(occupied_spikes, bounds)
 		inside1, npts1 = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes, bounds)	
 		# print(npts1)
+
+		# print("\n getting spherical grid", time.time() - before, "\n total: ",  time.time() - self.st)
+		before = time.time()
 
 		self.inside1 = inside1
 		self.npts1 = npts1
@@ -212,11 +212,10 @@ class ICET():
 		# #seems like the cause of this is not deleting points outside the observation cone of the vehicle
 		# #___________________________________________________________________
 
-		print("\n getting spherical grid", time.time() - before, "\n total: ",  time.time() - self.st)
-		before = time.time()
-
 		#fit gaussian
 		mu1, sigma1 = self.fit_gaussian(self.cloud1_tensor, inside1, tf.cast(npts1, tf.float32))
+
+		print("\n fit_gaussian for scan 1", time.time() - before, "\n total: ",  time.time() - self.st)
 
 		enough1 = tf.where(npts1 > self.min_num_pts)[:,0]
 		mu1_enough = tf.gather(mu1, enough1)
@@ -225,7 +224,6 @@ class ICET():
 		#standard U and L method does not work with new grouping strategy
 		U, L = self.get_U_and_L_cluster(sigma1_enough, mu1_enough, occupied_spikes, bounds)
 
-		print("\n fit_gaussian for scan 1", time.time() - before, "\n total: ",  time.time() - self.st)
 
 		if self.draw:
 			# self.visualize_L(mu1_enough, U, L)
@@ -278,7 +276,7 @@ class ICET():
 			corr = tf.sets.intersection(enough1[None,:], enough2[None,:]).values
 			corr_full = tf.sets.intersection(enough1[None,:], enough2[None,:]).values
 
-			print("\n ~~~~~~~~~~~~~~ \n fit_gaussian for scan 2", time.time() - before, "\n total: ",  time.time() - self.st, "\n ~~~~~~~~~~~~~~")
+			# print("\n ~~~~~~~~~~~~~~ \n fit_gaussian for scan 2", time.time() - before, "\n total: ",  time.time() - self.st, "\n ~~~~~~~~~~~~~~")
 			before = time.time()
 
 
@@ -652,7 +650,7 @@ class ICET():
 			self.Q = tf.linalg.pinv(HTWH)
 			self.pred_stds = tf.linalg.tensor_diag_part(tf.math.sqrt(tf.abs(self.Q)))
 
-			print("\n ~~~~~~~~~~~~~~ \n correcting solution estimate", time.time() - before, "\n total: ",  time.time() - self.st, "\n ~~~~~~~~~~~~~~")
+			# print("\n ~~~~~~~~~~~~~~ \n correcting solution estimate", time.time() - before, "\n total: ",  time.time() - self.st, "\n ~~~~~~~~~~~~~~")
 			before = time.time()
 
 
@@ -981,7 +979,7 @@ class ICET():
 		numPtsPerCluster = tf.math.bincount(tf.cast(inside1[:,0], tf.int32))
 		inside1 = tf.RaggedTensor.from_value_rowids(inside1[:,1], inside1[:,0])
 
-		print("\n took ", time.time() -st , "seconds to get points in cluster" )
+		# print("\n took ", time.time() -st , "seconds to get points in cluster" )
 
 		return(inside1, numPtsPerCluster)
 
@@ -1446,12 +1444,12 @@ class ICET():
 		ypos = tf.gather(ypos, idx, axis = 1)
 		zpos = tf.gather(zpos, idx, axis = 1)
 
-		xx = tf.math.reduce_sum(tf.math.square(xpos - mu[:,:,0] ), axis = 1)/npts
-		yy = tf.math.reduce_sum(tf.math.square(ypos - mu[:,:,1] ), axis = 1)/npts
-		zz = tf.math.reduce_sum(tf.math.square(zpos - mu[:,:,2] ), axis = 1)/npts
-		xy = tf.math.reduce_sum( (xpos - mu[:,:,0])*(ypos - mu[:,:,1]), axis = 1)/npts  #+
-		xz = tf.math.reduce_sum( (xpos - mu[:,:,0])*(zpos - mu[:,:,2]), axis = 1)/npts #-
-		yz = tf.math.reduce_sum( (ypos - mu[:,:,1])*(zpos - mu[:,:,2]), axis = 1)/npts #-
+		xx = tf.math.reduce_sum(tf.math.square(xpos - mu[:,:,0] ), axis = 1)/self.min_num_pts
+		yy = tf.math.reduce_sum(tf.math.square(ypos - mu[:,:,1] ), axis = 1)/self.min_num_pts
+		zz = tf.math.reduce_sum(tf.math.square(zpos - mu[:,:,2] ), axis = 1)/self.min_num_pts
+		xy = tf.math.reduce_sum( (xpos - mu[:,:,0])*(ypos - mu[:,:,1]), axis = 1)/self.min_num_pts
+		xz = tf.math.reduce_sum( (xpos - mu[:,:,0])*(zpos - mu[:,:,2]), axis = 1)/self.min_num_pts
+		yz = tf.math.reduce_sum( (ypos - mu[:,:,1])*(zpos - mu[:,:,2]), axis = 1)/self.min_num_pts
 		# #~~~~~~~~~~
 
 		sigma = tf.Variable([xx, xy, xz,
