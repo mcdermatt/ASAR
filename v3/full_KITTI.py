@@ -92,7 +92,7 @@ for i in range(num_frames):
 
 	# run once to get rough estimate and remove outlier points
 	it = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 9, draw = False, group = 2, 
-		RM = True, DNN_filter = True, x0 = initial_guess)
+		RM = True, DNN_filter = False, x0 = initial_guess)
 	ICET_pred_stds[i] = it.pred_stds 
 
 	# run again to re-converge with outliers removed

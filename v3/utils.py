@@ -48,10 +48,9 @@ def get_cluster(rads, thresh = 0.5, mnp = 100): #mnp = 50, thresh = 0.2
     # print("\n jumps \n", jumps) #[idx of jump, which spike is jumping]
 
     #----------------------------------------------------------------------
-    #TODO FIX BUG THAT PREVENTS VOXEL FROM BEING FORMED AROUND VERY TIGHT DISTINCT CLUSETERS OF POINTS (8/9/22)
+    #TO FIX BUG THAT PREVENTS VOXELS FROM BEING FORMED AROUND VERY TIGHT DISTINCT CLUSETERS OF POINTS (8/9/22)
     #       This is happening becuase we are adding in 0 as a first element only to spikes(?) that already have jumps!
-    #           Need to add zeros to ALL spikes
-
+   
     #get indexes of all used spikes
     used = jumps[:,1][None,:]
     # print("used", used)
@@ -91,7 +90,7 @@ def get_cluster(rads, thresh = 0.5, mnp = 100): #mnp = 50, thresh = 0.2
 
     #find where the first large cluster occurs in each spike
     #   using numpy here because we're not working with the full dataset and 
-    #   it's easier if we use in place operations
+    #   it's easier if we use in place operations (but way slower!!!)
     bounds = np.zeros([tf.shape(rads)[1].numpy(), 2])
     for i in range(tf.shape(rads)[1].numpy()):
 
@@ -147,7 +146,7 @@ def get_cluster(rads, thresh = 0.5, mnp = 100): #mnp = 50, thresh = 0.2
     bounds = tf.convert_to_tensor(bounds)
     # print("\n bounds", bounds)
 
-    print("\n getting cluster took", time.time() - before,"seconds !!!")
+    # print("\n getting cluster took", time.time() - before,"seconds !!!")
     return(bounds)
 
 

@@ -180,8 +180,8 @@ class ICET():
 		rag = tf.RaggedTensor.from_value_rowids(temp[:,1], temp[:,0])
 		idx_by_rag = tf.gather(cloud[:,0], rag)
 
-
 		rads = tf.transpose(idx_by_rag.to_tensor()) 
+		self.rads = rads #temp for debug
 		bounds = get_cluster(rads, mnp = self.min_num_pts) #largest bottleneck here
 		# bounds = get_cluster(rads, 20) #test 8/2/22
 		# #test 8/2/22 (need if we are using seprate threshold for enough1 and bounds)--------
@@ -276,7 +276,7 @@ class ICET():
 			corr = tf.sets.intersection(enough1[None,:], enough2[None,:]).values
 			corr_full = tf.sets.intersection(enough1[None,:], enough2[None,:]).values
 
-			# print("\n ~~~~~~~~~~~~~~ \n fit_gaussian for scan 2", time.time() - before, "\n total: ",  time.time() - self.st, "\n ~~~~~~~~~~~~~~")
+			print("\n ~~~~~~~~~~~~~~ \n fit_gaussian for scan 2", time.time() - before, "\n total: ",  time.time() - self.st, "\n ~~~~~~~~~~~~~~")
 			before = time.time()
 
 
@@ -650,7 +650,7 @@ class ICET():
 			self.Q = tf.linalg.pinv(HTWH)
 			self.pred_stds = tf.linalg.tensor_diag_part(tf.math.sqrt(tf.abs(self.Q)))
 
-			# print("\n ~~~~~~~~~~~~~~ \n correcting solution estimate", time.time() - before, "\n total: ",  time.time() - self.st, "\n ~~~~~~~~~~~~~~")
+			print("\n ~~~~~~~~~~~~~~ \n correcting solution estimate", time.time() - before, "\n total: ",  time.time() - self.st, "\n ~~~~~~~~~~~~~~")
 			before = time.time()
 
 
