@@ -5,7 +5,7 @@ import time
 import tensorflow as tf
 from tensorflow.math import sin, cos, tan
 import tensorflow_probability as tfp
-from utils import R2Euler, Ell, jacobian_tf, R_tf, get_cluster
+from utils import R2Euler, Ell, jacobian_tf, R_tf, get_cluster, get_cluster_fast
 
 	#P1:
 		#identify bottleneck in radial binning step
@@ -27,7 +27,7 @@ class ICET():
 
 		self.min_cell_distance = 2 #begin closest spherical voxel here
 		#ignore "occupied" cells with fewer than this number of pts
-		self.min_num_pts = 50 #100 #was 50 for KITTI and Ford, need to lower to 25 for CODD 
+		self.min_num_pts = 100 #100 #was 50 for KITTI and Ford, need to lower to 25 for CODD 
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
 		self.niter = niter
@@ -182,7 +182,8 @@ class ICET():
 
 		rads = tf.transpose(idx_by_rag.to_tensor()) 
 		self.rads = rads #temp for debug
-		bounds = get_cluster(rads, mnp = self.min_num_pts) #largest bottleneck here
+		# bounds = get_cluster(rads, mnp = self.min_num_pts) #largest bottleneck here
+		bounds = get_cluster_fast(rads, mnp = self.min_num_pts) #20x faster
 		# bounds = get_cluster(rads, 20) #test 8/2/22
 		# #test 8/2/22 (need if we are using seprate threshold for enough1 and bounds)--------
 		# inside1, npts1 = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes, bounds)

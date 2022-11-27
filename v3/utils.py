@@ -4,6 +4,90 @@ from vedo import *
 import vtk
 import time
 
+def get_cluster_fast(rads, thresh = 0.5, mnp = 100):
+    """NEW VERSION using TF operations"""
+    before = time.time()
+
+    max_buffer = 0.2
+
+    #fix dimensions
+    if len(tf.shape(rads)) < 2:
+        rads = rads[:,None]
+
+    OG_rads = rads #hold on to OG rads
+    mask = tf.cast(tf.math.equal(rads, 0), tf.float32)*1000
+    rads = rads + mask
+
+    #sort in ascending order for each column in tensor
+    top_k = tf.math.top_k(tf.transpose(rads), k = tf.shape(rads)[0])
+    rads = tf.transpose(tf.gather(tf.transpose(rads), top_k[1], batch_dims = 1))
+    rads = tf.reverse(rads, axis = tf.constant([0]))
+
+    # calculate the forward difference between neighboring points
+    z = tf.zeros([1, tf.shape(rads)[1].numpy()])
+    shifted = tf.concat((rads[1:], z), axis = 0)
+    diff = shifted - rads
+
+    # #find where difference jumps
+    jumps = tf.where(diff > thresh)
+
+    #----------------------------------------------------------------------
+    #TO FIX BUG THAT PREVENTS VOXELS FROM BEING FORMED AROUND VERY TIGHT DISTINCT CLUSETERS OF POINTS (8/9/22)
+    #       This is happening becuase we are adding in 0 as a first element only to spikes(?) that already have jumps!
+    #get indexes of all used spikes
+    used = jumps[:,1][None,:]
+    biggest = tf.math.reduce_max(used, axis = 1).numpy()[0]
+    all_spikes = tf.cast(tf.linspace(0,biggest,biggest+1), tf.int64)[None,:] #list all spikes total
+
+    #find differnce
+    missing = tf.sets.difference(all_spikes, used).values[None,:]
+    zero = tf.constant(0, dtype = tf.float32)
+    ends = tf.math.reduce_sum(tf.cast(tf.not_equal(OG_rads, zero), tf.int64), axis = 0) #correct
+
+    test = tf.gather(ends, missing[0])  #get index of last element of missing jump section
+    # print("\n test", test)
+    z = test[None,:]
+    z -= 2 #fixes indexing bug
+    missing = tf.transpose(tf.concat((z, missing), axis = 0))
+
+    #concat missing stuff back at the end of jumps
+    jumps = tf.concat((jumps, missing), axis = 0)
+    #----------------------------------------------------------------------
+
+    jumps_temp = tf.gather(jumps, tf.argsort(jumps[:,1]), axis=0) #reorder based on index
+    y, idx = tf.unique(jumps_temp[:,1]) #test
+
+    jumps_rag = tf.RaggedTensor.from_value_rowids(jumps_temp[:,0], jumps_temp[:,1])
+
+    # append 0 to beginning of each ragged elemet of jumps_rag
+    zeros = tf.zeros(tf.shape(jumps_rag)[0])[:,None]
+    zeros = tf.cast(tf.RaggedTensor.from_tensor(zeros), tf.int64)
+    jumps_rag = tf.concat([zeros.with_row_splits_dtype(tf.int64), jumps_rag.with_row_splits_dtype(tf.int64)], axis = 1)
+
+    #get num points between each jump 
+    npts_between_jumps = tf.experimental.numpy.diff(jumps_rag.to_tensor())
+
+    #flag spikes where all npts_between_jumps are less than mnp
+    biggest_jump = tf.math.reduce_max(npts_between_jumps, axis = 1)
+    mnp = 100 #minumum number of points per cluster (defined in ICET class)
+    good_clusters = tf.cast(tf.math.greater(biggest_jump, mnp), tf.int32)
+
+    #get idx within jumps_rag corresponding to first sufficiently large jump
+    big_enough = tf.cast(tf.math.greater(npts_between_jumps, 100), tf.int32)
+    first_big_enough = tf.math.argmax(big_enough, axis = 1)
+
+    #get index of radial measurements that defines inner bounds of voxel 
+    inner_idx = tf.gather(jumps_rag.to_tensor(), first_big_enough, batch_dims=1) + 1
+    inner  = tf.gather(tf.transpose(rads), inner_idx, batch_dims=1)
+    outer_idx = tf.gather(jumps_rag.to_tensor(), first_big_enough + 1, batch_dims=1) #DEBUG: figure out if I need -1
+    outer  = tf.gather(tf.transpose(rads), outer_idx, batch_dims=1)
+
+    bounds = tf.convert_to_tensor(np.array([inner, outer]).T)
+    print("\n getting cluster took", time.time() - before,"seconds !!!")
+
+    return bounds
+
+
 def get_cluster(rads, thresh = 0.5, mnp = 100): #mnp = 50, thresh = 0.2
     """ Identifies radial bounds which contain the first cluster in a spike 
             that is closest to the ego-vehicle 
