@@ -12,7 +12,7 @@ gpus = tf.config.experimental.list_physical_devices('GPU')
 print(gpus)
 if gpus:
   try:
-    memlim = 4*1024
+    memlim = 12*1024
     tf.config.experimental.set_virtual_device_configuration(gpus[0], [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=memlim)])
   except RuntimeError as e:
     print(e)
@@ -67,11 +67,11 @@ for i in range(num_frames):
 	#save text file of point clouds so we can run the other benchmarks with MatLab
 	# np.savetxt("E:/KITTI/drive_00_text/scan" + str(i) + ".txt", c1)
 
-	#periodically save so we don't lose everything...
-	if i % 10 == 0:
-		print("saving...")
-		# np.savetxt("perspective_shift/sim_results/KITTI_03_raw.txt", before_correction)
-		np.savetxt("perspective_shift/sim_results/KITTI_03_2sigma.txt", ICET_estimates)
-		# np.savetxt("perspective_shift/sim_results/KITTI_03_noDNN.txt", before_correction)
-		# np.savetxt("perspective_shift/sim_results/KITTI_03_CompactNet.txt", ICET_estimates)
-		# np.savetxt("perspective_shift/sim_results/KITTI_03_pred_stds.txt", ICET_pred_stds)
+	# #periodically save so we don't lose everything...
+	# if i % 10 == 0:
+	# 	print("saving...")
+	# 	# np.savetxt("perspective_shift/sim_results/KITTI_03_raw.txt", before_correction)
+	# 	np.savetxt("perspective_shift/sim_results/KITTI_03_2sigma.txt", ICET_estimates)
+	# 	# np.savetxt("perspective_shift/sim_results/KITTI_03_noDNN.txt", before_correction)
+	# 	# np.savetxt("perspective_shift/sim_results/KITTI_03_CompactNet.txt", ICET_estimates)
+	# 	# np.savetxt("perspective_shift/sim_results/KITTI_03_pred_stds.txt", ICET_pred_stds)

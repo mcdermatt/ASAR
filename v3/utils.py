@@ -82,7 +82,10 @@ def get_cluster_fast(rads, thresh = 0.5, mnp = 100):
     outer_idx = tf.gather(jumps_rag.to_tensor(), first_big_enough + 1, batch_dims=1) #DEBUG: figure out if I need -1
     outer  = tf.gather(tf.transpose(rads), outer_idx, batch_dims=1)
 
-    bounds = tf.convert_to_tensor(np.array([inner, outer]).T)
+    # bounds = tf.convert_to_tensor(np.array([inner, outer]).T)
+    bounds = tf.concat((inner[:,None], outer[:,None]), axis = 1)
+    bounds = tf.cast(good_clusters[:,None], tf.float32) * bounds #suppress cells with no good clusters
+
     print("\n getting cluster took", time.time() - before,"seconds !!!")
 
     return bounds
