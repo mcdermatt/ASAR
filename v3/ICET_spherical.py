@@ -27,7 +27,7 @@ class ICET():
 
 		self.min_cell_distance = 2 #begin closest spherical voxel here
 		#ignore "occupied" cells with fewer than this number of pts
-		self.min_num_pts = 100 #was 50 for KITTI and Ford, need to lower to 25 for CODD 
+		self.min_num_pts = 50 #100 #was 50 for KITTI and Ford, need to lower to 25 for CODD 
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
 		self.niter = niter
@@ -1440,6 +1440,7 @@ class ICET():
 		#new method downsampling to first n points in each ragged tensor -- MUCH FASTER!!!
 		mu = tf.math.reduce_mean(coords, axis = 1)[:,None]
 		idx = tf.range(self.min_num_pts)
+		# idx = tf.range(self.min_num_pts-1) #test
 		xpos = tf.gather(xpos, idx, axis = 1)
 		ypos = tf.gather(ypos, idx, axis = 1)
 		zpos = tf.gather(zpos, idx, axis = 1)

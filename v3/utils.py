@@ -146,7 +146,7 @@ def get_cluster(rads, thresh = 0.5, mnp = 100): #mnp = 50, thresh = 0.2
     bounds = tf.convert_to_tensor(bounds)
     # print("\n bounds", bounds)
 
-    # print("\n getting cluster took", time.time() - before,"seconds !!!")
+    print("\n getting cluster took", time.time() - before,"seconds !!!")
     return(bounds)
 
 
