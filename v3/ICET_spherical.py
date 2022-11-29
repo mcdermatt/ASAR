@@ -53,8 +53,8 @@ class ICET():
 			# self.model = tf.keras.models.load_model("perspective_shift/Net.kmod") #50 pts, updated 7/29
 			# self.model = tf.keras.models.load_model("perspective_shift/FULL_KITTInet4500.kmod") #25 sample points
 
-		print("\n loading model took", time.time() - before, "\n total: ",  time.time() - self.st)
-		before = time.time()
+		# print("\n loading model took", time.time() - before, "\n total: ",  time.time() - self.st)
+		# before = time.time()
 
 		#convert cloud1 to tesnsor
 		# self.cloud1_tensor = tf.cast(tf.convert_to_tensor(cloud1), tf.float32)
@@ -62,8 +62,8 @@ class ICET():
 		#debug(needed for efficient gaussian fitting later on...??)
 		self.cloud1_tensor = tf.random.shuffle(tf.cast(tf.convert_to_tensor(cloud1), tf.float32))
 		self.cloud2_tensor = tf.random.shuffle(tf.cast(tf.convert_to_tensor(cloud2), tf.float32))
-		print("\n shuffling and converting to tensor took ", time.time() - before, "\n total: ",  time.time() - self.st)
-		before = time.time()
+		# print("\n shuffling and converting to tensor took ", time.time() - before, "\n total: ",  time.time() - self.st)
+		# before = time.time()
 
 		if self.draw == True:
 			self.plt = Plotter(N = 1, axes = 4, bg = (1, 1, 1), interactive = True) #axis = 1
@@ -93,8 +93,8 @@ class ICET():
 
 		self.cloud1_static = None #placeholder for returning inlier points after moving point exclusion routine
 
-		print("\n converting to spherical took", time.time() - before, "\n total: ",  time.time() - self.st)
-		before = time.time()
+		# print("\n converting to spherical took", time.time() - before, "\n total: ",  time.time() - self.st)
+		# before = time.time()
 
 		# #-----------------------------------------------------------
 		# #debug - draw points within a single occupied cell  
@@ -216,7 +216,7 @@ class ICET():
 		#fit gaussian
 		mu1, sigma1 = self.fit_gaussian(self.cloud1_tensor, inside1, tf.cast(npts1, tf.float32))
 
-		print("\n fit_gaussian for scan 1", time.time() - before, "\n total: ",  time.time() - self.st)
+		# print("\n fit_gaussian for scan 1", time.time() - before, "\n total: ",  time.time() - self.st)
 
 		enough1 = tf.where(npts1 > self.min_num_pts)[:,0]
 		mu1_enough = tf.gather(mu1, enough1)
@@ -245,7 +245,7 @@ class ICET():
 			#Option to read in ground truth positions so we can use ICET to generate training data for DNN
 			if tf.shape(self.cheat)[0].numpy() > 0:
 				self.X = self.cheat
-				print("using state estimate form OXTS")
+				print("using state estimate from OXTS")
 			#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 			before = time.time()
@@ -264,9 +264,9 @@ class ICET():
 			# print(npts2)
 
 			#temp			
-			self.inside2 = inside2
-			self.npts2 = npts2
-			self.enough1 = enough1
+			# self.inside2 = inside2
+			# self.npts2 = npts2
+			# self.enough1 = enough1
 
 			#fit gaussians distributions to each of these groups of points 		
 			mu2, sigma2 = self.fit_gaussian(self.cloud2_tensor, inside2, tf.cast(npts2, tf.float32))
@@ -394,7 +394,7 @@ class ICET():
 					self.U_i = U_i
 					self.L_i = L_i
 
-					print("\n ~~~~~~~~~~~~~~ \n removed moving", time.time() - before, "\n total: ",  time.time() - self.st, "\n ~~~~~~~~~~~~~~")
+					# print("\n ~~~~~~~~~~~~~~ \n removed moving", time.time() - before, "\n total: ",  time.time() - self.st, "\n ~~~~~~~~~~~~~~")
 					before = time.time()
 			#----------------------------------------------
 
@@ -498,7 +498,7 @@ class ICET():
 				idx_to_draw_dnn_soln = tf.gather(mu1_enough, ans)
 				# self.draw_DNN_soln(dnn_compact_xyz[:,:,0], it_compact_xyz[:,:,0], tf.gather(mu1_enough, ans))
 
-				print("\n ~~~~~~~~~~~~~~ \n DNN Filter", time.time() - before, "\n total: ",  time.time() - self.st, "\n ~~~~~~~~~~~~~~")
+				# print("\n ~~~~~~~~~~~~~~ \n DNN Filter", time.time() - before, "\n total: ",  time.time() - self.st, "\n ~~~~~~~~~~~~~~")
 				before = time.time()
 			#----------------------------------------------
 			
@@ -651,8 +651,8 @@ class ICET():
 			self.Q = tf.linalg.pinv(HTWH)
 			self.pred_stds = tf.linalg.tensor_diag_part(tf.math.sqrt(tf.abs(self.Q)))
 
-			print("\n ~~~~~~~~~~~~~~ \n correcting solution estimate", time.time() - before, "\n total: ",  time.time() - self.st, "\n ~~~~~~~~~~~~~~")
-			before = time.time()
+			# print("\n ~~~~~~~~~~~~~~ \n correcting solution estimate", time.time() - before, "\n total: ",  time.time() - self.st, "\n ~~~~~~~~~~~~~~")
+			# before = time.time()
 
 
 
@@ -1435,6 +1435,7 @@ class ICET():
 		# xy = tf.math.reduce_sum( (xpos - mu[:,0][:,None])*(ypos - mu[:,1][:,None]), axis = 1)/npts  #+
 		# xz = tf.math.reduce_sum( (xpos - mu[:,0][:,None])*(zpos - mu[:,2][:,None]), axis = 1)/npts #-
 		# yz = tf.math.reduce_sum( (ypos - mu[:,1][:,None])*(zpos - mu[:,2][:,None]), axis = 1)/npts #-
+		# return(mu, sigma)
 		# #~~~~~~~~~~
 
 		# #~~~~~~~~~~
@@ -1452,7 +1453,6 @@ class ICET():
 		xy = tf.math.reduce_sum( (xpos - mu[:,:,0])*(ypos - mu[:,:,1]), axis = 1)/self.min_num_pts
 		xz = tf.math.reduce_sum( (xpos - mu[:,:,0])*(zpos - mu[:,:,2]), axis = 1)/self.min_num_pts
 		yz = tf.math.reduce_sum( (ypos - mu[:,:,1])*(zpos - mu[:,:,2]), axis = 1)/self.min_num_pts
-		# #~~~~~~~~~~
 
 		sigma = tf.Variable([xx, xy, xz,
 							 xy, yy, yz,
@@ -1460,10 +1460,10 @@ class ICET():
 		sigma = tf.reshape(tf.transpose(sigma), (tf.shape(sigma)[1] ,3,3))
 		# print("sigma", sigma)
 
-		# print("took", time.time()-st, "s to fit fit_gaussian")
+		# print("took", time.time()-st, "s to fit_gaussian")
 
-		# return(mu, sigma)  #old
-		return(mu[:,0,:], sigma) #for new
+		return(mu[:,0,:], sigma)
+		# #~~~~~~~~~~
 
 
 	def get_points_inside(self, cloud, cells):
