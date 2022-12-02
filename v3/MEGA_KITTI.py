@@ -50,8 +50,7 @@ for i in range(num_frames):
 	# c1 = c1[c1[:,2] > -2.] #ignore reflections
 	# c2 = c2[c2[:,2] > -2.] #ignore reflections
 
-
-	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 5, draw = False, group = 2, 
+	it = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 5, draw = False, group = 2, 
 		RM = False, DNN_filter = False, x0 = initial_guess)
 	
 	ICET_estimates[i] = it.X

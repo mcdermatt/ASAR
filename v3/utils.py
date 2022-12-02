@@ -76,7 +76,6 @@ def get_cluster_fast(rads, thresh = 0.5, mnp = 100):
     big_enough = tf.cast(tf.math.greater(npts_between_jumps, mnp), tf.int32)
     first_big_enough = tf.math.argmax(big_enough, axis = 1)
 
-    #get inner and outer 
     #simple way-- just use radial measurements of inner and outermost points in cluster
     # #--------------------------------------------------------------------------------------------------------
     # inner_idx = tf.gather(jumps_rag.to_tensor(), first_big_enough, batch_dims=1) + 1
@@ -100,7 +99,7 @@ def get_cluster_fast(rads, thresh = 0.5, mnp = 100):
     inner_skip_dist = inner_skip_dist*too_big + (1-too_big)*max_buffer
     temp = tf.cast(tf.math.equal(inner_skip_dist, 0), tf.float32)*max_buffer #set all others to max_buffer
     inner = inner_radii - inner_skip_dist - temp
-
+    #repeat similar process for outer limits of each cell
     outer_idx = tf.gather(jumps_rag.to_tensor(), first_big_enough + 1, batch_dims=1) - 1
     outer_radii  = tf.gather(tf.transpose(rads), outer_idx, batch_dims=1)
     next_outer_idx = tf.gather(jumps_rag.to_tensor(), first_big_enough + 1, batch_dims=1) +1
@@ -116,7 +115,7 @@ def get_cluster_fast(rads, thresh = 0.5, mnp = 100):
     bounds = tf.concat((inner[:,None], outer[:,None]), axis = 1)
     bounds = tf.cast(good_clusters[:,None], tf.float32) * bounds #suppress cells with no good clusters
 
-    print("\n getting cluster took", time.time() - before,"seconds !!!")
+    print("\n getting bounds took", time.time() - before,"seconds")
 
     return bounds
 

@@ -23,6 +23,8 @@ class ICET():
 		x0 = tf.constant([0.0, 0.0, 0., 0., 0., 0.]), group = 2, RM = True,
 		DNN_filter = False, cheat = []):
 
+		self.run_profile = True
+		# self.run_profile = False
 		self.st = time.time() #start time (for debug)
 
 		self.min_cell_distance = 2 #begin closest spherical voxel here
@@ -53,8 +55,9 @@ class ICET():
 			# self.model = tf.keras.models.load_model("perspective_shift/Net.kmod") #50 pts, updated 7/29
 			# self.model = tf.keras.models.load_model("perspective_shift/FULL_KITTInet4500.kmod") #25 sample points
 
-		# print("\n loading model took", time.time() - before, "\n total: ",  time.time() - self.st)
-		# before = time.time()
+			if self.run_profile:
+				print("\n loading model took", time.time() - before, "\n total: ",  time.time() - self.st)
+				before = time.time()
 
 		#convert cloud1 to tesnsor
 		# self.cloud1_tensor = tf.cast(tf.convert_to_tensor(cloud1), tf.float32)
@@ -93,8 +96,9 @@ class ICET():
 
 		self.cloud1_static = None #placeholder for returning inlier points after moving point exclusion routine
 
-		# print("\n converting to spherical took", time.time() - before, "\n total: ",  time.time() - self.st)
-		# before = time.time()
+		if self.run_profile:
+			print("\n converting to spherical took", time.time() - before, "\n total: ",  time.time() - self.st)
+			before = time.time()
 
 		# #-----------------------------------------------------------
 		# #debug - draw points within a single occupied cell  
@@ -184,7 +188,6 @@ class ICET():
 		self.rads = rads #temp for debug
 		# bounds = get_cluster(rads, mnp = self.min_num_pts) #largest bottleneck here
 		bounds = get_cluster_fast(rads, mnp = self.min_num_pts) #20x faster
-		# bounds = get_cluster(rads, 20) #test 8/2/22
 		# #test 8/2/22 (need if we are using seprate threshold for enough1 and bounds)--------
 		# inside1, npts1 = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes, bounds)
 		# enough1 = tf.where(npts1 > self.min_num_pts)[:,0]
@@ -194,8 +197,9 @@ class ICET():
 		inside1, npts1 = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes, bounds)	
 		# print(npts1)
 
-		# print("\n getting spherical grid", time.time() - before, "\n total: ",  time.time() - self.st)
-		before = time.time()
+		if self.run_profile:
+			print("\n getting spherical grid", time.time() - before, "\n total: ",  time.time() - self.st)
+			before = time.time()
 
 		self.inside1 = inside1
 		self.npts1 = npts1
@@ -216,7 +220,9 @@ class ICET():
 		#fit gaussian
 		mu1, sigma1 = self.fit_gaussian(self.cloud1_tensor, inside1, tf.cast(npts1, tf.float32))
 
-		# print("\n fit_gaussian for scan 1", time.time() - before, "\n total: ",  time.time() - self.st)
+		if self.run_profile:
+			print("\n fit_gaussian for scan 1", time.time() - before, "\n total: ",  time.time() - self.st)
+			before = time.time()
 
 		enough1 = tf.where(npts1 > self.min_num_pts)[:,0]
 		mu1_enough = tf.gather(mu1, enough1)
@@ -225,6 +231,9 @@ class ICET():
 		#standard U and L method does not work with new grouping strategy
 		U, L = self.get_U_and_L_cluster(sigma1_enough, mu1_enough, occupied_spikes, bounds)
 
+		if self.run_profile:
+			print("\n got U and L cluster", time.time() - before, "\n total: ",  time.time() - self.st)
+			before = time.time()
 
 		if self.draw:
 			# self.visualize_L(mu1_enough, U, L)
@@ -235,10 +244,6 @@ class ICET():
 			# for n in range(tf.shape(inside1.to_tensor())[0]):
 			# 	temp = tf.gather(self.cloud1_tensor, inside1[n]).numpy()	
 			# 	self.disp.append(Points(temp, c = 'green', r = 5))
-			# self.visualize_L(mu1_enough, U, L)
-			##for fig introducing shadowing bias problem
-			# self.disp.append(Point(pos = (0,0,0), c = 'red', r = 10 )) 
-			# self.disp.append(Point(pos = (0.5,0,0), c = 'blue', r = 10 )) 
 
 		for i in range(niter):
 			#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -248,38 +253,34 @@ class ICET():
 				print("using state estimate from OXTS")
 			#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-			before = time.time()
-
 			#transform cartesian point cloud 2 by estimated solution vector X
 			t = self.X[:3]
 			rot = R_tf(-self.X[3:])
 			# self.cloud2_tensor = tf.matmul((self.cloud2_tensor_OG + t), tf.transpose(rot)) #was this in 3D-ICET paper
 			self.cloud2_tensor = tf.matmul((self.cloud2_tensor_OG), tf.transpose(rot)) + t   #rotate then translate
 
+			if self.run_profile:
+				print("\n ~~~~~~~~~~~~~~ \n transforming scan2", time.time() - before, "\n total: ",  time.time() - self.st, "\n ~~~~~~~~~~~~~~")
+				before = time.time()
+
 			#convert back to spherical coordinates
 			self.cloud2_tensor_spherical = tf.cast(self.c2s(self.cloud2_tensor), tf.float32)
 
 			#find points from scan 2 that fall inside clusters
 			inside2, npts2 = self.get_points_in_cluster(self.cloud2_tensor_spherical, occupied_spikes, bounds)
-			# print(npts2)
-
-			#temp			
-			# self.inside2 = inside2
-			# self.npts2 = npts2
-			# self.enough1 = enough1
 
 			#fit gaussians distributions to each of these groups of points 		
 			mu2, sigma2 = self.fit_gaussian(self.cloud2_tensor, inside2, tf.cast(npts2, tf.float32))
+
+			if self.run_profile:
+				print("\n ~~~~~~~~~~~~~~ \n fit_gaussian for scan 2", time.time() - before, "\n total: ",  time.time() - self.st, "\n ~~~~~~~~~~~~~~")
+				before = time.time()
+
 			enough2 = tf.where(npts2 > self.min_num_pts)[:,0]
 			mu2_enough = tf.gather(mu2, enough2)
-
 			#get correspondences
 			corr = tf.sets.intersection(enough1[None,:], enough2[None,:]).values
 			corr_full = tf.sets.intersection(enough1[None,:], enough2[None,:]).values
-
-			print("\n ~~~~~~~~~~~~~~ \n fit_gaussian for scan 2", time.time() - before, "\n total: ",  time.time() - self.st, "\n ~~~~~~~~~~~~~~")
-			before = time.time()
-
 
 			#----------------------------------------------
 			if remove_moving:  
@@ -502,46 +503,9 @@ class ICET():
 				before = time.time()
 			#----------------------------------------------
 			
-
-			#for debug
+			#for MC simulations
 			if i < self.start_filter_iter:
 				self.before_correction = self.X
-
-			# #for benchmarking ICP on spherical coordinates ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-			# #to confirm correct points are being ignored
-			# bounds_good = tf.gather(bounds, corr)
-			# good_pts_rag1, _ = self.get_points_in_cluster(self.cloud1_tensor_spherical, tf.gather(occupied_spikes, corr), bounds_good)
-			# good_pts_rag2, _ = self.get_points_in_cluster(self.cloud2_tensor_spherical, tf.gather(occupied_spikes, corr), bounds_good)
-
-			# if i >= 10:
-			# 	to_save1 = np.zeros([1,3])
-			# 	to_save2 = np.zeros([1,3])
-			# 	for z in range(good_pts_rag1.bounding_shape()[0]):
-			# 		temp = tf.gather(self.cloud1_tensor, good_pts_rag1[z]).numpy()
-			# 		#draw good points from scan 1-------------
-			# 		# if self.draw == True:
-			# 		# 	self.disp.append(Points(temp, c = 'green', r = 6))
-			# 		#-----------------------------------------
-			# 		to_save1 = np.append(to_save1, temp, axis = 0)	
-			# 	self.cloud1_static = to_save1
-				
-			# 	for z in range(good_pts_rag2.bounding_shape()[0]):
-			# 		temp = tf.gather(self.cloud2_tensor, good_pts_rag2[z]).numpy()
-			# 		to_save2 = np.append(to_save2, temp, axis = 0)
-			# 	self.cloud2_static = to_save2
-
-			# 	#update cloud1 and dependencies (mu1, sigma1, etc.) to remove pts form scan1 in problematic regions
-			# 	# self.cloud1_tensor = tf.cast(tf.convert_to_tensor(to_save), tf.float32)
-			# 	# self.cloud1_tensor_spherical = tf.cast(self.c2s(self.cloud1_tensor), tf.float32)
-			# 	# inside1, npts1 = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes, bounds)
-			# 	# mu1, sigma1 = self.fit_gaussian(tf.cast(self.cloud1_tensor, tf.float32), inside1, tf.cast(npts1, tf.float32))
-			# 	# enough1 = tf.where(npts1 > self.min_num_pts)[:,0]
-			# 	# mu1_enough = tf.gather(mu1, enough1)
-			# 	# sigma1_enough = tf.gather(sigma1, enough1)
-			# 	# print("enough1", enough1)
-
-			# # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
 
 			y0_i_full = tf.gather(mu1, corr_full)
 			y_i_full = tf.gather(mu2, corr_full)
@@ -580,7 +544,6 @@ class ICET():
 			#get matrix containing partial derivatives for each voxel mean
 			H = jacobian_tf(tf.transpose(y_i), self.X[3:]) # shape = [num of corr * 3, 6]
 			H = tf.reshape(H, (tf.shape(H)[0]//3,3,6)) # -> need shape [#corr//3, 3, 6]
-			# print("H \n", H)
 
 			U_iT = tf.transpose(U_i, [0,2,1])
 			L_iT = tf.transpose(L_i, [0,2,1])
@@ -596,11 +559,7 @@ class ICET():
 
 			# use LUT to remove rows of H corresponding to overly extended directions
 			LUT = L_i @ U_iT
-			H_z = LUT @ H #correct(?)
-			#test (wrong?)
-			# LU = L_i @ U_i 
-			# H_z = LU @ H
-
+			H_z = LUT @ H
 
 			HTWH = tf.math.reduce_sum(tf.matmul(tf.matmul(tf.transpose(H_z, [0,2,1]), W), H_z), axis = 0) #was this (which works)
 			HTW = tf.matmul(tf.transpose(H_z, [0,2,1]), W)
@@ -613,7 +572,6 @@ class ICET():
 			z0 = tf.squeeze(tf.matmul(LUT, y0_i[:,:,None]))	
 			dz = z - z0
 			dz = dz[:,:,None] #need to add an extra dimension to dz to get the math to work out
-			# print("old dz", dz[:15,:,0])
 
 			# #DEBUG - replace distribution matching step with output from DNN ~~~~~~~~~
 			# if i >= self.start_filter_iter:
@@ -637,12 +595,8 @@ class ICET():
 			# 	# print("new dz", dz[:15,:,0])
 			# # # #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-
 			dx = tf.squeeze(tf.matmul( tf.matmul(tf.linalg.pinv(L2 @ lam @ tf.transpose(U2)) @ L2 @ tf.transpose(U2) , HTW ), dz))	
-
 			dx = tf.math.reduce_sum(dx, axis = 0)
-			# print("\n dx \n", dx)
-
 			self.X += dx
 
 			print("\n estimated solution vector X: \n", self.X)
@@ -651,10 +605,9 @@ class ICET():
 			self.Q = tf.linalg.pinv(HTWH)
 			self.pred_stds = tf.linalg.tensor_diag_part(tf.math.sqrt(tf.abs(self.Q)))
 
-			# print("\n ~~~~~~~~~~~~~~ \n correcting solution estimate", time.time() - before, "\n total: ",  time.time() - self.st, "\n ~~~~~~~~~~~~~~")
-			# before = time.time()
-
-
+			if self.run_profile:
+				print("\n ~~~~~~~~~~~~~~ \n correcting solution estimate", time.time() - before, "\n total: ",  time.time() - self.st, "\n ~~~~~~~~~~~~~~")
+				before = time.time()
 
 		print("pred_stds: \n", self.pred_stds)
 		print(" L2: \n", L2)		
@@ -980,7 +933,7 @@ class ICET():
 		numPtsPerCluster = tf.math.bincount(tf.cast(inside1[:,0], tf.int32))
 		inside1 = tf.RaggedTensor.from_value_rowids(inside1[:,1], inside1[:,0])
 
-		# print("\n took ", time.time() -st , "seconds to get points in cluster" )
+		print("\n took ", time.time() -st , "seconds to get points in cluster" )
 
 		return(inside1, numPtsPerCluster)
 
