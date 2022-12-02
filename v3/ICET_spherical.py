@@ -23,13 +23,13 @@ class ICET():
 		x0 = tf.constant([0.0, 0.0, 0., 0., 0., 0.]), group = 2, RM = True,
 		DNN_filter = False, cheat = []):
 
-		self.run_profile = True
+		self.run_profile = False
 		# self.run_profile = False
 		self.st = time.time() #start time (for debug)
 
 		self.min_cell_distance = 2 #begin closest spherical voxel here
 		#ignore "occupied" cells with fewer than this number of pts
-		self.min_num_pts = 100 #100 #was 50 for KITTI and Ford, need to lower to 25 for CODD 
+		self.min_num_pts = 100 #was 50 for KITTI and Ford, need to lower to 25 for CODD 
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
 		self.niter = niter
@@ -38,16 +38,16 @@ class ICET():
 		self.DNN_filter = DNN_filter
 		self.start_filter_iter = 7 #10 #iteration to start DNN rejection filter
 		self.start_RM_iter = 7 #10 #iteration to start removing moving objects (set low to generate training data)
-		self.DNN_thresh = 0.08 #0.03
-		self.RM_thresh = 0.1
+		self.DNN_thresh = 0.05 #0.03
+		self.RM_thresh = 0.05
 
 		before = time.time()
 
 		#load dnn model
 		if self.DNN_filter:
-			# self.model = tf.keras.models.load_model("perspective_shift/CompactNet.kmod", compile = False) #need flag to avoid importing custom loss func
+			self.model = tf.keras.models.load_model("perspective_shift/CompactNet.kmod", compile = False) #need flag to avoid importing custom loss func
 			# self.model = tf.keras.models.load_model("perspective_shift/ForestNet.kmod")
-			self.model = tf.keras.models.load_model("perspective_shift/combinedNet.kmod") #used for graphs in v1 arXiv submission
+			# self.model = tf.keras.models.load_model("perspective_shift/combinedNet.kmod") #used for graphs in v1 arXiv submission
 			# self.model = tf.keras.models.load_model("perspective_shift/KITTINet100.kmod") #BEST
 			# self.model = tf.keras.models.load_model("perspective_shift/FORDNet.kmod")  #50 sample points
 			# self.model = tf.keras.models.load_model("perspective_shift/FORDNetV2.kmod")  #50 sample points

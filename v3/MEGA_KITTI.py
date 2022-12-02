@@ -24,7 +24,7 @@ from metpy.calc import lat_lon_grid_deltas
 
 num_frames = 799
 
-basepath = '/media/derm/06EF-127D1/KITTI'
+basepath = '/media/derm/06EF-127D2/KITTI'
 date = "2011_09_26"
 # drive = '00' #urban
 drive = '03' #trees
