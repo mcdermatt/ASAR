@@ -7,15 +7,6 @@ from tensorflow.math import sin, cos, tan
 import tensorflow_probability as tfp
 from utils import R2Euler, Ell, jacobian_tf, R_tf, get_cluster, get_cluster_fast
 
-	#P1:
-		#identify bottleneck in radial binning step
-
-		# remove outlier difference cells from contributing to soln
-		#	make before and after otputs and compare histograms
-		
-	#P2:
-		# figure out why <get_occupied()> always includes cell 0 at the end - it's because there are points outside reachable space
-
 
 class ICET():
 
