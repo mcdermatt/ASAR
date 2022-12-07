@@ -14,7 +14,7 @@ class ICET():
 		x0 = tf.constant([0.0, 0.0, 0., 0., 0., 0.]), group = 2, RM = True,
 		DNN_filter = False, cheat = []):
 
-		self.run_profile = False
+		self.run_profile = True
 		# self.run_profile = False
 		self.st = time.time() #start time (for debug)
 
@@ -151,9 +151,9 @@ class ICET():
 		# get boundaries containing useful clusters of points from first scan
 				#bin points by spike
 		thetamin = -np.pi
-		thetamax = np.pi #-  2*np.pi/self.fid_theta
+		thetamax = np.pi
 		phimin =  3*np.pi/8
-		phimax = 7*np.pi/8 #5*np.pi/8 
+		phimax = 7*np.pi/8 
 
 		edges_phi = tf.linspace(phimin, phimax, self.fid_phi)
 		edges_theta = tf.linspace(thetamin, thetamax, self.fid_theta + 1)
@@ -177,8 +177,9 @@ class ICET():
 
 		rads = tf.transpose(idx_by_rag.to_tensor()) 
 		self.rads = rads #temp for debug
-		# bounds = get_cluster(rads, mnp = self.min_num_pts) #largest bottleneck here
-		bounds = get_cluster_fast(rads, mnp = self.min_num_pts) #20x faster
+		# bounds = get_cluster(rads, mnp = self.min_num_pts) #old (slow)
+		bounds = get_cluster_fast(rads, mnp = self.min_num_pts) #new (20x faster)
+
 		# #test 8/2/22 (need if we are using seprate threshold for enough1 and bounds)--------
 		# inside1, npts1 = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes, bounds)
 		# enough1 = tf.where(npts1 > self.min_num_pts)[:,0]
@@ -902,7 +903,6 @@ class ICET():
 		thetamin = -np.pi
 		thetamax = np.pi #-  2*np.pi/self.fid_theta
 		phimin =  3*np.pi/8
-		# phimax = 5*np.pi/8 
 		phimax = 7*np.pi/8
 
 		edges_phi = tf.linspace(phimin, phimax, self.fid_phi) #was this for regular cells
@@ -919,6 +919,9 @@ class ICET():
 		cond1 = spike_idx == occupied_spikes[:,None] #match spike IDs
 		cond2 = cloud[:,0] < tf.cast(bounds[:,1][:,None], tf.float32) #closer than max bound
 		cond3 = cloud[:,0] > tf.cast(bounds[:,0][:,None], tf.float32) #further than min bound
+		# cond1 = tf.math.equal(spike_idx, occupied_spikes[:,None]) #match spike IDs
+		# cond2 = tf.math.less(cloud[:,0], bounds[:,1][:,None]) #closer than max bound
+		# cond3 = tf.math.greater(cloud[:,0], bounds[:,0][:,None]) #further than min bound
 
 		inside1 = tf.where(tf.math.reduce_all(tf.Variable([cond1, cond2, cond3]), axis = 0))
 		numPtsPerCluster = tf.math.bincount(tf.cast(inside1[:,0], tf.int32))
@@ -993,7 +996,6 @@ class ICET():
 		#combine both the positive and negative axis directions
 		# deez = tf.cast(tf.sets.intersection(bofa1[None, :], bofa2[None, :]).values[:,None], tf.int32) # only need one edge outside cell (was this)
 		deez = tf.cast(tf.sets.union(bofa1[None, :], bofa2[None, :]).values[:,None], tf.int32) #both edeges need to be outside cell to be ambigous
-
 		# print("unambiguous indices", deez)
 
 		data = tf.ones((tf.shape(deez)[0],3))
@@ -1668,15 +1670,12 @@ class ICET():
 		""" constructs grid in spherical coordinates """
 
 		self.fid_r = self.fid  #waaayyy too many but keeping this for now
-		# self.fid_r = 10 #causes bugs
 		self.fid_theta = self.fid  #number of subdivisions in horizontal directin
-		# self.fid_phi = self.fid_theta//6 #number of subdivision in vertical direction + 1
 		self.fid_phi = self.fid_theta // 3
 
 		thetamin = -np.pi 
-		thetamax = np.pi - 2*np.pi/self.fid_theta
+		thetamax = np.pi - 2*np.pi/self.fid_theta #different from limits in main()
 		phimin =  3*np.pi/8
-		# phimax = 5*np.pi/8 
 		phimax = 7*np.pi/8
 
 		a = tf.cast(tf.linspace(0,self.fid_r-1, self.fid_r)[:,None], tf.float32)
@@ -1724,28 +1723,28 @@ class ICET():
 		# print(mask)
 		# # self.grid = self.grid + mask
 
-		### using np (sligthly slower but fine for prototype) ------
-		# self.grid_simple = self.grid #save copy of grid with thee new radial spacing for bottom ring
-		n_ground_cells = 3
-		eps = 1e-4 #small value to give bin a discrete size
+		# ### using np (sligthly slower but fine for prototype) ------
+		# # self.grid_simple = self.grid #save copy of grid with thee new radial spacing for bottom ring
+		# n_ground_cells = 3
+		# eps = 1e-4 #small value to give bin a discrete size
 
-		gnp = self.grid.numpy()
-		idx_bottom = np.where(gnp[:,2] >= c[-n_ground_cells].numpy())
-		# print(idx)
-		#expand radius of bottom two rings rows 
-		gnp[idx_bottom,0] = 2*gnp[idx_bottom,0]-3 
+		# gnp = self.grid.numpy()
+		# idx_bottom = np.where(gnp[:,2] >= c[-n_ground_cells].numpy())
+		# # print(idx)
+		# #expand radius of bottom two rings rows 
+		# gnp[idx_bottom,0] = 2*gnp[idx_bottom,0]-3 
 
-		#set elevation angle of ring above bottom to be the same as below to avoid sloped voxels
-		# idx_next_up = np.where(gnp[:,2] == c[-(n_ground_cells + 1)].numpy())
-		# gnp[idx_next_up, 2] = gnp[np.where(gnp[:,2] == c[-n_ground_cells].numpy()), 2] + eps
-		# print(c) #grid of phi
-		# print(idx_next_up)
+		# #set elevation angle of ring above bottom to be the same as below to avoid sloped voxels
+		# # idx_next_up = np.where(gnp[:,2] == c[-(n_ground_cells + 1)].numpy())
+		# # gnp[idx_next_up, 2] = gnp[np.where(gnp[:,2] == c[-n_ground_cells].numpy()), 2] + eps
+		# # print(c) #grid of phi
+		# # print(idx_next_up)
 
-		#raise elevation of "ground cells" by 1 to remove slope
-		# gnp[idx_bottom, 2] = gnp[np.asarray(idx_bottom) - 1, 2] + eps
+		# #raise elevation of "ground cells" by 1 to remove slope
+		# # gnp[idx_bottom, 2] = gnp[np.asarray(idx_bottom) - 1, 2] + eps
 
-		self.grid_tophat = tf.convert_to_tensor(gnp)
-		# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		# self.grid_tophat = tf.convert_to_tensor(gnp)
+		# # #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 		if draw == True:
 			gp = self.s2c(self.grid.numpy())
