@@ -288,12 +288,13 @@ from metpy.calc import lat_lon_grid_deltas
 #KITTI CARLA -------------------------------------------------------------------------------
 import trimesh
 
-idx = 2000
+idx = 20
 noise_scale = 0.01
 
 # town = "Town01"
 # town = "Town02"
-town = "Town03"
+# town = "Town03"
+town = "Town05" #not working???
 # town = "Town07"
 
 fpl = np.loadtxt("/home/derm/KITTICARLA/dataset/" + town + "/generated/full_poses_lidar.txt") #full poses lidar
@@ -337,7 +338,7 @@ print("\n ground_truth: \n", OXTS_ground_truth)
 
 x0 = tf.constant([0., 0., 0., 0., 0., 0.])
 
-it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 10, 
+it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 15, 
 	draw = True, group = 2, RM = True, DNN_filter = False, x0 = x0)
 
 

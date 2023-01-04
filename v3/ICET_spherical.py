@@ -18,7 +18,7 @@ class ICET():
 		# self.run_profile = False
 		self.st = time.time() #start time (for debug)
 
-		self.min_cell_distance = 2 #begin closest spherical voxel here
+		self.min_cell_distance = 4 #2 #begin closest spherical voxel here
 		#ignore "occupied" cells with fewer than this number of pts
 		self.min_num_pts = 100 #was 50 for KITTI and Ford, need to lower to 25 for CODD 
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
@@ -28,9 +28,9 @@ class ICET():
 		self.cheat = cheat #overide for using ICET to generate training data for DNN
 		self.DNN_filter = DNN_filter
 		self.start_filter_iter = 7 #10 #iteration to start DNN rejection filter
-		self.start_RM_iter = 7 #10 #iteration to start removing moving objects (set low to generate training data)
+		self.start_RM_iter = 12 #10 #iteration to start removing moving objects (set low to generate training data)
 		self.DNN_thresh = 0.05 #0.03
-		self.RM_thresh = 0.05
+		self.RM_thresh = 0.15
 
 		before = time.time()
 

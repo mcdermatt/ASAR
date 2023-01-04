@@ -8,7 +8,7 @@ def get_cluster_fast(rads, thresh = 0.5, mnp = 100):
     """NEW VERSION using TF operations"""
     before = time.time()
 
-    max_buffer = 0.75 #0.2
+    max_buffer = 0.5 #0.2
 
     #fix dimensions
     if len(tf.shape(rads)) < 2:

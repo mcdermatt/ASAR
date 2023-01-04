@@ -44,8 +44,8 @@ import trimesh
 # # --------------------------------------------------------------------------
 
 #init KC -----------------------------------------------------
-fpl = np.loadtxt("/home/derm/KITTICARLA/dataset/Town03/generated/full_poses_lidar.txt") #full poses lidar
-pl = "/home/derm/KITTICARLA/dataset/Town03/generated/poses_lidar.ply"
+fpl = np.loadtxt("/home/derm/KITTICARLA/dataset/Town07/generated/full_poses_lidar.txt") #full poses lidar
+pl = "/home/derm/KITTICARLA/dataset/Town07/generated/poses_lidar.ply"
 datposes = trimesh.load(pl)
 true_traj = datposes.vertices
 
@@ -105,8 +105,8 @@ for i in range(num_frames):
 	start_idx = 0
 	print(skip)
 
-	s1_fn = '/home/derm/KITTICARLA/dataset/Town03/generated/frames/frame_%04d.ply' %(i + start_idx)
-	s2_fn = '/home/derm/KITTICARLA/dataset/Town03/generated/frames/frame_%04d.ply' %(i + start_idx + skip)
+	s1_fn = '/home/derm/KITTICARLA/dataset/Town07/generated/frames/frame_%04d.ply' %(i + start_idx)
+	s2_fn = '/home/derm/KITTICARLA/dataset/Town07/generated/frames/frame_%04d.ply' %(i + start_idx + skip)
 
 	dat1 = trimesh.load(s1_fn)
 	dat2 = trimesh.load(s2_fn)
@@ -124,7 +124,7 @@ for i in range(num_frames):
 	# c2 = c2[c2[:,2] > -1.5]
 
 	# initial_guess = tf.constant([0., 0., 0., 0., 0., 0.])
-	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 10, draw = False, group = 2, 
+	it = ICET(cloud1 = c1, cloud2 = c2, fid = 80, niter = 15, draw = False, group = 2, 
 		RM = True, DNN_filter = False, x0 = initial_guess)
 
 	OXTS_ground_truth = true_traj[(i+skip+start_idx)*100] - true_traj[(i+start_idx)*100]
@@ -198,11 +198,11 @@ for i in range(num_frames):
 	# #periodically save so we don't lose everything...
 	if i % 10 == 0:
 		print("saving...")
-		np.savetxt("3d_paper/KC_results/town03_ICET_estimates.txt", ICET_estimates)
-		np.savetxt("3d_paper/KC_results/town03_ICET_pred_stds.txt", ICET_pred_stds)
-		np.savetxt("3d_paper/KC_results/town03_ground_truth.txt", OXTS_baseline)
+		np.savetxt("3d_paper/KC_results/town07_ICET_estimates.txt", ICET_estimates)
+		np.savetxt("3d_paper/KC_results/town07_ICET_pred_stds.txt", ICET_pred_stds)
+		# np.savetxt("3d_paper/KC_results/town07_ground_truth.txt", OXTS_baseline)
 
 # np.savetxt("spherical_paper/KC_results/town03_noDNN.txt", before_correction)
-np.savetxt("3d_paper/KC_results/town03_ICET_estimates.txt", ICET_estimates)
-np.savetxt("3d_paper/KC_results/town03_ICET_pred_stds.txt", ICET_pred_stds)
-np.savetxt("3d_paper/KC_results/town03_ground_truth.txt", OXTS_baseline)
+np.savetxt("3d_paper/KC_results/town07_ICET_estimates.txt", ICET_estimates)
+np.savetxt("3d_paper/KC_results/town07_ICET_pred_stds.txt", ICET_pred_stds)
+# np.savetxt("3d_paper/KC_results/town03_ground_truth.txt", OXTS_baseline)
