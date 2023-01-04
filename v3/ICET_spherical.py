@@ -248,8 +248,8 @@ class ICET():
 			#transform cartesian point cloud 2 by estimated solution vector X
 			t = self.X[:3]
 			rot = R_tf(-self.X[3:])
-			# self.cloud2_tensor = tf.matmul((self.cloud2_tensor_OG + t), tf.transpose(rot)) #was this in 3D-ICET paper
-			self.cloud2_tensor = tf.matmul((self.cloud2_tensor_OG), tf.transpose(rot)) + t   #rotate then translate
+			self.cloud2_tensor = tf.matmul((self.cloud2_tensor_OG + t), tf.transpose(rot)) #was this in 3D-ICET paper
+			# self.cloud2_tensor = tf.matmul((self.cloud2_tensor_OG), tf.transpose(rot)) + t   #rotate then translate
 
 			if self.run_profile:
 				print("\n ~~~~~~~~~~~~~~ \n transforming scan2", time.time() - before, "\n total: ",  time.time() - self.st, "\n ~~~~~~~~~~~~~~")

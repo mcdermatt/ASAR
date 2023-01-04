@@ -22,64 +22,64 @@ from ICET_spherical import ICET
 from utils import R_tf
 from metpy.calc import lat_lon_grid_deltas
 
-# KITTI sample dataset -------------------------------------------
-# basedir = 'C:/kitti/'
-basedir = '/media/derm/06EF-127D1/KITTI'
-date = '2011_09_26'
+# # KITTI sample dataset -------------------------------------------
+# # basedir = 'C:/kitti/'
+# basedir = '/media/derm/06EF-127D2/KITTI'
+# date = '2011_09_26'
 
-# urban dataset used in 3D-ICET paper 
-drive = '0005' #life in the big city
-# drive = '0027' #wooded highway - doing really well here!??!
-# drive = '0091' #Matt's favorite- don't use for testing though, we trained here!
-# drive = '0095'
-# drive = '0117'
-# drive = '0070'
-# drive ='0071'
-idx = 55
-skip = 4
+# # urban dataset used in 3D-ICET paper 
+# drive = '0005' #life in the big city
+# # drive = '0027' #wooded highway - doing really well here!??!
+# # drive = '0091' #Matt's favorite- don't use for testing though, we trained here!
+# # drive = '0095'
+# # drive = '0117'
+# # drive = '0070'
+# # drive ='0071'
+# idx = 55
+# skip = 1
 
-#test with aiodrive
-# drive = 'aiodrive'
-# idx = 1
+# #test with aiodrive
+# # drive = 'aiodrive'
+# # idx = 1
 
-#alternate dataset with fewer moving objects?
-# drive = '0009'
-# idx = 245
-# drive = '0093'
-# idx = 220
+# #alternate dataset with fewer moving objects?
+# # drive = '0009'
+# # idx = 245
+# # drive = '0093'
+# # idx = 220
 
-dataset = pykitti.raw(basedir, date, drive)
-
-# basedir = "E:/KITTI/dataset/"
-# date = "2011_09_26"
-# drive = '01'
 # dataset = pykitti.raw(basedir, date, drive)
 
-# idx = 0
+# # basedir = "E:/KITTI/dataset/"
+# # date = "2011_09_26"
+# # drive = '01'
+# # dataset = pykitti.raw(basedir, date, drive)
 
-velo1 = dataset.get_velo(idx) # Each scan is a Nx4 array of [x,y,z,reflectance]
-c1 = velo1[:,:3]
-velo2 = dataset.get_velo(idx+skip) # Each scan is a Nx4 array of [x,y,z,reflectance]
-c2 = velo2[:,:3]
-# c1 = c1[c1[:,2] > -1.5] #ignore ground plane
-# c2 = c2[c2[:,2] > -1.5] #ignore ground plane
-# c1 = c1[c1[:,2] > -2.] #ignore reflections
-# c2 = c2[c2[:,2] > -2.] #ignore reflections
+# # idx = 0
 
-c1 = c1[c1[:,1] < -0] #temp
-c2 = c2[c2[:,1] < -0] #temp
-c1 = c1[c1[:,0] < 10.5] #temp
-c2 = c2[c2[:,0] < 10.5] #temp
+# velo1 = dataset.get_velo(idx) # Each scan is a Nx4 array of [x,y,z,reflectance]
+# c1 = velo1[:,:3]
+# velo2 = dataset.get_velo(idx+skip) # Each scan is a Nx4 array of [x,y,z,reflectance]
+# c2 = velo2[:,:3]
+# # c1 = c1[c1[:,2] > -1.5] #ignore ground plane
+# # c2 = c2[c2[:,2] > -1.5] #ignore ground plane
+# # c1 = c1[c1[:,2] > -2.] #ignore reflections
+# # c2 = c2[c2[:,2] > -2.] #ignore reflections
 
-#load previously processed cloud 1
-# c1 = np.loadtxt("cloud1_good.txt")
+# # c1 = c1[c1[:,1] < -0] #temp
+# # c2 = c2[c2[:,1] < -0] #temp
+# # c1 = c1[c1[:,0] < 10.5] #temp
+# # c2 = c2[c2[:,0] < 10.5] #temp
 
-poses0 = dataset.oxts[idx] #<- ID of 1st scan
-poses1 = dataset.oxts[idx+1] #<- ID of 2nd scan
-# dt = skip*0.1037 #mean time between lidar samples
-dt = skip*0.10 #mean time between lidar samples
-OXTS_ground_truth = tf.constant([poses1.packet.vf*dt, -poses1.packet.vl*dt, poses1.packet.vu*dt, poses1.packet.wf*dt, poses1.packet.wl*dt, poses1.packet.wu*dt])
-# ------------------------------------------------------------------------------------
+# #load previously processed cloud 1
+# # c1 = np.loadtxt("cloud1_good.txt")
+
+# poses0 = dataset.oxts[idx] #<- ID of 1st scan
+# poses1 = dataset.oxts[idx+1] #<- ID of 2nd scan
+# # dt = skip*0.1037 #mean time between lidar samples
+# dt = skip*0.10 #mean time between lidar samples
+# OXTS_ground_truth = tf.constant([poses1.packet.vf*dt, -poses1.packet.vl*dt, poses1.packet.vu*dt, poses1.packet.wf*dt, poses1.packet.wl*dt, poses1.packet.wu*dt])
+# # ------------------------------------------------------------------------------------
 
 # # full KITTI dataset (uses different formatting incompable with PyKitti)--------------
 # #files are 80gb so remember to plug in the external hard drive!
@@ -194,16 +194,16 @@ OXTS_ground_truth = tf.constant([poses1.packet.vf*dt, -poses1.packet.vl*dt, pose
 # # c1 = np.loadtxt("scene1_scan1_squares.txt", dtype = float) #shadows
 # # c2 = np.loadtxt("scene1_scan2_squares.txt", dtype = float)
 
-# # c1 = np.loadtxt("spherical_paper/MC_trajectories/scene1_scan2.txt", dtype = float)
-# # c2 = np.loadtxt("spherical_paper/MC_trajectories/scene1_scan3.txt", dtype = float)
+# c1 = np.loadtxt("spherical_paper/MC_trajectories/scene1_scan2.txt", dtype = float)
+# c2 = np.loadtxt("spherical_paper/MC_trajectories/scene1_scan3.txt", dtype = float)
 # # c1 = c1[c1[:,2] > -1.8] #ignore ground plane
 # # c2 = c2[c2[:,2] > -1.8] #ignore ground plane
 
 # # c1 = np.loadtxt("spherical_paper/MC_trajectories/scene2_scan2.txt", dtype = float)
 # # c2 = np.loadtxt("spherical_paper/MC_trajectories/scene2_scan3.txt", dtype = float)
 
-# c1 = np.loadtxt("perspective_shift/figures/MC_trajectories/forest1_scan1.txt", dtype = float)
-# c2 = np.loadtxt("perspective_shift/figures/MC_trajectories/forest1_scan2.txt", dtype = float)
+# # c1 = np.loadtxt("perspective_shift/figures/MC_trajectories/forest1_scan1.txt", dtype = float)
+# # c2 = np.loadtxt("perspective_shift/figures/MC_trajectories/forest1_scan2.txt", dtype = float)
 
 # # c1 = np.loadtxt("T_intersection_scan1.txt", dtype = float)
 # # c2 = np.loadtxt("T_intersection_scan2.txt", dtype = float)
@@ -285,56 +285,60 @@ OXTS_ground_truth = tf.constant([poses1.packet.vf*dt, -poses1.packet.vl*dt, pose
 
 
 
-# #KITTI CARLA -------------------------------------------------------------------------------
-# import trimesh
+#KITTI CARLA -------------------------------------------------------------------------------
+import trimesh
 
-# idx = 1050
-# noise_scale = 0.02
+idx = 2000
+noise_scale = 0.01
+
+# town = "Town01"
+# town = "Town02"
+town = "Town03"
 # town = "Town07"
 
-# fpl = np.loadtxt("/home/derm/KITTICARLA/dataset/" + town + "/generated/full_poses_lidar.txt") #full poses lidar
-# pl = "/home/derm/KITTICARLA/dataset/" + town + "/generated/poses_lidar.ply"
-# datposes = trimesh.load(pl)
-# true_traj = datposes.vertices
-# #create rotation and translation vectors
-# R = np.array([[fpl[:,0], fpl[:,1], fpl[:,2]],
-#               [fpl[:,4], fpl[:,5], fpl[:,6]],
-#               [fpl[:,8], fpl[:,9], fpl[:,10]]]).T
+fpl = np.loadtxt("/home/derm/KITTICARLA/dataset/" + town + "/generated/full_poses_lidar.txt") #full poses lidar
+pl = "/home/derm/KITTICARLA/dataset/" + town + "/generated/poses_lidar.ply"
+datposes = trimesh.load(pl)
+true_traj = datposes.vertices
+#create rotation and translation vectors
+R = np.array([[fpl[:,0], fpl[:,1], fpl[:,2]],
+              [fpl[:,4], fpl[:,5], fpl[:,6]],
+              [fpl[:,8], fpl[:,9], fpl[:,10]]]).T
 
-# T = np.array([fpl[:,3], fpl[:,7], fpl[:,11]]).T
-# vel = np.diff(T.T)
+T = np.array([fpl[:,3], fpl[:,7], fpl[:,11]]).T
+vel = np.diff(T.T)
 
+print("\n vel \n", np.shape(vel))
 
-# print("\n vel \n", np.shape(vel))
+skip = 1
 
-# skip = 3
+s1_fn = '/home/derm/KITTICARLA/dataset/' + town + '/generated/frames/frame_%04d.ply' %(idx)
+s2_fn = '/home/derm/KITTICARLA/dataset/' + town + '/generated/frames/frame_%04d.ply' %(idx + skip)
 
-# s1_fn = '/home/derm/KITTICARLA/dataset/' + town + '/generated/frames/frame_%04d.ply' %(idx)
-# s2_fn = '/home/derm/KITTICARLA/dataset/' + town + '/generated/frames/frame_%04d.ply' %(idx + skip)
+dat1 = trimesh.load(s1_fn)
+dat2 = trimesh.load(s2_fn)
 
-# dat1 = trimesh.load(s1_fn)
-# dat2 = trimesh.load(s2_fn)
+c1 = dat1.vertices
+# c1 = c1.dot(R[(idx)*100])
+c1 += noise_scale*np.random.randn(np.shape(c1)[0],3)
 
-# c1 = dat1.vertices
-# # c1 = c1.dot(R[(idx)*100])
-# c1 += noise_scale*np.random.randn(np.shape(c1)[0],3)
-
-# c2 = dat2.vertices
-# # c2 = c2.dot(R[(idx+skip)*100])
-# # c2 += true_traj[(idx+skip)*100] - true_traj[(idx)*100] #works better(?)
-# c2 += noise_scale*np.random.randn(np.shape(c2)[0],3)
-# # c1 = c1[c1[:,2] > -1.5]
-# # c2 = c2[c2[:,2] > -1.5]
-# OXTS_ground_truth = true_traj[(idx+skip)*100] - true_traj[(idx)*100]
-# # -------------------------------------------------------------------------------------
+c2 = dat2.vertices
+# c2 = c2.dot(R[(idx+skip)*100])
+# c2 += true_traj[(idx+skip)*100] - true_traj[(idx)*100] #works better(?)
+c2 += noise_scale*np.random.randn(np.shape(c2)[0],3)
+# c1 = c1[c1[:,2] > -1.5]
+# c2 = c2[c2[:,2] > -1.5]
+OXTS_ground_truth = true_traj[(idx+skip)*100] - true_traj[(idx)*100]
+print("\n ground_truth: \n", OXTS_ground_truth)
+# -------------------------------------------------------------------------------------
 
 
 # ground_truth = tf.constant([0.1799, 0., 0., -0.0094, -0.011, -0.02072]) #FULL KITTI scan 1397
 
-x0 = tf.constant([3., 0., 0., 0., 0., 0.])
+x0 = tf.constant([0., 0., 0., 0., 0., 0.])
 
-it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 10, 
-	draw = True, group = 2, RM = False, DNN_filter = False, x0 = x0)
+it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 10, 
+	draw = True, group = 2, RM = True, DNN_filter = False, x0 = x0)
 
 
 # #test using naive spherical cuboid-shaped voxles

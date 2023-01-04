@@ -8,7 +8,7 @@ def get_cluster_fast(rads, thresh = 0.5, mnp = 100):
     """NEW VERSION using TF operations"""
     before = time.time()
 
-    max_buffer = 0.2
+    max_buffer = 0.75 #0.2
 
     #fix dimensions
     if len(tf.shape(rads)) < 2:
@@ -89,19 +89,21 @@ def get_cluster_fast(rads, thresh = 0.5, mnp = 100):
     inner_idx = tf.gather(jumps_rag.to_tensor(), first_big_enough, batch_dims=1) + 1
     inner_radii  = tf.gather(tf.transpose(rads), inner_idx, batch_dims=1)
     #get radial distance of closest point on near side of cluster
-    next_inner_idx = tf.gather(jumps_rag.to_tensor(), first_big_enough-1, batch_dims=1)
-    next_inner_radii = tf.gather(tf.transpose(rads), next_inner_idx, batch_dims=1) 
+    next_inner_idx = tf.gather(jumps_rag.to_tensor(), tf.nn.relu(first_big_enough - 1), batch_dims=1) -1 #think the -1 fixes bug (12/11)
+    next_inner_radii = tf.gather(tf.transpose(rads), tf.nn.relu(next_inner_idx), batch_dims=1) 
 
     #will be zero when inner idx occurs on first element of spike, otherwise correct soln
     inner_skip_dist = inner_radii - next_inner_radii
     #of these nonzero distances, some are smaller than max_buffer -> leave as is, all else set to max_buffer
     too_big = tf.cast(tf.math.less(inner_skip_dist*2, max_buffer), tf.float32)
-    inner_skip_dist = inner_skip_dist*too_big + (1-too_big)*max_buffer
+    # inner_skip_dist = inner_skip_dist*too_big + (1-too_big)*max_buffer #was this
+    inner_skip_dist = inner_skip_dist*too_big + too_big*max_buffer #fixes things!
     temp = tf.cast(tf.math.equal(inner_skip_dist, 0), tf.float32)*max_buffer #set all others to max_buffer
     inner = inner_radii - inner_skip_dist - temp
+
     #repeat similar process for outer limits of each cell
-    outer_idx = tf.gather(jumps_rag.to_tensor(), first_big_enough + 1, batch_dims=1) - 1
-    outer_radii  = tf.gather(tf.transpose(rads), outer_idx, batch_dims=1)
+    outer_idx = tf.gather(jumps_rag.to_tensor(), tf.nn.relu(first_big_enough + 1), batch_dims=1) - 1
+    outer_radii  = tf.gather(tf.transpose(rads), tf.nn.relu(outer_idx), batch_dims=1)
     next_outer_idx = tf.gather(jumps_rag.to_tensor(), first_big_enough + 1, batch_dims=1) +1
     next_outer_radii = tf.gather(tf.transpose(rads), next_outer_idx, batch_dims=1) 
 
