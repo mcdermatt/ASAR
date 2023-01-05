@@ -47,10 +47,10 @@ for i in range(num_frames):
 		data2 = pickle.load(f)
 	data2 = np.asarray(data2.tolist())[:,:3]
 
-	data1 = data1[data1[:,2] > -0.75] #ignore ground plane
-	data2 = data2[data2[:,2] > -0.75] #ignore ground plane
+	# data1 = data1[data1[:,2] > -0.75] #ignore ground plane
+	# data2 = data2[data2[:,2] > -0.75] #ignore ground plane
 
-	it = ICET(cloud1 = data1, cloud2 = data2, fid = 70, niter = 10, 
+	it = ICET(cloud1 = data1, cloud2 = data2, fid = 50, niter = 10, 
 		draw = False, group = 2, RM = True, DNN_filter = False)
 
 	ICET_estimates[i] = it.X #* (dataset.timestamps[i+1] - dataset.timestamps[i]).microseconds/(10e5)/0.1
@@ -68,10 +68,10 @@ for i in range(num_frames):
 	#periodically save so we don't lose everything...
 	if i % 10 == 0:
 		print("saving...")
-		np.savetxt("leddartech_ICET_estimates.txt", ICET_estimates)
-		np.savetxt("leddartech_ICET_pred_stds.txt", ICET_pred_stds)
+		np.savetxt("leddartech_NDT_estimates.txt", ICET_estimates)
+		np.savetxt("leddartech_NDT_pred_stds.txt", ICET_pred_stds)
 
 # np.savetxt("perspective_shift/sim_results/KITTI_0028_noDNN.txt", before_correction)
-np.savetxt("leddartech_ICET_estimates.txt", ICET_estimates)
-np.savetxt("leddartech_ICET_pred_stds.txt", ICET_pred_stds)
+np.savetxt("leddartech_NDT_estimates.txt", ICET_estimates)
+np.savetxt("leddartech_NDT_pred_stds.txt", ICET_pred_stds)
 # np.savetxt("perspective_shift/sim_results/KITTI_0028_OXTS_baseline_gps.txt", OXTS_baseline)
