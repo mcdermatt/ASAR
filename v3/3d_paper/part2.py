@@ -18,7 +18,7 @@ from utils import R_tf
 
 #NOTE: to remove extended axis removal operation, un-comment out <axislen_actual = 0.1*tf.math....> in get_U_and_L_cluster()>
 
-niter = 500 #10
+niter = 150 #10
 
 c1_raw = np.loadtxt("big_curve_scan1.txt", dtype = float)
 # c2_raw = np.loadtxt("big_curve_scan2.txt", dtype = float)
@@ -29,7 +29,7 @@ ICET_estimates = np.zeros([niter, 6])
 ICET_pred_stds = np.zeros([niter, 6])
 
 for i in range(niter):
-	print("------------- Epoch ", i, "---------------")
+	print("\n ---------------- Epoch ", i, "--------------- \n")
 
 	# #add noise (if not generated when point clouds were created)
 	noise_scale = 0.02
@@ -37,20 +37,21 @@ for i in range(niter):
 	c2 = c2_raw + noise_scale*np.random.randn(np.shape(c2_raw)[0], 3) 
 
 	# #slightly raise each PC
-	# c1[:,2] += 0.2
-	# c2[:,2] += 0.2
+	c1[:,2] += 0.2
+	c2[:,2] += 0.2
 
 	#translate scan2 
-	random_translation = 0.125*tf.constant([np.random.randn(), np.random.randn(), 0.0*np.random.randn()])
+	# random_translation = 0.125*tf.constant([np.random.randn(), np.random.randn(), 0.0*np.random.randn()])
+	random_translation = 0.125*tf.constant([np.random.randn(), np.random.randn(), 0.5*np.random.randn()])
 	c2 += random_translation
 
 	#rotate scans
 	# rot = R_tf(tf.constant([0., 0., 0.05]))
-	random_rotation = 0.03*tf.constant([0.0*np.random.randn(), 0.0*np.random.randn(), np.random.randn()])
+	random_rotation = 0.03*tf.constant([0.5*np.random.randn(), 0.5*np.random.randn(), np.random.randn()])
 	rot = R_tf(random_rotation)
 	c2 = c2 @ rot.numpy() 
 
-	it = ICET(cloud1 = c1, cloud2 = c2, fid = 100, niter = 5, 
+	it = ICET(cloud1 = c1, cloud2 = c2, fid = 120, niter = 10, 
 		draw = False, group = 2, RM = False, DNN_filter = False)
 
 	# it = ICET(cloud1 = c1, cloud2 = c2, fid = 100, niter = 20, 
@@ -65,9 +66,9 @@ for i in range(niter):
 	ICET_pred_stds[i] = it.pred_stds
 
 # #with mitigation
-# np.save("MC_results/scene2_ICET_estimates_v3", ICET_estimates)
-# np.save("MC_results/scene2_ICET_pred_stds_v3", ICET_pred_stds)
+# np.save("MC_results/scene2_ICET_estimates_v4", ICET_estimates)
+# np.save("MC_results/scene2_ICET_pred_stds_v4", ICET_pred_stds)
 
 #no mitigation
-np.save("MC_results/scene2_ICET_estimates_NM_v3", ICET_estimates)
-np.save("MC_results/scene2_ICET_pred_stds_NM_v3", ICET_pred_stds)
+# np.save("MC_results/scene2_ICET_estimates_NM_v5", ICET_estimates)
+# np.save("MC_results/scene2_ICET_pred_stds_NM_v5", ICET_pred_stds)

@@ -14,13 +14,13 @@ class ICET():
 		x0 = tf.constant([0.0, 0.0, 0., 0., 0., 0.]), group = 2, RM = True,
 		DNN_filter = False, cheat = []):
 
-		self.run_profile = True
-		# self.run_profile = False
+		# self.run_profile = True
+		self.run_profile = False
 		self.st = time.time() #start time (for debug)
 
 		self.min_cell_distance = 4 #2 #begin closest spherical voxel here
 		#ignore "occupied" cells with fewer than this number of pts
-		self.min_num_pts = 100 #was 50 for KITTI and Ford, need to lower to 25 for CODD 
+		self.min_num_pts = 50 #was 50 for KITTI and Ford, need to lower to 25 for CODD 
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
 		self.niter = niter
@@ -28,9 +28,9 @@ class ICET():
 		self.cheat = cheat #overide for using ICET to generate training data for DNN
 		self.DNN_filter = DNN_filter
 		self.start_filter_iter = 7 #10 #iteration to start DNN rejection filter
-		self.start_RM_iter = 7 #10 #iteration to start removing moving objects (set low to generate training data)
+		self.start_RM_iter = 5 #10 #iteration to start removing moving objects (set low to generate training data)
 		self.DNN_thresh = 0.05 #0.03
-		self.RM_thresh = 0.15
+		self.RM_thresh = 0.08
 
 		before = time.time()
 
@@ -248,8 +248,8 @@ class ICET():
 			#transform cartesian point cloud 2 by estimated solution vector X
 			t = self.X[:3]
 			rot = R_tf(-self.X[3:])
-			self.cloud2_tensor = tf.matmul((self.cloud2_tensor_OG + t), tf.transpose(rot)) #was this in 3D-ICET paper
-			# self.cloud2_tensor = tf.matmul((self.cloud2_tensor_OG), tf.transpose(rot)) + t   #rotate then translate
+			# self.cloud2_tensor = tf.matmul((self.cloud2_tensor_OG + t), tf.transpose(rot)) #was this in 3D-ICET paper
+			self.cloud2_tensor = tf.matmul((self.cloud2_tensor_OG), tf.transpose(rot)) + t   #rotate then translate
 
 			if self.run_profile:
 				print("\n ~~~~~~~~~~~~~~ \n transforming scan2", time.time() - before, "\n total: ",  time.time() - self.st, "\n ~~~~~~~~~~~~~~")
@@ -591,7 +591,7 @@ class ICET():
 			dx = tf.math.reduce_sum(dx, axis = 0)
 			self.X += dx
 
-			print("\n estimated solution vector X: \n", self.X)
+			# print("\n estimated solution vector X: \n", self.X)
 
 			#get output covariance matrix
 			self.Q = tf.linalg.pinv(HTWH)
@@ -601,8 +601,8 @@ class ICET():
 				print("\n ~~~~~~~~~~~~~~ \n correcting solution estimate", time.time() - before, "\n total: ",  time.time() - self.st, "\n ~~~~~~~~~~~~~~")
 				before = time.time()
 
-		print("pred_stds: \n", self.pred_stds)
-		print(" L2: \n", L2)		
+		# print("pred_stds: \n", self.pred_stds)
+		# print(" L2: \n", L2)		
 
 		#draw PC2
 		if self.draw == True:
@@ -898,7 +898,7 @@ class ICET():
 			#TODO: this is SUPER inefficient rn- 
 
 		"""
-		st = time.time()
+		# st = time.time()
 
 		thetamin = -np.pi
 		thetamax = np.pi #-  2*np.pi/self.fid_theta
@@ -927,7 +927,7 @@ class ICET():
 		numPtsPerCluster = tf.math.bincount(tf.cast(inside1[:,0], tf.int32))
 		inside1 = tf.RaggedTensor.from_value_rowids(inside1[:,1], inside1[:,0])
 
-		print("\n took ", time.time() -st , "seconds to get points in cluster" )
+		# print("\n took ", time.time() -st , "seconds to get points in cluster" )
 
 		return(inside1, numPtsPerCluster)
 
@@ -953,8 +953,8 @@ class ICET():
 		rotated = tf.matmul(axislen, tf.transpose(U, [0, 2, 1])) #new
 
 		# axislen_actual = 2*tf.math.sqrt(axislen) #theoretically correct
-		axislen_actual = 3*tf.math.sqrt(axislen) #was this (works with one edge extended detection criteria)
-		# axislen_actual = 0.1*tf.math.sqrt(axislen) #turns off extended axis pruning
+		# axislen_actual = 3*tf.math.sqrt(axislen) #was this (works with one edge extended detection criteria)
+		axislen_actual = 0.1*tf.math.sqrt(axislen) #turns off extended axis pruning
 		# print(axislen_actual)
 		rotated_actual = tf.matmul(axislen_actual, tf.transpose(U, [0, 2, 1]))
 		# print("rotated_actual", rotated_actual)
