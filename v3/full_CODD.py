@@ -4,6 +4,18 @@ from ipyvtklink.viewer import ViewInteractiveWidget
 import pykitti
 import numpy as np
 import tensorflow as tf
+
+#limit GPU memory ------------------------------------------------
+gpus = tf.config.experimental.list_physical_devices('GPU')
+print(gpus)
+if gpus:
+  try:
+    memlim = 4*1024
+    tf.config.experimental.set_virtual_device_configuration(gpus[0], [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=memlim)])
+  except RuntimeError as e:
+    print(e)
+#-----------------------------------------------------------------
+
 from tensorflow.math import sin, cos, tan
 import tensorflow_probability as tfp
 from ICET_spherical import ICET
@@ -15,7 +27,7 @@ num_frames = 124 #124
 vidx = 0 #vehicle index
 
 # filename = 'C:/CODD/data/m2v7p3s333.hdf5'
-filename = 'C:/CODD/data/m10v11p6s30.hdf5' #wide road, palm trees, and traffic
+filename = '/media/derm/06EF-127D2/CODD/data/m10v11p6s30.hdf5' #wide road, palm trees, and traffic (used in 3D paper)
 
 with h5py.File(filename, 'r') as hf:
 #     pcls = hf['point_cloud'][:]
@@ -44,26 +56,18 @@ for i in range(num_frames):
 	c1 += noise_scale*np.random.randn(np.shape(c1)[0], 3)
 	c2 += noise_scale*np.random.randn(np.shape(c2)[0], 3)
 
-	#-------------------------------------------------------------------------------------------------
-	#run once to get rough estimate and remove outlier points
-	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 10, draw = False, group = 2, RM = True, DNN_filter = False)
+	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 7, draw = False, group = 2, RM = True, DNN_filter = False, x0 = intial_guess)
+
 	ICET_pred_stds[i] = it.pred_stds
-
-	#run again to re-converge with outliers removed
-	# it = ICET(cloud1 = it.cloud1_static, cloud2 = c2, fid = 50, niter = 20, draw = False, group = 2, RM = False)
-	#-------------------------------------------------------------------------------------------------
-
 	ICET_estimates[i] = it.X #* (dataset.timestamps[i+1] - dataset.timestamps[i]).microseconds/(10e5)/0.1
-	# ICET_pred_stds[i] = it.pred_stds
-
 	intial_guess = it.X
 
 	print("\n solution from ICET \n", ICET_estimates[i])
 	print("\n pred_stds \n", it.pred_stds)
 	# print("\n ground truth transformation \n", np.diff(pose, axis = 0)[i])
 
-np.savetxt("ICET_pred_stds_CODD_v7.txt", ICET_pred_stds)
-np.savetxt("ICET_estimates_CODD_v7.txt", ICET_estimates)
+np.savetxt("results/NDT_pred_stds_CODD_v3.txt", ICET_pred_stds)
+np.savetxt("results/NDT_estimates_CODD_v3.txt", ICET_estimates)
 
 #v3 - basic outlier exclusion
 #v4 - using dnn filter
