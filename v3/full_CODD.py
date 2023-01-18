@@ -56,7 +56,7 @@ for i in range(num_frames):
 	c1 += noise_scale*np.random.randn(np.shape(c1)[0], 3)
 	c2 += noise_scale*np.random.randn(np.shape(c2)[0], 3)
 
-	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 7, draw = False, group = 2, RM = True, DNN_filter = False, x0 = intial_guess)
+	it = ICET(cloud1 = c1, cloud2 = c2, fid = 122, niter = 7, draw = False, group = 2, RM = True, DNN_filter = False, x0 = intial_guess)
 
 	ICET_pred_stds[i] = it.pred_stds
 	ICET_estimates[i] = it.X #* (dataset.timestamps[i+1] - dataset.timestamps[i]).microseconds/(10e5)/0.1
@@ -66,8 +66,12 @@ for i in range(num_frames):
 	print("\n pred_stds \n", it.pred_stds)
 	# print("\n ground truth transformation \n", np.diff(pose, axis = 0)[i])
 
-np.savetxt("results/NDT_pred_stds_CODD_v3.txt", ICET_pred_stds)
-np.savetxt("results/NDT_estimates_CODD_v3.txt", ICET_estimates)
+
+np.savetxt("results/ICET_pred_stds_CODD_fid122.txt", ICET_pred_stds)
+np.savetxt("results/ICET_estimates_CODD_fid122.txt", ICET_estimates)
+
+# np.savetxt("results/NDT_pred_stds_CODD_v3.txt", ICET_pred_stds)
+# np.savetxt("results/NDT_estimates_CODD_v3.txt", ICET_estimates)
 
 #v3 - basic outlier exclusion
 #v4 - using dnn filter
