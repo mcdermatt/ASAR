@@ -602,6 +602,7 @@ class ICET():
 				before = time.time()
 
 		# print("pred_stds: \n", self.pred_stds)
+		print("Q: \n", self.Q) #DEBUG: why is this slightly asymmetric??
 		# print(" L2: \n", L2)		
 
 		#draw PC2
