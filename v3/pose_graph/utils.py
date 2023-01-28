@@ -75,7 +75,13 @@ def get_J(e, ij):
 #         print("\n between: \n", between)
         ending  = tf.tile(tf.zeros([6,6]), [1, total_num_of_nodes - ij[k,1] - 1 ])
         J_ij = tf.concat([leading, A_ij[k], between, B_ij[k], ending], axis = 1)
+        # print("\n J(", k, ") \n", J_ij)      #for debug  
         J = tf.concat((J, J_ij[None,:,:]), axis = 0)
+
+    # # test - apply constraint within J??
+    # J = J.numpy()
+    # J[0] += np.append(np.eye(6),  np.zeros([6,6*len(ij)]), axis = 1)
+    # J = tf.convert_to_tensor(J)
 
     return J
 
@@ -130,13 +136,14 @@ def get_H(J, omega):
 
     #produces negative eigenvals if we don't fix first point in chain
     # print("\n H before constraint: \n", tf.shape(H))
-#     print("\n eigval H before constraint:\n", tf.linalg.eigvals(H))
+    # print("\n eigval H before constraint:\n", tf.linalg.eigvals(H))
 
-    constrain_11 = tf.pad(tf.eye(6), [[0,len(H)-6],[0,len(H)-6]]) #was this
+    # constrain_11 = tf.pad(tf.eye(6), [[0,len(H)-6],[0,len(H)-6]]) #was this
+    constrain_11 = tf.pad(tf.eye(6), [[1,len(H)-7],[1,len(H)-7]]) #test
     # constrain_11 = tf.pad(len(J) * tf.eye(6), [[0,len(H)-6],[0,len(H)-6]]) #test
     # print("constrain_11: \n", constrain_11)
     H = H + constrain_11
-#     print("\n eigval H after constraint:\n", tf.linalg.eigvals(H))
+    # print("\n eigval H after constraint:\n", tf.linalg.eigvals(H))
 #     H = tf.convert_to_tensor(np.tril(H.numpy()).T + np.tril(H.numpy(),-1)) #force H to be symmetric
     return H
 
