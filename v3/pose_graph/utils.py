@@ -113,6 +113,11 @@ def get_b(e, omega, J):
     b = tf.math.reduce_sum(tf.cast(tf.transpose(J, (0,2,1)), tf.double) @ omega @ e, axis = 0)
     # print("\n b: \n", tf.shape(b))
 
+    # #debug: zero out initial conditions
+    # b = b.numpy()
+    # b[:6] = 0
+    # b = tf.convert_to_tensor(b)
+
     return b
 
 def get_ij(ij_raw):
@@ -138,13 +143,20 @@ def get_H(J, omega):
     # print("\n H before constraint: \n", tf.shape(H))
     # print("\n eigval H before constraint:\n", tf.linalg.eigvals(H))
 
-    # constrain_11 = tf.pad(tf.eye(6), [[0,len(H)-6],[0,len(H)-6]]) #was this
-    constrain_11 = tf.pad(tf.eye(6), [[1,len(H)-7],[1,len(H)-7]]) #test
+    constrain_11 = tf.pad(tf.eye(6), [[0,len(H)-6],[0,len(H)-6]]) #was this
+    # constrain_11 = tf.pad(tf.eye(6), [[1,len(H)-7],[1,len(H)-7]]) #test
     # constrain_11 = tf.pad(len(J) * tf.eye(6), [[0,len(H)-6],[0,len(H)-6]]) #test
     # print("constrain_11: \n", constrain_11)
     H = H + constrain_11
+
     # print("\n eigval H after constraint:\n", tf.linalg.eigvals(H))
 #     H = tf.convert_to_tensor(np.tril(H.numpy()).T + np.tril(H.numpy(),-1)) #force H to be symmetric
+
+    # #debug: zero out H11
+    # H = H.numpy()
+    # H[:6,:6] = 0
+    # H = tf.convert_to_tensor(H)
+
     return H
 
 def get_X(x, ij):
@@ -163,7 +175,7 @@ def get_X(x, ij):
 
     #represents pose of x in 2nd node relative to pose in 1st
     
-    #Problem with this answer is that this sets first tensor w.r.t. the world axis 
+    #Problem with this answer is that this sets first tensor w.r.t. the world axis(?)
     X = tf.linalg.pinv(first_tensor) @ second_tensor #was this
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -240,10 +252,13 @@ def get_e(Zij, Xij):
     e = t2v(tf.linalg.pinv(Zij) @ Xij)
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
 
+    # #debug - nope
+    # e = e.numpy()
+    # e[:,3:] = - e[:,3:]
+    # e = tf.convert_to_tensor(e)
+
     #loop through each element in Xij and apply sequential transformations
-
-
-
+    # ??
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
 
     # print("\n e \n", tf.shape(e))
