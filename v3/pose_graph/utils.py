@@ -99,8 +99,9 @@ def get_information_matrix(pred_stds):
 
 #     #debug - weigh rotations more heavily than translations
 # #     m = tf.linalg.diag(tf.constant([1., 1., 1., 10., 10., 10.]))
-# #     m = tf.linalg.diag(tf.constant([10., 10., 10., 1., 1., 1.])) #vice-versa
-#     m = tf.linalg.diag(tf.constant([100., 100., 100., 100., 100., 100.])) #huge values
+#     # m = tf.linalg.diag(tf.constant([10., 10., 10., 1., 1., 1.])) #vice-versa
+#     # m = tf.linalg.diag(tf.constant([0.1, 0.1, 0.1, 0.1, 0.1, 0.1])) #smol values
+#     m = tf.linalg.diag(1000*tf.constant([1., 1., 1., 1., 1., 1.])) #big values
 #     info = tf.tile(m[None,:,:], [tf.shape(pred_stds)[0] , 1, 1])
 #     info = tf.cast(info, tf.double)
 
@@ -178,11 +179,10 @@ def get_X(x, ij):
     #Problem with this answer is that this sets first tensor w.r.t. the world axis(?)
     X = tf.linalg.pinv(first_tensor) @ second_tensor #was this
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    #TODO: 
-    # loop through all past elements [0 ... i] of x and
-    # iteratively apply transformations in 
-
+    # #debug: invert coordinates of X
+    # X = X.numpy()
+    # X[:,:3,3] = -X[:,:3,3]
+    # X = tf.convert_to_tensor(X)
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
@@ -227,6 +227,7 @@ def get_A_ij_B_ij(e_ij):
     Jz = dRdPsi @ p_point[:,:,None]
     
     top = tf.concat([eyes, Jx, Jy, Jz], axis = 2) #was this
+    # top = tf.concat([eyes, -Jx, -Jy, -Jz], axis = 2) #test
     flipped = tf.transpose(tf.concat([Jx, Jy, Jz], axis = 2), (0,2,1))     #was this
     
     bottom = tf.concat([-flipped, -eyes], axis = 2) #works???
@@ -248,19 +249,27 @@ def get_e(Zij, Xij):
 
     # print("\n Xij \n", tf.shape(Xij))
 
-    # was just this ~~~~~~~~~~~~~~~~~~
-    e = t2v(tf.linalg.pinv(Zij) @ Xij)
+    # was this ~~~~~~~~~~~~~~~~~~~~~~~
+
+    #need to set x -> x + delta_x
+    # e = t2v(tf.linalg.pinv(Zij) @ Xij) #translation right, rotation wrong
+    e = t2v(Zij @ Xij) #rotation right, translation wrong
+
+    #need to set x -> x - delta_x
+    # e = t2v(tf.linalg.pinv(Xij) @ Zij) 
+
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
 
-    # #debug - nope
-    # e = e.numpy()
-    # e[:,3:] = - e[:,3:]
-    # e = tf.convert_to_tensor(e)
+    # e_trans = t2v(tf.linalg.pinv(Zij) @ Xij)[:,:3]
+    # print("\n e_trans: \n", e_trans[:5])
+    # e_rot = t2v(Zij @ Xij)[:,3:]
+    # print("\n e_rot: \n", e_rot[:5])
+    # e = tf.concat((e_trans, e_rot), axis = 1)
+    # print("\n e_test: \n", e)    
 
-    #loop through each element in Xij and apply sequential transformations
-    # ??
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
 
-    # print("\n e \n", tf.shape(e))
+    # print("\n Xij vec: \n", t2v(Xij))
+    # print("\n Zij vec: \n", t2v(Zij))
     
     return(e)    
