@@ -233,8 +233,9 @@ def get_A_ij_B_ij(e_ij):
     bottom = tf.concat([-flipped, -eyes], axis = 2) #works???
 #     bottom = tf.concat([flipped, -eyes], axis = 2) #test
 
-#     top = tf.concat([eyes, tf.zeros(tf.shape(flipped))], axis = 2) #test
-#     bottom = tf.concat([tf.zeros(tf.shape(flipped)), -eyes], axis = 2) #test
+    # #DEBUG: zero out non-diags
+    # top = tf.concat([eyes, tf.zeros(tf.shape(flipped))], axis = 2) #test
+    # bottom = tf.concat([tf.zeros(tf.shape(flipped)), -eyes], axis = 2) #test
     
     A_ij = tf.concat([top, bottom], axis = 1) #was this
     B_ij = -A_ij #was this
@@ -251,22 +252,26 @@ def get_e(Zij, Xij):
 
     # was this ~~~~~~~~~~~~~~~~~~~~~~~
 
-    #need to set x -> x + delta_x
-    # e = t2v(tf.linalg.pinv(Zij) @ Xij) #translation right, rotation wrong
-    e = t2v(Zij @ Xij) #rotation right, translation wrong
+    # #need to set x -> x + delta_x
+    e = t2v(tf.linalg.pinv(Zij) @ Xij) #translation right, rotation wrong
+    # e = t2v(Zij @ Xij) #rotation right, translation wrong
 
-    #need to set x -> x - delta_x
-    # e = t2v(tf.linalg.pinv(Xij) @ Zij) 
+    # #need to set x -> x - delta_x
+    # # e = t2v(tf.linalg.pinv(Xij) @ Zij) 
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
 
     # e_trans = t2v(tf.linalg.pinv(Zij) @ Xij)[:,:3]
+    # # e_trans = t2v(Xij)[:,:3] - t2v(Zij)[:,:3] #test
+    # # e_trans = -t2v(tf.transpose(Xij, (0,2,1)) @ Zij)[:,:3] #test
     # print("\n e_trans: \n", e_trans[:5])
+
     # e_rot = t2v(Zij @ Xij)[:,3:]
     # print("\n e_rot: \n", e_rot[:5])
-    # e = tf.concat((e_trans, e_rot), axis = 1)
-    # print("\n e_test: \n", e)    
+    # # e = tf.concat((e_trans, e_rot), axis = 1)
+    print("\n e: \n", e)    
 
+    # e = t2v(Xij) - t2v(Zij) #debug
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
 
     # print("\n Xij vec: \n", t2v(Xij))
