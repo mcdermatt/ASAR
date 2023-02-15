@@ -35,8 +35,9 @@ for i in range(num_frames):
 
 	print("\n ~~~~~~~~~~~~~~~~~~ Epoch ",  i," ~~~~~~~~~~~~~~~~~~~~~~~~~ \n")
 
-
-	prefix = "/home/derm/Downloads/20200721_144638_part36_1956_2229/ouster64_bfc_xyzit/" #very good quality
+	# drive = "20200721_144638_part36_1956_2229" #old church (used in 3D paper)
+	drive = "20200706_161206_part22_670_950" #subrubs
+	prefix = "/media/derm/06EF-127D2/leddartech/" + drive + "/ouster64_bfc_xyzit/" 
 	fn1 = prefix + '%08d.pkl' %(i)
 	with open(fn1, 'rb') as f:
 		data1 = pickle.load(f)
@@ -50,8 +51,8 @@ for i in range(num_frames):
 	# data1 = data1[data1[:,2] > -0.75] #ignore ground plane
 	# data2 = data2[data2[:,2] > -0.75] #ignore ground plane
 
-	it = ICET(cloud1 = data1, cloud2 = data2, fid = 50, niter = 10, 
-		draw = False, group = 2, RM = True, DNN_filter = False)
+	it = ICET(cloud1 = data1, cloud2 = data2, fid = 80, niter = 8, 
+		draw = False, group = 2, RM = True, DNN_filter = False, x0 = initial_guess)
 
 	ICET_estimates[i] = it.X #* (dataset.timestamps[i+1] - dataset.timestamps[i]).microseconds/(10e5)/0.1
 	before_correction[i] = it.before_correction
@@ -68,10 +69,10 @@ for i in range(num_frames):
 	#periodically save so we don't lose everything...
 	if i % 10 == 0:
 		print("saving...")
-		np.savetxt("leddartech_NDT_estimates.txt", ICET_estimates)
-		np.savetxt("leddartech_NDT_pred_stds.txt", ICET_pred_stds)
+		np.savetxt("results/leddartech_ICET_estimates_suburb.txt", ICET_estimates)
+		np.savetxt("results/leddartech_ICET_pred_stds_suburb.txt", ICET_pred_stds)
 
 # np.savetxt("perspective_shift/sim_results/KITTI_0028_noDNN.txt", before_correction)
-np.savetxt("leddartech_NDT_estimates.txt", ICET_estimates)
-np.savetxt("leddartech_NDT_pred_stds.txt", ICET_pred_stds)
+np.savetxt("results/leddartech_ICET_estimates_suburb.txt", ICET_estimates)
+np.savetxt("results/leddartech_ICET_pred_stds_suburb.txt", ICET_pred_stds)
 # np.savetxt("perspective_shift/sim_results/KITTI_0028_OXTS_baseline_gps.txt", OXTS_baseline)

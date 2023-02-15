@@ -20,7 +20,7 @@ class ICET():
 
 		self.min_cell_distance = 4 #2 #begin closest spherical voxel here
 		#ignore "occupied" cells with fewer than this number of pts
-		self.min_num_pts = 25 #was 50 for KITTI and Ford, need to lower to 25 for CODD 
+		self.min_num_pts = 50 #was 50 for KITTI and Ford, need to lower to 25 for CODD 
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
 		self.niter = niter
@@ -28,9 +28,9 @@ class ICET():
 		self.cheat = cheat #overide for using ICET to generate training data for DNN
 		self.DNN_filter = DNN_filter
 		self.start_filter_iter = 7 #10 #iteration to start DNN rejection filter
-		self.start_RM_iter = 5 #10 #iteration to start removing moving objects (set low to generate training data)
+		self.start_RM_iter = 4 #10 #iteration to start removing moving objects (set low to generate training data)
 		self.DNN_thresh = 0.05 #0.03
-		self.RM_thresh = 0.08
+		self.RM_thresh = 0.05
 
 		before = time.time()
 
@@ -602,7 +602,7 @@ class ICET():
 				before = time.time()
 
 		# print("pred_stds: \n", self.pred_stds)
-		print("Q: \n", self.Q) #DEBUG: why is this slightly asymmetric??
+		# print("Q: \n", self.Q) #DEBUG: why is this slightly asymmetric??
 		# print(" L2: \n", L2)		
 
 		#draw PC2
