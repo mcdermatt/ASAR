@@ -20,7 +20,7 @@ class ICET():
 
 		self.min_cell_distance = 4 #2 #begin closest spherical voxel here
 		#ignore "occupied" cells with fewer than this number of pts
-		self.min_num_pts = 100 #was 50 for KITTI and Ford, need to lower to 25 for CODD 
+		self.min_num_pts = 50 #was 50 for KITTI and Ford, need to lower to 25 for CODD 
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
 		self.niter = niter
@@ -616,10 +616,12 @@ class ICET():
 			if remove_moving:
 				self.draw_cell(bad_idx_corn_moving, bad = True) #for debug
 
-
 			self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
 			self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
 			self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
+
+			self.shade_residuals(self.corn, self.residuals) #for debug 2/16/23
+
 			# self.draw_cloud(self.cloud2_tensor_OG.numpy(), pc = 3) #3 #draw OG cloud in differnt color
 			# draw identified points from scan 2 inside useful clusters
 			# for n in range(tf.shape(inside2.to_tensor())[0]):
@@ -889,6 +891,57 @@ class ICET():
 	# 	#     loss = loss_compact
 	# 	#     loss = loss_compact*0.25 + loss_total*(0.75)    
 	# 	return loss
+
+
+	def shade_residuals(self, corners, residuals):
+		""" draw cells in frame, shaded by how large their residuals are """
+
+		# print("residuals:", tf.shape(self.residuals)) 
+		# print("corn:", tf.shape(self.corn))
+
+		#convert residuals to L2 distance 
+		L2 = tf.sqrt(tf.reduce_sum(residuals**2, axis = 1))
+		L2 = tf.sqrt(L2) #make differences less exaggerated (for viz)
+		#scale relative to max L2
+		biggest_residual = tf.math.reduce_max(L2).numpy()
+		L2 = L2.numpy()/biggest_residual
+		# print(L2)
+
+		for i in range(tf.shape(corners)[0]):
+
+			p1, p2, p3, p4, p5, p6, p7, p8 = self.s2c(corners[i]).numpy()
+
+			lineWidth = 3
+			# c1 = 'black'
+			c1 = np.array([L2[i], 1-L2[i], 0.2]) #green -> red
+			# c1 = np.array([1-L2[i], 1-L2[i], 1-L2[i]])
+
+			# arc1 = shapes.Arc(center = [0,0,0], point1 = p1, point2 = p2, c = 'red')	
+			arc1 = shapes.Line(p1, p2, c = c1, lw = lineWidth) #debug		
+			self.disp.append(arc1)
+			# arc2 = shapes.Arc(center = [0,0,0], point1 = p3, point2 = p4, c = 'red')
+			arc2 = shapes.Line(p3, p4, c = c1, lw = lineWidth) #debug
+			self.disp.append(arc2)
+			line1 = shapes.Line(p1, p3, c = c1, lw = lineWidth)
+			self.disp.append(line1)
+			line2 = shapes.Line(p2, p4, c = c1, lw = lineWidth) #problem here
+			self.disp.append(line2)
+
+			# arc3 = shapes.Arc(center = [0,0,0], point1 = p5, point2 = p6, c = 'red')		
+			arc3 = shapes.Line(p5, p6, c = c1, lw = lineWidth) #debug
+			self.disp.append(arc3)
+			# arc4 = shapes.Arc(center = [0,0,0], point1 = p7, point2 = p8, c = 'red')
+			arc4 = shapes.Line(p7, p8, c = c1, lw = lineWidth) #debug
+			self.disp.append(arc4)
+			line3 = shapes.Line(p5, p7, c = c1, lw = lineWidth)
+			self.disp.append(line3)
+			line4 = shapes.Line(p6, p8, c = c1, lw = lineWidth)
+			self.disp.append(line4)
+
+			self.disp.append(shapes.Line(p1,p5, c = c1, lw = lineWidth))
+			self.disp.append(shapes.Line(p2,p6, c = c1, lw = lineWidth))
+			self.disp.append(shapes.Line(p3,p7, c = c1, lw = lineWidth))
+			self.disp.append(shapes.Line(p4,p8, c = c1, lw = lineWidth))
 
 
 	def get_points_in_cluster(self, cloud, occupied_spikes, bounds):
@@ -1784,7 +1837,7 @@ class ICET():
 		if pc == 3:
 			color = [0.5, 0.8, 0.5]
 		
-		c = Points(points, c = color, r = 2.5, alpha = 1.) #r = 4
+		c = Points(points, c = color, r = 4, alpha = 1.) #r = 2.5
 		self.disp.append(c)
 
 	def draw_car(self):

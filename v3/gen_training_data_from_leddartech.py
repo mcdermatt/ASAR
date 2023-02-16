@@ -37,8 +37,20 @@ from scipy.spatial.transform import Rotation as R
 # drive = "20200617_191627_part12_1614_1842"#straight road, narrow with pedestrians and shops 
 # num_frames = 230
 
-drive = "20200706_161206_part22_670_950" #suburban neighborhood, trees, houses and parked cars
-num_frames = 274
+# drive = "20200706_161206_part22_670_950" #suburban neighborhood, trees, houses and parked cars
+# num_frames = 274
+
+# drive = "20200721_154835_part37_696_813" #overgrown highway
+# num_frames = 120
+
+# drive = "20200618_191030_part17_1120_1509" #long straight stretch, passing cyclists
+# num_frames = 388
+
+drive = "20200706_191736_part30_1721_1857" #big city, jaywalker in flip flops
+num_frames = 136
+
+# drive = "20200805_002607_part48_2083_2282" #boulevard on rainy night
+# num_frames = 200
 
 numShifts = 5 #number of times to resample and translate each voxel each scan
 npts = 100
@@ -62,9 +74,9 @@ print(len(timestamps))
 T1 = test.get_transform(timestamps[1])
 T2 = test.get_transform(timestamps[2])
 
-gt_vec = np.zeros([1800-1,6])
+gt_vec = np.zeros([len(timestamps)-1,6])
 
-for i in range(1,1800):
+for i in range(1,len(timestamps)):
     #get translations from GNSS/INS baseline
     gt_vec[i-1,0] = test.get_transform(timestamps[i])[1,3] - test.get_transform(timestamps[i-1])[1,3]
     gt_vec[i-1,1] = test.get_transform(timestamps[i])[0,3] - test.get_transform(timestamps[i-1])[0,3]
@@ -87,18 +99,26 @@ gt_vec = gt_vec * 5
 # MAIN LOOP
 for idx in range(num_frames):
   print("\n ~~~~~~~~~ Frame #", idx, "~~~~~~~~~~~~~ \n")
-  #get point clouds
-  prefix = "/media/derm/06EF-127D2/leddartech/"+ drive + "/ouster64_bfc_xyzit/"
-  fn1 = prefix + '%08d.pkl' %(idx)
-  with open(fn1, 'rb') as f:
-      data1 = pickle.load(f)
-  ts_lidar = np.asarray(data1.tolist())[0,-1]
-  #[x, y, z, intensity, timestamp]
-  data1 = np.asarray(data1.tolist())[:,:3]
-  fn2 = prefix + '%08d.pkl' %(idx+1)
-  with open(fn2, 'rb') as f:
-      data2 = pickle.load(f)
-  data2 = np.asarray(data2.tolist())[:,:3]
+
+  #get unidstorted point clouds ----------------
+
+  data1 = pf['ouster64_bfc_xyzit'][idx].get_point_cloud(undistort = True)
+  data2 = pf['ouster64_bfc_xyzit'][idx+1].get_point_cloud(undistort = True)
+  ts_lidar = pf['ouster64_bfc_xyzit'][idx].timestamp
+
+  # #get point clouds - old distorted way-------
+  # prefix = "/media/derm/06EF-127D2/leddartech/"+ drive + "/ouster64_bfc_xyzit/"
+  # fn1 = prefix + '%08d.pkl' %(idx)
+  # with open(fn1, 'rb') as f:
+  #     data1 = pickle.load(f)
+  # ts_lidar = np.asarray(data1.tolist())[0,-1]
+  # #[x, y, z, intensity, timestamp]
+  # data1 = np.asarray(data1.tolist())[:,:3]
+  # fn2 = prefix + '%08d.pkl' %(idx+1)
+  # with open(fn2, 'rb') as f:
+  #     data2 = pickle.load(f)
+  # data2 = np.asarray(data2.tolist())[:,:3]
+  # #--------------------------------------------
 
   #get ground truth from GNSS data
   # loop through all GNSS timestamps, stop when larger than ts_lidar and use previous index
@@ -111,6 +131,9 @@ for idx in range(num_frames):
 
   shift_scale = 0.0 #standard deviation by which to shift the grid BEFORE SAMPLING corresponding segments of the point cloud
   shift = tf.cast(tf.constant([shift_scale*tf.random.normal([1]).numpy()[0], shift_scale*tf.random.normal([1]).numpy()[0], 0.2*shift_scale*tf.random.normal([1]).numpy()[0], 0, 0, 0]), tf.float32)
+
+  data1 = data1[data1[:,2] > -0.75] #ignore ground plane
+  data2 = data2[data2[:,2] > -0.75] #ignore ground plane
 
   it = ICET(cloud1 = data1, cloud2 = data2, fid = 50, niter = 2, draw = False, group = 2, 
     RM = False, DNN_filter = False, cheat = x0+shift)
@@ -180,15 +203,15 @@ for idx in range(num_frames):
   #periodically save so we don't lose everything...
   if i % 10 == 0:
     print("saving...")
-    np.save('/media/derm/06EF-127D2/TrainingData/leddartech/suburban_scan1_100pts', scan1_cum)
-    np.save('/media/derm/06EF-127D2/TrainingData/leddartech/suburban_scan2_100pts', scan2_cum)
-    np.save('/media/derm/06EF-127D2/TrainingData/leddartech/suburban_ground_truth_100pts', soln_cum)
+    np.save('/media/derm/06EF-127D2/TrainingData/leddartech/jaywalker_scan1_100pts', scan1_cum)
+    np.save('/media/derm/06EF-127D2/TrainingData/leddartech/jaywalker_scan2_100pts', scan2_cum)
+    np.save('/media/derm/06EF-127D2/TrainingData/leddartech/jaywalker_ground_truth_100pts', soln_cum)
 
 
 
-np.save('/media/derm/06EF-127D2/TrainingData/leddartech/suburban_scan1_100pts', scan1_cum)
-np.save('/media/derm/06EF-127D2/TrainingData/leddartech/suburban_scan2_100pts', scan2_cum)
-np.save('/media/derm/06EF-127D2/TrainingData/leddartech/suburban_ground_truth_100pts', soln_cum)
+np.save('/media/derm/06EF-127D2/TrainingData/leddartech/jaywalker_scan1_100pts', scan1_cum)
+np.save('/media/derm/06EF-127D2/TrainingData/leddartech/jaywalker_scan2_100pts', scan2_cum)
+np.save('/media/derm/06EF-127D2/TrainingData/leddartech/jaywalker_ground_truth_100pts', soln_cum)
 
 
 

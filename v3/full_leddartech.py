@@ -22,6 +22,8 @@ if gpus:
 from ICET_spherical import ICET
 from metpy.calc import lat_lon_grid_deltas
 import trimesh
+from pioneer.das.api.platform import Platform
+
 
 num_frames = 274
 ICET_estimates = np.zeros([num_frames, 6])
@@ -30,28 +32,44 @@ ICET_pred_stds = np.zeros([num_frames, 6])
 before_correction = np.zeros([num_frames, 6])
 initial_guess = tf.constant([1.0, 0., 0., 0., 0., 0.])
 
+# drive = "20200721_144638_part36_1956_2229" #old church (used in 3D paper)
+drive = "20200706_161206_part22_670_950" #subrubs
+
+#new
+dataset_path = "/media/derm/06EF-127D2/leddartech/" + drive
+config_path = "/media/derm/06EF-127D2/leddartech/" + drive + "/platform.yml"
+pf = Platform(dataset_path, config_path)
+
 for i in range(num_frames):
 # for i in range(0,num_frames,3): #skip3
 
 	print("\n ~~~~~~~~~~~~~~~~~~ Epoch ",  i," ~~~~~~~~~~~~~~~~~~~~~~~~~ \n")
 
-	# drive = "20200721_144638_part36_1956_2229" #old church (used in 3D paper)
-	drive = "20200706_161206_part22_670_950" #subrubs
-	prefix = "/media/derm/06EF-127D2/leddartech/" + drive + "/ouster64_bfc_xyzit/" 
-	fn1 = prefix + '%08d.pkl' %(i)
-	with open(fn1, 'rb') as f:
-		data1 = pickle.load(f)
-	data1 = np.asarray(data1.tolist())[:,:3]
+	#new -----------------------------------------------------------------------
 
-	fn2 = prefix + '%08d.pkl' %(i+1)
-	with open(fn2, 'rb') as f:
-		data2 = pickle.load(f)
-	data2 = np.asarray(data2.tolist())[:,:3]
+	data1 = pf['ouster64_bfc_xyzit'][i].get_point_cloud(undistort = True)
+	data2 = pf['ouster64_bfc_xyzit'][i+1].get_point_cloud(undistort = True)
+	ts_lidar = pf['ouster64_bfc_xyzit'][i].timestamp
+
+	#old -----------------------------------------------------------------------
+	# prefix = "/media/derm/06EF-127D2/leddartech/" + drive + "/ouster64_bfc_xyzit/" 
+	# fn1 = prefix + '%08d.pkl' %(i)
+	# with open(fn1, 'rb') as f:
+	# 	data1 = pickle.load(f)
+	# data1 = np.asarray(data1.tolist())[:,:3]
+
+	# fn2 = prefix + '%08d.pkl' %(i+1)
+	# with open(fn2, 'rb') as f:
+	# 	data2 = pickle.load(f)
+	# data2 = np.asarray(data2.tolist())[:,:3]
+
+	# --------------------------------------------------------------------------
+
 
 	# data1 = data1[data1[:,2] > -0.75] #ignore ground plane
 	# data2 = data2[data2[:,2] > -0.75] #ignore ground plane
 
-	it = ICET(cloud1 = data1, cloud2 = data2, fid = 80, niter = 8, 
+	it = ICET(cloud1 = data1, cloud2 = data2, fid = 50, niter = 8, 
 		draw = False, group = 2, RM = True, DNN_filter = False, x0 = initial_guess)
 
 	ICET_estimates[i] = it.X #* (dataset.timestamps[i+1] - dataset.timestamps[i]).microseconds/(10e5)/0.1
@@ -69,10 +87,10 @@ for i in range(num_frames):
 	#periodically save so we don't lose everything...
 	if i % 10 == 0:
 		print("saving...")
-		np.savetxt("results/leddartech_ICET_estimates_suburb.txt", ICET_estimates)
-		np.savetxt("results/leddartech_ICET_pred_stds_suburb.txt", ICET_pred_stds)
+		np.savetxt("results/leddartech_ICET_estimates_suburb_undistorted.txt", ICET_estimates)
+		np.savetxt("results/leddartech_ICET_pred_stds_suburb_undistorted.txt", ICET_pred_stds)
 
 # np.savetxt("perspective_shift/sim_results/KITTI_0028_noDNN.txt", before_correction)
-np.savetxt("results/leddartech_ICET_estimates_suburb.txt", ICET_estimates)
-np.savetxt("results/leddartech_ICET_pred_stds_suburb.txt", ICET_pred_stds)
+np.savetxt("results/leddartech_ICET_estimates_suburb_undistorted.txt", ICET_estimates)
+np.savetxt("results/leddartech_ICET_pred_stds_suburb_undistorted.txt", ICET_pred_stds)
 # np.savetxt("perspective_shift/sim_results/KITTI_0028_OXTS_baseline_gps.txt", OXTS_baseline)

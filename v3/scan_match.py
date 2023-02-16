@@ -10,7 +10,7 @@ gpus = tf.config.experimental.list_physical_devices('GPU')
 print(gpus)
 if gpus:
   try:
-    memlim = 12*1024
+    memlim = 4*1024
     tf.config.experimental.set_virtual_device_configuration(gpus[0], [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=memlim)])
   except RuntimeError as e:
     print(e)
@@ -21,65 +21,67 @@ import tensorflow_probability as tfp
 from ICET_spherical import ICET
 from utils import R_tf
 from metpy.calc import lat_lon_grid_deltas
+from scipy.spatial.transform import Rotation as R
 
-# KITTI sample dataset -------------------------------------------
-# basedir = 'C:/kitti/'
-basedir = '/media/derm/06EF-127D2/KITTI'
-date = '2011_09_26'
 
-# urban dataset used in 3D-ICET paper 
-drive = '0005' #life in the big city
-# drive = '0027' #wooded highway - doing really well here!??!
-# drive = '0091' #Matt's favorite- don't use for testing though, we trained here!
-# drive = '0095'
-# drive = '0117'
-# drive = '0070'
-# drive ='0071'
-idx = 55
-skip = 1
+# # KITTI sample dataset -------------------------------------------
+# # basedir = 'C:/kitti/'
+# basedir = '/media/derm/06EF-127D3/KITTI'
+# date = '2011_09_26'
 
-#test with aiodrive
-# drive = 'aiodrive'
-# idx = 1
+# # urban dataset used in 3D-ICET paper 
+# drive = '0005' #life in the big city
+# # drive = '0027' #wooded highway - doing really well here!??!
+# # drive = '0091' #Matt's favorite- don't use for testing though, we trained here!
+# # drive = '0095'
+# # drive = '0117'
+# # drive = '0070'
+# # drive ='0071'
+# idx = 55
+# skip = 1
 
-#alternate dataset with fewer moving objects?
-# drive = '0009'
-# idx = 245
-# drive = '0093'
-# idx = 220
+# #test with aiodrive
+# # drive = 'aiodrive'
+# # idx = 1
 
-dataset = pykitti.raw(basedir, date, drive)
+# #alternate dataset with fewer moving objects?
+# # drive = '0009'
+# # idx = 245
+# # drive = '0093'
+# # idx = 220
 
-# basedir = "E:/KITTI/dataset/"
-# date = "2011_09_26"
-# drive = '01'
 # dataset = pykitti.raw(basedir, date, drive)
 
-# idx = 0
+# # basedir = "E:/KITTI/dataset/"
+# # date = "2011_09_26"
+# # drive = '01'
+# # dataset = pykitti.raw(basedir, date, drive)
 
-velo1 = dataset.get_velo(idx) # Each scan is a Nx4 array of [x,y,z,reflectance]
-c1 = velo1[:,:3]
-velo2 = dataset.get_velo(idx+skip) # Each scan is a Nx4 array of [x,y,z,reflectance]
-c2 = velo2[:,:3]
+# # idx = 0
+
+# velo1 = dataset.get_velo(idx) # Each scan is a Nx4 array of [x,y,z,reflectance]
+# c1 = velo1[:,:3]
+# velo2 = dataset.get_velo(idx+skip) # Each scan is a Nx4 array of [x,y,z,reflectance]
+# c2 = velo2[:,:3]
 # c1 = c1[c1[:,2] > -1.5] #ignore ground plane
 # c2 = c2[c2[:,2] > -1.5] #ignore ground plane
-# c1 = c1[c1[:,2] > -2.] #ignore reflections
-# c2 = c2[c2[:,2] > -2.] #ignore reflections
+# # c1 = c1[c1[:,2] > -2.] #ignore reflections
+# # c2 = c2[c2[:,2] > -2.] #ignore reflections
 
-# c1 = c1[c1[:,1] < -0] #temp
-# c2 = c2[c2[:,1] < -0] #temp
-# c1 = c1[c1[:,0] < 10.5] #temp
-# c2 = c2[c2[:,0] < 10.5] #temp
+# # c1 = c1[c1[:,1] < -0] #temp
+# # c2 = c2[c2[:,1] < -0] #temp
+# # c1 = c1[c1[:,0] < 10.5] #temp
+# # c2 = c2[c2[:,0] < 10.5] #temp
 
-#load previously processed cloud 1
-# c1 = np.loadtxt("cloud1_good.txt")
+# #load previously processed cloud 1
+# # c1 = np.loadtxt("cloud1_good.txt")
 
-poses0 = dataset.oxts[idx] #<- ID of 1st scan
-poses1 = dataset.oxts[idx+1] #<- ID of 2nd scan
-# dt = skip*0.1037 #mean time between lidar samples
-dt = skip*0.10 #mean time between lidar samples
-OXTS_ground_truth = tf.constant([poses1.packet.vf*dt, -poses1.packet.vl*dt, poses1.packet.vu*dt, poses1.packet.wf*dt, poses1.packet.wl*dt, poses1.packet.wu*dt])
-# ------------------------------------------------------------------------------------
+# poses0 = dataset.oxts[idx] #<- ID of 1st scan
+# poses1 = dataset.oxts[idx+1] #<- ID of 2nd scan
+# # dt = skip*0.1037 #mean time between lidar samples
+# dt = skip*0.10 #mean time between lidar samples
+# OXTS_ground_truth = tf.constant([poses1.packet.vf*dt, -poses1.packet.vl*dt, poses1.packet.vu*dt, poses1.packet.wf*dt, poses1.packet.wl*dt, poses1.packet.wu*dt])
+# # ------------------------------------------------------------------------------------
 
 # # full KITTI dataset (uses different formatting incompable with PyKitti)--------------
 # #files are 80gb so remember to plug in the external hard drive!
@@ -338,12 +340,66 @@ OXTS_ground_truth = tf.constant([poses1.packet.vf*dt, -poses1.packet.vl*dt, pose
 # # -------------------------------------------------------------------------------------
 
 
+# Leddartech ---------------------------------------------------------------------------
+from pioneer.das.api.platform import Platform
+
+# drive = "20200721_144638_part36_1956_2229" #old church (used in 3D paper)
+drive = "20200706_161206_part22_670_950" #subrubs
+
+i = 100
+
+dataset_path = "/media/derm/06EF-127D3/leddartech/" + drive
+config_path = "/media/derm/06EF-127D3/leddartech/" + drive + "/platform.yml"
+pf = Platform(dataset_path, config_path)
+
+c1 = pf['ouster64_bfc_xyzit'][i].get_point_cloud(undistort = True)
+c2 = pf['ouster64_bfc_xyzit'][i+1].get_point_cloud(undistort = True)
+ts_lidar = pf['ouster64_bfc_xyzit'][i].timestamp
+
+c1 = c1[c1[:,2] > -0.75] #ignore ground plane
+c2 = c2[c2[:,2] > -0.75] #ignore ground plane
+
+#get ground truth from GNSS data
+GNSS = pf.sensors['sbgekinox_bcc']
+from pioneer.das.api.egomotion.imu_egomotion_provider import IMUEgomotionProvider as emp 
+name = pf
+test = emp(name, GNSS['navposvel'], GNSS['ekfeuler'])
+timestamps = test.get_timestamps()
+
+gt_vec = np.zeros([len(timestamps)-1,6])
+for i in range(1,len(timestamps)):
+    #get translations from GNSS/INS baseline
+    gt_vec[i-1,0] = test.get_transform(timestamps[i])[1,3] - test.get_transform(timestamps[i-1])[1,3]
+    gt_vec[i-1,1] = test.get_transform(timestamps[i])[0,3] - test.get_transform(timestamps[i-1])[0,3]
+    gt_vec[i-1,2] = test.get_transform(timestamps[i])[2,3] - test.get_transform(timestamps[i-1])[2,3]
+    #get rotations
+    T1 = test.get_transform(timestamps[i-1])
+    T2 = test.get_transform(timestamps[i])
+    r1 = R.from_matrix(T1[:3,:3])
+    r2 = R.from_matrix(T2[:3,:3])
+    gt_vec[i-1,3:] = (r2.as_euler('xyz', degrees=False) - r1.as_euler('xyz', degrees=False))
+vf = np.sqrt(gt_vec[:,0]**2 + gt_vec[:,1]**2)
+gt_vec[:,0] = vf
+gt_vec[:,1] = 0
+gt_vec[:,2] = 0
+gt_vec = gt_vec * 5
+
+# loop through all GNSS timestamps, stop when larger than ts_lidar and use previous index
+for c in range(len(timestamps)):
+  ts_gnss = timestamps[c]
+  if ts_gnss > ts_lidar:
+      break
+x0 = tf.convert_to_tensor(gt_vec[c], dtype = tf.float32)
+
+# -------------------------------------------------------------------------------------
+
+
 # ground_truth = tf.constant([0.1799, 0., 0., -0.0094, -0.011, -0.02072]) #FULL KITTI scan 1397
 
-x0 = tf.constant([0., 0., 0., 0., 0., 0.])
+# x0 = tf.constant([0., 0., 0., 0., 0., 0.])
 
 it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 5, 
-	draw = True, group = 2, RM = False, DNN_filter = False, x0 = x0)
+	draw = True, group = 2, RM = False, DNN_filter = False, cheat = x0)#, x0 = x0)
 
 print("it.X: \n", it1.X)
 
