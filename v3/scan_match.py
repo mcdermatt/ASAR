@@ -130,8 +130,8 @@ from scipy.spatial.transform import Rotation as R
 
 # #full dataset starts at 00136
 # i = 1320 #1150 #1190
-# fn1 = '/media/derm/06EF-127D2/Ford/IJRR-Dataset-1/SCANS/Scan%04d.mat' %(i+75) #75 + 61 = 136
-# fn2 = '/media/derm/06EF-127D2/Ford/IJRR-Dataset-1/SCANS/Scan%04d.mat' %(i+76) #76 + 61 = 137
+# fn1 = '/media/derm/06EF-127D3/Ford/IJRR-Dataset-1/SCANS/Scan%04d.mat' %(i+75) #75 + 61 = 136
+# fn2 = '/media/derm/06EF-127D3/Ford/IJRR-Dataset-1/SCANS/Scan%04d.mat' %(i+76) #76 + 61 = 137
 
 
 
@@ -143,13 +143,13 @@ from scipy.spatial.transform import Rotation as R
 # SCAN2 = dat2['SCAN']
 # c2 = np.transpose(np.array(SCAN2['XYZ']))
 
-# ground_truth = np.loadtxt("/media/derm/06EF-127D2/Ford/IJRR-Dataset-1/SCANS/FORD_DS1_truth.txt")/10
+# ground_truth = np.loadtxt("/media/derm/06EF-127D3/Ford/IJRR-Dataset-1/SCANS/FORD_DS1_truth.txt")/10
 # ground_truth = tf.cast(tf.convert_to_tensor(ground_truth), tf.float32)
 # gt = (ground_truth[i,:] + ground_truth[i+1,:])/2 #avg between pts
 
 
-# c1 = c1[c1[:,2] > -2.2] #ignore ground plane #mounted 2.4m off ground
-# c2 = c2[c2[:,2] > -2.2] #ignore ground plane
+# # c1 = c1[c1[:,2] > -2.2] #ignore ground plane #mounted 2.4m off ground
+# # c2 = c2[c2[:,2] > -2.2] #ignore ground plane
 # # ------------------------------------------------------------------------------------
 
 
@@ -343,21 +343,24 @@ from scipy.spatial.transform import Rotation as R
 # Leddartech ---------------------------------------------------------------------------
 from pioneer.das.api.platform import Platform
 
-drive = "20200721_144638_part36_1956_2229" #old church (used in 3D paper)
+# drive = "20200721_144638_part36_1956_2229" #old church (used in 3D paper)
 # drive = "20200706_161206_part22_670_950" #subrubs
+# drive = "20200706_202209_part31_2980_3091" #straight drive, one way road, urban, big trees
+drive = "20200803_151243_part45_4780_5005" #tight alleyway in the rain, 235 frames
 
 i = 150
+skips = 4
 
 dataset_path = "/media/derm/06EF-127D3/leddartech/" + drive
 config_path = "/media/derm/06EF-127D3/leddartech/" + drive + "/platform.yml"
 pf = Platform(dataset_path, config_path)
 
 c1 = pf['ouster64_bfc_xyzit'][i].get_point_cloud(undistort = True)
-c2 = pf['ouster64_bfc_xyzit'][i+1].get_point_cloud(undistort = True)
+c2 = pf['ouster64_bfc_xyzit'][i+skips].get_point_cloud(undistort = True)
 ts_lidar = pf['ouster64_bfc_xyzit'][i].timestamp
 
-# c1 = c1[c1[:,2] > -0.75] #ignore ground plane
-# c2 = c2[c2[:,2] > -0.75] #ignore ground plane
+c1 = c1[c1[:,2] > -0.75] #ignore ground plane
+c2 = c2[c2[:,2] > -0.75] #ignore ground plane
 
 #get ground truth from GNSS data
 GNSS = pf.sensors['sbgekinox_bcc']
@@ -367,14 +370,14 @@ test = emp(name, GNSS['navposvel'], GNSS['ekfeuler'])
 timestamps = test.get_timestamps()
 
 gt_vec = np.zeros([len(timestamps)-1,6])
-for i in range(1,len(timestamps)):
+for i in range(1,len(timestamps)-skips):
     #get translations from GNSS/INS baseline
-    gt_vec[i-1,0] = test.get_transform(timestamps[i])[1,3] - test.get_transform(timestamps[i-1])[1,3]
-    gt_vec[i-1,1] = test.get_transform(timestamps[i])[0,3] - test.get_transform(timestamps[i-1])[0,3]
-    gt_vec[i-1,2] = test.get_transform(timestamps[i])[2,3] - test.get_transform(timestamps[i-1])[2,3]
+    gt_vec[i-1,0] = test.get_transform(timestamps[i+skips])[1,3] - test.get_transform(timestamps[i])[1,3]
+    gt_vec[i-1,1] = test.get_transform(timestamps[i+skips])[0,3] - test.get_transform(timestamps[i])[0,3]
+    gt_vec[i-1,2] = test.get_transform(timestamps[i+skips])[2,3] - test.get_transform(timestamps[i])[2,3]
     #get rotations
-    T1 = test.get_transform(timestamps[i-1])
-    T2 = test.get_transform(timestamps[i])
+    T1 = test.get_transform(timestamps[i])
+    T2 = test.get_transform(timestamps[i+skips])
     r1 = R.from_matrix(T1[:3,:3])
     r2 = R.from_matrix(T2[:3,:3])
     gt_vec[i-1,3:] = (r2.as_euler('xyz', degrees=False) - r1.as_euler('xyz', degrees=False))
@@ -391,7 +394,7 @@ for c in range(len(timestamps)):
       break
 x0 = tf.convert_to_tensor(gt_vec[c], dtype = tf.float32)
 
-it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 5, 
+it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 5, 
     draw = True, group = 2, RM = True, DNN_filter = False, cheat = x0)
 
 # -------------------------------------------------------------------------------------

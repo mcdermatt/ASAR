@@ -18,13 +18,13 @@ class ICET():
 		self.run_profile = False
 		self.st = time.time() #start time (for debug)
 
-		self.min_cell_distance = 4 #2 #begin closest spherical voxel here
+		self.min_cell_distance = 2 #begin closest spherical voxel here
 		#ignore "occupied" cells with fewer than this number of pts
-		self.min_num_pts = 50 #was 50 for KITTI and Ford, need to lower to 25 for CODD 
+		self.min_num_pts = 100 #was 50 for KITTI and Ford, need to lower to 25 for CODD 
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
 		self.niter = niter
-		self.alpha = 0.3 #0.5 #controls alpha values when displaying ellipses
+		self.alpha = 0.2 #0.5 #controls alpha values when displaying ellipses
 		self.cheat = cheat #overide for using ICET to generate training data for DNN
 		self.DNN_filter = DNN_filter
 		self.start_filter_iter = 7 #10 #iteration to start DNN rejection filter
@@ -60,8 +60,8 @@ class ICET():
 		# before = time.time()
 
 		if self.draw == True:
-			# self.plt = Plotter(N = 1, axes = 4, bg = (1, 1, 1), interactive = True) #axis = 1
-			self.plt = Plotter(N = 1, axes = 4, bg = (1, 1, 1), interactive = False) #USE FOR MAKING DEMO GIFS 
+			self.plt = Plotter(N = 1, axes = 4, bg = (1, 1, 1), interactive = True) #axis = 1
+			# self.plt = Plotter(N = 1, axes = 4, bg = (1, 1, 1), interactive = False) #USE FOR MAKING DEMO GIFS 
 			self.disp = []
 			#copy-paste camera settings here using Shift+C on vedo terminal window-----------
 			#was this
@@ -245,7 +245,7 @@ class ICET():
 		if self.draw:
 			# self.visualize_L(mu1_enough, U, L)
 			self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
-			self.draw_cell(corn)
+			# self.draw_cell(corn)
 			self.draw_car()
 			# draw identified points inside useful clusters
 			# for n in range(tf.shape(inside1.to_tensor())[0]):
@@ -923,7 +923,7 @@ class ICET():
 		L2 = tf.sqrt(tf.reduce_sum(residuals**2, axis = 1))
 		L2 = L2.numpy()
 		# L2 = tf.sqrt(L2).numpy() #make differences less exaggerated (for viz)
-		cap = 0.25 #(meters)
+		cap = self.RM_thresh #0.15 #(meters)
 		L2[L2 > cap] = cap
 		#scale relative to max L2
 		biggest_residual = tf.math.reduce_max(L2).numpy()
@@ -935,37 +935,38 @@ class ICET():
 
 			p1, p2, p3, p4, p5, p6, p7, p8 = self.s2c(corners[i]).numpy()
 
-			lineWidth = 2
+			lineWidth = 2.5
+			a = 0.65 #alpha
 			# c1 = 'black'
 			c1 = np.array([L2[i], 1-L2[i], 0.2]) #green -> red
 			# c1 = np.array([1-L2[i], 1-L2[i], 1-L2[i]])
 
 			# arc1 = shapes.Arc(center = [0,0,0], point1 = p1, point2 = p2, c = 'red')	
-			arc1 = shapes.Line(p1, p2, c = c1, lw = lineWidth) #debug		
+			arc1 = shapes.Line(p1, p2, c = c1, lw = lineWidth, alpha = a) #debug		
 			self.disp.append(arc1)
 			# arc2 = shapes.Arc(center = [0,0,0], point1 = p3, point2 = p4, c = 'red')
-			arc2 = shapes.Line(p3, p4, c = c1, lw = lineWidth) #debug
+			arc2 = shapes.Line(p3, p4, c = c1, lw = lineWidth, alpha = a) #debug
 			self.disp.append(arc2)
-			line1 = shapes.Line(p1, p3, c = c1, lw = lineWidth)
+			line1 = shapes.Line(p1, p3, c = c1, lw = lineWidth, alpha = a)
 			self.disp.append(line1)
-			line2 = shapes.Line(p2, p4, c = c1, lw = lineWidth) #problem here
+			line2 = shapes.Line(p2, p4, c = c1, lw = lineWidth, alpha = a) #problem here
 			self.disp.append(line2)
 
 			# arc3 = shapes.Arc(center = [0,0,0], point1 = p5, point2 = p6, c = 'red')		
-			arc3 = shapes.Line(p5, p6, c = c1, lw = lineWidth) #debug
+			arc3 = shapes.Line(p5, p6, c = c1, lw = lineWidth, alpha = a) #debug
 			self.disp.append(arc3)
 			# arc4 = shapes.Arc(center = [0,0,0], point1 = p7, point2 = p8, c = 'red')
-			arc4 = shapes.Line(p7, p8, c = c1, lw = lineWidth) #debug
+			arc4 = shapes.Line(p7, p8, c = c1, lw = lineWidth, alpha = a) #debug
 			self.disp.append(arc4)
-			line3 = shapes.Line(p5, p7, c = c1, lw = lineWidth)
+			line3 = shapes.Line(p5, p7, c = c1, lw = lineWidth, alpha = a)
 			self.disp.append(line3)
-			line4 = shapes.Line(p6, p8, c = c1, lw = lineWidth)
+			line4 = shapes.Line(p6, p8, c = c1, lw = lineWidth, alpha = a)
 			self.disp.append(line4)
 
-			self.disp.append(shapes.Line(p1,p5, c = c1, lw = lineWidth))
-			self.disp.append(shapes.Line(p2,p6, c = c1, lw = lineWidth))
-			self.disp.append(shapes.Line(p3,p7, c = c1, lw = lineWidth))
-			self.disp.append(shapes.Line(p4,p8, c = c1, lw = lineWidth))
+			self.disp.append(shapes.Line(p1,p5, c = c1, lw = lineWidth, alpha = a))
+			self.disp.append(shapes.Line(p2,p6, c = c1, lw = lineWidth, alpha = a))
+			self.disp.append(shapes.Line(p3,p7, c = c1, lw = lineWidth, alpha = a))
+			self.disp.append(shapes.Line(p4,p8, c = c1, lw = lineWidth, alpha = a))
 
 
 	def get_points_in_cluster(self, cloud, occupied_spikes, bounds):
@@ -1861,7 +1862,7 @@ class ICET():
 		if pc == 3:
 			color = [0.5, 0.8, 0.5]
 		
-		c = Points(points, c = color, r = 2, alpha = 1.) #r = 2.5
+		c = Points(points, c = color, r = 3, alpha = 1.) #r = 2.5
 		self.disp.append(c)
 
 	def draw_car(self):

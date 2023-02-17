@@ -46,21 +46,28 @@ from scipy.spatial.transform import Rotation as R
 # drive = "20200618_191030_part17_1120_1509" #long straight stretch, passing cyclists
 # num_frames = 388
 
-drive = "20200706_191736_part30_1721_1857" #big city, jaywalker in flip flops
-num_frames = 136
+# drive = "20200706_191736_part30_1721_1857" #big city, jaywalker in flip flops
+# num_frames = 136
 
 # drive = "20200805_002607_part48_2083_2282" #boulevard on rainy night
 # num_frames = 200
 
+# drive = "20200706_202209_part31_2980_3091" #straight drive, one way road, urban, big trees
+# num_frames = 150
+
+drive = "20200803_151243_part45_4780_5005" #tight alleyway in the rain, 235 frames
+num_frames = 230
+
 numShifts = 5 #number of times to resample and translate each voxel each scan
 npts = 100
+skips = 3 #num of scans to skip between each frame
 #----------------------------------------------------------------------------------------------
 
 
 
 #extract ground truth vehicle motion from GNSS/ INS -------------------------------------------
-dataset_path = "/media/derm/06EF-127D2/leddartech/" + drive
-config_path = "/media/derm/06EF-127D2/leddartech/" + drive + "/platform.yml"
+dataset_path = "/media/derm/06EF-127D3/leddartech/" + drive
+config_path = "/media/derm/06EF-127D3/leddartech/" + drive + "/platform.yml"
 pf = Platform(dataset_path, config_path)
 
 GNSS = pf.sensors['sbgekinox_bcc']
@@ -76,14 +83,14 @@ T2 = test.get_transform(timestamps[2])
 
 gt_vec = np.zeros([len(timestamps)-1,6])
 
-for i in range(1,len(timestamps)):
+for i in range(1,len(timestamps)-skips):
     #get translations from GNSS/INS baseline
-    gt_vec[i-1,0] = test.get_transform(timestamps[i])[1,3] - test.get_transform(timestamps[i-1])[1,3]
-    gt_vec[i-1,1] = test.get_transform(timestamps[i])[0,3] - test.get_transform(timestamps[i-1])[0,3]
-    gt_vec[i-1,2] = test.get_transform(timestamps[i])[2,3] - test.get_transform(timestamps[i-1])[2,3]
+    gt_vec[i-1,0] = test.get_transform(timestamps[i+skips])[1,3] - test.get_transform(timestamps[i])[1,3]
+    gt_vec[i-1,1] = test.get_transform(timestamps[i+skips])[0,3] - test.get_transform(timestamps[i])[0,3]
+    gt_vec[i-1,2] = test.get_transform(timestamps[i+skips])[2,3] - test.get_transform(timestamps[i])[2,3]
     #get rotations
-    T1 = test.get_transform(timestamps[i-1])
-    T2 = test.get_transform(timestamps[i])
+    T1 = test.get_transform(timestamps[i])
+    T2 = test.get_transform(timestamps[i+skips])
     r1 = R.from_matrix(T1[:3,:3])
     r2 = R.from_matrix(T2[:3,:3])
     gt_vec[i-1,3:] = (r2.as_euler('xyz', degrees=False) - r1.as_euler('xyz', degrees=False))
@@ -103,7 +110,7 @@ for idx in range(num_frames):
   #get unidstorted point clouds ----------------
 
   data1 = pf['ouster64_bfc_xyzit'][idx].get_point_cloud(undistort = True)
-  data2 = pf['ouster64_bfc_xyzit'][idx+1].get_point_cloud(undistort = True)
+  data2 = pf['ouster64_bfc_xyzit'][idx+skips].get_point_cloud(undistort = True)
   ts_lidar = pf['ouster64_bfc_xyzit'][idx].timestamp
 
   # #get point clouds - old distorted way-------
@@ -136,7 +143,7 @@ for idx in range(num_frames):
   data2 = data2[data2[:,2] > -0.75] #ignore ground plane
 
   it = ICET(cloud1 = data1, cloud2 = data2, fid = 50, niter = 2, draw = False, group = 2, 
-    RM = False, DNN_filter = False, cheat = x0+shift)
+    RM = True, DNN_filter = False, cheat = x0+shift)
 
   #Get ragged tensor containing all points from each scan inside each sufficient voxel
   in1 = it.inside1
@@ -203,15 +210,15 @@ for idx in range(num_frames):
   #periodically save so we don't lose everything...
   if i % 10 == 0:
     print("saving...")
-    np.save('/media/derm/06EF-127D2/TrainingData/leddartech/jaywalker_scan1_100pts', scan1_cum)
-    np.save('/media/derm/06EF-127D2/TrainingData/leddartech/jaywalker_scan2_100pts', scan2_cum)
-    np.save('/media/derm/06EF-127D2/TrainingData/leddartech/jaywalker_ground_truth_100pts', soln_cum)
+    np.save('/media/derm/06EF-127D3/TrainingData/leddartech/rainyAlleySkip3_scan1_100pts', scan1_cum)
+    np.save('/media/derm/06EF-127D3/TrainingData/leddartech/rainyAlleySkip3_scan2_100pts', scan2_cum)
+    np.save('/media/derm/06EF-127D3/TrainingData/leddartech/rainyAlleySkip3_ground_truth_100pts', soln_cum)
 
 
 
-np.save('/media/derm/06EF-127D2/TrainingData/leddartech/jaywalker_scan1_100pts', scan1_cum)
-np.save('/media/derm/06EF-127D2/TrainingData/leddartech/jaywalker_scan2_100pts', scan2_cum)
-np.save('/media/derm/06EF-127D2/TrainingData/leddartech/jaywalker_ground_truth_100pts', soln_cum)
+np.save('/media/derm/06EF-127D3/TrainingData/leddartech/rainyAlleySkip3_scan1_100pts', scan1_cum)
+np.save('/media/derm/06EF-127D3/TrainingData/leddartech/rainyAlleySkip3_scan2_100pts', scan2_cum)
+np.save('/media/derm/06EF-127D3/TrainingData/leddartech/rainyAlleySkip3_ground_truth_100pts', soln_cum)
 
 
 
