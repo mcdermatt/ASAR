@@ -30,7 +30,7 @@ class ICET():
 		self.start_filter_iter = 7 #10 #iteration to start DNN rejection filter
 		self.start_RM_iter = 4 #10 #iteration to start removing moving objects (set low to generate training data)
 		self.DNN_thresh = 0.05 #0.03
-		self.RM_thresh = 0.08
+		self.RM_thresh = 0.25
 
 		before = time.time()
 
@@ -60,14 +60,29 @@ class ICET():
 		# before = time.time()
 
 		if self.draw == True:
-			self.plt = Plotter(N = 1, axes = 4, bg = (1, 1, 1), interactive = True) #axis = 1
+			# self.plt = Plotter(N = 1, axes = 4, bg = (1, 1, 1), interactive = True) #axis = 1
+			self.plt = Plotter(N = 1, axes = 4, bg = (1, 1, 1), interactive = False) #USE FOR MAKING DEMO GIFS 
 			self.disp = []
 			#copy-paste camera settings here using Shift+C on vedo terminal window-----------
-			self.plt.camera.SetPosition( [-36.28, 13.51, 20.48] )
-			self.plt.camera.SetFocalPoint( [11.18, -2.13, 0.8092] )
-			self.plt.camera.SetViewUp( [0.3443, -0.124, 0.9305] )
-			self.plt.camera.SetDistance( 53.70 )
-			self.plt.camera.SetClippingRange( [0.18, 181.9] )
+			#was this
+			# self.plt.camera.SetPosition( [-36.28, 13.51, 20.48] )
+			# self.plt.camera.SetFocalPoint( [11.18, -2.13, 0.8092] )
+			# self.plt.camera.SetViewUp( [0.3443, -0.124, 0.9305] )
+			# self.plt.camera.SetDistance( 53.70 )
+			# self.plt.camera.SetClippingRange( [0.18, 181.9] )
+			#top down
+			# self.plt.camera.SetPosition( [15., 0., 139] ) #0
+			# self.plt.camera.SetFocalPoint( [15., 0., 2.] ) #0
+			# self.plt.camera.SetViewUp( [0.999, -0.001, 0.00] )
+			# self.plt.camera.SetDistance( 139.0 )
+			# self.plt.camera.SetClippingRange( [110., 181.9] )
+			#follow cam
+			self.plt.camera.SetPosition( [-75., 0., 75] ) #0
+			self.plt.camera.SetFocalPoint( [15., 0., 2.] ) #0
+			self.plt.camera.SetViewUp( [0.65, -0.001, 0.75] )
+			self.plt.camera.SetDistance( 115 )
+			self.plt.camera.SetClippingRange( [28., 300.] )
+
 			#--------------------------------------------------------------------------------
 
 		#convert cloud to spherical coordinates
@@ -613,14 +628,19 @@ class ICET():
 				self.draw_cell(bad_idx_corn_DNN, bad = 2)
 				# self.draw_DNN_soln(dnn_compact_xyz[:,:,0], it_compact_xyz[:,:,0], idx_to_draw_dnn_soln) #just in compact directions
 				self.draw_DNN_soln(dnnsoln, icetsoln, idx_to_draw_dnn_soln) #raw solutions
-			if remove_moving:
-				self.draw_cell(bad_idx_corn_moving, bad = True) #for debug
+			# if remove_moving:
+			# 	self.draw_cell(bad_idx_corn_moving, bad = True) #COMMENT OUT WHEN SHADING BY GRADIENT
 
 			self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
 			self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
 			self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
 
-			self.shade_residuals(self.corn, self.residuals) #for debug 2/16/23
+			#for debug 2/16/23
+			# self.shade_residuals(self.corn, self.residuals) 
+			residuals_compact = L_i @ U_iT @ self.residuals[:,:,None]
+			# print(" residuals_compact", tf.shape(residuals_compact))
+			# print("self.residuals", tf.shape(self.residuals))
+			self.shade_residuals(self.corn, residuals_compact[:,:,0]) #for debug 2/16/23
 
 			# self.draw_cloud(self.cloud2_tensor_OG.numpy(), pc = 3) #3 #draw OG cloud in differnt color
 			# draw identified points from scan 2 inside useful clusters
@@ -901,17 +921,21 @@ class ICET():
 
 		#convert residuals to L2 distance 
 		L2 = tf.sqrt(tf.reduce_sum(residuals**2, axis = 1))
-		L2 = tf.sqrt(L2) #make differences less exaggerated (for viz)
+		L2 = L2.numpy()
+		# L2 = tf.sqrt(L2).numpy() #make differences less exaggerated (for viz)
+		cap = 0.25 #(meters)
+		L2[L2 > cap] = cap
 		#scale relative to max L2
 		biggest_residual = tf.math.reduce_max(L2).numpy()
-		L2 = L2.numpy()/biggest_residual
+		# print(biggest_residual)
+		L2 = L2/biggest_residual
 		# print(L2)
 
 		for i in range(tf.shape(corners)[0]):
 
 			p1, p2, p3, p4, p5, p6, p7, p8 = self.s2c(corners[i]).numpy()
 
-			lineWidth = 3
+			lineWidth = 2
 			# c1 = 'black'
 			c1 = np.array([L2[i], 1-L2[i], 0.2]) #green -> red
 			# c1 = np.array([1-L2[i], 1-L2[i], 1-L2[i]])
@@ -1837,7 +1861,7 @@ class ICET():
 		if pc == 3:
 			color = [0.5, 0.8, 0.5]
 		
-		c = Points(points, c = color, r = 4, alpha = 1.) #r = 2.5
+		c = Points(points, c = color, r = 2, alpha = 1.) #r = 2.5
 		self.disp.append(c)
 
 	def draw_car(self):

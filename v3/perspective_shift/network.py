@@ -376,7 +376,7 @@ def Net(**kwargs):
 
     #was this-------------
     # code for PCR-NET says to start with [1,3] kernel, however, code in learning3d (also published by Sarode) starts with 1x1
-    X = tf.keras.layers.Conv2D(256, [1,3], padding = 'valid', strides = [1,1], activation = 'relu')(X)
+    X = tf.keras.layers.Conv2D(128, [1,3], padding = 'valid', strides = [1,1], activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
 
     X = tf.keras.layers.Conv2D(256, [1,1], padding = 'valid', strides = [1,1], activation = 'relu')(X)
@@ -453,13 +453,13 @@ def Net(**kwargs):
     # X = keras.layers.Dense(units = insize, activation = 'relu')(X)
     # X = keras.layers.BatchNormalization()(X)
 
-    X = keras.layers.Dense(units = 1024, activation = 'relu')(X)
-    X = keras.layers.BatchNormalization()(X)
+    # X = keras.layers.Dense(units = 1024, activation = 'relu')(X)
+    # X = keras.layers.BatchNormalization()(X)
     # X = keras.layers.Dense(units = 1024, activation = 'relu')(X)
     # X = keras.layers.BatchNormalization()(X)
 
-    # X = keras.layers.Dense(units = 512, activation = 'relu')(X)
-    # X = keras.layers.BatchNormalization()(X)
+    X = keras.layers.Dense(units = 512, activation = 'relu')(X)
+    X = keras.layers.BatchNormalization()(X)
     X = keras.layers.Dense(units = 512, activation = 'relu')(X)
     X = keras.layers.BatchNormalization()(X)
     #was 256

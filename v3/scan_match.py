@@ -343,10 +343,10 @@ from scipy.spatial.transform import Rotation as R
 # Leddartech ---------------------------------------------------------------------------
 from pioneer.das.api.platform import Platform
 
-# drive = "20200721_144638_part36_1956_2229" #old church (used in 3D paper)
-drive = "20200706_161206_part22_670_950" #subrubs
+drive = "20200721_144638_part36_1956_2229" #old church (used in 3D paper)
+# drive = "20200706_161206_part22_670_950" #subrubs
 
-i = 100
+i = 150
 
 dataset_path = "/media/derm/06EF-127D3/leddartech/" + drive
 config_path = "/media/derm/06EF-127D3/leddartech/" + drive + "/platform.yml"
@@ -356,8 +356,8 @@ c1 = pf['ouster64_bfc_xyzit'][i].get_point_cloud(undistort = True)
 c2 = pf['ouster64_bfc_xyzit'][i+1].get_point_cloud(undistort = True)
 ts_lidar = pf['ouster64_bfc_xyzit'][i].timestamp
 
-c1 = c1[c1[:,2] > -0.75] #ignore ground plane
-c2 = c2[c2[:,2] > -0.75] #ignore ground plane
+# c1 = c1[c1[:,2] > -0.75] #ignore ground plane
+# c2 = c2[c2[:,2] > -0.75] #ignore ground plane
 
 #get ground truth from GNSS data
 GNSS = pf.sensors['sbgekinox_bcc']
@@ -391,18 +391,24 @@ for c in range(len(timestamps)):
       break
 x0 = tf.convert_to_tensor(gt_vec[c], dtype = tf.float32)
 
+it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 5, 
+    draw = True, group = 2, RM = True, DNN_filter = False, cheat = x0)
+
 # -------------------------------------------------------------------------------------
 
 
 # ground_truth = tf.constant([0.1799, 0., 0., -0.0094, -0.011, -0.02072]) #FULL KITTI scan 1397
 
 # x0 = tf.constant([0., 0., 0., 0., 0., 0.])
-
-it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 5, 
-	draw = True, group = 2, RM = False, DNN_filter = False, cheat = x0)#, x0 = x0)
+# it1 = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 5, 
+# 	draw = True, group = 2, RM = True, DNN_filter = False, x0 = x0)
 
 print("it.X: \n", it1.X)
 
+# screenshot('demo/shaded_residuals/test_asdf.png')
+# # from time import sleep
+# # sleep(2)
+# it1.plt.close()
 
 # #test using naive spherical cuboid-shaped voxles
 # # c1 = c1[c1[:,2] > -1.55] #ignore ground plane
@@ -411,5 +417,5 @@ print("it.X: \n", it1.X)
 # 	draw = True, group = 1, RM = False, DNN_filter = False, x0 = x0)#, cheat = gt)
 
 
-print("\n OXTS_ground_truth: \n", OXTS_ground_truth, "\n")
+# print("\n OXTS_ground_truth: \n", OXTS_ground_truth, "\n")
 # ViewInteractiveWidget(it1.plt.window)
