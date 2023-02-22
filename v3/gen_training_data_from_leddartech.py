@@ -40,8 +40,8 @@ from scipy.spatial.transform import Rotation as R
 # drive = "20200706_161206_part22_670_950" #suburban neighborhood, trees, houses and parked cars
 # num_frames = 274
 
-# drive = "20200721_154835_part37_696_813" #overgrown highway
-# num_frames = 120
+drive = "20200721_154835_part37_696_813" #overgrown highway
+num_frames = 120
 
 # drive = "20200618_191030_part17_1120_1509" #long straight stretch, passing cyclists
 # num_frames = 388
@@ -55,12 +55,14 @@ from scipy.spatial.transform import Rotation as R
 # drive = "20200706_202209_part31_2980_3091" #straight drive, one way road, urban, big trees
 # num_frames = 150
 
-drive = "20200803_151243_part45_4780_5005" #tight alleyway in the rain, 235 frames
-num_frames = 230
+#really bad for training PointNets???
+# drive = "20200803_151243_part45_4780_5005" #tight alleyway in the rain, 235 frames
+# num_frames = 230
 
 numShifts = 5 #number of times to resample and translate each voxel each scan
 npts = 100
 skips = 3 #num of scans to skip between each frame
+undistort = True
 #----------------------------------------------------------------------------------------------
 
 
@@ -85,12 +87,12 @@ gt_vec = np.zeros([len(timestamps)-1,6])
 
 for i in range(1,len(timestamps)-skips):
     #get translations from GNSS/INS baseline
-    gt_vec[i-1,0] = test.get_transform(timestamps[i+skips])[1,3] - test.get_transform(timestamps[i])[1,3]
-    gt_vec[i-1,1] = test.get_transform(timestamps[i+skips])[0,3] - test.get_transform(timestamps[i])[0,3]
-    gt_vec[i-1,2] = test.get_transform(timestamps[i+skips])[2,3] - test.get_transform(timestamps[i])[2,3]
+    gt_vec[i-1,0] = test.get_transform(timestamps[i+1])[1,3] - test.get_transform(timestamps[i])[1,3]
+    gt_vec[i-1,1] = test.get_transform(timestamps[i+1])[0,3] - test.get_transform(timestamps[i])[0,3]
+    gt_vec[i-1,2] = test.get_transform(timestamps[i+1])[2,3] - test.get_transform(timestamps[i])[2,3]
     #get rotations
     T1 = test.get_transform(timestamps[i])
-    T2 = test.get_transform(timestamps[i+skips])
+    T2 = test.get_transform(timestamps[i+1])
     r1 = R.from_matrix(T1[:3,:3])
     r2 = R.from_matrix(T2[:3,:3])
     gt_vec[i-1,3:] = (r2.as_euler('xyz', degrees=False) - r1.as_euler('xyz', degrees=False))
@@ -98,7 +100,7 @@ for i in range(1,len(timestamps)-skips):
 vf = np.sqrt(gt_vec[:,0]**2 + gt_vec[:,1]**2)
 gt_vec[:,0] = vf
 gt_vec[:,1] = 0
-gt_vec[:,2] = 0
+# gt_vec[:,2] = 0
 gt_vec = gt_vec * 5
 
 #----------------------------------------------------------------------------------------------
@@ -109,9 +111,18 @@ for idx in range(num_frames):
 
   #get unidstorted point clouds ----------------
 
-  data1 = pf['ouster64_bfc_xyzit'][idx].get_point_cloud(undistort = True)
-  data2 = pf['ouster64_bfc_xyzit'][idx+skips].get_point_cloud(undistort = True)
-  ts_lidar = pf['ouster64_bfc_xyzit'][idx].timestamp
+
+  data1 = pf['ouster64_bfc_xyzit'][idx].get_point_cloud(undistort = undistort)
+  lidar_time1 = pf['ouster64_bfc_xyzit'][idx].get_field('t')
+  lidar_time1 = lidar_time1 - lidar_time1[0]
+  lidar_time1 = np.asarray(lidar_time1 / max(lidar_time1))
+  data1 = np.asarray(data1.tolist())[:,:3]
+
+  data2 = pf['ouster64_bfc_xyzit'][idx+skips].get_point_cloud(undistort = undistort)
+  lidar_time2 = pf['ouster64_bfc_xyzit'][idx+skips].get_field('t')
+  lidar_time2 = lidar_time2 - lidar_time2[0]
+  lidar_time2 = np.asarray(lidar_time2 / max(lidar_time2))
+  data2 = np.asarray(data2.tolist())[:,:3]
 
   # #get point clouds - old distorted way-------
   # prefix = "/media/derm/06EF-127D2/leddartech/"+ drive + "/ouster64_bfc_xyzit/"
@@ -127,14 +138,29 @@ for idx in range(num_frames):
   # data2 = np.asarray(data2.tolist())[:,:3]
   # #--------------------------------------------
 
-  #get ground truth from GNSS data
-  # loop through all GNSS timestamps, stop when larger than ts_lidar and use previous index
-  for c in range(len(timestamps)):
-      ts_gnss = timestamps[c]
-      if ts_gnss > ts_lidar:
-          break
-  x0 = tf.convert_to_tensor(gt_vec[c], dtype = tf.float32)
-  # print(x0)
+  #roughly align scans using supplied "ground truth" estimates
+  #get transformations for all sequential scans in skips
+  for j in range(skips):
+      # loop through all GNSS timestamps, stop when larger than ts_lidar and use previous index
+      ts_lidar = pf['ouster64_bfc_xyzit'][idx+j].timestamp
+      for c in range(len(timestamps)):
+          ts_gnss = timestamps[c]
+          if ts_gnss > ts_lidar:
+            break
+      x0 = tf.convert_to_tensor(gt_vec[c], dtype = tf.float32)
+      rot = R_tf(x0[3:])
+  #     rot = R_tf(np.array([0,0,x0[-1]], np.float32))
+  #     data2 = data2 @ rot + x0[:3]
+      data2 = (data2 + x0[:3]) @ rot
+
+  # #get ground truth from GNSS data
+  # # loop through all GNSS timestamps, stop when larger than ts_lidar and use previous index
+  # for c in range(len(timestamps)):
+  #     ts_gnss = timestamps[c]
+  #     if ts_gnss > ts_lidar:
+  #         break
+  # x0 = tf.convert_to_tensor(gt_vec[c], dtype = tf.float32)
+  # # print(x0)
 
   shift_scale = 0.0 #standard deviation by which to shift the grid BEFORE SAMPLING corresponding segments of the point cloud
   shift = tf.cast(tf.constant([shift_scale*tf.random.normal([1]).numpy()[0], shift_scale*tf.random.normal([1]).numpy()[0], 0.2*shift_scale*tf.random.normal([1]).numpy()[0], 0, 0, 0]), tf.float32)
@@ -142,8 +168,11 @@ for idx in range(num_frames):
   data1 = data1[data1[:,2] > -0.75] #ignore ground plane
   data2 = data2[data2[:,2] > -0.75] #ignore ground plane
 
-  it = ICET(cloud1 = data1, cloud2 = data2, fid = 50, niter = 2, draw = False, group = 2, 
-    RM = True, DNN_filter = False, cheat = x0+shift)
+  it = ICET(cloud1 = data1, cloud2 = data2, fid = 50, niter = 5, draw = False, group = 2, 
+    RM = True, DNN_filter = False)
+
+  # it = ICET(cloud1 = data1, cloud2 = data2, fid = 50, niter = 2, draw = False, group = 2, 
+  #   RM = True, DNN_filter = False, cheat = x0+shift)
 
   #Get ragged tensor containing all points from each scan inside each sufficient voxel
   in1 = it.inside1
@@ -187,7 +216,8 @@ for idx in range(num_frames):
     t = tf.reshape(t, [-1, 3])
     scan2 += t.numpy()
 
-    full_soln_vec = rand + shift[:3]
+    # full_soln_vec = rand + shift[:3] #use ground truth
+    full_soln_vec = rand #+ it.X[:3] #use ICET output
     compact_soln_vec = it.L @ tf.transpose(it.U, [0,2,1]) @ full_soln_vec[:,:,None] #remove extended axis
     compact_soln_vec = tf.matmul(it.U, compact_soln_vec) #project back to XYZ
     compact_soln_vec = compact_soln_vec[:,:,0] #get rid of extra dimension
@@ -199,7 +229,8 @@ for idx in range(num_frames):
     if idx*(j+1) == 0:
       scan1_cum = scan1
       scan2_cum = scan2
-      soln_cum = rand + shift[:3]
+      # soln_cum = rand + shift[:3] #use provided ground truth
+      soln_cum = rand #+ it.X[:3] #use ICET output (rather than trusting provided ground truth)
     else:
       scan1_cum = np.append(scan1_cum, scan1, axis = 0)
       scan2_cum = np.append(scan2_cum, scan2, axis = 0)
@@ -210,15 +241,15 @@ for idx in range(num_frames):
   #periodically save so we don't lose everything...
   if i % 10 == 0:
     print("saving...")
-    np.save('/media/derm/06EF-127D3/TrainingData/leddartech/rainyAlleySkip3_scan1_100pts', scan1_cum)
-    np.save('/media/derm/06EF-127D3/TrainingData/leddartech/rainyAlleySkip3_scan2_100pts', scan2_cum)
-    np.save('/media/derm/06EF-127D3/TrainingData/leddartech/rainyAlleySkip3_ground_truth_100pts', soln_cum)
+    np.save('/media/derm/06EF-127D3/TrainingData/leddartech/part37Skip3_scan1_100pts', scan1_cum)
+    np.save('/media/derm/06EF-127D3/TrainingData/leddartech/part37Skip3_scan2_100pts', scan2_cum)
+    np.save('/media/derm/06EF-127D3/TrainingData/leddartech/part37Skip3_ground_truth_100pts', soln_cum)
 
 
 
-np.save('/media/derm/06EF-127D3/TrainingData/leddartech/rainyAlleySkip3_scan1_100pts', scan1_cum)
-np.save('/media/derm/06EF-127D3/TrainingData/leddartech/rainyAlleySkip3_scan2_100pts', scan2_cum)
-np.save('/media/derm/06EF-127D3/TrainingData/leddartech/rainyAlleySkip3_ground_truth_100pts', soln_cum)
+np.save('/media/derm/06EF-127D3/TrainingData/leddartech/part37Skip3_scan1_100pts', scan1_cum)
+np.save('/media/derm/06EF-127D3/TrainingData/leddartech/part37Skip3_scan2_100pts', scan2_cum)
+np.save('/media/derm/06EF-127D3/TrainingData/leddartech/part37Skip3_ground_truth_100pts', soln_cum)
 
 
 

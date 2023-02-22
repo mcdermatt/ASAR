@@ -18,7 +18,7 @@ class ICET():
 		self.run_profile = False
 		self.st = time.time() #start time (for debug)
 
-		self.min_cell_distance = 2 #begin closest spherical voxel here
+		self.min_cell_distance = 0.001 #2 #begin closest spherical voxel here
 		#ignore "occupied" cells with fewer than this number of pts
 		self.min_num_pts = 100 #was 50 for KITTI and Ford, need to lower to 25 for CODD 
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
@@ -30,7 +30,7 @@ class ICET():
 		self.start_filter_iter = 7 #10 #iteration to start DNN rejection filter
 		self.start_RM_iter = 4 #10 #iteration to start removing moving objects (set low to generate training data)
 		self.DNN_thresh = 0.05 #0.03
-		self.RM_thresh = 0.25
+		self.RM_thresh = 0.375 #0.25
 
 		before = time.time()
 
@@ -51,11 +51,11 @@ class ICET():
 				before = time.time()
 
 		#convert cloud1 to tesnsor
-		# self.cloud1_tensor = tf.cast(tf.convert_to_tensor(cloud1), tf.float32)
-		# self.cloud2_tensor = tf.cast(tf.convert_to_tensor(cloud2), tf.float32)
+		self.cloud1_tensor = tf.cast(tf.convert_to_tensor(cloud1), tf.float32)
+		self.cloud2_tensor = tf.cast(tf.convert_to_tensor(cloud2), tf.float32)
 		#debug(needed for efficient gaussian fitting later on...??)
-		self.cloud1_tensor = tf.random.shuffle(tf.cast(tf.convert_to_tensor(cloud1), tf.float32))
-		self.cloud2_tensor = tf.random.shuffle(tf.cast(tf.convert_to_tensor(cloud2), tf.float32))
+		# self.cloud1_tensor = tf.random.shuffle(tf.cast(tf.convert_to_tensor(cloud1), tf.float32))
+		# self.cloud2_tensor = tf.random.shuffle(tf.cast(tf.convert_to_tensor(cloud2), tf.float32))
 		# print("\n shuffling and converting to tensor took ", time.time() - before, "\n total: ",  time.time() - self.st)
 		# before = time.time()
 
