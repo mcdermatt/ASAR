@@ -18,13 +18,13 @@ class ICET():
 		self.run_profile = False
 		self.st = time.time() #start time (for debug)
 
-		self.min_cell_distance = 0.001 #2 #begin closest spherical voxel here
+		self.min_cell_distance = 2 #begin closest spherical voxel here
 		#ignore "occupied" cells with fewer than this number of pts
 		self.min_num_pts = 100 #was 50 for KITTI and Ford, need to lower to 25 for CODD 
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
 		self.niter = niter
-		self.alpha = 0.2 #0.5 #controls alpha values when displaying ellipses
+		self.alpha = 0.4 #0.5 #controls alpha values when displaying ellipses
 		self.cheat = cheat #overide for using ICET to generate training data for DNN
 		self.DNN_filter = DNN_filter
 		self.start_filter_iter = 7 #10 #iteration to start DNN rejection filter
@@ -51,11 +51,11 @@ class ICET():
 				before = time.time()
 
 		#convert cloud1 to tesnsor
-		self.cloud1_tensor = tf.cast(tf.convert_to_tensor(cloud1), tf.float32)
-		self.cloud2_tensor = tf.cast(tf.convert_to_tensor(cloud2), tf.float32)
+		# self.cloud1_tensor = tf.cast(tf.convert_to_tensor(cloud1), tf.float32)
+		# self.cloud2_tensor = tf.cast(tf.convert_to_tensor(cloud2), tf.float32)
 		#debug(needed for efficient gaussian fitting later on...??)
-		# self.cloud1_tensor = tf.random.shuffle(tf.cast(tf.convert_to_tensor(cloud1), tf.float32))
-		# self.cloud2_tensor = tf.random.shuffle(tf.cast(tf.convert_to_tensor(cloud2), tf.float32))
+		self.cloud1_tensor = tf.random.shuffle(tf.cast(tf.convert_to_tensor(cloud1), tf.float32))
+		self.cloud2_tensor = tf.random.shuffle(tf.cast(tf.convert_to_tensor(cloud2), tf.float32))
 		# print("\n shuffling and converting to tensor took ", time.time() - before, "\n total: ",  time.time() - self.st)
 		# before = time.time()
 
@@ -245,7 +245,7 @@ class ICET():
 		if self.draw:
 			# self.visualize_L(mu1_enough, U, L)
 			self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
-			# self.draw_cell(corn)
+			self.draw_cell(corn)
 			self.draw_car()
 			# draw identified points inside useful clusters
 			# for n in range(tf.shape(inside1.to_tensor())[0]):
@@ -635,12 +635,12 @@ class ICET():
 			self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
 			self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
 
-			#for debug 2/16/23
-			# self.shade_residuals(self.corn, self.residuals) 
-			residuals_compact = L_i @ U_iT @ self.residuals[:,:,None]
-			# print(" residuals_compact", tf.shape(residuals_compact))
-			# print("self.residuals", tf.shape(self.residuals))
-			self.shade_residuals(self.corn, residuals_compact[:,:,0]) #for debug 2/16/23
+			# #for debug 2/16/23
+			# # self.shade_residuals(self.corn, self.residuals) 
+			# residuals_compact = L_i @ U_iT @ self.residuals[:,:,None]
+			# # print(" residuals_compact", tf.shape(residuals_compact))
+			# # print("self.residuals", tf.shape(self.residuals))
+			# self.shade_residuals(self.corn, residuals_compact[:,:,0]) #for debug 2/16/23
 
 			# self.draw_cloud(self.cloud2_tensor_OG.numpy(), pc = 3) #3 #draw OG cloud in differnt color
 			# draw identified points from scan 2 inside useful clusters
