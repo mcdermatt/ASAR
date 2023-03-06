@@ -243,9 +243,9 @@ class ICET():
 			before = time.time()
 
 		if self.draw:
-			self.visualize_L(mu1_enough, U, L)
-			self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
-			self.draw_cell(corn)
+			# self.visualize_L(mu1_enough, U, L)
+			# self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
+			# self.draw_cell(corn)
 			self.draw_car()
 			# draw identified points inside useful clusters
 			# for n in range(tf.shape(inside1.to_tensor())[0]):
@@ -628,10 +628,10 @@ class ICET():
 				self.draw_cell(bad_idx_corn_DNN, bad = 2)
 				# self.draw_DNN_soln(dnn_compact_xyz[:,:,0], it_compact_xyz[:,:,0], idx_to_draw_dnn_soln) #just in compact directions
 				self.draw_DNN_soln(dnnsoln, icetsoln, idx_to_draw_dnn_soln) #raw solutions
-			if remove_moving:
-				self.draw_cell(bad_idx_corn_moving, bad = True) #COMMENT OUT WHEN SHADING BY GRADIENT
+			# if remove_moving:
+			# 	self.draw_cell(bad_idx_corn_moving, bad = True) #COMMENT OUT WHEN SHADING BY GRADIENT
 
-			self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
+			# self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
 			self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
 			self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
 
@@ -1443,12 +1443,17 @@ class ICET():
 		# self.disp.append(Points( mu.numpy(), c = 'b', r = 20 ))
 		#----------------
 
+		#TODO: debug here for CPU indexing
+
 		xpos = tf.gather(cloud[:,0], rag)
 		ypos = tf.gather(cloud[:,1], rag)
 		zpos = tf.gather(cloud[:,2], rag)
 		# print("mux",mu[:,0])
 		# print("took", time.time()-st, "s to tf.gather")
 		st = time.time()
+
+		# print("xpos:", tf.shape(xpos))
+		# print("npts", npts)
 
 		# #~~~~~~~~~~
 		# #old (works but slow(?))
@@ -1469,7 +1474,9 @@ class ICET():
 		#new method downsampling to first n points in each ragged tensor -- MUCH FASTER!!!
 		mu = tf.math.reduce_mean(coords, axis = 1)[:,None]
 		idx = tf.range(self.min_num_pts)
-		# idx = tf.range(self.min_num_pts-1) #test
+		# print("idx:", idx)
+		# print("\n xpos:", tf.shape(xpos), "\n")
+		# idx = tf.range(self.min_num_pts+1) #test
 		xpos = tf.gather(xpos, idx, axis = 1)
 		ypos = tf.gather(ypos, idx, axis = 1)
 		zpos = tf.gather(zpos, idx, axis = 1)
@@ -1862,7 +1869,7 @@ class ICET():
 		if pc == 3:
 			color = [0.5, 0.8, 0.5]
 		
-		c = Points(points, c = color, r = 3, alpha = 1.) #r = 2.5
+		c = Points(points, c = color, r = 4, alpha = 1.) #r = 2.5
 		self.disp.append(c)
 
 	def draw_car(self):
