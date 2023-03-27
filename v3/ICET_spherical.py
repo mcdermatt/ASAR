@@ -244,8 +244,8 @@ class ICET():
 
 		if self.draw:
 			# self.visualize_L(mu1_enough, U, L)
-			# self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
-			# self.draw_cell(corn)
+			self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
+			self.draw_cell(corn)
 			self.draw_car()
 			# draw identified points inside useful clusters
 			# for n in range(tf.shape(inside1.to_tensor())[0]):
@@ -628,10 +628,10 @@ class ICET():
 				self.draw_cell(bad_idx_corn_DNN, bad = 2)
 				# self.draw_DNN_soln(dnn_compact_xyz[:,:,0], it_compact_xyz[:,:,0], idx_to_draw_dnn_soln) #just in compact directions
 				self.draw_DNN_soln(dnnsoln, icetsoln, idx_to_draw_dnn_soln) #raw solutions
-			# if remove_moving:
-			# 	self.draw_cell(bad_idx_corn_moving, bad = True) #COMMENT OUT WHEN SHADING BY GRADIENT
+			if remove_moving:
+				self.draw_cell(bad_idx_corn_moving, bad = True) #COMMENT OUT WHEN SHADING BY GRADIENT
 
-			# self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
+			self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
 			self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
 			self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
 
