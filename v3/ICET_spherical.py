@@ -246,7 +246,7 @@ class ICET():
 			# self.visualize_L(mu1_enough, U, L)
 			self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
 			self.draw_cell(corn)
-			self.draw_car()
+			# self.draw_car()
 			# draw identified points inside useful clusters
 			# for n in range(tf.shape(inside1.to_tensor())[0]):
 			# 	temp = tf.gather(self.cloud1_tensor, inside1[n]).numpy()	
@@ -752,7 +752,7 @@ class ICET():
 		if self.draw:
 			corn_o = self.get_corners(o)
 			# self.draw_cell(corn_o)
-			self.draw_car()
+			# self.draw_car()
 
 		inside1, npts1 = self.get_points_inside(self.cloud1_tensor_spherical,o[:,None])		
 		mu1, sigma1 = self.fit_gaussian(self.cloud1_tensor, inside1, tf.cast(npts1, tf.float32))
