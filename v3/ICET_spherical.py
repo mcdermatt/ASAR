@@ -18,9 +18,9 @@ class ICET():
 		self.run_profile = False
 		self.st = time.time() #start time (for debug)
 
-		self.min_cell_distance = 2 #begin closest spherical voxel here
+		self.min_cell_distance = 5 #2 #begin closest spherical voxel here
 		#ignore "occupied" cells with fewer than this number of pts
-		self.min_num_pts = 50#100 #was 50 for KITTI and Ford, need to lower to 25 for CODD 
+		self.min_num_pts = 50 #100 #was 50 for KITTI and Ford, need to lower to 25 for CODD 
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
 		self.niter = niter
@@ -28,9 +28,9 @@ class ICET():
 		self.cheat = cheat #overide for using ICET to generate training data for DNN
 		self.DNN_filter = DNN_filter
 		self.start_filter_iter = 7 #10 #iteration to start DNN rejection filter
-		self.start_RM_iter = 4 #10 #iteration to start removing moving objects (set low to generate training data)
+		self.start_RM_iter = 7 #10 #iteration to start removing moving objects (set low to generate training data)
 		self.DNN_thresh = 0.05 #0.03
-		self.RM_thresh = 0.1 #0.25
+		self.RM_thresh = 0.02 #0.25
 
 		before = time.time()
 
@@ -927,7 +927,7 @@ class ICET():
 		L2[L2 > cap] = cap
 		#scale relative to max L2
 		biggest_residual = tf.math.reduce_max(L2).numpy()
-		# print(biggest_residual)
+		print("biggest_residual:", biggest_residual)
 		L2 = L2/biggest_residual
 		# print(L2)
 
