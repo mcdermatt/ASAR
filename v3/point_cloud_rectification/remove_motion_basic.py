@@ -17,8 +17,9 @@ if gpus:
 
 def linear_correction_old(cloud_xyz, m_hat, period_lidar = 1):
 	"""Linear correction for motion distortion, using ugly python code
+
 	cloud_xyz: distorted cloud in Cartesian space
-	m_hat: prescribed motion profile for linear correction
+	m_hat: estimated motion profile for linear correction
 	period_lidar: time it takes for LIDAR sensor to record a single sweep
 	"""
 
@@ -35,7 +36,7 @@ def linear_correction_old(cloud_xyz, m_hat, period_lidar = 1):
 	#get total overlap in rotation between LIDAR and base frames (since both are rotating w.r.t. world Z)
 	# point of intersection = (t_intersection) * (angular velocity base)
 	#						= ((n * T_a * T_b) / (T_a + T_b)) * omega_base 
-	total_rot = -2*np.pi*np.sin(m_hat[-1]/(-m_hat[-1] + (2*np.pi/period_lidar))) #actually should be this!
+	total_rot = -2*np.pi*np.sin(m_hat[-1]/(-m_hat[-1] + (2*np.pi/period_lidar)))
 	# print("total_rot:", total_rot)
 
 	#scale linearly starting at theta = 0
@@ -46,7 +47,46 @@ def linear_correction_old(cloud_xyz, m_hat, period_lidar = 1):
 
 	#reorient
 	cloud_spherical[:,1] = ((cloud_spherical[:,1] + np.pi) % (2*np.pi)) - np.pi
-	undistorted_pc = s2c(cloud_spherical).numpy() #convert back to xyz
+	cloud_xyz = s2c(cloud_spherical).numpy() #convert back to xyz
+
+	rectified_vel  = -m_hat[None,:]
+	rectified_vel[0,-1] = 0 #zero out yaw since we already compensated for it
+
+	T = (2*np.pi)/(-m_hat[-1] + (2*np.pi/period_lidar)) #time to complete 1 scan #was this
+	rectified_vel = rectified_vel * T
+
+	#TODO: is this is a bad way of doing it? ... what happens if most of the points are on one half of the scene??
+	part2 = np.linspace(0.5, 1.0, len(cloud_xyz)//2)[:,None]
+	part1 = np.linspace(0, 0.5, len(cloud_xyz) - len(cloud_xyz)//2)[:,None]
+	motion_profile = np.append(part1, part2, axis = 0) @ rectified_vel  
+	# print(motion_profile)
+
+	#Apply motion profile~~~~~~~~~~~~
+	T = []
+	for i in range(len(motion_profile)):
+		tx, ty, tz, roll, pitch, yaw = motion_profile[i]
+		R = np.dot(np.dot(np.array([[1, 0, 0], 
+									[0, np.cos(roll), -np.sin(roll)], 
+									[0, np.sin(roll), np.cos(roll)]]), 
+						np.array([[np.cos(pitch), 0, np.sin(pitch)], 
+								  [0, 1, 0], 
+								  [-np.sin(pitch), 0, np.cos(pitch)]])), 
+						np.array([[np.cos(yaw), -np.sin(yaw), 0], 
+								  [np.sin(yaw), np.cos(yaw), 0], 
+								  [0, 0, 1]]))
+		T.append(np.concatenate((np.concatenate((R, np.array([[tx], [ty], [tz]])), axis=1), np.array([[0, 0, 0, 1]])), axis=0))
+	
+	#should be the same size:
+	# print(len(T))
+	# Apply inverse of motion transformation to each point
+	undistorted_pc = np.zeros_like(cloud_xyz)
+	for i in range(len(cloud_xyz)):
+		point = np.concatenate((cloud_xyz[i], np.array([1])))
+		T_inv = np.linalg.inv(T[i])
+		corrected_point = np.dot(T_inv, point)[:3]
+		undistorted_pc[i] = corrected_point
+	#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 
 	return undistorted_pc
 
