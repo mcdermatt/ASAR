@@ -28,38 +28,42 @@ def linear_correction_old(cloud_xyz, m_hat, period_lidar = 1):
 	#remove inf values
 	cloud_xyz = cloud_xyz[cloud_xyz[:,0] < 10_000]
 	#convert to spherical coordinates
-	cloud_spherical = c2s(cloud_xyz).numpy()
+	# cloud_spherical = c2s(cloud_xyz).numpy()
 
 	#Because of body frame yaw rotation, we're not always doing a full roation - we need to "uncurl" initial point cloud
 	# (this is NOT baked in to motion profile)
-	cloud_spherical = cloud_spherical[np.argsort(cloud_spherical[:,1])] #sort by azim angle
+	# cloud_spherical = cloud_spherical[np.argsort(cloud_spherical[:,1])] #sort by azim angle
 	#get total overlap in rotation between LIDAR and base frames (since both are rotating w.r.t. world Z)
 	# point of intersection = (t_intersection) * (angular velocity base)
 	#						= ((n * T_a * T_b) / (T_a + T_b)) * omega_base 
-	total_rot = -2*np.pi*np.sin(m_hat[-1]/(-m_hat[-1] + (2*np.pi/period_lidar)))
+	# total_rot = -2*np.pi*np.sin(m_hat[-1]/(-m_hat[-1] + (2*np.pi/period_lidar)))
 	# print("total_rot:", total_rot)
 
 	#scale linearly starting at theta = 0
-	cloud_spherical[:,1] = ((cloud_spherical[:,1]) % (2*np.pi))*((2*np.pi - total_rot)/(2*np.pi)) + total_rot #works
+	# cloud_spherical[:,1] = ((cloud_spherical[:,1]) % (2*np.pi))*((2*np.pi - total_rot)/(2*np.pi)) + total_rot #works
 
 	#sort by azim angle again- some points will have moved past origin in the "uncurling" process
-	cloud_spherical = cloud_spherical[np.argsort(cloud_spherical[:,1])] 
+	# cloud_spherical = cloud_spherical[np.argsort(cloud_spherical[:,1])] 
 
 	#reorient
-	cloud_spherical[:,1] = ((cloud_spherical[:,1] + np.pi) % (2*np.pi)) - np.pi
-	cloud_xyz = s2c(cloud_spherical).numpy() #convert back to xyz
+	# cloud_spherical[:,1] = ((cloud_spherical[:,1] + np.pi) % (2*np.pi)) - np.pi
+	# cloud_xyz = s2c(cloud_spherical).numpy() #convert back to xyz
 
 	rectified_vel  = -m_hat[None,:]
-	rectified_vel[0,-1] = 0 #zero out yaw since we already compensated for it
+	# rectified_vel[0,-1] = 0 #zero out yaw since we already compensated for it
 
 	T = (2*np.pi)/(-m_hat[-1] + (2*np.pi/period_lidar)) #time to complete 1 scan #was this
-	rectified_vel = rectified_vel * T
+	print(T)
+	rectified_vel = rectified_vel * T #was this
+	# print(rectified_vel[:,-1])
+	# rectified_vel[:-1] = rectified_vel[:-1] * T #nope
+	# rectified_vel[:,-1] = rectified_vel[:,-1] * T #also nope
 
 	#TODO: is this is a bad way of doing it? ... what happens if most of the points are on one half of the scene??
 	part2 = np.linspace(0.5, 1.0, len(cloud_xyz)//2)[:,None]
 	part1 = np.linspace(0, 0.5, len(cloud_xyz) - len(cloud_xyz)//2)[:,None]
 	motion_profile = np.append(part1, part2, axis = 0) @ rectified_vel  
-	# print(motion_profile)
+	print(motion_profile)
 
 	#Apply motion profile~~~~~~~~~~~~
 	T = []
