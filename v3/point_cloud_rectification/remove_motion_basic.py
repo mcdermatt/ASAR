@@ -1,5 +1,7 @@
 import numpy as np
 import tensorflow as tf 
+from sympy import *
+init_printing(use_unicode=True)
 
 #limit GPU memory ---------------------------------------------------------------------
 # if you don't include this TensorFlow WILL eat up all your VRAM and make rviz run poorly
@@ -14,6 +16,121 @@ if gpus:
 		pass
 #--------------------------------------------------------------------------------------
 
+def get_H(y_j, m_hat):
+	"""calculate appended Jacobian matrices H
+	
+		y_j: [N, 4] list of distribution cecnters in cartesian (x, y, z) 
+					or homogenous coordinates (x, y, z, 1)
+		m_hat: estimated acceleration [x, y, z, phi, theta, psi] 
+
+	"""
+
+	if np.shape(y_j)[1] == 3:
+		y_j = np.append(y_j, np.ones([len(y_j),1]), axis = 1)
+	# print(y_j)
+
+	x, y, z, phi, theta, psi = symbols('x y z phi theta psi')
+
+	T_roll = Matrix([[1, 0, 0, 0],
+	                 [0, cos(phi), sin(phi), 0],
+	                 [0, -sin(phi), cos(phi), 0],
+	                 [0, 0, 0, 1]])
+	
+	T_pitch = Matrix([[cos(theta), 0, -sin(theta), 0],
+	                 [0, 1, 0, 0],
+	                 [sin(theta), 0, cos(theta), 0],
+	                 [0, 0, 0, 1]])
+	
+	T_yaw = Matrix([[cos(psi), sin(psi), 0, 0],
+	                 [-sin(psi), cos(psi), 0, 0],
+	                 [0, 0, 1, 0],
+	                 [0, 0, 0, 1]])
+	
+	T_trans = Matrix([[1, 0, 0, x],
+	                 [0, 1, 0, y],
+	                 [0, 0, 1, z],
+	                 [0, 0, 0, 1]])
+	
+	# T_rect = (T_roll * T_pitch * T_yaw * T_trans)
+	T_rect = (T_roll * T_pitch * T_yaw * T_trans).inv()
+	# pprint(T_rect)
+
+	#get motion profile M using m_hat and lidar command velocity
+	#get scaling time (for composite yaw rotation)
+	period_lidar = 1
+	t_scale = (2*np.pi)/(-m_hat[-1] + (2*np.pi/period_lidar))
+	lsvec = np.linspace(0,t_scale, len(y_j))
+	M = m_hat * np.array([lsvec, lsvec, lsvec, lsvec, lsvec, lsvec]).T
+
+	#get all partial deriviatives
+	dT_rect_dx = diff(T_rect, x)
+	dT_rect_dy = diff(T_rect, y)
+	dT_rect_dz = diff(T_rect, z)
+	dT_rect_dphi = diff(T_rect, phi)
+	dT_rect_dtheta = diff(T_rect, theta)
+	dT_rect_dpsi = diff(T_rect, psi)
+
+	#construct H matrix
+	H = np.zeros([0,6])
+	for p in range(len(y_j)):
+
+		# print("y_j[p]", y_j[p])
+		# print("M[p]", M[p])
+
+		#for each component of H_i
+		#1) substitute in values of motion profile M into partial derivatives
+		#2) convert back from SymPy analytical formulation back to np array
+		#3) multiply by corresponding point centers
+
+		# H_x = np.array(dT_rect_dx.subs(M[p]).astype(np.float64)) @ y_j[p] #wrong
+		# H_y = np.array(dT_rect_dy.subs(M[p]).astype(np.float64)) @ y_j[p]
+		# H_z = np.array(dT_rect_dz.subs(M[p]).astype(np.float64)) @ y_j[p]
+		# H_phi = np.array(dT_rect_dphi.subs(M[p]).astype(np.float64)) @ y_j[p]
+		# H_theta = np.array(dT_rect_dtheta.subs(M[p]).astype(np.float64)) @ y_j[p]
+		# H_psi = np.array(dT_rect_dpsi.subs(M[p]).astype(np.float64)) @ y_j[p]
+
+		H_x = np.array(dT_rect_dx.subs([(x, M[p,0]),
+										(y, M[p,1]),
+										(z, M[p,2]),
+										(phi, M[p,3]),
+										(theta, M[p,4]),
+										(psi, M[p,5])])).astype(np.float64) @ y_j[p]
+		H_y = np.array(dT_rect_dy.subs([(x, M[p,0]),
+										(y, M[p,1]),
+										(z, M[p,2]),
+										(phi, M[p,3]),
+										(theta, M[p,4]),
+										(psi, M[p,5])])).astype(np.float64) @ y_j[p]
+		H_z = np.array(dT_rect_dz.subs([(x, M[p,0]),
+										(y, M[p,1]),
+										(z, M[p,2]),
+										(phi, M[p,3]),
+										(theta, M[p,4]),
+										(psi, M[p,5])])).astype(np.float64) @ y_j[p]
+		H_phi = np.array(dT_rect_dphi.subs([(x, M[p,0]),
+										(y, M[p,1]),
+										(z, M[p,2]),
+										(phi, M[p,3]),
+										(theta, M[p,4]),
+										(psi, M[p,5])])).astype(np.float64) @ y_j[p]
+		H_theta = np.array(dT_rect_dtheta.subs([(x, M[p,0]),
+										(y, M[p,1]),
+										(z, M[p,2]),
+										(phi, M[p,3]),
+										(theta, M[p,4]),
+										(psi, M[p,5])])).astype(np.float64) @ y_j[p]
+		H_psi = np.array(dT_rect_dpsi.subs([(x, M[p,0]),
+										(y, M[p,1]),
+										(z, M[p,2]),
+										(phi, M[p,3]),
+										(theta, M[p,4]),
+										(psi, M[p,5])])).astype(np.float64) @ y_j[p]
+
+		H_i = np.array([H_x, H_y, H_z, H_phi, H_theta, H_psi]).T
+
+		H = np.append(H, H_i, axis = 0)
+
+	return H
 
 def linear_correction_old(cloud_xyz, m_hat, period_lidar = 1):
 	"""Linear correction for motion distortion, using ugly python code
