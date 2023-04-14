@@ -82,13 +82,6 @@ def get_H(y_j, m_hat):
 		#2) convert back from SymPy analytical formulation back to np array
 		#3) multiply by corresponding point centers
 
-		# H_x = np.array(dT_rect_dx.subs(M[p]).astype(np.float64)) @ y_j[p] #wrong
-		# H_y = np.array(dT_rect_dy.subs(M[p]).astype(np.float64)) @ y_j[p]
-		# H_z = np.array(dT_rect_dz.subs(M[p]).astype(np.float64)) @ y_j[p]
-		# H_phi = np.array(dT_rect_dphi.subs(M[p]).astype(np.float64)) @ y_j[p]
-		# H_theta = np.array(dT_rect_dtheta.subs(M[p]).astype(np.float64)) @ y_j[p]
-		# H_psi = np.array(dT_rect_dpsi.subs(M[p]).astype(np.float64)) @ y_j[p]
-
 		H_x = np.array(dT_rect_dx.subs([(x, M[p,0]),
 										(y, M[p,1]),
 										(z, M[p,2]),
@@ -170,7 +163,7 @@ def linear_correction_old(cloud_xyz, m_hat, period_lidar = 1):
 	# rectified_vel[0,-1] = 0 #zero out yaw since we already compensated for it
 
 	T = (2*np.pi)/(-m_hat[-1] + (2*np.pi/period_lidar)) #time to complete 1 scan #was this
-	print(T)
+	# print(T)
 	rectified_vel = rectified_vel * T #was this
 	# print(rectified_vel[:,-1])
 	# rectified_vel[:-1] = rectified_vel[:-1] * T #nope
@@ -180,7 +173,7 @@ def linear_correction_old(cloud_xyz, m_hat, period_lidar = 1):
 	part2 = np.linspace(0.5, 1.0, len(cloud_xyz)//2)[:,None]
 	part1 = np.linspace(0, 0.5, len(cloud_xyz) - len(cloud_xyz)//2)[:,None]
 	motion_profile = np.append(part1, part2, axis = 0) @ rectified_vel  
-	print(motion_profile)
+	# print(motion_profile)
 
 	#Apply motion profile~~~~~~~~~~~~
 	T = []
