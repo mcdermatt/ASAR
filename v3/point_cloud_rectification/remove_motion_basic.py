@@ -1,7 +1,5 @@
 import numpy as np
 import tensorflow as tf 
-from sympy import *
-init_printing(use_unicode=True)
 
 #limit GPU memory ---------------------------------------------------------------------
 # if you don't include this TensorFlow WILL eat up all your VRAM and make rviz run poorly
@@ -29,32 +27,6 @@ def get_H(y_j, m_hat):
 		y_j = np.append(y_j, np.ones([len(y_j),1]), axis = 1)
 	# print(y_j)
 
-	x, y, z, phi, theta, psi = symbols('x y z phi theta psi')
-
-	T_roll = Matrix([[1, 0, 0, 0],
-	                 [0, cos(phi), sin(phi), 0],
-	                 [0, -sin(phi), cos(phi), 0],
-	                 [0, 0, 0, 1]])
-	
-	T_pitch = Matrix([[cos(theta), 0, -sin(theta), 0],
-	                 [0, 1, 0, 0],
-	                 [sin(theta), 0, cos(theta), 0],
-	                 [0, 0, 0, 1]])
-	
-	T_yaw = Matrix([[cos(psi), sin(psi), 0, 0],
-	                 [-sin(psi), cos(psi), 0, 0],
-	                 [0, 0, 1, 0],
-	                 [0, 0, 0, 1]])
-	
-	T_trans = Matrix([[1, 0, 0, x],
-	                 [0, 1, 0, y],
-	                 [0, 0, 1, z],
-	                 [0, 0, 0, 1]])
-	
-	# T_rect = (T_roll * T_pitch * T_yaw * T_trans)
-	T_rect = (T_roll * T_pitch * T_yaw * T_trans).inv()
-	# pprint(T_rect)
-
 	#get motion profile M using m_hat and lidar command velocity
 	#get scaling time (for composite yaw rotation)
 	period_lidar = 1
@@ -62,66 +34,155 @@ def get_H(y_j, m_hat):
 	lsvec = np.linspace(0,t_scale, len(y_j))
 	M = m_hat * np.array([lsvec, lsvec, lsvec, lsvec, lsvec, lsvec]).T
 
-	#get all partial deriviatives
-	dT_rect_dx = diff(T_rect, x)
-	dT_rect_dy = diff(T_rect, y)
-	dT_rect_dz = diff(T_rect, z)
-	dT_rect_dphi = diff(T_rect, phi)
-	dT_rect_dtheta = diff(T_rect, theta)
-	dT_rect_dpsi = diff(T_rect, psi)
-
 	#construct H matrix
-	H = np.zeros([0,6])
-	for p in range(len(y_j)):
 
-		# print("y_j[p]", y_j[p])
-		# print("M[p]", M[p])
+	#new vectorized method ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	from numpy import sin, cos
 
-		#for each component of H_i
-		#1) substitute in values of motion profile M into partial derivatives
-		#2) convert back from SymPy analytical formulation back to np array
-		#3) multiply by corresponding point centers
+	#decompose M into constituant vectors x, y, z, phi, theta, psi
+	x = M[:,0]
+	y = M[:,1]
+	z = M[:,2]
+	phi = M[:,3]
+	theta = M[:,4]
+	psi = M[:,5]
 
-		H_x = np.array(dT_rect_dx.subs([(x, M[p,0]),
-										(y, M[p,1]),
-										(z, M[p,2]),
-										(phi, M[p,3]),
-										(theta, M[p,4]),
-										(psi, M[p,5])])).astype(np.float64) @ y_j[p]
-		H_y = np.array(dT_rect_dy.subs([(x, M[p,0]),
-										(y, M[p,1]),
-										(z, M[p,2]),
-										(phi, M[p,3]),
-										(theta, M[p,4]),
-										(psi, M[p,5])])).astype(np.float64) @ y_j[p]
-		H_z = np.array(dT_rect_dz.subs([(x, M[p,0]),
-										(y, M[p,1]),
-										(z, M[p,2]),
-										(phi, M[p,3]),
-										(theta, M[p,4]),
-										(psi, M[p,5])])).astype(np.float64) @ y_j[p]
-		H_phi = np.array(dT_rect_dphi.subs([(x, M[p,0]),
-										(y, M[p,1]),
-										(z, M[p,2]),
-										(phi, M[p,3]),
-										(theta, M[p,4]),
-										(psi, M[p,5])])).astype(np.float64) @ y_j[p]
-		H_theta = np.array(dT_rect_dtheta.subs([(x, M[p,0]),
-										(y, M[p,1]),
-										(z, M[p,2]),
-										(phi, M[p,3]),
-										(theta, M[p,4]),
-										(psi, M[p,5])])).astype(np.float64) @ y_j[p]
-		H_psi = np.array(dT_rect_dpsi.subs([(x, M[p,0]),
-										(y, M[p,1]),
-										(z, M[p,2]),
-										(phi, M[p,3]),
-										(theta, M[p,4]),
-										(psi, M[p,5])])).astype(np.float64) @ y_j[p]
+	#print output of analytic derivatives to create numpy matrices, run everything in vector form
+	dT_rect_dx = np.array([[np.zeros(len(x)), np.zeros(len(x)), np.zeros(len(x)), -np.ones(len(x))],
+						   [np.zeros(len(x)), np.zeros(len(x)), np.zeros(len(x)), np.zeros(len(x))],
+						   [np.zeros(len(x)), np.zeros(len(x)), np.zeros(len(x)), np.zeros(len(x))],
+						   [np.zeros(len(x)), np.zeros(len(x)), np.zeros(len(x)), np.zeros(len(x))]])
+	dT_rect_dx = np.transpose(dT_rect_dx, (2,0,1)) #reorder to (N, 4, 4)  
+	H_x = dT_rect_dx @ y_j[:,:,None] #multiply by vector of points under consideration
+	H_x = np.reshape(H_x, (-1,1)) #reshape to (4N x 1)
 
-		H_i = np.array([H_x, H_y, H_z, H_phi, H_theta, H_psi]).T
+	dT_rect_dy = np.array([[np.zeros(len(x)), np.zeros(len(x)), np.zeros(len(x)), np.zeros(len(x))],
+						   [np.zeros(len(x)), np.zeros(len(x)), np.zeros(len(x)), -np.ones(len(x))],
+						   [np.zeros(len(x)), np.zeros(len(x)), np.zeros(len(x)), np.zeros(len(x))],
+						   [np.zeros(len(x)), np.zeros(len(x)), np.zeros(len(x)), np.zeros(len(x))]])
+	dT_rect_dy = np.transpose(dT_rect_dy, (2,0,1)) #reorder to (N, 4, 4)  
+	H_y = dT_rect_dy @ y_j[:,:,None] #multiply by vector of points under consideration
+	H_y = np.reshape(H_y, (-1,1)) #reshape to (4N x 1)
 
-		H = np.append(H, H_i, axis = 0)
+
+	dT_rect_dz = np.array([[np.zeros(len(x)), np.zeros(len(x)), np.zeros(len(x)), np.zeros(len(x))],
+						   [np.zeros(len(x)), np.zeros(len(x)), np.zeros(len(x)), np.zeros(len(x))],
+						   [np.zeros(len(x)), np.zeros(len(x)), np.zeros(len(x)), -np.ones(len(x))],
+						   [np.zeros(len(x)), np.zeros(len(x)), np.zeros(len(x)), np.zeros(len(x))]])
+	dT_rect_dz = np.transpose(dT_rect_dz, (2,0,1)) #reorder to (N, 4, 4)  
+	H_z = dT_rect_dz @ y_j[:,:,None] #multiply by vector of points under consideration
+	H_z = np.reshape(H_z, (-1,1)) #reshape to (4N x 1)
+
+	dT_rect_dphi = np.array([[np.zeros(len(x)), (sin(phi)*sin(psi)*sin(theta)**2 + sin(phi)*sin(psi)*cos(theta)**2 + sin(theta)*cos(phi)*cos(psi))/(sin(phi)**2*sin(psi)**2*sin(theta)**2 + sin(phi)**2*sin(psi)**2*cos(theta)**2 + sin(phi)**2*sin(theta)**2*cos(psi)**2 + sin(phi)**2*cos(psi)**2*cos(theta)**2 + sin(psi)**2*sin(theta)**2*cos(phi)**2 + sin(psi)**2*cos(phi)**2*cos(theta)**2 + sin(theta)**2*cos(phi)**2*cos(psi)**2 + cos(phi)**2*cos(psi)**2*cos(theta)**2), (-sin(phi)*sin(theta)*cos(psi) + sin(psi)*sin(theta)**2*cos(phi) + sin(psi)*cos(phi)*cos(theta)**2)/(sin(phi)**2*sin(psi)**2*sin(theta)**2 + sin(phi)**2*sin(psi)**2*cos(theta)**2 + sin(phi)**2*sin(theta)**2*cos(psi)**2 + sin(phi)**2*cos(psi)**2*cos(theta)**2 + sin(psi)**2*sin(theta)**2*cos(phi)**2 + sin(psi)**2*cos(phi)**2*cos(theta)**2 + sin(theta)**2*cos(phi)**2*cos(psi)**2 + cos(phi)**2*cos(psi)**2*cos(theta)**2), np.zeros(len(x))], [np.zeros(len(x)), (-sin(phi)*sin(theta)**2*cos(psi) - sin(phi)*cos(psi)*cos(theta)**2 + sin(psi)*sin(theta)*cos(phi))/(sin(phi)**2*sin(psi)**2*sin(theta)**2 + sin(phi)**2*sin(psi)**2*cos(theta)**2 + sin(phi)**2*sin(theta)**2*cos(psi)**2 + sin(phi)**2*cos(psi)**2*cos(theta)**2 + sin(psi)**2*sin(theta)**2*cos(phi)**2 + sin(psi)**2*cos(phi)**2*cos(theta)**2 + sin(theta)**2*cos(phi)**2*cos(psi)**2 + cos(phi)**2*cos(psi)**2*cos(theta)**2), (-sin(phi)*sin(psi)*sin(theta) - sin(theta)**2*cos(phi)*cos(psi) - cos(phi)*cos(psi)*cos(theta)**2)/(sin(phi)**2*sin(psi)**2*sin(theta)**2 + sin(phi)**2*sin(psi)**2*cos(theta)**2 + sin(phi)**2*sin(theta)**2*cos(psi)**2 + sin(phi)**2*cos(psi)**2*cos(theta)**2 + sin(psi)**2*sin(theta)**2*cos(phi)**2 + sin(psi)**2*cos(phi)**2*cos(theta)**2 + sin(theta)**2*cos(phi)**2*cos(psi)**2 + cos(phi)**2*cos(psi)**2*cos(theta)**2), np.zeros(len(x))], [np.zeros(len(x)), cos(phi)*cos(theta)/(sin(phi)**2*sin(theta)**2 + sin(phi)**2*cos(theta)**2 + sin(theta)**2*cos(phi)**2 + cos(phi)**2*cos(theta)**2), -sin(phi)*cos(theta)/(sin(phi)**2*sin(theta)**2 + sin(phi)**2*cos(theta)**2 + sin(theta)**2*cos(phi)**2 + cos(phi)**2*cos(theta)**2), np.zeros(len(x))], [np.zeros(len(x)), np.zeros(len(x)), np.zeros(len(x)), np.zeros(len(x))]])
+	dT_rect_dphi = np.transpose(dT_rect_dphi, (2,0,1)) #reorder to (N, 4, 4)  
+	H_phi = dT_rect_dphi @ y_j[:,:,None] #multiply by vector of points under consideration
+	H_phi = np.reshape(H_phi, (-1,1)) #reshape to (4N x 1)
+
+	dT_rect_dtheta = np.array([[-sin(theta)*cos(psi)/(sin(psi)**2*sin(theta)**2 + sin(psi)**2*cos(theta)**2 + sin(theta)**2*cos(psi)**2 + cos(psi)**2*cos(theta)**2), sin(phi)*cos(psi)*cos(theta)/(sin(phi)**2*sin(psi)**2*sin(theta)**2 + sin(phi)**2*sin(psi)**2*cos(theta)**2 + sin(phi)**2*sin(theta)**2*cos(psi)**2 + sin(phi)**2*cos(psi)**2*cos(theta)**2 + sin(psi)**2*sin(theta)**2*cos(phi)**2 + sin(psi)**2*cos(phi)**2*cos(theta)**2 + sin(theta)**2*cos(phi)**2*cos(psi)**2 + cos(phi)**2*cos(psi)**2*cos(theta)**2), cos(phi)*cos(psi)*cos(theta)/(sin(phi)**2*sin(psi)**2*sin(theta)**2 + sin(phi)**2*sin(psi)**2*cos(theta)**2 + sin(phi)**2*sin(theta)**2*cos(psi)**2 + sin(phi)**2*cos(psi)**2*cos(theta)**2 + sin(psi)**2*sin(theta)**2*cos(phi)**2 + sin(psi)**2*cos(phi)**2*cos(theta)**2 + sin(theta)**2*cos(phi)**2*cos(psi)**2 + cos(phi)**2*cos(psi)**2*cos(theta)**2), np.zeros(len(x))], [-sin(psi)*sin(theta)/(sin(psi)**2*sin(theta)**2 + sin(psi)**2*cos(theta)**2 + sin(theta)**2*cos(psi)**2 + cos(psi)**2*cos(theta)**2), sin(phi)*sin(psi)*cos(theta)/(sin(phi)**2*sin(psi)**2*sin(theta)**2 + sin(phi)**2*sin(psi)**2*cos(theta)**2 + sin(phi)**2*sin(theta)**2*cos(psi)**2 + sin(phi)**2*cos(psi)**2*cos(theta)**2 + sin(psi)**2*sin(theta)**2*cos(phi)**2 + sin(psi)**2*cos(phi)**2*cos(theta)**2 + sin(theta)**2*cos(phi)**2*cos(psi)**2 + cos(phi)**2*cos(psi)**2*cos(theta)**2), sin(psi)*cos(phi)*cos(theta)/(sin(phi)**2*sin(psi)**2*sin(theta)**2 + sin(phi)**2*sin(psi)**2*cos(theta)**2 + sin(phi)**2*sin(theta)**2*cos(psi)**2 + sin(phi)**2*cos(psi)**2*cos(theta)**2 + sin(psi)**2*sin(theta)**2*cos(phi)**2 + sin(psi)**2*cos(phi)**2*cos(theta)**2 + sin(theta)**2*cos(phi)**2*cos(psi)**2 + cos(phi)**2*cos(psi)**2*cos(theta)**2), np.zeros(len(x))], [-cos(theta)/(sin(theta)**2 + cos(theta)**2), -sin(phi)*sin(theta)/(sin(phi)**2*sin(theta)**2 + sin(phi)**2*cos(theta)**2 + sin(theta)**2*cos(phi)**2 + cos(phi)**2*cos(theta)**2), -sin(theta)*cos(phi)/(sin(phi)**2*sin(theta)**2 + sin(phi)**2*cos(theta)**2 + sin(theta)**2*cos(phi)**2 + cos(phi)**2*cos(theta)**2), np.zeros(len(x))], [np.zeros(len(x)), np.zeros(len(x)), np.zeros(len(x)), np.zeros(len(x))]])
+	dT_rect_dtheta = np.transpose(dT_rect_dtheta, (2,0,1)) #reorder to (N, 4, 4)  
+	H_theta = dT_rect_dtheta @ y_j[:,:,None] #multiply by vector of points under consideration
+	H_theta = np.reshape(H_theta, (-1,1)) #reshape to (4N x 1)
+
+	dT_rect_dpsi = np.array([[-sin(psi)*cos(theta)/(sin(psi)**2*sin(theta)**2 + sin(psi)**2*cos(theta)**2 + sin(theta)**2*cos(psi)**2 + cos(psi)**2*cos(theta)**2), (-sin(phi)*sin(psi)*sin(theta) - sin(theta)**2*cos(phi)*cos(psi) - cos(phi)*cos(psi)*cos(theta)**2)/(sin(phi)**2*sin(psi)**2*sin(theta)**2 + sin(phi)**2*sin(psi)**2*cos(theta)**2 + sin(phi)**2*sin(theta)**2*cos(psi)**2 + sin(phi)**2*cos(psi)**2*cos(theta)**2 + sin(psi)**2*sin(theta)**2*cos(phi)**2 + sin(psi)**2*cos(phi)**2*cos(theta)**2 + sin(theta)**2*cos(phi)**2*cos(psi)**2 + cos(phi)**2*cos(psi)**2*cos(theta)**2), (sin(phi)*sin(theta)**2*cos(psi) + sin(phi)*cos(psi)*cos(theta)**2 - sin(psi)*sin(theta)*cos(phi))/(sin(phi)**2*sin(psi)**2*sin(theta)**2 + sin(phi)**2*sin(psi)**2*cos(theta)**2 + sin(phi)**2*sin(theta)**2*cos(psi)**2 + sin(phi)**2*cos(psi)**2*cos(theta)**2 + sin(psi)**2*sin(theta)**2*cos(phi)**2 + sin(psi)**2*cos(phi)**2*cos(theta)**2 + sin(theta)**2*cos(phi)**2*cos(psi)**2 + cos(phi)**2*cos(psi)**2*cos(theta)**2), np.zeros(len(x))], [cos(psi)*cos(theta)/(sin(psi)**2*sin(theta)**2 + sin(psi)**2*cos(theta)**2 + sin(theta)**2*cos(psi)**2 + cos(psi)**2*cos(theta)**2), (sin(phi)*sin(theta)*cos(psi) - sin(psi)*sin(theta)**2*cos(phi) - sin(psi)*cos(phi)*cos(theta)**2)/(sin(phi)**2*sin(psi)**2*sin(theta)**2 + sin(phi)**2*sin(psi)**2*cos(theta)**2 + sin(phi)**2*sin(theta)**2*cos(psi)**2 + sin(phi)**2*cos(psi)**2*cos(theta)**2 + sin(psi)**2*sin(theta)**2*cos(phi)**2 + sin(psi)**2*cos(phi)**2*cos(theta)**2 + sin(theta)**2*cos(phi)**2*cos(psi)**2 + cos(phi)**2*cos(psi)**2*cos(theta)**2), (sin(phi)*sin(psi)*sin(theta)**2 + sin(phi)*sin(psi)*cos(theta)**2 + sin(theta)*cos(phi)*cos(psi))/(sin(phi)**2*sin(psi)**2*sin(theta)**2 + sin(phi)**2*sin(psi)**2*cos(theta)**2 + sin(phi)**2*sin(theta)**2*cos(psi)**2 + sin(phi)**2*cos(psi)**2*cos(theta)**2 + sin(psi)**2*sin(theta)**2*cos(phi)**2 + sin(psi)**2*cos(phi)**2*cos(theta)**2 + sin(theta)**2*cos(phi)**2*cos(psi)**2 + cos(phi)**2*cos(psi)**2*cos(theta)**2), np.zeros(len(x))], [np.zeros(len(x)), np.zeros(len(x)), np.zeros(len(x)), np.zeros(len(x))], [np.zeros(len(x)), np.zeros(len(x)), np.zeros(len(x)), np.zeros(len(x))]])
+	dT_rect_dpsi = np.transpose(dT_rect_dpsi, (2,0,1)) #reorder to (N, 4, 4)  
+	H_psi = dT_rect_dpsi @ y_j[:,:,None] #multiply by vector of points under consideration
+	H_psi = np.reshape(H_psi, (-1,1)) #reshape to (4N x 1)
+
+	H = np.array([H_x, H_y, H_z, H_phi, H_theta, H_psi]).T[0]
+
+
+	# # loopy analytic method:  VERY SLOW ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+	# from sympy import *
+	# init_printing(use_unicode=True)
+
+	# x, y, z, phi, theta, psi = symbols('x y z phi theta psi')
+
+	# T_roll = Matrix([[1, 0, 0, 0],
+	#                  [0, cos(phi), sin(phi), 0],
+	#                  [0, -sin(phi), cos(phi), 0],
+	#                  [0, 0, 0, 1]])
+	
+	# T_pitch = Matrix([[cos(theta), 0, -sin(theta), 0],
+	#                  [0, 1, 0, 0],
+	#                  [sin(theta), 0, cos(theta), 0],
+	#                  [0, 0, 0, 1]])
+	
+	# T_yaw = Matrix([[cos(psi), sin(psi), 0, 0],
+	#                  [-sin(psi), cos(psi), 0, 0],
+	#                  [0, 0, 1, 0],
+	#                  [0, 0, 0, 1]])
+	
+	# T_trans = Matrix([[1, 0, 0, x],
+	#                  [0, 1, 0, y],
+	#                  [0, 0, 1, z],
+	#                  [0, 0, 0, 1]])
+	
+	# # T_rect = (T_roll * T_pitch * T_yaw * T_trans)
+	# T_rect = (T_roll * T_pitch * T_yaw * T_trans).inv()
+	# # pprint(T_rect)
+
+	# #get all partial deriviatives
+	# dT_rect_dx = diff(T_rect, x)
+	# dT_rect_dy = diff(T_rect, y)
+	# dT_rect_dz = diff(T_rect, z)
+	# dT_rect_dphi = diff(T_rect, phi)
+	# dT_rect_dtheta = diff(T_rect, theta)
+	# dT_rect_dpsi = diff(T_rect, psi)
+
+	# H = np.zeros([0,6])
+	# for p in range(len(y_j)):
+
+	# 	# print("y_j[p]", y_j[p])
+	# 	# print("M[p]", M[p])
+
+	# 	#for each component of H_i
+	# 	#1) substitute in values of motion profile M into partial derivatives
+	# 	#2) convert back from SymPy analytical formulation back to np array
+	# 	#3) multiply by corresponding point centers
+
+	# 	H_x = np.array(dT_rect_dx.subs([(x, M[p,0]),
+	# 									(y, M[p,1]),
+	# 									(z, M[p,2]),
+	# 									(phi, M[p,3]),
+	# 									(theta, M[p,4]),
+	# 									(psi, M[p,5])])).astype(np.float64) @ y_j[p]
+	# 	H_y = np.array(dT_rect_dy.subs([(x, M[p,0]),
+	# 									(y, M[p,1]),
+	# 									(z, M[p,2]),
+	# 									(phi, M[p,3]),
+	# 									(theta, M[p,4]),
+	# 									(psi, M[p,5])])).astype(np.float64) @ y_j[p]
+	# 	H_z = np.array(dT_rect_dz.subs([(x, M[p,0]),
+	# 									(y, M[p,1]),
+	# 									(z, M[p,2]),
+	# 									(phi, M[p,3]),
+	# 									(theta, M[p,4]),
+	# 									(psi, M[p,5])])).astype(np.float64) @ y_j[p]
+	# 	H_phi = np.array(dT_rect_dphi.subs([(x, M[p,0]),
+	# 									(y, M[p,1]),
+	# 									(z, M[p,2]),
+	# 									(phi, M[p,3]),
+	# 									(theta, M[p,4]),
+	# 									(psi, M[p,5])])).astype(np.float64) @ y_j[p]
+	# 	H_theta = np.array(dT_rect_dtheta.subs([(x, M[p,0]),
+	# 									(y, M[p,1]),
+	# 									(z, M[p,2]),
+	# 									(phi, M[p,3]),
+	# 									(theta, M[p,4]),
+	# 									(psi, M[p,5])])).astype(np.float64) @ y_j[p]
+	# 	H_psi = np.array(dT_rect_dpsi.subs([(x, M[p,0]),
+	# 									(y, M[p,1]),
+	# 									(z, M[p,2]),
+	# 									(phi, M[p,3]),
+	# 									(theta, M[p,4]),
+	# 									(psi, M[p,5])])).astype(np.float64) @ y_j[p]
+
+	# 	H_i = np.array([H_x, H_y, H_z, H_phi, H_theta, H_psi]).T
+
+	# 	H = np.append(H, H_i, axis = 0)
+
+	# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 	return H
 
