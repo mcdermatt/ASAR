@@ -136,7 +136,7 @@ class LC():
 		U, L = self.get_U_and_L_cluster(sigma1_enough, mu1_enough, occupied_spikes, bounds)
 
 		if self.draw:
-			# self.visualize_L(mu1_enough, U, L)
+			self.visualize_L(mu1_enough, U, L)
 			self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
 			self.draw_cell(corn)
 			# self.draw_car()
@@ -191,13 +191,25 @@ class LC():
 
 			H = self.get_H(y_j, self.m_hat)
 
-			residual = (np.append(y_i, np.ones([len(y_i),1]), axis = 1) - 
-						np.append(y_j, np.ones([len(y_i),1]), axis = 1)).flatten()
-			print(np.shape(residual))
+			#unweighted residuals ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+			# residual = (np.append(y_i, np.ones([len(y_i),1]), axis = 1) - 
+			# 			np.append(y_j, np.ones([len(y_i),1]), axis = 1)).flatten() #old
+			residual = (y_i - y_j)[:,:,None] #new
+			print("before", np.shape(residual))
+
+			# #suppress components of residuals aligned with extended surfaces
+			residual = L_I @ tf.transpose(U_I, [0,2,1]) @ residual
+			print("after", np.shape(residual))
 
 			#delta_m =  ((H^T*H)^-1)(H^T)(yi - yj*)
-			delta_m = np.linalg.pinv(H.T @ H) @ H.T @ residual
-			
+			# delta_m = np.linalg.pinv(H.T @ H) @ H.T @ residual #old
+			# print(np.shape(residual))
+			res = np.append(residual[:,:,0], np.zeros([len(residual),1]), axis =1).flatten() #new
+			# print(res)
+			delta_m = np.linalg.pinv(H.T @ H) @ H.T @ res
+
+			#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 			self.m_hat[:3] -= delta_m[:3]
 			self.m_hat[3:] += delta_m[3:]	
 
