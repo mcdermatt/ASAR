@@ -36,7 +36,7 @@ def get_H(y_j, m_hat):
 
 	#construct H matrix
 
-	#new vectorized method ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	#using vectorized method ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	from numpy import sin, cos
 
 	#decompose M into constituant vectors x, y, z, phi, theta, psi
@@ -63,7 +63,6 @@ def get_H(y_j, m_hat):
 	dT_rect_dy = np.transpose(dT_rect_dy, (2,0,1)) #reorder to (N, 4, 4)  
 	H_y = dT_rect_dy @ y_j[:,:,None] #multiply by vector of points under consideration
 	H_y = np.reshape(H_y, (-1,1)) #reshape to (4N x 1)
-
 
 	dT_rect_dz = np.array([[np.zeros(len(x)), np.zeros(len(x)), np.zeros(len(x)), np.zeros(len(x))],
 						   [np.zeros(len(x)), np.zeros(len(x)), np.zeros(len(x)), np.zeros(len(x))],
