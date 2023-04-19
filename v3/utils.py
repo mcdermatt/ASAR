@@ -4,11 +4,11 @@ from vedo import *
 import vtk
 import time
 
-def get_cluster_fast(rads, thresh = 0.5, mnp = 100):
-    """NEW VERSION using TF operations"""
-    before = time.time()
-
+def get_cluster_fast(rads, thresh = 0.5, mnp = 100, max_buffer = 0.5):
+    """NEW VERSION using TF operations
     max_buffer = 0.5 #0.2
+    """
+    before = time.time()
 
     #fix dimensions
     if len(tf.shape(rads)) < 2:

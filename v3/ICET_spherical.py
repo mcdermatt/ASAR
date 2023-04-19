@@ -18,13 +18,13 @@ class ICET():
 		self.run_profile = False
 		self.st = time.time() #start time (for debug)
 
-		self.min_cell_distance = 5 #2 #begin closest spherical voxel here
+		self.min_cell_distance = 1 #2 #begin closest spherical voxel here
 		#ignore "occupied" cells with fewer than this number of pts
 		self.min_num_pts = 50 #100 #was 50 for KITTI and Ford, need to lower to 25 for CODD 
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
 		self.niter = niter
-		self.alpha = 0.4 #0.5 #controls alpha values when displaying ellipses
+		self.alpha = 1 #0.5 #controls alpha values when displaying ellipses
 		self.cheat = cheat #overide for using ICET to generate training data for DNN
 		self.DNN_filter = DNN_filter
 		self.start_filter_iter = 7 #10 #iteration to start DNN rejection filter
@@ -152,9 +152,9 @@ class ICET():
 			# self.disp.append(Points(self.cloud1_static, c = 'green', r = 5))
 
 		if self.draw == True:
-			# self.disp.append(addons.LegendBox(self.disp))
-			self.plt.show(self.disp, "Spherical ICET", resetcam = False)
-
+			self.disp.append(addons.LegendBox(self.disp))
+			self.plt.show(self.disp, "Spherical ICET", resetcam = False) #was this
+			
 	def main_2(self, niter, x0, remove_moving = True):
 		""" Main loop using new radial clustering strategy """
 
@@ -242,15 +242,15 @@ class ICET():
 			print("\n got U and L cluster", time.time() - before, "\n total: ",  time.time() - self.st)
 			before = time.time()
 
-		if self.draw:
-			# self.visualize_L(mu1_enough, U, L)
-			self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
-			self.draw_cell(corn)
-			# self.draw_car()
-			# draw identified points inside useful clusters
-			# for n in range(tf.shape(inside1.to_tensor())[0]):
-			# 	temp = tf.gather(self.cloud1_tensor, inside1[n]).numpy()	
-			# 	self.disp.append(Points(temp, c = 'green', r = 5))
+		# if self.draw:
+		# 	# self.visualize_L(mu1_enough, U, L)
+		# 	self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
+		# 	self.draw_cell(corn)
+		# 	# self.draw_car()
+		# 	# draw identified points inside useful clusters
+		# 	# for n in range(tf.shape(inside1.to_tensor())[0]):
+		# 	# 	temp = tf.gather(self.cloud1_tensor, inside1[n]).numpy()	
+		# 	# 	self.disp.append(Points(temp, c = 'green', r = 5))
 
 		for i in range(niter):
 			#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -631,7 +631,7 @@ class ICET():
 			if remove_moving:
 				self.draw_cell(bad_idx_corn_moving, bad = True) #COMMENT OUT WHEN SHADING BY GRADIENT
 
-			self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
+			# self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
 			self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
 			self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
 
@@ -1869,7 +1869,7 @@ class ICET():
 		if pc == 3:
 			color = [0.5, 0.8, 0.5]
 		
-		c = Points(points, c = color, r = 4, alpha = 1.) #r = 2.5
+		c = Points(points, c = color, r = 2.5, alpha = 1.) #r = 2.5
 		self.disp.append(c)
 
 	def draw_car(self):

@@ -18,7 +18,7 @@ class LC():
 		self.run_profile = False
 		self.st = time.time() #start time (for debug)
 
-		self.min_cell_distance = 1 #2 #begin closest spherical voxel here
+		self.min_cell_distance = 5 #1 #2 #begin closest spherical voxel here
 		#ignore "occupied" cells with fewer than this number of pts
 		self.min_num_pts = 25 #100 #was 50 for KITTI and Ford, need to lower to 25 for CODD 
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
@@ -190,28 +190,69 @@ class LC():
 			L_I = tf.gather(L, ans)
 
 			H = self.get_H(y_j, self.m_hat)
+			print("H before", np.shape(H))
 
 			#unweighted residuals ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-			# residual = (np.append(y_i, np.ones([len(y_i),1]), axis = 1) - 
-			# 			np.append(y_j, np.ones([len(y_i),1]), axis = 1)).flatten() #old
-			residual = (y_i - y_j)[:,:,None] #new
-			print("before", np.shape(residual))
+			# # residual = (np.append(y_i, np.ones([len(y_i),1]), axis = 1) - 
+			# # 			np.append(y_j, np.ones([len(y_i),1]), axis = 1)).flatten() #old
+			# residual = (y_i - y_j)[:,:,None] #new
+			# print("before", np.shape(residual))
 
-			# #suppress components of residuals aligned with extended surfaces
-			residual = L_I @ tf.transpose(U_I, [0,2,1]) @ residual
-			print("after", np.shape(residual))
+			# # #suppress components of residuals aligned with extended surfaces
+			# residual = L_I @ tf.transpose(U_I, [0,2,1]) @ residual
+			# print("after", np.shape(residual))
 
-			#delta_m =  ((H^T*H)^-1)(H^T)(yi - yj*)
-			# delta_m = np.linalg.pinv(H.T @ H) @ H.T @ residual #old
-			# print(np.shape(residual))
-			res = np.append(residual[:,:,0], np.zeros([len(residual),1]), axis =1).flatten() #new
-			# print(res)
-			delta_m = np.linalg.pinv(H.T @ H) @ H.T @ res
+			# #delta_m =  ((H^T*H)^-1)(H^T)(yi - yj*)
+			# # delta_m = np.linalg.pinv(H.T @ H) @ H.T @ residual #old
+			# # print(np.shape(residual))
+			# res = np.append(residual[:,:,0], np.zeros([len(residual),1]), axis =1).flatten() #new
+			# # print(res)
+			# delta_m = np.linalg.pinv(H.T @ H) @ H.T @ res
 
+			# self.m_hat[:3] -= delta_m[:3]
+			# self.m_hat[3:] += delta_m[3:]	
+
+			# weighted residuals ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+			# need H to be in shape [#corr//4, 4, 6]
+			H = tf.reshape(H, (tf.shape(H)[0]//4,4,6)) 
+			#remove extra elements of H that we needed for homogenous coordinate transforms
+			H = tf.cast(H[:,:3,:], tf.float32)
+			# print("H after", np.shape(H))
+
+			#construct sensor noise covariance matrix
+			R_noise = (tf.transpose(tf.transpose(sigma_i, [1,2,0]) / tf.cast(npts_i - 1, tf.float32)) + 
+						tf.transpose(tf.transpose(sigma_j, [1,2,0]) / tf.cast(npts_j - 1, tf.float32)) )
+			# print("R_noise:", np.shape(R_noise))
+
+			#use projection matrix to remove extended directions
+			R_noise = L_I @ tf.transpose(U_I, [0,2,1]) @ R_noise @ U_I @ tf.transpose(L_I, [0,2,1])
+			#take inverse of R_noise to get our weighting matrix
+			W = tf.linalg.pinv(R_noise)
+
+			# use LUT to remove rows of H corresponding to overly extended directions
+			LUT = L_I @ tf.transpose(U_I, [0,2,1])
+			# print("LUT", tf.shape(LUT))
+			H_z = LUT @ H
+
+			HTWH = tf.math.reduce_sum(tf.matmul(tf.matmul(tf.transpose(H_z, [0,2,1]), W), H_z), axis = 0) #was this (which works)
+			HTW = tf.matmul(tf.transpose(H_z, [0,2,1]), W)
+
+			L2, lam, U2 = self.check_condition(HTWH)
+
+			# create alternate corrdinate system to align with axis of scan 1 distributions
+			z = tf.squeeze(tf.matmul(LUT, y_j[:,:,None]))
+			z0 = tf.squeeze(tf.matmul(LUT, y_i[:,:,None]))	
+			dz = z - z0
+			dz = dz[:,:,None] #need to add an extra dimension to dz to get the math to work out
+
+			delta_m = tf.squeeze(tf.matmul( tf.matmul(tf.linalg.pinv(L2 @ lam @ tf.transpose(U2)) @ L2 @ tf.transpose(U2) , HTW ), dz))	
+			delta_m = tf.math.reduce_sum(delta_m, axis = 0)
+			# self.m_hat -= delta_m #nope
+
+			#test
+			self.m_hat[:3] += delta_m[:3]
+			self.m_hat[3:] -= delta_m[3:]	
 			#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-			self.m_hat[:3] -= delta_m[:3]
-			self.m_hat[3:] += delta_m[3:]	
 
 			print("m_hat: ", self.m_hat)
 
@@ -628,7 +669,7 @@ class LC():
 			R_noise = (tf.transpose(tf.transpose(sigma0_i, [1,2,0]) / tf.cast(npts0_i - 1, tf.float32)) + 
 						tf.transpose(tf.transpose(sigma_i, [1,2,0]) / tf.cast(npts_i - 1, tf.float32)) )
 			#use projection matrix to remove extended directions
-			R_noise = L_i @ U_iT @ R_noise @ U_i @ L_iT #correct(?)
+			R_noise = L_i @ U_iT @ R_noise @ U_i @ L_iT
 
 			#take inverse of R_noise to get our weighting matrix
 			W = tf.linalg.pinv(R_noise)
