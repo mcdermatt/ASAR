@@ -147,8 +147,13 @@ class LC():
 
 			print("~~~~~~~~~~~Iteration ", i, "~~~~~~~~~~")
 
+			st = time.time()
+
 			#apply last estimate of correction to origonal point cloud 2
 			self.cloud2_tensor = self.apply_motion_profile(self.cloud2_tensor_OG, self.m_hat)
+			# print("updated shape", np.shape(self.cloud2_tensor))
+
+			print("took", time.time() - st, "sec  to apply motion profile")
 
 			#convert back to spherical coordinates
 			self.cloud2_tensor_spherical = tf.cast(self.c2s(self.cloud2_tensor), tf.float32)
@@ -189,8 +194,10 @@ class LC():
 			U_I = tf.gather(U, ans)
 			L_I = tf.gather(L, ans)
 
+			st = time.time()
 			H = self.get_H(y_j, self.m_hat)
-			print("H before", np.shape(H))
+			print("took", time.time() - st,"sec to get H")
+			# print("H before", np.shape(H))
 
 			#unweighted residuals ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 			# # residual = (np.append(y_i, np.ones([len(y_i),1]), axis = 1) - 
@@ -247,7 +254,7 @@ class LC():
 
 			delta_m = tf.squeeze(tf.matmul( tf.matmul(tf.linalg.pinv(L2 @ lam @ tf.transpose(U2)) @ L2 @ tf.transpose(U2) , HTW ), dz))	
 			delta_m = tf.math.reduce_sum(delta_m, axis = 0)
-			# self.m_hat -= delta_m #nope
+			# self.m_hat -= delta_m #?
 
 			#test
 			self.m_hat[:3] += delta_m[:3]
@@ -1045,35 +1052,59 @@ class LC():
 		part1 = np.linspace(0, 0.5, len(cloud_xyz) - len(cloud_xyz)//2)[:,None]
 		motion_profile = np.append(part1, part2, axis = 0) @ rectified_vel  
 		# print(motion_profile)
+		self.motion_profile = motion_profile #debug
 
-		#Apply motion profile~~~~~~~~~~~~
-		T = []
-		for i in range(len(motion_profile)):
-			tx, ty, tz, roll, pitch, yaw = motion_profile[i]
-			R = np.dot(np.dot(np.array([[1, 0, 0], 
-										[0, np.cos(roll), -np.sin(roll)], 
-										[0, np.sin(roll), np.cos(roll)]]), 
-							np.array([[np.cos(pitch), 0, np.sin(pitch)], 
-									  [0, 1, 0], 
-									  [-np.sin(pitch), 0, np.cos(pitch)]])), 
-							np.array([[np.cos(yaw), -np.sin(yaw), 0], 
-									  [np.sin(yaw), np.cos(yaw), 0], 
-									  [0, 0, 1]]))
-			T.append(np.concatenate((np.concatenate((R, np.array([[tx], [ty], [tz]])), axis=1), np.array([[0, 0, 0, 1]])), axis=0))
+		#Apply motion profile
+		# # Old loopy method ~~~~~~~~~~~~~~
+		# T = []
+		# for i in range(len(motion_profile)):
+		# 	tx, ty, tz, roll, pitch, yaw = motion_profile[i]
+		# 	R = np.dot(np.dot(np.array([[1, 0, 0], 
+		# 								[0, np.cos(roll), -np.sin(roll)], 
+		# 								[0, np.sin(roll), np.cos(roll)]]), 
+		# 					np.array([[np.cos(pitch), 0, np.sin(pitch)], 
+		# 							  [0, 1, 0], 
+		# 							  [-np.sin(pitch), 0, np.cos(pitch)]])), 
+		# 					np.array([[np.cos(yaw), -np.sin(yaw), 0], 
+		# 							  [np.sin(yaw), np.cos(yaw), 0], 
+		# 							  [0, 0, 1]]))
+		# 	T.append(np.concatenate((np.concatenate((R, np.array([[tx], [ty], [tz]])), axis=1), np.array([[0, 0, 0, 1]])), axis=0))
 		
-		#should be the same size:
-		# print(len(T))
-		# Apply inverse of motion transformation to each point
-		undistorted_pc = np.zeros_like(cloud_xyz)
-		for i in range(len(cloud_xyz)):
-			point = np.concatenate((cloud_xyz[i], np.array([1])))
-			T_inv = np.linalg.inv(T[i])
-			corrected_point = np.dot(T_inv, point)[:3]
-			undistorted_pc[i] = corrected_point
-		#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		# #should be the same size:
+		# # print(len(T))
+		# # Apply inverse of motion transformation to each point
+		# undistorted_pc = np.zeros_like(cloud_xyz)
+		# for i in range(len(cloud_xyz)):
+		# 	point = np.concatenate((cloud_xyz[i], np.array([1])))
+		# 	T_inv = np.linalg.inv(T[i])
+		# 	corrected_point = np.dot(T_inv, point)[:3]
+		# 	undistorted_pc[i] = corrected_point
+		# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+		# new method ~~~~~~~~~~~~~~~~~~~~~~
+
+		x = -motion_profile[:,0]
+		y = -motion_profile[:,1]
+		z = -motion_profile[:,2]
+		phi = motion_profile[:,3]
+		theta = motion_profile[:,4]
+		psi = motion_profile[:,5]
+
+		#need to inverse this
+		# T_rect_numpy = np.array([[cos(psi)*cos(theta), sin(phi)*sin(theta)*cos(psi) - sin(psi)*cos(phi), sin(phi)*sin(psi) + sin(theta)*cos(phi)*cos(psi), -x], [sin(psi)*cos(theta), sin(phi)*sin(psi)*sin(theta) + cos(phi)*cos(psi), -sin(phi)*cos(psi) + sin(psi)*sin(theta)*cos(phi), -y], [-sin(theta), sin(phi)*cos(theta), cos(phi)*cos(theta), -z], [np.zeros(len(x)), np.zeros(len(x)), np.zeros(len(x)), np.ones(len(x))]])
+		#to this
+		T_rect_numpy = np.array([[cos(psi)*cos(theta), sin(psi)*cos(theta), -sin(theta), x*cos(psi)*cos(theta) + y*sin(psi)*cos(theta) - z*sin(theta)], [sin(phi)*sin(theta)*cos(psi) - sin(psi)*cos(phi), sin(phi)*sin(psi)*sin(theta) + cos(phi)*cos(psi), sin(phi)*cos(theta), x*(sin(phi)*sin(theta)*cos(psi) - sin(psi)*cos(phi)) + y*(sin(phi)*sin(psi)*sin(theta) + cos(phi)*cos(psi)) + z*sin(phi)*cos(theta)], [sin(phi)*sin(psi) + sin(theta)*cos(phi)*cos(psi), -sin(phi)*cos(psi) + sin(psi)*sin(theta)*cos(phi), cos(phi)*cos(theta), x*(sin(phi)*sin(psi) + sin(theta)*cos(phi)*cos(psi)) - y*(sin(phi)*cos(psi) - sin(psi)*sin(theta)*cos(phi)) + z*cos(phi)*cos(theta)], [np.zeros(len(x)), np.zeros(len(x)), np.zeros(len(x)), np.ones(len(x))]])
+		T_rect_numpy = np.transpose(T_rect_numpy, (2,0,1))
+		# print(np.shape(cloud_xyz))
+		cloud_homo = np.append(cloud_xyz, np.ones([len(cloud_xyz),1]), axis = 1)
+		# print("cloud homo", np.shape(cloud_homo))
+
+		# undistorted_pc =  (np.linalg.pinv(T_rect_numpy) @ cloud_homo[:,:,None]).astype(np.float32)
+		undistorted_pc =  (T_rect_numpy @ cloud_homo[:,:,None]).astype(np.float32)
+		# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
-		return undistorted_pc
+		return undistorted_pc[:,:3,0]
 
 
 	def get_H(self, y_j, m_hat):

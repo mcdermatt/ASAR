@@ -260,6 +260,8 @@ class ICET():
 				print("using state estimate from OXTS")
 			#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+			print("iter", i)
+
 			#transform cartesian point cloud 2 by estimated solution vector X
 			t = self.X[:3]
 			rot = R_tf(-self.X[3:])
