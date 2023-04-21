@@ -256,9 +256,13 @@ class LC():
 			delta_m = tf.math.reduce_sum(delta_m, axis = 0)
 			# self.m_hat -= delta_m #?
 
-			#test
+			#works(?)
 			self.m_hat[:3] += delta_m[:3]
 			self.m_hat[3:] -= delta_m[3:]	
+			# #test
+			# self.m_hat[:5] += delta_m[:5]
+			# self.m_hat[5] -= delta_m[5]	
+
 			#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 			print("m_hat: ", self.m_hat)
