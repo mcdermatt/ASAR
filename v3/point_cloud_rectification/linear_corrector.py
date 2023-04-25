@@ -18,7 +18,7 @@ class LC():
 		self.run_profile = False
 		self.st = time.time() #start time (for debug)
 
-		self.min_cell_distance = 5 #1 #2 #begin closest spherical voxel here
+		self.min_cell_distance = 2 #1 #2 #begin closest spherical voxel here
 		#ignore "occupied" cells with fewer than this number of pts
 		self.min_num_pts = mnp #50 #100 #was 50 for KITTI and Ford, need to lower to 25 for CODD + simulated data
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
@@ -28,9 +28,9 @@ class LC():
 		self.cheat = cheat #overide for using ICET to generate training data for DNN
 		self.DNN_filter = DNN_filter
 		self.start_filter_iter = 7 #10 #iteration to start DNN rejection filter
-		self.start_RM_iter = 7 #10 #iteration to start removing moving objects (set low to generate training data)
+		self.start_RM_iter = 50 #iteration to start removing moving objects (set low to generate training data)
 		self.DNN_thresh = 0.05 #0.03
-		self.RM_thresh = 0.02 #0.25
+		self.RM_thresh = 0.05 #0.25
 		self.max_buffer = 0.3 #2 max buffer width in spherical voxels
 
 		#convert cloud1 to tesnsor
@@ -173,6 +173,125 @@ class LC():
 			corr = tf.sets.intersection(enough1[None,:], enough2[None,:]).values
 			corr_full = tf.sets.intersection(enough1[None,:], enough2[None,:]).values
 
+
+			#----------------------------------------------
+			if remove_moving:  
+				if i >= self.start_RM_iter: #TODO: tune this to optimal value
+					print("\n ---checking for moving objects---")
+					#FIND CELLS THAT INTRODUCE THE MOST ERROR
+					
+					#test - re-calculting this here
+					y0_i_full = tf.gather(mu1, corr_full)
+					y_i_full = tf.gather(mu2, corr_full)
+
+					self.residuals_full = y_i_full - y0_i_full
+				
+					# #------------------------------------------------------------------------------------------------
+					# #Using binned mode oulier exclusion (get rid of everything outside of some range close to 0)
+					# nbins = 30
+					# edges = tf.linspace(-0.75, 0.75, nbins)
+					# bins_soln = tfp.stats.find_bins(self.residuals_full[:,0], edges)
+					# bad_idx = tf.where(bins_soln != (nbins//2 - 1))[:,0][None, :]
+
+					# bins_soln2 = tfp.stats.find_bins(self.residuals_full[:,1], edges)
+					# bad_idx2 = tf.where(bins_soln2 != (nbins//2 - 1))[:,0][None, :]
+					# bad_idx = tf.sets.union(bad_idx, bad_idx2).values
+					# #------------------------------------------------------------------------------------------------
+
+					# #------------------------------------------------------------------------------------------------
+					# #Using Gaussian n-sigma outlier exclusion on translation
+
+					# metric1 = self.residuals_full[:,0]
+					# metric2 = self.residuals_full[:,1]
+					# mu_x = tf.math.reduce_mean(metric1)
+					# sigma_x = tf.math.reduce_std(metric1)
+					
+					# # #just x------------
+					# # bad_idx = tf.where( tf.math.abs(metric1) > mu_x + 2*sigma_x )[:, 0]
+					# # #------------------
+
+					# #x and y---------
+					# bad_idx = tf.where( tf.math.abs(metric1) > mu_x + 2.0*sigma_x )[:,0][None, :]
+					# # print(" \n bad_idx1", bad_idx)
+
+					# mu_y = tf.math.reduce_mean(metric2)
+					# sigma_y = tf.math.reduce_std(metric2)
+					# bad_idx2 = tf.where( tf.math.abs(metric2) > mu_y + 	2.0*sigma_y )[:,0][None, :]
+					# # print("\n bad_idx2", bad_idx2)
+					# bad_idx = tf.sets.union(bad_idx, bad_idx2).values
+
+					# #if using rotation too
+					# # self.bad_idx = bad_idx
+					# # self.bad_idx_rot = bad_idx_rot
+					# # bad_idx = tf.sets.union(bad_idx[None, :], bad_idx_rot[None, :]).values 
+					# #-----------------
+
+					# # print("corr \n", corr)
+					# print("bad idx", bad_idx)
+					# # print(tf.gather(it.dx_i[:,0], bad_idx))
+					# # print(tf.gather(occupied_spikes, corr))
+					# #------------------------------------------------------------------------------------------------
+
+					#hard cutoff for outlier rejection
+					#NEW (5/7)~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+					both = tf.sets.intersection(enough1[None,:], corr_full[None,:]).values
+					#get indices of mu1 that correspond to mu2 that also have sufficient number of points
+					ans = tf.where(enough1[:,None] == both)[:,0]
+					
+					#test moving these here
+					U_i = tf.gather(U, ans)
+					U_iT = tf.transpose(U_i, [0,2,1])
+					L_i = tf.gather(L, ans)
+					# residuals_compact = L_i @ U_i @ tf.gather(self.residuals_full[:,:,None], corr_full) #was this (incorrect)
+					# residuals_compact = L_i @ U_iT @ tf.gather(self.residuals_full[:,:,None], ans) #(5/19) -> debug: should this be U_i or U_iT?
+					residuals_compact = L_i @ U_iT @ self.residuals_full[:,:,None] #correct (5/20)
+
+					# self.RM_thresh = 0.03 #0.1 #0.05
+					# bidx = tf.where(residuals_compact > thresh )[:,0] #TODO: consider absolute value!
+					bidx = tf.where(tf.math.abs(residuals_compact) > self.RM_thresh )[:,0]
+					# print(residuals_compact)
+					bad_idx = bidx
+					# print("bad_idx", bidx)
+					#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+					# #------------------------------------------------------------------------------------------------
+					# Compare rotation about the vertical axis between each distribution correspondance
+					s1 = tf.transpose(tf.gather(sigma1, corr), [1, 2, 0])
+					s2 = tf.transpose(tf.gather(sigma2, corr), [1, 2, 0])
+
+					self.angs1 = R2Euler(s1)[2,:]
+					self.angs2 = R2Euler(s2)[2,:]
+
+					self.res = self.angs1 - self.angs2
+
+					mean = np.mean(self.res)
+					std = np.std(self.res)
+					# bad_idx_rot = tf.where(np.abs(self.res) > mean + 1*std )[:, 0]
+
+					cutoff = 0.1 #0.1
+					bad_idx_rot = tf.where(np.abs(self.res) > cutoff)[:, 0]
+
+					# print("bad_idx_rot", bad_idx_rot)
+
+					bad_idx = tf.sets.union(bad_idx[None, :], bad_idx_rot[None, :]).values
+					# # #------------------------------------------------------------------------------------------------
+
+
+					bounds_bad = tf.gather(bounds, tf.gather(corr, bad_idx))
+					bad_idx_corn_moving = self.get_corners_cluster(tf.gather(occupied_spikes, tf.gather(corr, bad_idx)), bounds_bad)
+
+					ignore_these = tf.gather(corr, bad_idx)
+					corr = tf.sets.difference(corr[None, :], ignore_these[None, :]).values
+
+					#temp
+					self.U_i = U_i
+					self.L_i = L_i
+
+					# print("\n ~~~~~~~~~~~~~~ \n removed moving", time.time() - before, "\n total: ",  time.time() - self.st, "\n ~~~~~~~~~~~~~~")
+					before = time.time()
+			#----------------------------------------------
+
+
 			y_i_full = tf.gather(mu1, corr_full)
 			y_j_full = tf.gather(mu2, corr_full)
 
@@ -274,6 +393,8 @@ class LC():
 		if self.draw:
 			self.draw_cloud(self.cloud1_tensor, pc = 1)
 			self.draw_ell(y_j, sigma_j, pc = 2, alpha = self.alpha)
+			if remove_moving:
+				self.draw_cell(bad_idx_corn_moving, bad = True)
 
 
 	def main_2(self, niter, x0, remove_moving = True):
@@ -1051,21 +1172,29 @@ class LC():
 		# rectified_vel[:-1] = rectified_vel[:-1] * T #nope
 		# rectified_vel[:,-1] = rectified_vel[:,-1] * T #also nope
 
-		# Old Method ~~~~~~~~~~~~~~~~~~~~~~~
+		# linearly spaced motion profile ~~~~~~~~~~~~~~~~~~~~~
 		# this is a bad way of doing it ... what happens if most of the points are on one half of the scene??
 		part2 = np.linspace(0.5, 1.0, len(cloud_xyz)//2)[:,None]
 		part1 = np.linspace(0, 0.5, len(cloud_xyz) - len(cloud_xyz)//2)[:,None]
 		motion_profile = np.append(part1, part2, axis = 0) @ rectified_vel #lol
-		# print(motion_profile)
-		self.motion_profile = motion_profile #hold on to output for debug
-		self.M = np.append(part1, part2, axis = 0)
+		# print("\n old: \n", motion_profile[:,0])
+		# self.motion_profile = motion_profile #hold on to output for debug
+		# self.yaw_angs_old =  np.append(part1, part2, axis = 0)
 
-		# New method ~~~~~~~~~~~~~~~~~~~~~~
-
+		# # using yaw angles ~~~~~~~~~~~~~~~~~~~~~~
+		#This doesn't work-- causes soln to fall into wrong local minima
 		
+		# yaw_angs = self.c2s(cloud_xyz)[:,1].numpy()
+		# last_subzero_idx = int(len(yaw_angs) // 8)
+		# yaw_angs[last_subzero_idx:][yaw_angs[last_subzero_idx:] < 0.3] = yaw_angs[last_subzero_idx:][yaw_angs[last_subzero_idx:] < 0.3] + 2*np.pi
+		# # yaw_angs = yaw_angs / (2*np.pi) #test
+		# # yaw_angs = yaw_angs[:,None]  #test
 
-
-
+		# #TODO: should I use (2pi - T) in place of max(yaw_angs) -> ???
+		# # motion_profile = (yaw_angs / np.max(yaw_angs))[:,None] @ rectified_vel #was this
+		# motion_profile = yaw_angs[:,None] @ rectified_vel #test
+		# print("\n new: \n", motion_profile[:,0])
+		# self.yaw_angs_new = yaw_angs
 		# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
@@ -1138,9 +1267,22 @@ class LC():
 		#get motion profile M using m_hat and lidar command velocity
 		#get scaling time (for composite yaw rotation)
 		period_lidar = 1
-		t_scale = (2*np.pi)/(-m_hat[-1] + (2*np.pi/period_lidar))
-		lsvec = np.linspace(0,t_scale, len(y_j))
-		M = m_hat * np.array([lsvec, lsvec, lsvec, lsvec, lsvec, lsvec]).T
+
+		# #old way-- assumes full coverage of point returns (not always the case) ~~
+		# t_scale = (2*np.pi)/(-m_hat[-1] + (2*np.pi/period_lidar))
+		# lsvec = np.linspace(0,t_scale, len(y_j))
+		# M = m_hat * np.array([lsvec, lsvec, lsvec, lsvec, lsvec, lsvec]).T
+
+		# new way-- scale M by azimuth angle ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		yaw_angs = self.c2s(y_j)[:,1].numpy()
+		last_subzero_idx = int(len(yaw_angs) // 8)
+		yaw_angs[last_subzero_idx:][yaw_angs[last_subzero_idx:] < 0.3] = yaw_angs[last_subzero_idx:][yaw_angs[last_subzero_idx:] < 0.3] + 2*np.pi
+
+		svec = (yaw_angs / np.max(yaw_angs))  #scaling vec
+		M = m_hat * np.array([svec, svec, svec, svec, svec, svec]).T
+
+		# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 
 		#construct H matrix
 		from numpy import sin, cos
