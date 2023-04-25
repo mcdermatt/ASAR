@@ -12,7 +12,7 @@ class LC():
 
 	def __init__(self, cloud1, cloud2, fid = 30, niter = 5, draw = True, 
 		m_hat0 = np.array([0.0, 0.0, 0., 0., 0., 0.]), group = 2, RM = True,
-		DNN_filter = False, cheat = []):
+		DNN_filter = False, cheat = [], mnp = 50):
 
 		# self.run_profile = True
 		self.run_profile = False
@@ -20,7 +20,7 @@ class LC():
 
 		self.min_cell_distance = 5 #1 #2 #begin closest spherical voxel here
 		#ignore "occupied" cells with fewer than this number of pts
-		self.min_num_pts = 25 #100 #was 50 for KITTI and Ford, need to lower to 25 for CODD 
+		self.min_num_pts = mnp #50 #100 #was 50 for KITTI and Ford, need to lower to 25 for CODD + simulated data
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
 		self.niter = niter
@@ -1051,12 +1051,23 @@ class LC():
 		# rectified_vel[:-1] = rectified_vel[:-1] * T #nope
 		# rectified_vel[:,-1] = rectified_vel[:,-1] * T #also nope
 
-		#TODO: is this is a bad way of doing it? ... what happens if most of the points are on one half of the scene??
+		# Old Method ~~~~~~~~~~~~~~~~~~~~~~~
+		# this is a bad way of doing it ... what happens if most of the points are on one half of the scene??
 		part2 = np.linspace(0.5, 1.0, len(cloud_xyz)//2)[:,None]
 		part1 = np.linspace(0, 0.5, len(cloud_xyz) - len(cloud_xyz)//2)[:,None]
-		motion_profile = np.append(part1, part2, axis = 0) @ rectified_vel  
+		motion_profile = np.append(part1, part2, axis = 0) @ rectified_vel #lol
 		# print(motion_profile)
-		self.motion_profile = motion_profile #debug
+		self.motion_profile = motion_profile #hold on to output for debug
+		self.M = np.append(part1, part2, axis = 0)
+
+		# New method ~~~~~~~~~~~~~~~~~~~~~~
+
+		
+
+
+
+		# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 
 		#Apply motion profile
 		# # Old loopy method ~~~~~~~~~~~~~~
