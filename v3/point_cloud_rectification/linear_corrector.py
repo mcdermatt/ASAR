@@ -314,7 +314,7 @@ class LC():
 			L_I = tf.gather(L, ans)
 
 			st = time.time()
-			H = self.get_H(y_j, self.m_hat)
+			H = self.get_H_m(y_j, self.m_hat)
 			print("took", time.time() - st,"sec to get H")
 			# print("H before", np.shape(H))
 
@@ -1251,8 +1251,8 @@ class LC():
 		return undistorted_pc[:,:3,0]
 
 
-	def get_H(self, y_j, m_hat):
-		"""calculate appended Jacobian matrices H
+	def get_H_m(self, y_j, m_hat):
+		"""calculate appended Jacobian matrices H wrt m_hat
 		
 			y_j: [N, 4] list of distribution cecnters in cartesian (x, y, z) 
 						or homogenous coordinates (x, y, z, 1)
