@@ -1274,6 +1274,9 @@ class LC():
 		# M = m_hat * np.array([lsvec, lsvec, lsvec, lsvec, lsvec, lsvec]).T
 
 		# new way-- scale M by azimuth angle ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+		#TODO: need to set "wrap around" distortion azim angles as > 2pi so they are scaled correctly
+
 		yaw_angs = self.c2s(y_j)[:,1].numpy()
 		last_subzero_idx = int(len(yaw_angs) // 8)
 		yaw_angs[last_subzero_idx:][yaw_angs[last_subzero_idx:] < 0.3] = yaw_angs[last_subzero_idx:][yaw_angs[last_subzero_idx:] < 0.3] + 2*np.pi
