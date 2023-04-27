@@ -1279,8 +1279,9 @@ class LC():
 		yaw_angs[last_subzero_idx:][yaw_angs[last_subzero_idx:] < 0.3] = yaw_angs[last_subzero_idx:][yaw_angs[last_subzero_idx:] < 0.3] + 2*np.pi
 
 		svec = (yaw_angs / np.max(yaw_angs))  #scaling vec
+		# print("\n svec: \n", np.shape(svec), svec)
 		M = m_hat * np.array([svec, svec, svec, svec, svec, svec]).T
-
+		print("\n M \n", np.shape(M))
 		# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
@@ -1337,7 +1338,12 @@ class LC():
 
 		H = np.array([H_x, H_y, H_z, H_phi, H_theta, H_psi]).T[0]
 
-		return H
+		#scale each element of H_m proportional to theta angle
+		H_m = H * np.repeat(np.array([svec, svec, svec, svec, svec, svec]).T, repeats = 4, axis = 0)
+
+		print("H_m \n", np.shape(H_m))
+
+		return H_m
 
 	def shade_residuals(self, corners, residuals):
 		""" draw cells in frame, shaded by how large their residuals are """

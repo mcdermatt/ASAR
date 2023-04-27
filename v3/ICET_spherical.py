@@ -152,7 +152,7 @@ class ICET():
 			# self.disp.append(Points(self.cloud1_static, c = 'green', r = 5))
 
 		if self.draw == True:
-			self.disp.append(addons.LegendBox(self.disp))
+			# self.disp.append(addons.LegendBox(self.disp))
 			self.plt.show(self.disp, "Spherical ICET", resetcam = False) #was this
 			
 	def main_2(self, niter, x0, remove_moving = True):
@@ -242,11 +242,11 @@ class ICET():
 			print("\n got U and L cluster", time.time() - before, "\n total: ",  time.time() - self.st)
 			before = time.time()
 
-		# if self.draw:
-		# 	# self.visualize_L(mu1_enough, U, L)
-		# 	self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
-		# 	self.draw_cell(corn)
-		# 	# self.draw_car()
+		if self.draw:
+			# self.visualize_L(mu1_enough, U, L)
+			self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
+			self.draw_cell(corn)
+			# self.draw_car()
 		# 	# draw identified points inside useful clusters
 		# 	# for n in range(tf.shape(inside1.to_tensor())[0]):
 		# 	# 	temp = tf.gather(self.cloud1_tensor, inside1[n]).numpy()	
@@ -633,7 +633,7 @@ class ICET():
 			if remove_moving:
 				self.draw_cell(bad_idx_corn_moving, bad = True) #COMMENT OUT WHEN SHADING BY GRADIENT
 
-			# self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
+			self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
 			self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
 			self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
 
