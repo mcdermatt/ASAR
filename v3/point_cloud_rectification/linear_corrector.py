@@ -135,10 +135,10 @@ class LC():
 
 		U, L = self.get_U_and_L_cluster(sigma1_enough, mu1_enough, occupied_spikes, bounds)
 
-		if self.draw:
-			self.visualize_L(mu1_enough, U, L)
-			self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
-			self.draw_cell(corn)
+		# if self.draw:
+		# 	self.visualize_L(mu1_enough, U, L)
+		# 	self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
+		# 	self.draw_cell(corn)
 			# self.draw_car()
 
 
@@ -388,13 +388,13 @@ class LC():
 
 			if self.draw:
 				self.disp.append(Points(self.cloud2_tensor[:,:3],
-				 c = "#2c7c94", alpha = (i+1)/(niter+1), r=3.5))
+				 c = "#2c7c94", alpha = (i+1)/(niter+1), r=7.))
 
 		if self.draw:
 			self.draw_cloud(self.cloud1_tensor, pc = 1)
-			self.draw_ell(y_j, sigma_j, pc = 2, alpha = self.alpha)
-			if remove_moving:
-				self.draw_cell(bad_idx_corn_moving, bad = True)
+			# self.draw_ell(y_j, sigma_j, pc = 2, alpha = self.alpha)
+			# if remove_moving:
+			# 	self.draw_cell(bad_idx_corn_moving, bad = True)
 
 
 	def main_2(self, niter, x0, remove_moving = True):
@@ -2256,7 +2256,7 @@ class LC():
 		if pc == 3:
 			color = [0.5, 0.8, 0.5]
 		
-		c = Points(points, c = color, r = 2.5, alpha = 1.) #r = 2.5
+		c = Points(points, c = color, r = 7., alpha = 1.) #r = 2.5
 		self.disp.append(c)
 
 	def draw_car(self):
