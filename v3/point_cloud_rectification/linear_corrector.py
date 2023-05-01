@@ -12,7 +12,7 @@ class LC():
 
 	def __init__(self, cloud1, cloud2, fid = 30, niter = 5, draw = True, 
 		m_hat0 = np.array([0.0, 0.0, 0., 0., 0., 0.]), group = 2, RM = True,
-		DNN_filter = False, cheat = [], mnp = 50):
+		DNN_filter = False, cheat = [], mnp = 50, solver = '6_state'):
 
 		# self.run_profile = True
 		self.run_profile = False
@@ -28,7 +28,7 @@ class LC():
 		self.cheat = cheat #overide for using ICET to generate training data for DNN
 		self.DNN_filter = DNN_filter
 		self.start_filter_iter = 7 #10 #iteration to start DNN rejection filter
-		self.start_RM_iter = 15 #iteration to start removing moving objects (set low to generate training data)
+		self.start_RM_iter = 7 #iteration to start removing moving objects (set low to generate training data)
 		self.DNN_thresh = 0.05 #0.03
 		self.RM_thresh = 0.05 #0.25
 		self.max_buffer = 0.3 #2 max buffer width in spherical voxels
@@ -76,15 +76,336 @@ class LC():
 			before = time.time()
 
 		#run through distortion correction pipeline
-		self.main_3(niter = self.niter, m_hat0 = m_hat0, remove_moving = RM)
+		if solver == "6_state":
+			self.solve_6_state(niter = self.niter, m_hat0 = m_hat0, remove_moving = RM)
+		else:
+			A0 = np.array([0., 0., 0., 0., 0., 0.,
+						   0., 0., 0., 0., 0., 0.])
+			self.solve_12_state(niter = self.niter, A0 = A0, remove_moving = RM)
 
 		if self.draw == True:
 			# self.disp.append(addons.LegendBox(self.disp))
 			self.plt.show(self.disp, "Distortion Correction", resetcam = False) #was this
 
 
-	def main_3(self, niter, m_hat0, remove_moving = False):
-		"""main loop for estiamting error bound for rotation distortion"""
+	def solve_12_state(self, niter, A0, remove_moving = False):
+		""" Jonitly solve for rigid transformation AND linear motion distortion 
+			
+			niter = number of iterations to run
+			A0  = [rigid transform soln, distortion correction soln] = [X, m]
+		"""
+
+		self.A = A0
+
+		# get boundaries containing useful clusters of points from first scan
+		thetamin = -np.pi
+		thetamax = np.pi
+		phimin =  3*np.pi/8
+		phimax = 7*np.pi/8 
+		edges_phi = tf.linspace(phimin, phimax, self.fid_phi)
+		edges_theta = tf.linspace(thetamin, thetamax, self.fid_theta + 1)
+
+		cloud = self.cloud1_tensor_spherical
+		
+		bins_theta = tfp.stats.find_bins(cloud[:,1], edges_theta)
+		bins_phi = tfp.stats.find_bins(cloud[:,2], edges_phi)
+
+		#combine bins_theta and bins_phi to get spike bins
+		bins_spike = tf.cast(bins_theta*(self.fid_phi-1) + bins_phi, tf.int32)
+
+		#save which spike each point is in to ICET object for further analysis
+		self.bins_spike = bins_spike
+
+		#find min point in each occupied spike
+		occupied_spikes, idxs = tf.unique(bins_spike)
+		temp =  tf.where(bins_spike == occupied_spikes[:,None]) #TODO- there has to be a better way to do this... 
+		rag = tf.RaggedTensor.from_value_rowids(temp[:,1], temp[:,0])
+		idx_by_rag = tf.gather(cloud[:,0], rag)
+
+		rads = tf.transpose(idx_by_rag.to_tensor()) 
+		self.rads = rads
+		bounds = get_cluster_fast(rads, thresh = 0.5, mnp = self.min_num_pts, max_buffer = self.max_buffer)
+
+		corn = self.get_corners_cluster(occupied_spikes, bounds)
+		inside1, npts1 = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes, bounds)	
+
+		self.inside1 = inside1
+		self.npts1 = npts1
+		self.bounds = bounds
+		self.occupied_spikes = occupied_spikes
+
+		mu1, sigma1 = self.fit_gaussian(self.cloud1_tensor, inside1, tf.cast(npts1, tf.float32))
+
+		enough1 = tf.where(npts1 > self.min_num_pts)[:,0]
+		mu1_enough = tf.gather(mu1, enough1)
+		sigma1_enough = tf.gather(sigma1, enough1)
+
+		U, L = self.get_U_and_L_cluster(sigma1_enough, mu1_enough, occupied_spikes, bounds)
+
+		if self.draw:
+			# self.visualize_L(mu1_enough, U, L)
+			self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
+			self.draw_cell(corn)
+			# self.draw_car()
+
+		#main loop
+		for i in range(niter):
+
+			print("~~~~~~~~~~~Iteration ", i, "~~~~~~~~~~")
+
+			#decompose A into X_hat (rigid transform) and m_hat (distortion)
+			self.X_hat = self.A[:6]
+			self.m_hat = self.A[6:]
+
+			#apply last estimate of correction to origonal point cloud 2
+			self.cloud2_tensor = self.apply_motion_profile(self.cloud2_tensor_OG, self.m_hat)
+			# print("updated shape", np.shape(self.cloud2_tensor))
+
+			#apply last rigid transform
+			rot = R_tf(self.X_hat[3:]).numpy()
+			trans = self.X_hat[:3]
+			self.cloud2_tensor = (self.cloud2_tensor @ rot) + trans
+			self.cloud2_tensor = tf.cast(self.cloud2_tensor, tf.float32)
+
+			#convert back to spherical coordinates
+			self.cloud2_tensor_spherical = tf.cast(self.c2s(self.cloud2_tensor), tf.float32)
+
+			#find points from scan 2 that fall inside clusters
+			inside2, npts2 = self.get_points_in_cluster(self.cloud2_tensor_spherical, occupied_spikes, bounds)
+			self.inside2 = inside2
+			self.npts2 = npts2
+
+			#fit gaussians distributions to each of these groups of points 		
+			mu2, sigma2 = self.fit_gaussian(self.cloud2_tensor, inside2, tf.cast(npts2, tf.float32))
+
+			enough2 = tf.where(npts2 > self.min_num_pts)[:,0]
+			mu2_enough = tf.gather(mu2, enough2)
+
+			#get correspondences -- only where there are enough points from both scan 1 and scan 2 in a cell!
+			corr = tf.sets.intersection(enough1[None,:], enough2[None,:]).values
+			corr_full = tf.sets.intersection(enough1[None,:], enough2[None,:]).values
+
+
+			#----------------------------------------------
+			if remove_moving:  
+				if i >= self.start_RM_iter: #TODO: tune this to optimal value
+					print("\n ---checking for moving objects---")
+					#FIND CELLS THAT INTRODUCE THE MOST ERROR
+					
+					#test - re-calculting this here
+					y0_i_full = tf.gather(mu1, corr_full)
+					y_i_full = tf.gather(mu2, corr_full)
+
+					self.residuals_full = y_i_full - y0_i_full
+				
+					# #------------------------------------------------------------------------------------------------
+					# #Using binned mode oulier exclusion (get rid of everything outside of some range close to 0)
+					# nbins = 30
+					# edges = tf.linspace(-0.75, 0.75, nbins)
+					# bins_soln = tfp.stats.find_bins(self.residuals_full[:,0], edges)
+					# bad_idx = tf.where(bins_soln != (nbins//2 - 1))[:,0][None, :]
+
+					# bins_soln2 = tfp.stats.find_bins(self.residuals_full[:,1], edges)
+					# bad_idx2 = tf.where(bins_soln2 != (nbins//2 - 1))[:,0][None, :]
+					# bad_idx = tf.sets.union(bad_idx, bad_idx2).values
+					# #------------------------------------------------------------------------------------------------
+
+					# #------------------------------------------------------------------------------------------------
+					# #Using Gaussian n-sigma outlier exclusion on translation
+
+					# metric1 = self.residuals_full[:,0]
+					# metric2 = self.residuals_full[:,1]
+					# mu_x = tf.math.reduce_mean(metric1)
+					# sigma_x = tf.math.reduce_std(metric1)
+					
+					# # #just x------------
+					# # bad_idx = tf.where( tf.math.abs(metric1) > mu_x + 2*sigma_x )[:, 0]
+					# # #------------------
+
+					# #x and y---------
+					# bad_idx = tf.where( tf.math.abs(metric1) > mu_x + 2.0*sigma_x )[:,0][None, :]
+					# # print(" \n bad_idx1", bad_idx)
+
+					# mu_y = tf.math.reduce_mean(metric2)
+					# sigma_y = tf.math.reduce_std(metric2)
+					# bad_idx2 = tf.where( tf.math.abs(metric2) > mu_y + 	2.0*sigma_y )[:,0][None, :]
+					# # print("\n bad_idx2", bad_idx2)
+					# bad_idx = tf.sets.union(bad_idx, bad_idx2).values
+
+					# #if using rotation too
+					# # self.bad_idx = bad_idx
+					# # self.bad_idx_rot = bad_idx_rot
+					# # bad_idx = tf.sets.union(bad_idx[None, :], bad_idx_rot[None, :]).values 
+					# #-----------------
+
+					# # print("corr \n", corr)
+					# print("bad idx", bad_idx)
+					# # print(tf.gather(it.dx_i[:,0], bad_idx))
+					# # print(tf.gather(occupied_spikes, corr))
+					# #------------------------------------------------------------------------------------------------
+
+					#hard cutoff for outlier rejection
+					#NEW (5/7)~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+					both = tf.sets.intersection(enough1[None,:], corr_full[None,:]).values
+					#get indices of mu1 that correspond to mu2 that also have sufficient number of points
+					ans = tf.where(enough1[:,None] == both)[:,0]
+					
+					#test moving these here
+					U_i = tf.gather(U, ans)
+					U_iT = tf.transpose(U_i, [0,2,1])
+					L_i = tf.gather(L, ans)
+					# residuals_compact = L_i @ U_i @ tf.gather(self.residuals_full[:,:,None], corr_full) #was this (incorrect)
+					# residuals_compact = L_i @ U_iT @ tf.gather(self.residuals_full[:,:,None], ans) #(5/19) -> debug: should this be U_i or U_iT?
+					residuals_compact = L_i @ U_iT @ self.residuals_full[:,:,None] #correct (5/20)
+
+					# self.RM_thresh = 0.03 #0.1 #0.05
+					# bidx = tf.where(residuals_compact > thresh )[:,0] #TODO: consider absolute value!
+					bidx = tf.where(tf.math.abs(residuals_compact) > self.RM_thresh )[:,0]
+					# print(residuals_compact)
+					bad_idx = bidx
+					# print("bad_idx", bidx)
+					#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+					# #------------------------------------------------------------------------------------------------
+					# Compare rotation about the vertical axis between each distribution correspondance
+					s1 = tf.transpose(tf.gather(sigma1, corr), [1, 2, 0])
+					s2 = tf.transpose(tf.gather(sigma2, corr), [1, 2, 0])
+
+					self.angs1 = R2Euler(s1)[2,:]
+					self.angs2 = R2Euler(s2)[2,:]
+
+					self.res = self.angs1 - self.angs2
+
+					mean = np.mean(self.res)
+					std = np.std(self.res)
+					# bad_idx_rot = tf.where(np.abs(self.res) > mean + 1*std )[:, 0]
+
+					cutoff = 0.1 #0.1
+					bad_idx_rot = tf.where(np.abs(self.res) > cutoff)[:, 0]
+
+					# print("bad_idx_rot", bad_idx_rot)
+
+					bad_idx = tf.sets.union(bad_idx[None, :], bad_idx_rot[None, :]).values
+					# # #------------------------------------------------------------------------------------------------
+
+
+					bounds_bad = tf.gather(bounds, tf.gather(corr, bad_idx))
+					bad_idx_corn_moving = self.get_corners_cluster(tf.gather(occupied_spikes, tf.gather(corr, bad_idx)), bounds_bad)
+
+					ignore_these = tf.gather(corr, bad_idx)
+					corr = tf.sets.difference(corr[None, :], ignore_these[None, :]).values
+
+					#temp
+					self.U_i = U_i
+					self.L_i = L_i
+
+					# print("\n ~~~~~~~~~~~~~~ \n removed moving", time.time() - before, "\n total: ",  time.time() - self.st, "\n ~~~~~~~~~~~~~~")
+					before = time.time()
+			#----------------------------------------------
+
+
+			y_i_full = tf.gather(mu1, corr_full)
+			y_j_full = tf.gather(mu2, corr_full)
+
+			y_i = tf.gather(mu1, corr)
+			sigma_i = tf.gather(sigma1, corr)
+			npts_i = tf.gather(npts1, corr)
+			# print(sigma1)
+
+			y_j = tf.gather(mu2, corr)
+			sigma_j = tf.gather(sigma2, corr)
+			npts_j = tf.gather(npts2, corr)
+
+			#need special indexing for U_i and L_i since they are derived from <mu1_enough>
+			# rather than the full mu1 tensor:
+			#  1) get IDX of elements that are in both enough1 and corr
+			#  2) use this to index U and L to get U_i and L_i
+			both = tf.sets.intersection(enough1[None,:], corr[None,:]).values
+			ans = tf.where(enough1[:,None] == both)[:,0]			
+			U_I = tf.gather(U, ans)
+			L_I = tf.gather(L, ans)
+
+
+			# Get Jacobian H = [H_x, H_m]
+			H_m = self.get_H_m(y_j, self.m_hat)
+			#remove extra elements of H that we needed for homogenous coordinate transforms
+			H_m = tf.reshape(H_m, (tf.shape(H_m)[0]//4,4,6)) 
+			H_m = tf.cast(H_m[:,:3,:], tf.float32)
+
+			# shape(H_x) = [num of corr * 3, 6]
+			H_x = jacobian_tf(tf.transpose(y_i), tf.cast(self.X_hat[3:], tf.float32)) 
+			H_x = tf.reshape(H_x, (tf.shape(H_x)[0]//3, 3, 6)) # -> need shape [#corr//4, 4, 6]
+			# print("\n H_x before:", np.shape(H_x), "\n", H_x[0])
+			# H_x = tf.concat([H_x, tf.zeros([len(H_x),1,6])], axis = 1)
+			# H_x = tf.reshape(H_x, (-1, 6))
+			# print("\n H_x after:", np.shape(H_x), "\n", H_x[:10])
+			# H_x = H_x.numpy()
+
+			H = tf.concat([H_x, H_m], axis = 2) #supposed to be this...
+			# H = H_x + H_m #nope
+			print(tf.shape(H))
+
+			#construct sensor noise covariance matrix
+			R_noise = (tf.transpose(tf.transpose(sigma_i, [1,2,0]) / tf.cast(npts_i - 1, tf.float32)) + 
+						tf.transpose(tf.transpose(sigma_j, [1,2,0]) / tf.cast(npts_j - 1, tf.float32)) )
+			# print("R_noise:", np.shape(R_noise))
+
+			#use projection matrix to remove extended directions
+			R_noise = L_I @ tf.transpose(U_I, [0,2,1]) @ R_noise @ U_I @ tf.transpose(L_I, [0,2,1])
+			#take inverse of R_noise to get our weighting matrix
+			W = tf.linalg.pinv(R_noise)
+
+			# use LUT to remove rows of H corresponding to overly extended directions
+			LUT = L_I @ tf.transpose(U_I, [0,2,1])
+			# print("LUT", tf.shape(LUT))
+			# H_z = LUT @ H #was this
+			H_z = H #debug
+
+			# HTWH = tf.math.reduce_sum(tf.matmul(tf.matmul(tf.transpose(H_z, [0,2,1]), W), H_z), axis = 0) #was this for ICET 
+			HTWH = tf.matmul(tf.matmul(tf.transpose(H_z, [0,2,1]), W), H_z) #need to hold off on summing until the end
+			# HTWH = tf.matmul(tf.transpose(H_z, [0,2,1]), H_z) #test-- ignore weighting for now??
+			HTW = tf.matmul(tf.transpose(H_z, [0,2,1]), W)
+
+			print("HTWH \n", np.shape(HTWH))
+			# print("HTW \n", np.shape(HTW))
+
+			# residuals_compact = U_I @ L_I @ tf.transpose(U_I, [0,2,1]) @ (y_i -  y_j)[:,:,None] #was this
+			residuals_compact = (y_i -  y_j)[:,:,None] #test
+			print("\n residuals", np.shape(residuals_compact))
+
+			delta_A = tf.linalg.pinv(HTWH) @ HTW @ residuals_compact
+			# print("\n delta_A before \n", np.shape(delta_A))
+			#need to sum up all contributions
+			delta_A = tf.math.reduce_sum(delta_A, axis = 0)[:,0]
+			print("\n delta_A \n", np.round(delta_A, 3)[:6], "\n", np.round(delta_A, 3)[6:])
+
+
+			#augment rigid transform components
+			self.A[:6] -= delta_A[:6]
+			# #augment distortion correction
+			# self.A[6:9] -= delta_A[6:9]
+			# self.A[9:] += delta_A[9:]
+
+			# going to have to remove globally extended axis pruning for now 
+			#  (not sure how ambiguities even propogate when you have a 12 DOF system)
+
+			print("A: \n", np.round(self.A, 4)[:6], "\n", np.round(self.A, 4)[6:])
+
+			if self.draw:
+				self.disp.append(Points(self.cloud2_tensor[:,:3],
+				 c = "#2c7c94", alpha = (i+1)/(niter+1), r=7.))
+
+		if self.draw:
+			self.draw_cloud(self.cloud1_tensor, pc = 1)
+			self.draw_ell(y_j, sigma_j, pc = 2, alpha = self.alpha)
+			# if remove_moving:
+			# 	self.draw_cell(bad_idx_corn_moving, bad = True)
+
+
+	def solve_6_state(self, niter, m_hat0, remove_moving = False):
+		"""6-state soluton for estimating error bound from rotation distortion
+			RELIES ON PROPERLY ALIGNED POINT CLOUDS
+		"""
 
 		self.m_hat = m_hat0
 		self.m_hat0 = m_hat0
@@ -1284,7 +1605,7 @@ class LC():
 		svec = (yaw_angs / np.max(yaw_angs))  #scaling vec
 		# print("\n svec: \n", np.shape(svec), svec)
 		M = m_hat * np.array([svec, svec, svec, svec, svec, svec]).T
-		print("\n M \n", np.shape(M))
+		# print("\n M \n", np.shape(M))
 		# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
@@ -1344,7 +1665,7 @@ class LC():
 		#scale each element of H_m proportional to theta angle
 		H_m = H * np.repeat(np.array([svec, svec, svec, svec, svec, svec]).T, repeats = 4, axis = 0)
 
-		print("H_m \n", np.shape(H_m))
+		# print("H_m \n", np.shape(H_m))
 
 		return H_m
 
