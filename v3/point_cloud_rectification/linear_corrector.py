@@ -85,7 +85,7 @@ class LC():
 
 		if self.draw == True:
 			# self.disp.append(addons.LegendBox(self.disp))
-			self.plt.show(self.disp, "Distortion Correction", resetcam = False) #was this
+			self.plt.show(self.disp, solver, resetcam = False) #was this
 
 
 	def solve_12_state(self, niter, A0, remove_moving = False):
@@ -145,7 +145,7 @@ class LC():
 		if self.draw:
 			# self.visualize_L(mu1_enough, U, L)
 			self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
-			# self.draw_cell(corn)
+			self.draw_cell(corn)
 			# self.draw_car()
 
 		#main loop
@@ -157,15 +157,29 @@ class LC():
 			self.X_hat = self.A[:6]
 			self.m_hat = self.A[6:]
 
+			# motion correcton -> rigid transform (was this first) ~~~~~~~~~~~~~~~~~~~~~~~~~
+
 			#apply last estimate of correction to origonal point cloud 2
 			self.cloud2_tensor = self.apply_motion_profile(self.cloud2_tensor_OG, self.m_hat)
-			# print("updated shape", np.shape(self.cloud2_tensor))
-
 			#apply last rigid transform
 			rot = R_tf(self.X_hat[3:]).numpy()
 			trans = self.X_hat[:3]
 			self.cloud2_tensor = (self.cloud2_tensor @ rot) + trans
 			self.cloud2_tensor = tf.cast(self.cloud2_tensor, tf.float32)
+
+			# rigid transform -> motion correction (test) ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+			# Not sure if this actually makes a difference
+
+			# #apply last rigid transform
+			# rot = R_tf(self.X_hat[3:]).numpy()
+			# trans = self.X_hat[:3]
+			# self.cloud2_tensor = (self.cloud2_tensor_OG @ rot) + trans
+			# self.cloud2_tensor = tf.cast(self.cloud2_tensor, tf.float32)
+			# #apply last estimate of correction to origonal point cloud 2
+			# self.cloud2_tensor = self.apply_motion_profile(self.cloud2_tensor, self.m_hat)
+
+			#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 
 			#convert back to spherical coordinates
 			self.cloud2_tensor_spherical = tf.cast(self.c2s(self.cloud2_tensor), tf.float32)
