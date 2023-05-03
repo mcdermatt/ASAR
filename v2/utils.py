@@ -1,6 +1,7 @@
 import numpy as np
 from vedo import * #comment out on laptop
-import vtk #comment out on laptop
+# from ipyvtklink.viewer import ViewInteractiveWidget
+# import vtk #comment out on laptop
 import os
 # from numpy import sin, cos, tan
 import tensorflow as tf
@@ -501,7 +502,7 @@ def make_scene(plt, disp, E, color, draw_grid = False, draw_ell = True, fid = No
 			if mu[i,0] != 0 and mu[i,1] != 0:
 				ell = Ell(pos=(mu[i,0], mu[i,1], mu[i,2]), axis1 = 4*np.sqrt(abs(a1)), 
 					axis2 = 4*np.sqrt(abs(a2)), axis3 = 4*np.sqrt(abs(a3)), 
-					angs = (np.array([-R2Euler(eigenvec)[0], -R2Euler(eigenvec)[1], -R2Euler(eigenvec)[2] ])), c = color , alpha=0.9, res=12)
+					angs = (np.array([-R2Euler(eigenvec)[0], -R2Euler(eigenvec)[1], -R2Euler(eigenvec)[2] ])), c = color , alpha=0.5, res=12)
 		#todo - fix rotation bug in angs[1]
 				
 				disp.append(ell)

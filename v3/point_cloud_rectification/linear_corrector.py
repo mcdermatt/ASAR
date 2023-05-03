@@ -12,7 +12,7 @@ class LC():
 
 	def __init__(self, cloud1, cloud2, fid = 30, niter = 5, draw = True, 
 		m_hat0 = np.array([0.0, 0.0, 0., 0., 0., 0.]), group = 2, RM = True,
-		DNN_filter = False, cheat = [], mnp = 50, solver = '6_state'):
+		DNN_filter = False, cheat = [], mnp = 50, solver = '6_state', max_buffer = 0.5 ):
 
 		# self.run_profile = True
 		self.run_profile = False
@@ -24,14 +24,14 @@ class LC():
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
 		self.niter = niter
-		self.alpha = 1 #0.5 #controls alpha values when displaying ellipses
+		self.alpha = 0.5 #controls alpha values when displaying ellipses
 		self.cheat = cheat #overide for using ICET to generate training data for DNN
 		self.DNN_filter = DNN_filter
 		self.start_filter_iter = 7 #10 #iteration to start DNN rejection filter
 		self.start_RM_iter = 7 #iteration to start removing moving objects (set low to generate training data)
 		self.DNN_thresh = 0.05 #0.03
 		self.RM_thresh = 0.05 #0.25
-		self.max_buffer = 0.3 #2 max buffer width in spherical voxels
+		self.max_buffer = max_buffer #2 max buffer width in spherical voxels
 
 		#convert cloud1 to tesnsor
 		#WAS THIS FOR ICET-- unfortunately, we need to retain the correct order of points
@@ -143,9 +143,9 @@ class LC():
 		U, L = self.get_U_and_L_cluster(sigma1_enough, mu1_enough, occupied_spikes, bounds)
 
 		if self.draw:
-			# self.visualize_L(mu1_enough, U, L)
+			self.visualize_L(mu1_enough, U, L)
 			self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
-			self.draw_cell(corn)
+			# self.draw_cell(corn)
 			# self.draw_car()
 
 		#main loop
@@ -357,31 +357,49 @@ class LC():
 
 			# use LUT to remove rows of H corresponding to overly extended directions
 			LUT = L_I @ tf.transpose(U_I, [0,2,1])
-			# print("LUT", tf.shape(LUT))
-			# H_z = LUT @ H #was this
-			H_z = H #debug
+			print("LUT", tf.shape(LUT))
+			H_z = LUT @ H #was this
+			# H_z = H #debug
 
 			# HTWH = tf.math.reduce_sum(tf.matmul(tf.matmul(tf.transpose(H_z, [0,2,1]), W), H_z), axis = 0) #was this for ICET 
 			HTWH = tf.matmul(tf.matmul(tf.transpose(H_z, [0,2,1]), W), H_z) #need to hold off on summing until the end
 			# HTWH = tf.matmul(tf.transpose(H_z, [0,2,1]), H_z) #test-- ignore weighting for now??
 			HTW = tf.matmul(tf.transpose(H_z, [0,2,1]), W)
+			# HTW = tf.math.reduce_sum(tf.matmul(tf.transpose(H_z, [0,2,1]), W), axis = 0) #wrong-- need to apply to residual vec before summing... 
 
 			print("HTWH \n", np.shape(HTWH))
-			# print("HTW \n", np.shape(HTW))
+			print("HTW \n", np.shape(HTW))
 
-			# residuals_compact = U_I @ L_I @ tf.transpose(U_I, [0,2,1]) @ (y_i -  y_j)[:,:,None] #was this
-			residuals_compact = (y_i -  y_j)[:,:,None] #test
-			print("\n residuals", np.shape(residuals_compact))
+			# # only look at residuals in compact directions
+			# residuals_compact = tf.reshape((U_I @ L_I @ tf.transpose(U_I, [0,2,1])), [-1,3] ) @ (y_i -  y_j).numpy().flatten()[:,None] 
+			# print("\n residuals_compact", np.shape(residuals_compact))
+			# delta_A = tf.reshape((tf.linalg.pinv(HTWH) @ HTW), [-1,12]) @ residuals_compact
 
-			delta_A = tf.linalg.pinv(HTWH) @ HTW @ residuals_compact
-			# print("\n delta_A before \n", np.shape(delta_A))
-			#need to sum up all contributions
+			# using full residuals
+			# residuals = (y_i -  y_j).numpy().flatten()[None,:]
+			residuals = (y_i -  y_j)[:,:,None] #test
+			print("\n residuals", np.shape(residuals))
+			delta_A =  tf.linalg.pinv(HTWH) @ HTW @ residuals
+			print("\n delta_A before \n", np.shape(delta_A))
 			delta_A = tf.math.reduce_sum(delta_A, axis = 0)[:,0]
-			print("\n delta_A \n", np.round(delta_A, 3)[:6], "\n", np.round(delta_A, 3)[6:])
+			print("\n delta_A after \n", np.shape(delta_A))
+
+			# #DEBUG~~~
+			# # residuals = tf.reshape((y_i -  y_j), [-1,1])
+			# residuals = (y_i -  y_j)
+			# print("\n residuals", np.shape(residuals))
+			# print("\n  (HTWH)-1 HT \n", np.shape(tf.reshape((tf.linalg.pinv(HTWH) @ HTW), [-1,3])))
+			# delta_A =  tf.reshape((tf.linalg.pinv(HTWH) @ HTW), [-1,3]) @ residuals #test
+			# print("\n delta_A before \n", np.shape(delta_A))
+
+			#need to sum up all contributions
+			# delta_A = tf.math.reduce_sum(delta_A, axis = 0)#[:,0]
+			# print("\n delta_A \n", np.round(delta_A, 3)[:6], "\n", np.round(delta_A, 3)[6:])
 
 
 			#augment rigid transform components
-			self.A[:6] -= delta_A[:6]
+			self.A[:3] += delta_A[:3]
+			# self.A[3:6] += delta_A[3:6]
 			# #augment distortion correction
 			# self.A[6:9] -= delta_A[6:9]
 			# self.A[9:] += delta_A[9:]
@@ -394,12 +412,14 @@ class LC():
 			if self.draw:
 				self.disp.append(Points(self.cloud2_tensor[:,:3],
 				 c = "#2c7c94", alpha = (i+1)/(niter+1), r=7.))
+				self.draw_correspondences(mu1, mu2, corr) #corr displays just used correspondences
 
 		if self.draw:
 			self.draw_cloud(self.cloud1_tensor, pc = 1)
 			self.draw_ell(y_j, sigma_j, pc = 2, alpha = self.alpha)
 			# if remove_moving:
 			# 	self.draw_cell(bad_idx_corn_moving, bad = True)
+
 
 
 	def solve_6_state(self, niter, m_hat0, remove_moving = False):

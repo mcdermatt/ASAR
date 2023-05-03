@@ -20,11 +20,11 @@ class ICET():
 
 		self.min_cell_distance = 1 #2 #begin closest spherical voxel here
 		#ignore "occupied" cells with fewer than this number of pts
-		self.min_num_pts = 50 #100 #was 50 for KITTI and Ford, need to lower to 25 for CODD 
+		self.min_num_pts = 115 #100 #was 50 for KITTI and Ford, need to lower to 25 for CODD 
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
 		self.niter = niter
-		self.alpha = 1 #0.5 #controls alpha values when displaying ellipses
+		self.alpha = 0.5 #controls alpha values when displaying ellipses
 		self.cheat = cheat #overide for using ICET to generate training data for DNN
 		self.DNN_filter = DNN_filter
 		self.start_filter_iter = 7 #10 #iteration to start DNN rejection filter
@@ -193,7 +193,7 @@ class ICET():
 		rads = tf.transpose(idx_by_rag.to_tensor()) 
 		self.rads = rads #temp for debug
 		# bounds = get_cluster(rads, mnp = self.min_num_pts) #old (slow)
-		bounds = get_cluster_fast(rads, mnp = self.min_num_pts) #new (20x faster)
+		bounds = get_cluster_fast(rads, mnp = self.min_num_pts, thresh = 0.8) #new (20x faster)
 
 		# #test 8/2/22 (need if we are using seprate threshold for enough1 and bounds)--------
 		# inside1, npts1 = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes, bounds)
@@ -244,9 +244,9 @@ class ICET():
 
 		if self.draw:
 			# self.visualize_L(mu1_enough, U, L)
-			self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
-			self.draw_cell(corn)
-			# self.draw_car()
+			# self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha) #draw all available distributions from scan1
+			# self.draw_cell(corn)
+			self.draw_car()
 		# 	# draw identified points inside useful clusters
 		# 	# for n in range(tf.shape(inside1.to_tensor())[0]):
 		# 	# 	temp = tf.gather(self.cloud1_tensor, inside1[n]).numpy()	
@@ -633,10 +633,11 @@ class ICET():
 			if remove_moving:
 				self.draw_cell(bad_idx_corn_moving, bad = True) #COMMENT OUT WHEN SHADING BY GRADIENT
 
-			self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
 			self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
 			self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
-
+			self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
+			self.draw_ell(y0_i, sigma0_i, pc = 1, alpha = self.alpha) #only draw ells from scan 1 if scan 2 also has occupied cell
+	
 			# #for debug 2/16/23
 			# # self.shade_residuals(self.corn, self.residuals) 
 			# residuals_compact = L_i @ U_iT @ self.residuals[:,:,None]
@@ -1871,7 +1872,7 @@ class ICET():
 		if pc == 3:
 			color = [0.5, 0.8, 0.5]
 		
-		c = Points(points, c = color, r = 2.5, alpha = 1.) #r = 2.5
+		c = Points(points, c = color, r = 2.0, alpha = 1.) #r = 2.5
 		self.disp.append(c)
 
 	def draw_car(self):

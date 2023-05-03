@@ -1,6 +1,7 @@
 import numpy as np
 from vedo import * #comment out on laptop
-import vtk #need to comment out because laptop is from the stone age
+from ipyvtklink.viewer import ViewInteractiveWidget
+# import vtk #need to comment out because laptop is from the stone age
 import os
 import tensorflow as tf
 from tensorflow.math import sin, cos, tan
@@ -10,7 +11,7 @@ from utils import *
 
 def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False, 
 	       num_cycles = 5, min_num_pts = 50, draw_grid = False, draw_ell = True, 
-	       draw_corr = False, CM = "voxel", vizL = True, xHat0 = tf.zeros([6,1]), FG = True):
+	       draw_corr = False, CM = "voxel", vizL = False, xHat0 = tf.zeros([6,1]), FG = True):
 
 	"""3D implementation of ICET algorithm using TensorFlow library
 	
@@ -85,6 +86,8 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 		if draw == True:
 			#referencing disp 1 here prevents re-drawing old transformations of scan2
 			E2 = subdivide_scan_tf(pp2_corrected, plt, bounds, fid, disp = disp1, draw=True, show_pc = 2, draw_grid = draw_grid, draw_ell = draw_ell,  fast_gaussian = FG)
+			#suppress scan2 for presentation graphics
+			# E2 = subdivide_scan_tf(pp2_corrected, plt, bounds, fid, disp = disp1, draw=False, show_pc = 2, draw_grid = draw_grid, draw_ell = draw_ell,  fast_gaussian = FG)
 		else:
 			E2 = subdivide_scan_tf(pp2_corrected, plt, bounds, fid, draw=False,  fast_gaussian = FG)
 		mu2 = E2[0]
@@ -238,11 +241,13 @@ def ICET3D(pp1, pp2, plt, bounds, fid, test_dataset = False,  draw = False,
 
 			# plot car in center------------------------------------------
 			# (used for making presentation graphics)
-			fname = "C:/Users/Derm/honda.vtk"
+			# fname = "C:/Users/Derm/honda.vtk"
+			fname = "../v3/honda.stl"
 			# car = Mesh(fname).c("gray").addShadow(z=0)
 			# car.pos(1.,0,0.1) #move slightly up to avoid clipping ground plane
 			car = Mesh(fname).c("gray").rotate(90, axis = (0,0,1))
-			car.pos(1.4,1,1.72)
+			# car.pos(1.4,1,1.72)
+			car.pos(1.4,1,-1.72)
 			# plt.show([car, disp], "ICET3D", at=0, interactive = True)
 			plt.show([car, disp], "ICET3D", at=0, resetcam = False)
 			# ------------------------------------------------------------
