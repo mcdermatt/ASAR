@@ -11,14 +11,14 @@ from utils import R2Euler, Ell, jacobian_tf, R_tf, get_cluster, get_cluster_fast
 class LC():
 
 	def __init__(self, cloud1, cloud2, fid = 30, niter = 5, draw = True, 
-		m_hat0 = np.array([0.0, 0.0, 0., 0., 0., 0.]), group = 2, RM = True,
-		DNN_filter = False, cheat = [], mnp = 50, solver = '6_state', max_buffer = 0.5 ):
+		m_hat0 = np.array([0.0, 0.0, 0., 0., 0., 0.]), A0 = np.array([0., 0., 0., 0., 0., 0.,0., 0., 0., 0., 0., 0.]), 
+		group = 2, RM = True, DNN_filter = False, cheat = [], mnp = 50, solver = '6_state', max_buffer = 0.5 ):
 
 		# self.run_profile = True
 		self.run_profile = False
 		self.st = time.time() #start time (for debug)
 
-		self.min_cell_distance = 2 #1 #2 #begin closest spherical voxel here
+		self.min_cell_distance = 4 #1 #2 #begin closest spherical voxel here
 		#ignore "occupied" cells with fewer than this number of pts
 		self.min_num_pts = mnp #50 #100 #was 50 for KITTI and Ford, need to lower to 25 for CODD + simulated data
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
@@ -28,9 +28,9 @@ class LC():
 		self.cheat = cheat #overide for using ICET to generate training data for DNN
 		self.DNN_filter = DNN_filter
 		self.start_filter_iter = 7 #10 #iteration to start DNN rejection filter
-		self.start_RM_iter = 20 #iteration to start removing moving objects (set low to generate training data)
+		self.start_RM_iter = 15 #iteration to start removing moving objects (set low to generate training data)
 		self.DNN_thresh = 0.05 #0.03
-		self.RM_thresh = 0.05 #0.25
+		self.RM_thresh = 0.05 #0.05 #0.25
 		self.max_buffer = max_buffer #2 max buffer width in spherical voxels
 
 		#convert cloud1 to tesnsor
@@ -79,8 +79,7 @@ class LC():
 		if solver == "6_state":
 			self.solve_6_state(niter = self.niter, m_hat0 = m_hat0, remove_moving = RM)
 		else:
-			A0 = np.array([0., 0., 0., 0., 0., 0.,
-						   0., 0., 0., 0., 0., 0.])
+			print("A0:\n", A0)
 			self.solve_12_state(niter = self.niter, A0 = A0, remove_moving = RM)
 
 		if self.draw == True:
@@ -159,24 +158,24 @@ class LC():
 
 			# motion correcton -> rigid transform (was this first) ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-			#apply last estimate of correction to origonal point cloud 2
-			self.cloud2_tensor = self.apply_motion_profile(self.cloud2_tensor_OG, self.m_hat)
-			#apply last rigid transform
-			rot = R_tf(self.X_hat[3:]).numpy()
-			trans = self.X_hat[:3]
-			self.cloud2_tensor = (self.cloud2_tensor @ rot) + trans
-			self.cloud2_tensor = tf.cast(self.cloud2_tensor, tf.float32)
+			# #apply last estimate of correction to origonal point cloud 2
+			# self.cloud2_tensor = self.apply_motion_profile(self.cloud2_tensor_OG, self.m_hat)
+			# #apply last rigid transform
+			# rot = R_tf(self.X_hat[3:]).numpy()
+			# trans = self.X_hat[:3]
+			# self.cloud2_tensor = (self.cloud2_tensor @ rot) + trans
+			# self.cloud2_tensor = tf.cast(self.cloud2_tensor, tf.float32)
 
 			# rigid transform -> motion correction (test) ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 			# Not sure if this actually makes a difference
 
-			# #apply last rigid transform
-			# rot = R_tf(self.X_hat[3:]).numpy()
-			# trans = self.X_hat[:3]
-			# self.cloud2_tensor = (self.cloud2_tensor_OG @ rot) + trans
-			# self.cloud2_tensor = tf.cast(self.cloud2_tensor, tf.float32)
-			# #apply last estimate of correction to origonal point cloud 2
-			# self.cloud2_tensor = self.apply_motion_profile(self.cloud2_tensor, self.m_hat)
+			#apply last rigid transform
+			rot = R_tf(self.X_hat[3:]).numpy()
+			trans = self.X_hat[:3]
+			self.cloud2_tensor = (self.cloud2_tensor_OG @ rot) + trans
+			self.cloud2_tensor = tf.cast(self.cloud2_tensor, tf.float32)
+			#apply last estimate of correction to origonal point cloud 2
+			self.cloud2_tensor = self.apply_motion_profile(self.cloud2_tensor, self.m_hat)
 
 			#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -357,8 +356,8 @@ class LC():
 
 			print("num corr: \n", tf.shape(corr))
 
-			H = tf.concat([H_x, H_m], axis = 2) #supposed to be this...
-			# H = H_x + H_m #nope
+			H = tf.concat([H_x, H_m], axis = 2) #supposed to be this
+			# H = tf.concat([H_x, 0.5*H_m], axis = 2) #test punishing H_m
 			print("H: \n", tf.shape(H))
 
 			#construct sensor noise covariance matrix
@@ -397,7 +396,7 @@ class LC():
 			# print("\n residuals_compact", np.shape(residuals_compact))
 
 			# using full residuals
-			residuals = (y_i -  y_j).numpy().flatten()[:,None] #works with this
+			residuals = (y_j -  y_i).numpy().flatten()[:,None] #works with this
 			print("\n residuals", np.shape(residuals))
 			delta_A =  (tf.linalg.pinv(HTWH) @ HTW @ residuals)[:,0]
 			print("\n delta_A\n", np.shape(delta_A))
@@ -414,13 +413,25 @@ class LC():
 			# delta_A = tf.math.reduce_sum(delta_A, axis = 0)#[:,0]
 			# print("\n delta_A \n", np.round(delta_A, 3)[:6], "\n", np.round(delta_A, 3)[6:])
 
-
+			#apply both at once
 			#augment rigid transform components
-			self.A[:3] -= delta_A[:3]
-			self.A[3:6] -= delta_A[3:6]
+			self.A[:3] += delta_A[:3]
+			self.A[3:6] += delta_A[3:6]
 			#augment distortion correction
-			self.A[6:9] -= delta_A[6:9]
-			self.A[9:] += delta_A[9:]
+			self.A[6:9] += delta_A[6:9]
+			self.A[9:] -= delta_A[9:]
+
+			# #alternate -- test
+			# if i % 2 == 0:
+			# 	#augment rigid transform components
+			# 	self.A[:3] += delta_A[:3]
+			# 	self.A[3:6] += delta_A[3:6]
+			# else:
+			# 	#augment distortion correction
+			# 	self.A[6:9] += delta_A[6:9]
+			# 	self.A[9:] -= delta_A[9:]
+
+
 
 			# going to have to remove globally extended axis pruning for now 
 			#  (not sure how ambiguities even propogate when you have a 12 DOF system)
@@ -435,8 +446,8 @@ class LC():
 		if self.draw:
 			self.draw_cloud(self.cloud1_tensor, pc = 1)
 			self.draw_ell(y_j, sigma_j, pc = 2, alpha = self.alpha)
-			# if remove_moving:
-			# 	self.draw_cell(bad_idx_corn_moving, bad = True)
+			if remove_moving:
+				self.draw_cell(bad_idx_corn_moving, bad = True)
 
 
 
@@ -1535,10 +1546,7 @@ class LC():
 		# this is a bad way of doing it ... what happens if most of the points are on one half of the scene??
 		part2 = np.linspace(0.5, 1.0, len(cloud_xyz)//2)[:,None]
 		part1 = np.linspace(0, 0.5, len(cloud_xyz) - len(cloud_xyz)//2)[:,None]
-		motion_profile = np.append(part1, part2, axis = 0) @ rectified_vel #lol
-		# print("\n old: \n", motion_profile[:,0])
-		# self.motion_profile = motion_profile #hold on to output for debug
-		# self.yaw_angs_old =  np.append(part1, part2, axis = 0)
+		motion_profile = np.append(part1, part2, axis = 0) @ rectified_vel
 
 		# # using yaw angles ~~~~~~~~~~~~~~~~~~~~~~
 		#This doesn't work-- causes soln to fall into wrong local minima
@@ -1639,6 +1647,8 @@ class LC():
 		yaw_angs = self.c2s(y_j)[:,1].numpy()
 		last_subzero_idx = int(len(yaw_angs) // 8)
 		yaw_angs[last_subzero_idx:][yaw_angs[last_subzero_idx:] < 0.3] = yaw_angs[last_subzero_idx:][yaw_angs[last_subzero_idx:] < 0.3] + 2*np.pi
+
+		# print(yaw_angs)
 
 		svec = (yaw_angs / np.max(yaw_angs))  #scaling vec
 		# print("\n svec: \n", np.shape(svec), svec)
