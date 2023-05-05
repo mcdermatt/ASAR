@@ -142,9 +142,9 @@ class LC():
 		U, L = self.get_U_and_L_cluster(sigma1_enough, mu1_enough, occupied_spikes, bounds)
 
 		# if self.draw:
-		# 	# self.visualize_L(mu1_enough, U, L)
+		# 	self.visualize_L(mu1_enough, U, L)
 		# 	# self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
-		# 	self.draw_cell(corn)
+		# 	# self.draw_cell(corn)
 		# 	# self.draw_car()
 
 		#main loop
@@ -358,7 +358,7 @@ class LC():
 
 			H = tf.concat([H_x, H_m], axis = 2) #supposed to be this
 			# H = tf.concat([H_x, 0.*H_m], axis = 2) #test punishing H_m
-			print("H: \n", tf.shape(H))
+			# print("H: \n", tf.shape(H))
 
 			#construct sensor noise covariance matrix
 			R_noise = (tf.transpose(tf.transpose(sigma_i, [1,2,0]) / tf.cast(npts_i - 1, tf.float32)) + 
@@ -373,8 +373,8 @@ class LC():
 			# use LUT to remove rows of H corresponding to overly extended directions
 			LUT = L_I @ tf.transpose(U_I, [0,2,1])
 			print("LUT", tf.shape(LUT))
-			H_z = LUT @ H #was this
-			# H_z = H #debug
+			# H_z = LUT @ H #was this
+			H_z = H #debug
 
 			HTWH = tf.math.reduce_sum(tf.matmul(tf.matmul(tf.transpose(H_z, [0,2,1]), W), H_z), axis = 0) #was this for ICET 
 			# HTWH = tf.matmul(tf.matmul(tf.transpose(H_z, [0,2,1]), W), H_z) #need to hold off on summing until the end
@@ -387,16 +387,28 @@ class LC():
 			#need to get (H.T W) to shape [12, 3N], where N is the number of correspondnces
 			HTW = tf.transpose(HTW, [1,0,2]) #need to get things in the correct order for the reshape operation???
 			HTW = tf.reshape(HTW, [12,-1])			
-
 			# print("HTWH \n", np.shape(HTWH))
 			# print("HTW \n", np.shape(HTW), HTW[:30])
-
-			# only look at residuals in compact directions
-			# residuals = tf.reshape((U_I @ L_I @ tf.transpose(U_I, [0,2,1])), [-1,3] ) @ (y_i -  y_j).numpy().flatten()[:,None] 
+			
+			# compact residuals: ~~~~~~~~~~~~~~~~~
+			# print("(y_i -  y_j)", np.shape(y_i -  y_j))
+			# residuals_compact = tf.reshape((U_I @ L_I @ tf.transpose(U_I, [0,2,1])), [-1,3] ) @ (y_i -  y_j).numpy().flatten() 
 			# print("\n residuals_compact", np.shape(residuals_compact))
+			temp = ((U_I @ L_I @ tf.transpose(U_I, [0,2,1])) @ (y_j - y_i)[:,:,None])[:,:,0]
+			# print("temp", np.shape(temp), "\n", temp[:10])
+			residuals_compact = temp.numpy().flatten()
+			# print(residuals_compact)
+			# print("y_i", np.shape(y_i))
+
+			# #DEBUG: draw arrows
+			# for count in range(len(y_i)):
+			# 	compact_residual_arrows = shapes.Arrow(y_i[count].numpy(), y_i[count].numpy() + temp[count], c = "red")
+			# 	self.disp.append(compact_residual_arrows)
+			# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 			# using full residuals
-			residuals = (y_j -  y_i).numpy().flatten()[:,None] #works with this
+			# residuals = (y_j -  y_i).numpy().flatten()[:,None] #was this
+			residuals = residuals_compact[:,None] #works way better! Just remember to suppress H_z with H
 			print("\n residuals", np.shape(residuals))
 			delta_A =  (tf.linalg.pinv(HTWH) @ HTW @ residuals)[:,0]
 			print("\n delta_A\n", np.shape(delta_A))
@@ -421,18 +433,6 @@ class LC():
 			self.A[6:9] += delta_A[6:9]
 			self.A[9:] -= delta_A[9:]
 
-			# #alternate -- test
-			# if i % 2 == 0:
-			# 	#augment rigid transform components
-			# 	self.A[:3] += delta_A[:3]
-			# 	self.A[3:6] += delta_A[3:6]
-			# else:
-			# 	#augment distortion correction
-			# 	self.A[6:9] += delta_A[6:9]
-			# 	self.A[9:] -= delta_A[9:]
-
-
-
 			# going to have to remove globally extended axis pruning for now 
 			#  (not sure how ambiguities even propogate when you have a 12 DOF system)
 
@@ -445,10 +445,12 @@ class LC():
 
 		if self.draw:
 			self.draw_cloud(self.cloud1_tensor, pc = 1)
-			# self.draw_ell(y_j, sigma_j, pc = 2, alpha = self.alpha)
-			# self.draw_ell(y_i, sigma_i, pc = 1, alpha = self.alpha)
+			self.draw_ell(y_j, sigma_j, pc = 2, alpha = self.alpha)
+			self.draw_ell(y_i, sigma_i, pc = 1, alpha = self.alpha)
 			if remove_moving:
 				self.draw_cell(bad_idx_corn_moving, bad = True)
+			# self.draw_correspondences(mu1, mu2, corr) #corr displays just used correspondences
+
 
 
 
@@ -1546,26 +1548,26 @@ class LC():
 		# linearly spaced motion profile ~~~~~~~~~~~~~~~~~~~~~
 		# this is a bad way of doing it ... what happens if most of the points are on one half of the scene??
 
-		part2 = np.linspace(0.5, 1.0, len(cloud_xyz)//2)[:,None]
-		part1 = np.linspace(0, 0.5, len(cloud_xyz) - len(cloud_xyz)//2)[:,None]
-		motion_profile = np.append(part1, part2, axis = 0) @ rectified_vel
+		# part2 = np.linspace(0.5, 1.0, len(cloud_xyz)//2)[:,None]
+		# part1 = np.linspace(0, 0.5, len(cloud_xyz) - len(cloud_xyz)//2)[:,None]
+		# motion_profile = np.append(part1, part2, axis = 0) @ rectified_vel
 
 		# # using yaw angles ~~~~~~~~~~~~~~~~~~~~~~
 		#  (NEW)
 		
-		# #TODO: need to center point cloud before getting yaw angles
+		#TODO: need to center point cloud before getting yaw angles
 
-		# yaw_angs = self.c2s(cloud_xyz)[:,1].numpy()
-		# last_subzero_idx = int(len(yaw_angs) // 8)
-		# yaw_angs[last_subzero_idx:][yaw_angs[last_subzero_idx:] < 0.3] = yaw_angs[last_subzero_idx:][yaw_angs[last_subzero_idx:] < 0.3] + 2*np.pi
-		# # yaw_angs = yaw_angs / (2*np.pi) #test
-		# # yaw_angs = yaw_angs[:,None]  #test
+		yaw_angs = self.c2s(cloud_xyz)[:,1].numpy()
+		last_subzero_idx = int(len(yaw_angs) // 8)
+		yaw_angs[last_subzero_idx:][yaw_angs[last_subzero_idx:] < 0.3] = yaw_angs[last_subzero_idx:][yaw_angs[last_subzero_idx:] < 0.3] + 2*np.pi
+		# yaw_angs = yaw_angs / (2*np.pi) #test
+		# yaw_angs = yaw_angs[:,None]  #test
 
-		# #TODO: should I use (2pi - T) in place of max(yaw_angs) -> ???
-		# motion_profile = (yaw_angs / np.max(yaw_angs))[:,None] @ rectified_vel #was this
-		# # motion_profile = yaw_angs[:,None] @ rectified_vel #test
-		# print("\n new: \n", motion_profile[:,0])
-		# self.yaw_angs_new = yaw_angs
+		#TODO: should I use (2pi - T) in place of max(yaw_angs) -> ???
+		motion_profile = (yaw_angs / np.max(yaw_angs))[:,None] @ rectified_vel #was this
+		# motion_profile = yaw_angs[:,None] @ rectified_vel #test
+		print("\n new: \n", motion_profile[:,0])
+		self.yaw_angs_new = yaw_angs
 		# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
