@@ -242,11 +242,11 @@ class ICET():
 			print("\n got U and L cluster", time.time() - before, "\n total: ",  time.time() - self.st)
 			before = time.time()
 
-		if self.draw:
-			# self.visualize_L(mu1_enough, U, L)
-			# self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha) #draw all available distributions from scan1
-			# self.draw_cell(corn)
-			self.draw_car()
+		# if self.draw:
+		# 	# self.visualize_L(mu1_enough, U, L)
+		# 	# self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha) #draw all available distributions from scan1
+		# 	# self.draw_cell(corn)
+		# 	self.draw_car()
 		# 	# draw identified points inside useful clusters
 		# 	# for n in range(tf.shape(inside1.to_tensor())[0]):
 		# 	# 	temp = tf.gather(self.cloud1_tensor, inside1[n]).numpy()	
@@ -635,8 +635,8 @@ class ICET():
 
 			self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
 			self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
-			self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
-			self.draw_ell(y0_i, sigma0_i, pc = 1, alpha = self.alpha) #only draw ells from scan 1 if scan 2 also has occupied cell
+			# self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
+			# self.draw_ell(y0_i, sigma0_i, pc = 1, alpha = self.alpha) #only draw ells from scan 1 if scan 2 also has occupied cell
 	
 			# #for debug 2/16/23
 			# # self.shade_residuals(self.corn, self.residuals) 
@@ -1887,6 +1887,12 @@ class ICET():
 		self.disp.append(car)
 		#draw sphere at location of sensor
 		# self.disp.append(Points(np.array([[0,0,0]]), c = [0.9,0.9,0.5], r = 10))
+
+		# #FOR ICRA PRESENTATION FIGURE:
+		# car2 = Mesh(fname).c("gray").rotate(90, axis = (0,0,1)).alpha(0.2)
+		# trans = 1.344
+		# car2.pos(1.4-trans,1,-1.72)
+		# self.disp.append(car2)
 
 		# fname = "C:/Users/Derm/lidar.stl"
 		# velodyne = Mesh(fname).c("gray").rotate(90, axis = (1,0,0)).scale(0.001)

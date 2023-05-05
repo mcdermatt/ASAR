@@ -141,11 +141,11 @@ class LC():
 
 		U, L = self.get_U_and_L_cluster(sigma1_enough, mu1_enough, occupied_spikes, bounds)
 
-		if self.draw:
-			# self.visualize_L(mu1_enough, U, L)
-			self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
-			self.draw_cell(corn)
-			# self.draw_car()
+		# if self.draw:
+		# 	# self.visualize_L(mu1_enough, U, L)
+		# 	# self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
+		# 	self.draw_cell(corn)
+		# 	# self.draw_car()
 
 		#main loop
 		for i in range(niter):
@@ -357,7 +357,7 @@ class LC():
 			print("num corr: \n", tf.shape(corr))
 
 			H = tf.concat([H_x, H_m], axis = 2) #supposed to be this
-			# H = tf.concat([H_x, 0.5*H_m], axis = 2) #test punishing H_m
+			# H = tf.concat([H_x, 0.*H_m], axis = 2) #test punishing H_m
 			print("H: \n", tf.shape(H))
 
 			#construct sensor noise covariance matrix
@@ -440,12 +440,13 @@ class LC():
 
 			if self.draw:
 				self.disp.append(Points(self.cloud2_tensor[:,:3],
-				 c = "#2c7c94", alpha = (i+1)/(niter+1), r=7.))
+				 c = "#2c7c94", alpha = (i+1)/(niter+1), r=2.5)) #r=7
 				# self.draw_correspondences(mu1, mu2, corr) #corr displays just used correspondences
 
 		if self.draw:
 			self.draw_cloud(self.cloud1_tensor, pc = 1)
-			self.draw_ell(y_j, sigma_j, pc = 2, alpha = self.alpha)
+			# self.draw_ell(y_j, sigma_j, pc = 2, alpha = self.alpha)
+			# self.draw_ell(y_i, sigma_i, pc = 1, alpha = self.alpha)
 			if remove_moving:
 				self.draw_cell(bad_idx_corn_moving, bad = True)
 
@@ -1544,13 +1545,16 @@ class LC():
 
 		# linearly spaced motion profile ~~~~~~~~~~~~~~~~~~~~~
 		# this is a bad way of doing it ... what happens if most of the points are on one half of the scene??
+
 		part2 = np.linspace(0.5, 1.0, len(cloud_xyz)//2)[:,None]
 		part1 = np.linspace(0, 0.5, len(cloud_xyz) - len(cloud_xyz)//2)[:,None]
 		motion_profile = np.append(part1, part2, axis = 0) @ rectified_vel
 
 		# # using yaw angles ~~~~~~~~~~~~~~~~~~~~~~
-		#This doesn't work-- causes soln to fall into wrong local minima
+		#  (NEW)
 		
+		# #TODO: need to center point cloud before getting yaw angles
+
 		# yaw_angs = self.c2s(cloud_xyz)[:,1].numpy()
 		# last_subzero_idx = int(len(yaw_angs) // 8)
 		# yaw_angs[last_subzero_idx:][yaw_angs[last_subzero_idx:] < 0.3] = yaw_angs[last_subzero_idx:][yaw_angs[last_subzero_idx:] < 0.3] + 2*np.pi
@@ -1558,8 +1562,8 @@ class LC():
 		# # yaw_angs = yaw_angs[:,None]  #test
 
 		# #TODO: should I use (2pi - T) in place of max(yaw_angs) -> ???
-		# # motion_profile = (yaw_angs / np.max(yaw_angs))[:,None] @ rectified_vel #was this
-		# motion_profile = yaw_angs[:,None] @ rectified_vel #test
+		# motion_profile = (yaw_angs / np.max(yaw_angs))[:,None] @ rectified_vel #was this
+		# # motion_profile = yaw_angs[:,None] @ rectified_vel #test
 		# print("\n new: \n", motion_profile[:,0])
 		# self.yaw_angs_new = yaw_angs
 		# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -2625,7 +2629,7 @@ class LC():
 		if pc == 3:
 			color = [0.5, 0.8, 0.5]
 		
-		c = Points(points, c = color, r = 7., alpha = 1.) #r = 2.5
+		c = Points(points, c = color, r = 2.5, alpha = 1.) #r = 2.5
 		self.disp.append(c)
 
 	def draw_car(self):
