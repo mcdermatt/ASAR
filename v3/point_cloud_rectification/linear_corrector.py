@@ -28,7 +28,7 @@ class LC():
 		self.cheat = cheat #overide for using ICET to generate training data for DNN
 		self.DNN_filter = DNN_filter
 		self.start_filter_iter = 7 #10 #iteration to start DNN rejection filter
-		self.start_RM_iter = 15 #iteration to start removing moving objects (set low to generate training data)
+		self.start_RM_iter = 7 #iteration to start removing moving objects (set low to generate training data)
 		self.DNN_thresh = 0.05 #0.03
 		self.RM_thresh = 0.05 #0.05 #0.25
 		self.max_buffer = max_buffer #2 max buffer width in spherical voxels
@@ -431,7 +431,7 @@ class LC():
 			self.A[3:6] += delta_A[3:6]
 			#augment distortion correction
 			self.A[6:9] += delta_A[6:9]
-			self.A[9:] -= delta_A[9:]
+			self.A[9:] -= delta_A[9:] #try commenting this out to suppress rotation distortion correction
 
 			# going to have to remove globally extended axis pruning for now 
 			#  (not sure how ambiguities even propogate when you have a 12 DOF system)
