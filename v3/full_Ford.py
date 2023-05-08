@@ -6,11 +6,23 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.math import sin, cos, tan
 import tensorflow_probability as tfp
-#debug for running multiple sessions-------------------------------------------
+
+#limit GPU memory ------------------------------------------------
 gpus = tf.config.experimental.list_physical_devices('GPU')
-tf.config.experimental.set_virtual_device_configuration(gpus[0], 
-   [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=2048)])
-#------------------------------------------------------------------------------
+print(gpus)
+if gpus:
+  try:
+    memlim = 4*1024
+    tf.config.experimental.set_virtual_device_configuration(gpus[0], [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=memlim)])
+  except RuntimeError as e:
+    print(e)
+#-----------------------------------------------------------------
+
+# #debug for running multiple sessions-------------------------------------------
+# gpus = tf.config.experimental.list_physical_devices('GPU')
+# tf.config.experimental.set_virtual_device_configuration(gpus[0], 
+#    [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=2048)])
+# #------------------------------------------------------------------------------
 from ICET_spherical import ICET
 import mat4py
 
@@ -23,7 +35,8 @@ ICET_pred_stds = np.zeros([num_frames, 6])
 
 initial_guess = tf.constant([0., 0., 0., 0., 0., 0.])
 
-gt_fn = "spherical_paper/ford_results/truth_body_frame.txt";
+# gt_fn = "spherical_paper/ford_results/truth_body_frame.txt";
+gt_fn = "/media/derm/06EF-127D3/Ford/IJRR-Dataset-1/SCANS/FORD_DS1_truth.txt"
 gt = np.loadtxt(gt_fn);
 
 for i in range(num_frames):
@@ -36,10 +49,8 @@ for i in range(num_frames):
 	# #-------------------
 
 	#full dataset ------
-	fn1 = 'E:/Ford/IJRR-Dataset-1/SCANS/Scan%04d.mat' %(i + 75)
-	fn2 = 'E:/Ford/IJRR-Dataset-1/SCANS/Scan%04d.mat' %(i + 76)
-	# fn2 = 'E:/Ford/IJRR-Dataset-1/SCANS/Scan%04d.mat' %(i + 75) #testing flipping scan1 and scan2
-	# fn1 = 'E:/Ford/IJRR-Dataset-1/SCANS/Scan%04d.mat' %(i + 76)
+	fn1 = '/media/derm/06EF-127D3/Ford/IJRR-Dataset-1/SCANS/Scan%04d.mat' %(i + 75)
+	fn2 = '/media/derm/06EF-127D3/Ford/IJRR-Dataset-1/SCANS/Scan%04d.mat' %(i + 76)
 	#NOTE: 
 	#	campus townhouses at 980+75,76
 	#	long straight strip at 2200 + 75,76
@@ -57,16 +68,21 @@ for i in range(num_frames):
 	#seed initial registration estimate
 	initial_guess = tf.constant([0, 0.1*gt[i,1] + 0.01*np.random.randn(), 0, 0, 0, 0,])
 
-	it = ICET(cloud1 = c1, cloud2 = c2, fid = 70, niter = 7, draw = False, group = 2, 
+	it = ICET(cloud1 = c1, cloud2 = c2, fid = 50, niter = 5, draw = False, group = 2, 
 		RM = True, DNN_filter = False, x0 = initial_guess)
 
 	ICET_pred_stds[i] = it.pred_stds
 	ICET_estimates[i] = it.X
 	initial_guess = it.X
 
+	if i % 10 == 0:
+		print("saving...")
+		np.savetxt("Ford_full_pred_stds_v13.txt", ICET_pred_stds)
+		np.savetxt("Ford_full_estimates_v13.txt", ICET_estimates)
 
-np.savetxt("Ford_full_pred_stds_v11.txt", ICET_pred_stds)
-np.savetxt("Ford_full_estimates_v11.txt", ICET_estimates)
+
+np.savetxt("Ford_full_pred_stds_v13.txt", ICET_pred_stds)
+np.savetxt("Ford_full_estimates_v13.txt", ICET_estimates)
 
 # np.savetxt("Ford_full_pred_stds_NDT_trans_first.txt", ICET_pred_stds)
 # np.savetxt("Ford_full_estimates_NDT_trans_first.txt", ICET_estimates)
