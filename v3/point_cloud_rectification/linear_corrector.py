@@ -28,7 +28,7 @@ class LC():
 		self.cheat = cheat #overide for using ICET to generate training data for DNN
 		self.DNN_filter = DNN_filter
 		self.start_filter_iter = 7 #10 #iteration to start DNN rejection filter
-		self.start_RM_iter = 7 #iteration to start removing moving objects (set low to generate training data)
+		self.start_RM_iter = 8 #iteration to start removing moving objects (set low to generate training data)
 		self.DNN_thresh = 0.05 #0.03
 		self.RM_thresh = 0.05 #0.05 #0.25
 		self.max_buffer = max_buffer #2 max buffer width in spherical voxels
@@ -175,7 +175,7 @@ class LC():
 			self.cloud2_tensor = (self.cloud2_tensor_OG @ rot) + trans
 			self.cloud2_tensor = tf.cast(self.cloud2_tensor, tf.float32)
 			#apply last estimate of correction to origonal point cloud 2
-			self.cloud2_tensor = self.apply_motion_profile(self.cloud2_tensor, self.m_hat)
+			self.cloud2_tensor = self.apply_motion_profile(self.cloud2_tensor, self.m_hat) #, period_lidar = 0.1)
 
 			#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

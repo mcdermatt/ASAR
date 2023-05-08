@@ -65,11 +65,11 @@ for i in range(num_frames):
 	initial_guess = it.X
 
 
-# np.savetxt("Ford_full_pred_stds_v10.txt", ICET_pred_stds)
-# np.savetxt("Ford_full_estimates_v10.txt", ICET_estimates)
+np.savetxt("Ford_full_pred_stds_v11.txt", ICET_pred_stds)
+np.savetxt("Ford_full_estimates_v11.txt", ICET_estimates)
 
-np.savetxt("Ford_full_pred_stds_NDT_trans_first.txt", ICET_pred_stds)
-np.savetxt("Ford_full_estimates_NDT_trans_first.txt", ICET_estimates)
+# np.savetxt("Ford_full_pred_stds_NDT_trans_first.txt", ICET_pred_stds)
+# np.savetxt("Ford_full_estimates_NDT_trans_first.txt", ICET_estimates)
 
 #OLD (using partial Ford dataset)
 #v1 - fid 50, dnn = 0.10, moving = 0.1
@@ -89,3 +89,4 @@ np.savetxt("Ford_full_estimates_NDT_trans_first.txt", ICET_estimates)
 #v8 - Better DNN, tighter convergence!! fid = 70, niter = 13, thresh = 0.4, starts at 1175
 #v9 - same param as v8, but without DNN
 #v10 - full Ford dataset, filting by translation and rotation. 
+#v11 - v10 looked good most of the way but lost the plot around frame 2400

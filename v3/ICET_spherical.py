@@ -30,7 +30,7 @@ class ICET():
 		self.start_filter_iter = 7 #10 #iteration to start DNN rejection filter
 		self.start_RM_iter = 7 #10 #iteration to start removing moving objects (set low to generate training data)
 		self.DNN_thresh = 0.05 #0.03
-		self.RM_thresh = 0.02 #0.25
+		self.RM_thresh = 0.075 #0.25
 
 		before = time.time()
 
@@ -514,6 +514,32 @@ class ICET():
 				before = time.time()
 			#----------------------------------------------
 			
+
+			# # For using in conjunction with distortion correction algorithm ~~~~~~~~~~~~~~~~~~
+			# bounds_good = tf.gather(bounds, corr)
+			# good_pts_rag1, _ = self.get_points_in_cluster(self.cloud1_tensor_spherical, tf.gather(occupied_spikes, corr), bounds_good)
+			# good_pts_rag2, _ = self.get_points_in_cluster(self.cloud2_tensor_spherical, tf.gather(occupied_spikes, corr), bounds_good)
+
+			# if i >= (niter - 2):
+			# 	to_save1 = np.zeros([1,3])
+			# 	to_save2 = np.zeros([1,3])
+			# 	for z in range(good_pts_rag1.bounding_shape()[0]):
+			# 		temp = tf.gather(self.cloud1_tensor, good_pts_rag1[z]).numpy()
+			# 		#draw good points from scan 1-------------
+			# 		# if self.draw == True:
+			# 		# 	self.disp.append(Points(temp, c = 'green', r = 6))
+			# 		#-----------------------------------------
+			# 		to_save1 = np.append(to_save1, temp, axis = 0)	
+			# 	self.cloud1_static = to_save1
+				
+			# 	for z in range(good_pts_rag2.bounding_shape()[0]):
+			# 		temp = tf.gather(self.cloud2_tensor, good_pts_rag2[z]).numpy()
+			# 		to_save2 = np.append(to_save2, temp, axis = 0)
+			# 	self.cloud2_static = to_save2
+			# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+
 			#for MC simulations
 			if i < self.start_filter_iter:
 				self.before_correction = self.X
