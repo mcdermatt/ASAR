@@ -33,17 +33,16 @@ class LC():
 		self.RM_thresh = 0.05 #0.05 #0.25
 		self.max_buffer = max_buffer #2 max buffer width in spherical voxels
 
-		#convert cloud1 to tesnsor
+		#convert cloud1 to tensor
 		#WAS THIS FOR ICET-- unfortunately, we need to retain the correct order of points
 		#		TODO: try shuffling by axis when fitting gaussian
-		# #needed for efficient gaussian fitting later on??? 
-		# self.cloud1_tensor = tf.random.shuffle(tf.cast(tf.convert_to_tensor(cloud1), tf.float32))
-		# self.cloud2_tensor = tf.random.shuffle(tf.cast(tf.convert_to_tensor(cloud2), tf.float32))
-		self.cloud1_tensor = tf.cast(tf.convert_to_tensor(cloud1), tf.float32)
-		self.cloud2_tensor = tf.cast(tf.convert_to_tensor(cloud2), tf.float32)
+		self.cloud1_tensor = tf.random.shuffle(tf.cast(tf.convert_to_tensor(cloud1), tf.float32))
+		self.cloud2_tensor = tf.random.shuffle(tf.cast(tf.convert_to_tensor(cloud2), tf.float32))
+		# self.cloud1_tensor = tf.cast(tf.convert_to_tensor(cloud1), tf.float32)
+		# self.cloud2_tensor = tf.cast(tf.convert_to_tensor(cloud2), tf.float32)
 
 		if self.draw == True:
-			self.plt = Plotter(N = 1, axes = 4, bg = (1, 1, 1), interactive = True) #axis = 1
+			self.plt = Plotter(N = 1, axes = 1, bg = (1, 1, 1), interactive = True) #axis = 1
 			# self.plt = Plotter(N = 1, axes = 4, bg = (1, 1, 1), interactive = False) #USE FOR MAKING DEMO GIFS 
 			self.disp = []
 			#copy-paste camera settings here using Shift+C on vedo terminal window
@@ -54,6 +53,9 @@ class LC():
 			self.plt.camera.SetDistance( 115 )
 			self.plt.camera.SetClippingRange( [28., 300.] )
 
+		#hold on to cloud1 for dispaying later
+		self.cloud1_tensor_OG = self.cloud1_tensor
+
 		#convert cloud to spherical coordinates
 		self.cloud1_tensor_spherical = tf.cast(self.c2s(self.cloud1_tensor), tf.float32)
 		self.cloud2_tensor_spherical = tf.cast(self.c2s(self.cloud2_tensor), tf.float32)
@@ -62,6 +64,18 @@ class LC():
 		not_too_close1 = tf.where(self.cloud1_tensor_spherical[:,0] > self.min_cell_distance)[:,0]
 		self.cloud1_tensor_spherical = tf.gather(self.cloud1_tensor_spherical, not_too_close1)
 		self.cloud1_tensor = tf.gather(self.cloud1_tensor, not_too_close1)
+
+		#DEBUG: remove any elements of cloud that are outside phimin/phimax-----
+		phimin =  3*np.pi/8 + 0.01
+		# phimin =  1*np.pi/8
+		phimax = 7*np.pi/8 - 0.01
+		smaller = tf.where(self.cloud1_tensor_spherical[:,2] < phimax)
+		bigger = tf.where(self.cloud1_tensor_spherical[:,2] > phimin)
+		between = tf.sets.intersection(tf.transpose(smaller),tf.transpose(bigger))
+		self.cloud1_tensor = tf.gather(self.cloud1_tensor, between.values)
+		self.cloud1_tensor_spherical = tf.gather(self.cloud1_tensor_spherical, between.values)
+		#------------------------------------------------------------------------
+
 		not_too_close2 = tf.where(self.cloud2_tensor_spherical[:,0] > self.min_cell_distance)[:,0]
 		self.cloud2_tensor_spherical = tf.gather(self.cloud2_tensor_spherical, not_too_close2)
 		self.cloud2_tensor_OG = tf.gather(self.cloud2_tensor, not_too_close2) #better to remove too close points from OG
@@ -100,12 +114,13 @@ class LC():
 		thetamin = -np.pi
 		thetamax = np.pi
 		phimin =  3*np.pi/8
+		# phimin =  1*np.pi/8
 		phimax = 7*np.pi/8 
 		edges_phi = tf.linspace(phimin, phimax, self.fid_phi)
 		edges_theta = tf.linspace(thetamin, thetamax, self.fid_theta + 1)
 
 		cloud = self.cloud1_tensor_spherical
-		
+
 		bins_theta = tfp.stats.find_bins(cloud[:,1], edges_theta)
 		bins_phi = tfp.stats.find_bins(cloud[:,2], edges_phi)
 
@@ -142,8 +157,8 @@ class LC():
 		U, L = self.get_U_and_L_cluster(sigma1_enough, mu1_enough, occupied_spikes, bounds)
 
 		# if self.draw:
-		# 	self.visualize_L(mu1_enough, U, L)
-		# 	# self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
+		# 	# self.visualize_L(mu1_enough, U, L)
+		# 	self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
 		# 	# self.draw_cell(corn)
 		# 	# self.draw_car()
 
@@ -438,15 +453,29 @@ class LC():
 
 			print("A: \n", np.round(self.A, 4)[:6], "\n", np.round(self.A, 4)[6:])
 
-			if self.draw:
-				self.disp.append(Points(self.cloud2_tensor[:,:3],
-				 c = "#2c7c94", alpha = (i+1)/(niter+1), r=2.5)) #r=7
-				# self.draw_correspondences(mu1, mu2, corr) #corr displays just used correspondences
+			# #draw transformation history of PC2
+			# if self.draw:
+			# 	self.disp.append(Points(self.cloud2_tensor[:,:3],
+			# 	 c = "#2c7c94", alpha = (i+1)/(niter+1), r=2.5)) #r=7
+			# 	# self.draw_correspondences(mu1, mu2, corr) #corr displays just used correspondences
+
+		# #DEBUG: remove any elements of cloud that are outside phimin/phimax-----
+		# phimin =  3*np.pi/8 + 0.01
+		# # phimin =  1*np.pi/8
+		# phimax = 7*np.pi/8 - 0.01
+		# smaller = tf.where(self.cloud2_tensor_spherical[:,2] < phimax)
+		# bigger = tf.where(self.cloud2_tensor_spherical[:,2] > phimin)
+		# between = tf.sets.intersection(tf.transpose(smaller),tf.transpose(bigger))
+		# self.cloud2_tensor = tf.gather(self.cloud2_tensor, between.values)
+		# #------------------------------------------------------------------------
 
 		if self.draw:
-			self.draw_cloud(self.cloud1_tensor, pc = 1)
-			self.draw_ell(y_j, sigma_j, pc = 2, alpha = self.alpha)
-			self.draw_ell(y_i, sigma_i, pc = 1, alpha = self.alpha)
+			# self.draw_cloud(self.cloud1_tensor, pc = 1) #show only what fits inside grid
+			self.draw_cloud(self.cloud2_tensor_OG, pc = 1) 
+			self.draw_cloud(self.cloud2_tensor, pc = 2) 
+			self.draw_cloud(self.cloud1_tensor_OG, pc = 4) #show full cloud
+			# self.draw_ell(y_j, sigma_j, pc = 2, alpha = self.alpha)
+			# self.draw_ell(y_i, sigma_i, pc = 1, alpha = self.alpha)
 			if remove_moving:
 				self.draw_cell(bad_idx_corn_moving, bad = True)
 			# self.draw_correspondences(mu1, mu2, corr) #corr displays just used correspondences
@@ -466,6 +495,7 @@ class LC():
 		thetamin = -np.pi
 		thetamax = np.pi
 		phimin =  3*np.pi/8
+		# phimin =  1*np.pi/8
 		phimax = 7*np.pi/8 
 
 		edges_phi = tf.linspace(phimin, phimax, self.fid_phi)
@@ -781,6 +811,7 @@ class LC():
 		thetamin = -np.pi
 		thetamax = np.pi
 		phimin =  3*np.pi/8
+		# phimin =  1*np.pi/8
 		phimax = 7*np.pi/8 
 
 		edges_phi = tf.linspace(phimin, phimax, self.fid_phi)
@@ -1794,6 +1825,7 @@ class LC():
 		thetamin = -np.pi
 		thetamax = np.pi #-  2*np.pi/self.fid_theta
 		phimin =  3*np.pi/8
+		# phimin =  1*np.pi/8
 		phimax = 7*np.pi/8
 
 		edges_phi = tf.linspace(phimin, phimax, self.fid_phi) #was this for regular cells
@@ -2318,7 +2350,7 @@ class LC():
 		thetamin = -np.pi
 		thetamax = np.pi #-  2*np.pi/self.fid_theta
 		phimin =  3*np.pi/8
-		# phimax = 5*np.pi/8 #was this
+		# phimin =  1*np.pi/8
 		phimax = 7*np.pi/8 #why is this not the same as in <grid_spherical>????
 
 
@@ -2393,7 +2425,7 @@ class LC():
 		thetamin = -np.pi
 		thetamax = np.pi #-  2*np.pi/self.fid_theta
 		phimin =  3*np.pi/8
-		# phimax = 5*np.pi/8 #was this
+		# phimin =  1*np.pi/8
 		phimax = 7*np.pi/8 #why is this not the same as in <grid_spherical>????
 
 		edges_phi = tf.linspace(phimin, phimax, self.fid_phi)
@@ -2574,6 +2606,7 @@ class LC():
 		thetamin = -np.pi 
 		thetamax = np.pi - 2*np.pi/self.fid_theta #different from limits in main()
 		phimin =  3*np.pi/8
+		# phimin =  1*np.pi/8
 		phimax = 7*np.pi/8
 
 		a = tf.cast(tf.linspace(0,self.fid_r-1, self.fid_r)[:,None], tf.float32)
@@ -2626,12 +2659,18 @@ class LC():
 
 		if pc == 1:
 			color = [0.8, 0.5, 0.5]
+			c = Points(points, c = color, r = 2.5, alpha = 1.) #r = 2.5
 		if pc == 2:
 			color = [0.5, 0.5, 0.8]
+			c = Points(points, c = color, r = 2.5, alpha = 1.) #r = 2.5
 		if pc == 3:
 			color = [0.5, 0.8, 0.5]
+			c = Points(points, c = color, r = 2.5, alpha = 1.) #r = 2.5
+		if pc == 4:
+			#HD MAP
+			c = Points(points, c = 'black', r = 2., alpha = 0.05) #r = 2.5
+
 		
-		c = Points(points, c = color, r = 2.5, alpha = 1.) #r = 2.5
 		self.disp.append(c)
 
 	def draw_car(self):
