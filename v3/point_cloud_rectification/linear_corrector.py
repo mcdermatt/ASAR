@@ -42,7 +42,7 @@ class LC():
 		# self.cloud2_tensor = tf.cast(tf.convert_to_tensor(cloud2), tf.float32)
 
 		if self.draw == True:
-			self.plt = Plotter(N = 1, axes = 1, bg = (1, 1, 1), interactive = True) #axis = 1
+			self.plt = Plotter(N = 1, axes = 4, bg = (1, 1, 1), interactive = True) #axis = 1
 			# self.plt = Plotter(N = 1, axes = 4, bg = (1, 1, 1), interactive = False) #USE FOR MAKING DEMO GIFS 
 			self.disp = []
 			#copy-paste camera settings here using Shift+C on vedo terminal window
@@ -78,6 +78,7 @@ class LC():
 
 		not_too_close2 = tf.where(self.cloud2_tensor_spherical[:,0] > self.min_cell_distance)[:,0]
 		self.cloud2_tensor_spherical = tf.gather(self.cloud2_tensor_spherical, not_too_close2)
+		# self.cloud2_tensor_OG = self.cloud2_tensor #test
 		self.cloud2_tensor_OG = tf.gather(self.cloud2_tensor, not_too_close2) #better to remove too close points from OG
 		self.cloud2_tensor = tf.gather(self.cloud2_tensor, not_too_close2)
 
@@ -189,11 +190,9 @@ class LC():
 			trans = self.X_hat[:3]
 			self.cloud2_tensor = (self.cloud2_tensor_OG @ rot) + trans
 			self.cloud2_tensor = tf.cast(self.cloud2_tensor, tf.float32)
-			#apply last estimate of correction to origonal point cloud 2
+			#apply last estimate of correction to original point cloud 2
 			self.cloud2_tensor = self.apply_motion_profile(self.cloud2_tensor, self.m_hat) #, period_lidar = 0.1)
-
 			#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
 
 			#convert back to spherical coordinates
 			self.cloud2_tensor_spherical = tf.cast(self.c2s(self.cloud2_tensor), tf.float32)
@@ -363,17 +362,7 @@ class LC():
 			# shape(H_x) = [num of corr * 3, 6]
 			H_x = jacobian_tf(tf.transpose(y_i), tf.cast(self.X_hat[3:], tf.float32)) 
 			H_x = tf.reshape(H_x, (tf.shape(H_x)[0]//3, 3, 6)) # -> need shape [#corr//4, 4, 6]
-			# print("\n H_x before:", np.shape(H_x), "\n", H_x[0])
-			# H_x = tf.concat([H_x, tf.zeros([len(H_x),1,6])], axis = 1)
-			# H_x = tf.reshape(H_x, (-1, 6))
-			# print("\n H_x after:", np.shape(H_x), "\n", H_x[:10])
-			# H_x = H_x.numpy()
-
-			print("num corr: \n", tf.shape(corr))
-
-			H = tf.concat([H_x, H_m], axis = 2) #supposed to be this
-			# H = tf.concat([H_x, 0.*H_m], axis = 2) #test punishing H_m
-			# print("H: \n", tf.shape(H))
+			H = tf.concat([H_x, H_m], axis = 2)
 
 			#construct sensor noise covariance matrix
 			R_noise = (tf.transpose(tf.transpose(sigma_i, [1,2,0]) / tf.cast(npts_i - 1, tf.float32)) + 
@@ -388,8 +377,8 @@ class LC():
 			# use LUT to remove rows of H corresponding to overly extended directions
 			LUT = L_I @ tf.transpose(U_I, [0,2,1])
 			print("LUT", tf.shape(LUT))
-			# H_z = LUT @ H #was this
-			H_z = H #debug
+			# H_z = LUT @ H
+			H_z = H #-- taking care of extended surfaces in a minute
 
 			HTWH = tf.math.reduce_sum(tf.matmul(tf.matmul(tf.transpose(H_z, [0,2,1]), W), H_z), axis = 0) #was this for ICET 
 			# HTWH = tf.matmul(tf.matmul(tf.transpose(H_z, [0,2,1]), W), H_z) #need to hold off on summing until the end
@@ -459,21 +448,19 @@ class LC():
 			# 	 c = "#2c7c94", alpha = (i+1)/(niter+1), r=2.5)) #r=7
 			# 	# self.draw_correspondences(mu1, mu2, corr) #corr displays just used correspondences
 
-		# #DEBUG: remove any elements of cloud that are outside phimin/phimax-----
-		# phimin =  3*np.pi/8 + 0.01
-		# # phimin =  1*np.pi/8
-		# phimax = 7*np.pi/8 - 0.01
-		# smaller = tf.where(self.cloud2_tensor_spherical[:,2] < phimax)
-		# bigger = tf.where(self.cloud2_tensor_spherical[:,2] > phimin)
-		# between = tf.sets.intersection(tf.transpose(smaller),tf.transpose(bigger))
-		# self.cloud2_tensor = tf.gather(self.cloud2_tensor, between.values)
-		# #------------------------------------------------------------------------
-
 		if self.draw:
 			# self.draw_cloud(self.cloud1_tensor, pc = 1) #show only what fits inside grid
-			self.draw_cloud(self.cloud2_tensor_OG, pc = 1) 
-			self.draw_cloud(self.cloud2_tensor, pc = 2) 
-			self.draw_cloud(self.cloud1_tensor_OG, pc = 4) #show full cloud
+			# self.draw_cloud(self.cloud2_tensor_OG, pc = 1) 
+			# self.draw_cloud(self.cloud2_tensor, pc = 2) 
+
+			# self.disp.append(Points(self.cloud1_tensor_OG, c='red',  r = 3.5, alpha =0.2))  
+			self.disp.append(Points(self.cloud2_tensor_OG, c='#a65852',  r = 3, alpha =0.5))
+			# color = 255*np.linspace(0,1,len(self.cloud2_tensor))
+			# cname = np.array([255-color, color, 255-color]).T.tolist()
+			# self.disp.append(Points(self.cloud2_tensor, c=cname,  r = 3.5, alpha =0.5))
+			self.disp.append(Points(self.cloud2_tensor, c='#2c7c94',  r = 3, alpha =0.5))
+
+			self.draw_cloud(self.cloud1_tensor_OG, pc = 4) #show full cloud in black/gray 
 			# self.draw_ell(y_j, sigma_j, pc = 2, alpha = self.alpha)
 			# self.draw_ell(y_i, sigma_i, pc = 1, alpha = self.alpha)
 			if remove_moving:
@@ -1594,6 +1581,17 @@ class LC():
 		# yaw_angs = yaw_angs / (2*np.pi) #test
 		# yaw_angs = yaw_angs[:,None]  #test
 
+		# #test
+		# self.yaw_angs = yaw_angs
+		# self.cloud_xyz = cloud_xyz
+		# color = 255*self.yaw_angs/(2*np.pi)
+		# cname = np.array([255-color, color, 255-color]).T.tolist()
+		# # self.disp.append(Points(self.cloud_xyz + 0.01*np.random.randn(np.shape(cloud_xyz)[0],3), c=cname, r = 3))
+		# self.disp.append(Points(self.cloud_xyz, c=cname, r = 3))
+
+		#DEBUG: jump in <yaw_angs> is causing unintended behavior in real world LIDAR data
+		yaw_angs = (yaw_angs + 2*np.pi)%(2*np.pi)
+
 		#TODO: should I use (2pi - T) in place of max(yaw_angs) -> ???
 		motion_profile = (yaw_angs / np.max(yaw_angs))[:,None] @ rectified_vel #was this
 		# motion_profile = yaw_angs[:,None] @ rectified_vel #test
@@ -1674,8 +1672,8 @@ class LC():
 
 		# #old way-- assumes full coverage of point returns (not always the case) ~~
 		# t_scale = (2*np.pi)/(-m_hat[-1] + (2*np.pi/period_lidar))
-		# lsvec = np.linspace(0,t_scale, len(y_j))
-		# M = m_hat * np.array([lsvec, lsvec, lsvec, lsvec, lsvec, lsvec]).T
+		# svec = np.linspace(0,t_scale, len(y_j))
+		# M = m_hat * np.array([svec, svec, svec, svec, svec, svec]).T
 
 		# new way-- scale M by azimuth angle ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -1685,7 +1683,7 @@ class LC():
 		last_subzero_idx = int(len(yaw_angs) // 8)
 		yaw_angs[last_subzero_idx:][yaw_angs[last_subzero_idx:] < 0.3] = yaw_angs[last_subzero_idx:][yaw_angs[last_subzero_idx:] < 0.3] + 2*np.pi
 
-		# print(yaw_angs)
+		# print("yaw_angs", len(yaw_angs))
 
 		svec = (yaw_angs / np.max(yaw_angs))  #scaling vec
 		# print("\n svec: \n", np.shape(svec), svec)
@@ -2309,6 +2307,10 @@ class LC():
 		# xy = tf.math.reduce_sum( (xpos - mu[:,0][:,None])*(ypos - mu[:,1][:,None]), axis = 1)/npts  #+
 		# xz = tf.math.reduce_sum( (xpos - mu[:,0][:,None])*(zpos - mu[:,2][:,None]), axis = 1)/npts #-
 		# yz = tf.math.reduce_sum( (ypos - mu[:,1][:,None])*(zpos - mu[:,2][:,None]), axis = 1)/npts #-
+		# sigma = tf.Variable([xx, xy, xz,
+		# 					 xy, yy, yz,
+		# 					 xz, yz, zz]) 
+		# sigma = tf.reshape(tf.transpose(sigma), (tf.shape(sigma)[1] ,3,3))
 		# return(mu, sigma)
 		# #~~~~~~~~~~
 
