@@ -37,9 +37,9 @@ class LC():
 		#WAS THIS FOR ICET-- unfortunately, we need to retain the correct order of points
 		#		TODO: try shuffling by axis when fitting gaussian
 		self.cloud1_tensor = tf.random.shuffle(tf.cast(tf.convert_to_tensor(cloud1), tf.float32))
-		self.cloud2_tensor = tf.random.shuffle(tf.cast(tf.convert_to_tensor(cloud2), tf.float32))
+		# self.cloud2_tensor = tf.random.shuffle(tf.cast(tf.convert_to_tensor(cloud2), tf.float32)) #need to hold on to order for wrap-aroound fix
 		# self.cloud1_tensor = tf.cast(tf.convert_to_tensor(cloud1), tf.float32)
-		# self.cloud2_tensor = tf.cast(tf.convert_to_tensor(cloud2), tf.float32)
+		self.cloud2_tensor = tf.cast(tf.convert_to_tensor(cloud2), tf.float32)
 
 		if self.draw == True:
 			self.plt = Plotter(N = 1, axes = 4, bg = (1, 1, 1), interactive = True) #axis = 1
@@ -196,6 +196,24 @@ class LC():
 
 			#convert back to spherical coordinates
 			self.cloud2_tensor_spherical = tf.cast(self.c2s(self.cloud2_tensor), tf.float32)
+
+			#IMPORTANT-- after applying distortion correction, remove points from the beginning of scan 2 with an
+			#			 absolute rotation of >= 2pi 
+			#			NOTE: removing beginning pts here since newer college dataset is recorded cw but distortion correction
+			#				 code assumes ccw LIDAR rotation  
+			self.yaw_angs =  self.cloud2_tensor_spherical[:,1].numpy()
+			yaw_angs_scaled = (self.yaw_angs + 2*np.pi)%(2*np.pi)
+			#get indices len(yaw_angs_scaled)//8 where yaw_angs_scaled is less than pi  
+			problem_idx = np.argwhere(yaw_angs_scaled[:len(yaw_angs_scaled)//8] < np.pi)
+			all_idx = np.linspace(0,len(yaw_angs_scaled)-1, len(yaw_angs_scaled))
+			good_idx = np.setdiff1d(all_idx, problem_idx).astype(np.int32)
+			#----------------------------------------------------------------------------------------------------
+
+			#only hold on to good index points
+			self.cloud2_tensor_spherical = tf.gather(self.cloud2_tensor_spherical, good_idx)
+			self.cloud2_tensor_spherical = tf.random.shuffle(tf.cast(tf.convert_to_tensor(self.cloud2_tensor_spherical), tf.float32))
+			#hold on to a copy in cartesian space with same shuffling
+			self.cloud2_tensor = tf.cast(self.s2c(self.cloud2_tensor_spherical), tf.float32)
 
 			#find points from scan 2 that fall inside clusters
 			inside2, npts2 = self.get_points_in_cluster(self.cloud2_tensor_spherical, occupied_spikes, bounds)
@@ -455,14 +473,17 @@ class LC():
 
 			# self.disp.append(Points(self.cloud1_tensor_OG, c='red',  r = 3.5, alpha =0.2))  
 			self.disp.append(Points(self.cloud2_tensor_OG, c='#a65852',  r = 3, alpha =0.5))
+
 			# color = 255*np.linspace(0,1,len(self.cloud2_tensor))
 			# cname = np.array([255-color, color, 255-color]).T.tolist()
 			# self.disp.append(Points(self.cloud2_tensor, c=cname,  r = 3.5, alpha =0.5))
+			self.draw_cloud(self.cloud1_tensor_OG, pc = 4) #show full cloud in black/gray 
+
 			self.disp.append(Points(self.cloud2_tensor, c='#2c7c94',  r = 3, alpha =0.5))
 
-			self.draw_cloud(self.cloud1_tensor_OG, pc = 4) #show full cloud in black/gray 
 			# self.draw_ell(y_j, sigma_j, pc = 2, alpha = self.alpha)
 			# self.draw_ell(y_i, sigma_i, pc = 1, alpha = self.alpha)
+
 			if remove_moving:
 				self.draw_cell(bad_idx_corn_moving, bad = True)
 			# self.draw_correspondences(mu1, mu2, corr) #corr displays just used correspondences
@@ -1589,7 +1610,7 @@ class LC():
 		# # self.disp.append(Points(self.cloud_xyz + 0.01*np.random.randn(np.shape(cloud_xyz)[0],3), c=cname, r = 3))
 		# self.disp.append(Points(self.cloud_xyz, c=cname, r = 3))
 
-		#DEBUG: jump in <yaw_angs> is causing unintended behavior in real world LIDAR data
+		#jump in <yaw_angs> is causing unintended behavior in real world LIDAR data
 		yaw_angs = (yaw_angs + 2*np.pi)%(2*np.pi)
 
 		#TODO: should I use (2pi - T) in place of max(yaw_angs) -> ???

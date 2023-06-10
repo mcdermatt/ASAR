@@ -167,7 +167,8 @@ class ICET():
 				#bin points by spike
 		thetamin = -np.pi
 		thetamax = np.pi
-		phimin =  3*np.pi/8
+		# phimin =  3*np.pi/8 #was this
+		phimin =  np.pi/8
 		phimax = 7*np.pi/8 
 
 		edges_phi = tf.linspace(phimin, phimax, self.fid_phi)
@@ -242,15 +243,15 @@ class ICET():
 			print("\n got U and L cluster", time.time() - before, "\n total: ",  time.time() - self.st)
 			before = time.time()
 
-		# if self.draw:
-		# 	# self.visualize_L(mu1_enough, U, L)
-		# 	# self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha) #draw all available distributions from scan1
-		# 	# self.draw_cell(corn)
-		# 	self.draw_car()
-		# 	# draw identified points inside useful clusters
-		# 	# for n in range(tf.shape(inside1.to_tensor())[0]):
-		# 	# 	temp = tf.gather(self.cloud1_tensor, inside1[n]).numpy()	
-		# 	# 	self.disp.append(Points(temp, c = 'green', r = 5))
+		if self.draw:
+			# self.visualize_L(mu1_enough, U, L)
+			# self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha) #draw all available distributions from scan1
+			self.draw_cell(corn)
+			self.draw_car()
+			# draw identified points inside useful clusters
+			# for n in range(tf.shape(inside1.to_tensor())[0]):
+			# 	temp = tf.gather(self.cloud1_tensor, inside1[n]).numpy()	
+			# 	self.disp.append(Points(temp, c = 'green', r = 5))
 
 		for i in range(niter):
 			#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -661,8 +662,8 @@ class ICET():
 
 			self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
 			self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
-			# self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
-			# self.draw_ell(y0_i, sigma0_i, pc = 1, alpha = self.alpha) #only draw ells from scan 1 if scan 2 also has occupied cell
+			self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
+			self.draw_ell(y0_i, sigma0_i, pc = 1, alpha = self.alpha) #only draw ells from scan 1 if scan 2 also has occupied cell
 	
 			# #for debug 2/16/23
 			# # self.shade_residuals(self.corn, self.residuals) 
@@ -1012,7 +1013,8 @@ class ICET():
 
 		thetamin = -np.pi
 		thetamax = np.pi #-  2*np.pi/self.fid_theta
-		phimin =  3*np.pi/8
+		# phimin =  3*np.pi/8
+		phimin =  np.pi/8
 		phimax = 7*np.pi/8
 
 		edges_phi = tf.linspace(phimin, phimax, self.fid_phi) #was this for regular cells
@@ -1536,8 +1538,8 @@ class ICET():
 
 		thetamin = -np.pi
 		thetamax = np.pi #-  2*np.pi/self.fid_theta
-		phimin =  3*np.pi/8
-		# phimax = 5*np.pi/8 #was this
+		# phimin =  3*np.pi/8
+		phimin =  np.pi/8
 		phimax = 7*np.pi/8 #why is this not the same as in <grid_spherical>????
 
 
@@ -1611,8 +1613,8 @@ class ICET():
 		#bin points by spike
 		thetamin = -np.pi
 		thetamax = np.pi #-  2*np.pi/self.fid_theta
-		phimin =  3*np.pi/8
-		# phimax = 5*np.pi/8 #was this
+		# phimin =  3*np.pi/8
+		phimin =  np.pi/8
 		phimax = 7*np.pi/8 #why is this not the same as in <grid_spherical>????
 
 		edges_phi = tf.linspace(phimin, phimax, self.fid_phi)
@@ -1792,7 +1794,8 @@ class ICET():
 
 		thetamin = -np.pi 
 		thetamax = np.pi - 2*np.pi/self.fid_theta #different from limits in main()
-		phimin =  3*np.pi/8
+		# phimin =  3*np.pi/8
+		phimin =  np.pi/8
 		phimax = 7*np.pi/8
 
 		a = tf.cast(tf.linspace(0,self.fid_r-1, self.fid_r)[:,None], tf.float32)
@@ -1898,12 +1901,12 @@ class ICET():
 		if pc == 3:
 			color = [0.5, 0.8, 0.5]
 		
-		c = Points(points, c = color, r = 2.0, alpha = 1.) #r = 2.5
+		c = Points(points, c = color, r = 2.5, alpha = 0.5) #r = 2.5
 		self.disp.append(c)
 
 	def draw_car(self):
 		# (used for making presentation graphics)
-		fname = "honda.stl"
+		fname = "../honda.stl"
 		# car = Mesh(fname).c("gray").rotate(90, axis = (0,0,1)).addShadow(z=-1.85) #old vedo
 		car = Mesh(fname).c("gray").rotate(90, axis = (0,0,1))
 		car.pos(1.4,1,-1.72)
