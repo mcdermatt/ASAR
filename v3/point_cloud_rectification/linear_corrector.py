@@ -199,8 +199,9 @@ class LC():
 
 			#IMPORTANT-- after applying distortion correction, remove points from the beginning of scan 2 with an
 			#			 absolute rotation of >= 2pi 
-			#			NOTE: removing beginning pts here since newer college dataset is recorded cw but distortion correction
-			#				 code assumes ccw LIDAR rotation  
+			#			NOTE:  -->  removing beginning pts here since newer college dataset is recorded cw but distortion correction
+			#				 			code assumes ccw LIDAR rotation  
+			#				   --> LIDAR sensor I simulated in ROS spins ccw so flip sign as needed 
 			self.yaw_angs =  self.cloud2_tensor_spherical[:,1].numpy()
 			yaw_angs_scaled = (self.yaw_angs + 2*np.pi)%(2*np.pi)
 			#get indices len(yaw_angs_scaled)//8 where yaw_angs_scaled is less than pi  
@@ -1616,7 +1617,7 @@ class LC():
 		#TODO: should I use (2pi - T) in place of max(yaw_angs) -> ???
 		motion_profile = (yaw_angs / np.max(yaw_angs))[:,None] @ rectified_vel #was this
 		# motion_profile = yaw_angs[:,None] @ rectified_vel #test
-		print("\n new: \n", motion_profile[:,0])
+		# print("\n new: \n", motion_profile[:,0])
 		self.yaw_angs_new = yaw_angs
 		# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
