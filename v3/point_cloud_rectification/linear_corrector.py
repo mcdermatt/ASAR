@@ -30,7 +30,7 @@ class LC():
 		self.start_filter_iter = 7 #10 #iteration to start DNN rejection filter
 		self.start_RM_iter = 8 #iteration to start removing moving objects (set low to generate training data)
 		self.DNN_thresh = 0.05 #0.03
-		self.RM_thresh = 0.05 #0.05 #0.25
+		self.RM_thresh = 1. #0.05 #0.25
 		self.max_buffer = max_buffer #2 max buffer width in spherical voxels
 
 		#convert cloud1 to tensor
@@ -482,8 +482,8 @@ class LC():
 
 			# self.disp.append(Points(self.cloud2_tensor, c='#2c7c94',  r = 3, alpha =0.5))
 
-			# self.draw_ell(y_j, sigma_j, pc = 2, alpha = self.alpha)
-			# self.draw_ell(y_i, sigma_i, pc = 1, alpha = self.alpha)
+			self.draw_ell(y_j, sigma_j, pc = 2, alpha = self.alpha)
+			self.draw_ell(y_i, sigma_i, pc = 1, alpha = self.alpha)
 
 			if remove_moving:
 				self.draw_cell(bad_idx_corn_moving, bad = True)
