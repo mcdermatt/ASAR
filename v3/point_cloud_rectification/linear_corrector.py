@@ -449,7 +449,7 @@ class LC():
 			# print("\n delta_A \n", np.round(delta_A, 3)[:6], "\n", np.round(delta_A, 3)[6:])
 
 			#apply both at once
-			#augment rigid transform components
+			# #augment rigid transform components
 			self.A[:3] += delta_A[:3]
 			self.A[3:6] += delta_A[3:6]
 			#augment distortion correction
@@ -800,7 +800,7 @@ class LC():
 
 			if self.draw:
 				self.disp.append(Points(self.cloud2_tensor[:,:3],
-				 c = "#2c7c94", alpha = (i+1)/(niter+1), r=7.))
+				 c = "#2c7c94", alpha = (i+1)/(niter+1), r=2.))
 
 		if self.draw:
 			self.draw_cloud(self.cloud1_tensor, pc = 1)
