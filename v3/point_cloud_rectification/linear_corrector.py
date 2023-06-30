@@ -197,24 +197,26 @@ class LC():
 			#convert back to spherical coordinates
 			self.cloud2_tensor_spherical = tf.cast(self.c2s(self.cloud2_tensor), tf.float32)
 
-			#IMPORTANT-- after applying distortion correction, remove points from the beginning of scan 2 with an
-			#			 absolute rotation of >= 2pi 
-			#			NOTE:  -->  removing beginning pts here since newer college dataset is recorded cw but distortion correction
-			#				 			code assumes ccw LIDAR rotation  
-			#				   --> LIDAR sensor I simulated in ROS spins ccw so flip sign as needed 
-			self.yaw_angs =  self.cloud2_tensor_spherical[:,1].numpy()
-			yaw_angs_scaled = (self.yaw_angs + 2*np.pi)%(2*np.pi)
-			#get indices len(yaw_angs_scaled)//8 where yaw_angs_scaled is less than pi  
-			problem_idx = np.argwhere(yaw_angs_scaled[:len(yaw_angs_scaled)//8] < np.pi)
-			all_idx = np.linspace(0,len(yaw_angs_scaled)-1, len(yaw_angs_scaled))
-			good_idx = np.setdiff1d(all_idx, problem_idx).astype(np.int32)
-			#----------------------------------------------------------------------------------------------------
+			## or just flip the clouds before passing them in?? not sure why this was needed, keeping for now...
+			# #IMPORTANT-- after applying distortion correction, remove points from the beginning of scan 2 with an
+			# #			 absolute rotation of >= 2pi 
+			# #			NOTE:  -->  removing beginning pts here since newer college dataset is recorded cw but distortion correction
+			# #				 			code assumes ccw LIDAR rotation  
+			# #				   --> LIDAR sensor I simulated in ROS spins ccw so flip sign as needed 
+			# self.yaw_angs =  self.cloud2_tensor_spherical[:,1].numpy()
+			# yaw_angs_scaled = (self.yaw_angs + 2*np.pi)%(2*np.pi)
+			# #get indices len(yaw_angs_scaled)//8 where yaw_angs_scaled is less than pi  
+			# problem_idx = np.argwhere(yaw_angs_scaled[:len(yaw_angs_scaled)//8] < np.pi)
+			# all_idx = np.linspace(0,len(yaw_angs_scaled)-1, len(yaw_angs_scaled))
+			# good_idx = np.setdiff1d(all_idx, problem_idx).astype(np.int32)
 
-			#only hold on to good index points
-			self.cloud2_tensor_spherical = tf.gather(self.cloud2_tensor_spherical, good_idx)
-			self.cloud2_tensor_spherical = tf.random.shuffle(tf.cast(tf.convert_to_tensor(self.cloud2_tensor_spherical), tf.float32))
-			#hold on to a copy in cartesian space with same shuffling
-			self.cloud2_tensor = tf.cast(self.s2c(self.cloud2_tensor_spherical), tf.float32)
+			# #only hold on to good index points
+			# self.cloud2_tensor_spherical = tf.gather(self.cloud2_tensor_spherical, good_idx)
+			# self.cloud2_tensor_spherical = tf.random.shuffle(tf.cast(tf.convert_to_tensor(self.cloud2_tensor_spherical), tf.float32))
+			# #hold on to a copy in cartesian space with same shuffling
+			# self.cloud2_tensor = tf.cast(self.s2c(self.cloud2_tensor_spherical), tf.float32)
+
+			# #----------------------------------------------------------------------------------------------------
 
 			#find points from scan 2 that fall inside clusters
 			inside2, npts2 = self.get_points_in_cluster(self.cloud2_tensor_spherical, occupied_spikes, bounds)
@@ -461,11 +463,11 @@ class LC():
 
 			print("A: \n", np.round(self.A, 4)[:6], "\n", np.round(self.A, 4)[6:])
 
-			#draw transformation history of PC2
-			if self.draw:
-				self.disp.append(Points(self.cloud2_tensor[:,:3],
-				 c = "#2c7c94", alpha = (i+1)/(niter+1), r=2.5)) #r=7
-				# self.draw_correspondences(mu1, mu2, corr) #corr displays just used correspondences
+			# #draw transformation history of PC2
+			# if self.draw:
+			# 	self.disp.append(Points(self.cloud2_tensor[:,:3],
+			# 	 c = "#2c7c94", alpha = (i+1)/(niter+1), r=2.5)) #r=7
+			# 	# self.draw_correspondences(mu1, mu2, corr) #corr displays just used correspondences
 
 		if self.draw:
 			self.draw_cloud(self.cloud1_tensor, pc = 1) #show only what fits inside grid
@@ -473,7 +475,7 @@ class LC():
 			self.draw_cloud(self.cloud2_tensor, pc = 2) 
 
 			# self.disp.append(Points(self.cloud1_tensor_OG, c='red',  r = 3.5, alpha =0.2))  
-			# self.disp.append(Points(self.cloud2_tensor_OG, c='#a65852',  r = 3, alpha =0.5))
+			self.disp.append(Points(self.cloud2_tensor_OG, c='blue',  r = 3, alpha =0.5))
 
 			# color = 255*np.linspace(0,1,len(self.cloud2_tensor))
 			# cname = np.array([255-color, color, 255-color]).T.tolist()
