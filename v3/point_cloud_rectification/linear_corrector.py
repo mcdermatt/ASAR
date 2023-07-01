@@ -470,22 +470,33 @@ class LC():
 			# 	# self.draw_correspondences(mu1, mu2, corr) #corr displays just used correspondences
 
 		if self.draw:
-			self.draw_cloud(self.cloud1_tensor, pc = 1) #show only what fits inside grid
-			# self.draw_cloud(self.cloud2_tensor_OG, pc = 1) 
-			self.draw_cloud(self.cloud2_tensor, pc = 2) 
+			# self.draw_cloud(self.cloud1_tensor, pc = 1) #show only what fits inside grid
+			# # self.draw_cloud(self.cloud2_tensor_OG, pc = 1) 
+			# self.draw_cloud(self.cloud2_tensor, pc = 2) 
 
 			# self.disp.append(Points(self.cloud1_tensor_OG, c='red',  r = 3.5, alpha =0.2))  
-			self.disp.append(Points(self.cloud2_tensor_OG, c='blue',  r = 3, alpha =0.5))
+			# self.disp.append(Points(self.cloud2_tensor_OG, c='blue',  r = 3, alpha =0.5))
 
 			# color = 255*np.linspace(0,1,len(self.cloud2_tensor))
 			# cname = np.array([255-color, color, 255-color]).T.tolist()
 			# self.disp.append(Points(self.cloud2_tensor, c=cname,  r = 3.5, alpha =0.5))
-			# self.draw_cloud(self.cloud1_tensor_OG, pc = 4) #show full cloud in black/gray 
 
-			# self.disp.append(Points(self.cloud2_tensor, c='#2c7c94',  r = 3, alpha =0.5))
+			# #for generating before/ after w.r.t. hd map figures ~~~~~~~~~~~~~~~~
+			# self.draw_cloud(self.cloud1_tensor_OG, pc = 4) #show full cloud in black/gray (use this for HD Map) 
+			# self.disp.append(Points(self.cloud1_tensor_OG, c = 'black', r = 3, alpha = 0.3)) #show full cloud in black/gray (use this for raw LIDAR keyframe) 
+			# self.disp.append(Points(self.cloud2_tensor_OG, c='#a65852',  r = 3,  alpha = 0.2)) #red
+			# self.disp.append(Points(self.cloud2_tensor, c='#2c7c94',  r = 2.5, alpha =0.5))
+			# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-			self.draw_ell(y_j, sigma_j, pc = 2, alpha = self.alpha)
-			self.draw_ell(y_i, sigma_i, pc = 1, alpha = self.alpha)
+			##for generating before after for registering two distorted frames fig
+			self.disp.append(Points(self.cloud1_tensor_OG, c='#a65852',  r = 3,  alpha = 0.5)) #red
+			self.disp.append(Points(self.cloud2_tensor_OG, c='#2c7c94',  r = 3,  alpha = 0.5))
+			# self.disp.append(Points(self.cloud2_tensor, c='#2c7c94',  r = 2.5, alpha =0.5))
+			# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+			# self.draw_ell(y_j, sigma_j, pc = 2, alpha = self.alpha)
+			# self.draw_ell(y_i, sigma_i, pc = 1, alpha = self.alpha)
 
 			if remove_moving:
 				self.draw_cell(bad_idx_corn_moving, bad = True)
