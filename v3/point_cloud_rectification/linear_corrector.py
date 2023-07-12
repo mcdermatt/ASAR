@@ -18,7 +18,7 @@ class LC():
 		self.run_profile = False
 		self.st = time.time() #start time (for debug)
 
-		self.min_cell_distance = 4 #1 #2 #begin closest spherical voxel here
+		self.min_cell_distance = 1 #4 #2 #begin closest spherical voxel here
 		#ignore "occupied" cells with fewer than this number of pts
 		self.min_num_pts = mnp #50 #100 #was 50 for KITTI and Ford, need to lower to 25 for CODD + simulated data
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
@@ -159,8 +159,8 @@ class LC():
 
 		# if self.draw:
 		# 	# self.visualize_L(mu1_enough, U, L)
-		# 	self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
-		# 	# self.draw_cell(corn)
+		# 	# self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
+		# 	self.draw_cell(corn)
 		# 	# self.draw_car()
 
 		#main loop
@@ -397,7 +397,7 @@ class LC():
 
 			# use LUT to remove rows of H corresponding to overly extended directions
 			LUT = L_I @ tf.transpose(U_I, [0,2,1])
-			print("LUT", tf.shape(LUT))
+			# print("LUT", tf.shape(LUT))
 			# H_z = LUT @ H
 			H_z = H #-- taking care of extended surfaces in a minute
 
@@ -408,6 +408,10 @@ class LC():
 			# HTW = tf.math.reduce_sum(tf.matmul(tf.transpose(H_z, [0,2,1]), W), axis = 0) #wrong-- need to apply to residual vec before summing... 
 
 			# print("HTW before \n", np.shape(HTW), HTW[:3])
+
+			#get output covariance matrix
+			self.Q = tf.linalg.pinv(HTWH)
+			self.pred_stds = tf.linalg.tensor_diag_part(tf.math.sqrt(tf.abs(self.Q)))
 
 			#need to get (H.T W) to shape [12, 3N], where N is the number of correspondnces
 			HTW = tf.transpose(HTW, [1,0,2]) #need to get things in the correct order for the reshape operation???
@@ -434,9 +438,9 @@ class LC():
 			# using full residuals
 			# residuals = (y_j -  y_i).numpy().flatten()[:,None] #was this
 			residuals = residuals_compact[:,None] #works way better! Just remember to suppress H_z with H
-			print("\n residuals", np.shape(residuals))
+			# print("\n residuals", np.shape(residuals))
 			delta_A =  (tf.linalg.pinv(HTWH) @ HTW @ residuals)[:,0]
-			print("\n delta_A\n", np.shape(delta_A))
+			# print("\n delta_A\n", np.shape(delta_A))
 
 			# #DEBUG~~~
 			# # residuals = tf.reshape((y_i -  y_j), [-1,1])
@@ -458,21 +462,30 @@ class LC():
 			self.A[6:9] += delta_A[6:9]
 			self.A[9:] -= delta_A[9:] #try commenting this out to suppress rotation distortion correction
 
+			# #TEST: 
+			# # rigid transform components
+			# self.A[:3] += delta_A[:3] #+ delta_A[6:9]
+			# self.A[3:6] += delta_A[3:6]
+			# # distortion correction
+			# self.A[6:9] += delta_A[6:9]
+			# self.A[9:] -= delta_A[9:] #try commenting this out to suppress rotation distortion correction
+
+
 			# going to have to remove globally extended axis pruning for now 
 			#  (not sure how ambiguities even propogate when you have a 12 DOF system)
 
 			print("A: \n", np.round(self.A, 4)[:6], "\n", np.round(self.A, 4)[6:])
 
-			# #draw transformation history of PC2
-			# if self.draw:
-			# 	self.disp.append(Points(self.cloud2_tensor[:,:3],
-			# 	 c = "#2c7c94", alpha = (i+1)/(niter+1), r=2.5)) #r=7
-			# 	# self.draw_correspondences(mu1, mu2, corr) #corr displays just used correspondences
+			#draw transformation history of PC2
+			if self.draw:
+				self.disp.append(Points(self.cloud2_tensor[:,:3],
+				 c = "#2c7c94", alpha = (i+1)/(niter+1), r=2.5)) #r=7
+				# self.draw_correspondences(mu1, mu2, corr) #corr displays just used correspondences
 
 		if self.draw:
-			# self.draw_cloud(self.cloud1_tensor, pc = 1) #show only what fits inside grid
-			# # self.draw_cloud(self.cloud2_tensor_OG, pc = 1) 
-			# self.draw_cloud(self.cloud2_tensor, pc = 2) 
+			self.draw_cloud(self.cloud1_tensor, pc = 1) #show only what fits inside grid
+			# self.draw_cloud(self.cloud2_tensor_OG, pc = 1) 
+			self.draw_cloud(self.cloud2_tensor, pc = 2) 
 
 			# self.disp.append(Points(self.cloud1_tensor_OG, c='red',  r = 3.5, alpha =0.2))  
 			# self.disp.append(Points(self.cloud2_tensor_OG, c='blue',  r = 3, alpha =0.5))
@@ -488,15 +501,15 @@ class LC():
 			# self.disp.append(Points(self.cloud2_tensor, c='#2c7c94',  r = 2.5, alpha =0.5))
 			# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-			##for generating before after for registering two distorted frames fig
-			self.disp.append(Points(self.cloud1_tensor_OG, c='#a65852',  r = 3,  alpha = 0.5)) #red
-			self.disp.append(Points(self.cloud2_tensor_OG, c='#2c7c94',  r = 3,  alpha = 0.5))
-			# self.disp.append(Points(self.cloud2_tensor, c='#2c7c94',  r = 2.5, alpha =0.5))
-			# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+			# ##for generating before after for registering two distorted frames fig
+			# self.disp.append(Points(self.cloud1_tensor_OG, c='#a65852',  r = 3,  alpha = 0.5)) #red
+			# self.disp.append(Points(self.cloud2_tensor_OG, c='#2c7c94',  r = 3,  alpha = 0.5))
+			# # self.disp.append(Points(self.cloud2_tensor, c='#2c7c94',  r = 2.5, alpha =0.5))
+			# # #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
-			# self.draw_ell(y_j, sigma_j, pc = 2, alpha = self.alpha)
-			# self.draw_ell(y_i, sigma_i, pc = 1, alpha = self.alpha)
+			self.draw_ell(y_j, sigma_j, pc = 2, alpha = self.alpha)
+			self.draw_ell(y_i, sigma_i, pc = 1, alpha = self.alpha)
 
 			if remove_moving:
 				self.draw_cell(bad_idx_corn_moving, bad = True)
@@ -1273,7 +1286,6 @@ class LC():
 			dx = tf.squeeze(tf.matmul( tf.matmul(tf.linalg.pinv(L2 @ lam @ tf.transpose(U2)) @ L2 @ tf.transpose(U2) , HTW ), dz))	
 			dx = tf.math.reduce_sum(dx, axis = 0)
 			self.X += dx
-
 
 			#get output covariance matrix
 			self.Q = tf.linalg.pinv(HTWH)
