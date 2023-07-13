@@ -246,7 +246,7 @@ class ICET():
 		if self.draw:
 			# self.visualize_L(mu1_enough, U, L)
 			# self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha) #draw all available distributions from scan1
-			self.draw_cell(corn)
+			# self.draw_cell(corn)
 			self.draw_car()
 			# draw identified points inside useful clusters
 			# for n in range(tf.shape(inside1.to_tensor())[0]):

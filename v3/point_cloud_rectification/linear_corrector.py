@@ -158,10 +158,10 @@ class LC():
 		U, L = self.get_U_and_L_cluster(sigma1_enough, mu1_enough, occupied_spikes, bounds)
 
 		# if self.draw:
-		# 	# self.visualize_L(mu1_enough, U, L)
-		# 	# self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
-		# 	self.draw_cell(corn)
-		# 	# self.draw_car()
+		# 	self.visualize_L(mu1_enough, U, L)
+			# self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
+			# self.draw_cell(corn)
+			# self.draw_car()
 
 		#main loop
 		for i in range(niter):
@@ -174,24 +174,24 @@ class LC():
 
 			# motion correcton -> rigid transform (was this first) ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-			# #apply last estimate of correction to origonal point cloud 2
-			# self.cloud2_tensor = self.apply_motion_profile(self.cloud2_tensor_OG, self.m_hat)
-			# #apply last rigid transform
-			# rot = R_tf(self.X_hat[3:]).numpy()
-			# trans = self.X_hat[:3]
-			# self.cloud2_tensor = (self.cloud2_tensor @ rot) + trans
-			# self.cloud2_tensor = tf.cast(self.cloud2_tensor, tf.float32)
+			#apply last estimate of correction to origonal point cloud 2
+			self.cloud2_tensor = self.apply_motion_profile(self.cloud2_tensor_OG, self.m_hat)
+			#apply last rigid transform
+			rot = R_tf(self.X_hat[3:]).numpy()
+			trans = self.X_hat[:3]
+			self.cloud2_tensor = (self.cloud2_tensor @ rot) + trans
+			self.cloud2_tensor = tf.cast(self.cloud2_tensor, tf.float32)
 
 			# rigid transform -> motion correction (test) ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 			# Not sure if this actually makes a difference
 
-			#apply last rigid transform
-			rot = R_tf(self.X_hat[3:]).numpy()
-			trans = self.X_hat[:3]
-			self.cloud2_tensor = (self.cloud2_tensor_OG @ rot) + trans
-			self.cloud2_tensor = tf.cast(self.cloud2_tensor, tf.float32)
-			#apply last estimate of correction to original point cloud 2
-			self.cloud2_tensor = self.apply_motion_profile(self.cloud2_tensor, self.m_hat) #, period_lidar = 0.1)
+			# #apply last rigid transform
+			# rot = R_tf(self.X_hat[3:]).numpy()
+			# trans = self.X_hat[:3]
+			# self.cloud2_tensor = (self.cloud2_tensor_OG @ rot) + trans
+			# self.cloud2_tensor = tf.cast(self.cloud2_tensor, tf.float32)
+			# #apply last estimate of correction to original point cloud 2
+			# self.cloud2_tensor = self.apply_motion_profile(self.cloud2_tensor, self.m_hat) #, period_lidar = 0.1)
 			#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 			#convert back to spherical coordinates
@@ -454,22 +454,21 @@ class LC():
 			# delta_A = tf.math.reduce_sum(delta_A, axis = 0)#[:,0]
 			# print("\n delta_A \n", np.round(delta_A, 3)[:6], "\n", np.round(delta_A, 3)[6:])
 
-			#apply both at once
-			# #augment rigid transform components
-			self.A[:3] += delta_A[:3]
-			self.A[3:6] += delta_A[3:6]
-			#augment distortion correction
-			self.A[6:9] += delta_A[6:9]
-			self.A[9:] -= delta_A[9:] #try commenting this out to suppress rotation distortion correction
-
-			# #TEST: 
-			# # rigid transform components
-			# self.A[:3] += delta_A[:3] #+ delta_A[6:9]
+			# #apply both at once
+			# # #augment rigid transform components
+			# self.A[:3] += delta_A[:3]
 			# self.A[3:6] += delta_A[3:6]
-			# # distortion correction
+			# #augment distortion correction
 			# self.A[6:9] += delta_A[6:9]
-			# self.A[9:] -= delta_A[9:] #try commenting this out to suppress rotation distortion correction
+			# self.A[9:] += delta_A[9:] #sign was flipped
 
+			#TEST: 
+			# rigid transform components
+			self.A[:3] += 0.2*delta_A[:3]
+			self.A[3:6] += 0.2*delta_A[3:6]
+			# distortion correction
+			self.A[6:9] += 0.2*delta_A[6:9]
+			self.A[9:] += 0.2*delta_A[9:]
 
 			# going to have to remove globally extended axis pruning for now 
 			#  (not sure how ambiguities even propogate when you have a 12 DOF system)
@@ -1790,7 +1789,9 @@ class LC():
 		H_psi = dT_rect_dpsi @ y_j[:,:,None] #multiply by vector of points under consideration
 		H_psi = np.reshape(H_psi, (-1,1)) #reshape to (4N x 1)
 
-		H = np.array([H_x, H_y, H_z, H_phi, H_theta, H_psi]).T[0]
+		# H = np.array([H_x, H_y, H_z, H_phi, H_theta, H_psi]).T[0] #was this
+		H = np.array([H_x, H_y, H_z, -H_phi, -H_theta, -H_psi]).T[0] #seems to work better- so don't need to flip sign of delta_A for rotation states later on
+
 
 		#scale each element of H_m proportional to theta angle
 		H_m = H * np.repeat(np.array([svec, svec, svec, svec, svec, svec]).T, repeats = 4, axis = 0)
