@@ -454,21 +454,21 @@ class LC():
 			# delta_A = tf.math.reduce_sum(delta_A, axis = 0)#[:,0]
 			# print("\n delta_A \n", np.round(delta_A, 3)[:6], "\n", np.round(delta_A, 3)[6:])
 
-			# #apply both at once
-			# # #augment rigid transform components
-			# self.A[:3] += delta_A[:3]
-			# self.A[3:6] += delta_A[3:6]
-			# #augment distortion correction
-			# self.A[6:9] += delta_A[6:9]
-			# self.A[9:] += delta_A[9:] #sign was flipped
+			#apply both at once
+			# #augment rigid transform components
+			self.A[:3] += delta_A[:3]
+			self.A[3:6] += delta_A[3:6]
+			#augment distortion correction
+			self.A[6:9] += delta_A[6:9]
+			self.A[9:] += delta_A[9:] #sign was flipped
 
-			#TEST: 
-			# rigid transform components
-			self.A[:3] += 0.2*delta_A[:3]
-			self.A[3:6] += 0.2*delta_A[3:6]
-			# distortion correction
-			self.A[6:9] += 0.2*delta_A[6:9]
-			self.A[9:] += 0.2*delta_A[9:]
+			# #TEST: 
+			# # rigid transform components
+			# self.A[:3] += 0.2*delta_A[:3]
+			# self.A[3:6] += 0.2*delta_A[3:6]
+			# # distortion correction
+			# self.A[6:9] += 0.2*delta_A[6:9]
+			# self.A[9:] += 0.2*delta_A[9:]
 
 			# going to have to remove globally extended axis pruning for now 
 			#  (not sure how ambiguities even propogate when you have a 12 DOF system)
