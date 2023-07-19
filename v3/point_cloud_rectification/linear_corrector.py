@@ -183,7 +183,7 @@ class LC():
 			self.cloud2_tensor = tf.cast(self.cloud2_tensor, tf.float32)
 
 			# rigid transform -> motion correction (test) ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-			# Not sure if this actually makes a difference
+			# Not sure how much this actually makes a difference
 
 			# #apply last rigid transform
 			# rot = R_tf(self.X_hat[3:]).numpy()
@@ -384,6 +384,8 @@ class LC():
 			H_x = jacobian_tf(tf.transpose(y_i), tf.cast(self.X_hat[3:], tf.float32)) 
 			H_x = tf.reshape(H_x, (tf.shape(H_x)[0]//3, 3, 6)) # -> need shape [#corr//4, 4, 6]
 			H = tf.concat([H_x, H_m], axis = 2)
+			# print("H.T  \n", H[0,:,:6].numpy().T, "\n", H[0,:,6:].numpy().T)
+			# H = tf.concat([H_x, -H_m], axis = 2) #DEBUG
 
 			#construct sensor noise covariance matrix
 			R_noise = (tf.transpose(tf.transpose(sigma_i, [1,2,0]) / tf.cast(npts_i - 1, tf.float32)) + 
@@ -454,21 +456,29 @@ class LC():
 			# delta_A = tf.math.reduce_sum(delta_A, axis = 0)#[:,0]
 			# print("\n delta_A \n", np.round(delta_A, 3)[:6], "\n", np.round(delta_A, 3)[6:])
 
-			#apply both at once
-			# #augment rigid transform components
-			self.A[:3] += delta_A[:3]
-			self.A[3:6] += delta_A[3:6]
-			#augment distortion correction
-			self.A[6:9] += delta_A[6:9]
-			self.A[9:] += delta_A[9:] #sign was flipped
+			# #apply both at once
+			# # #augment rigid transform components
+			# self.A[:3] += delta_A[:3]
+			# self.A[3:6] += delta_A[3:6]
+			# #augment distortion correction
+			# self.A[6:9] += delta_A[6:9]
+			# self.A[9:] += delta_A[9:] #sign was flipped
 
-			# #TEST: 
+			#Scale down-- seems to work better
+			# rigid transform components
+			self.A[:3] += 0.2*delta_A[:3]
+			self.A[3:6] += 0.2*delta_A[3:6]
+			# distortion correction
+			self.A[6:9] += 0.2*delta_A[6:9]
+			self.A[9:] += 0.2*delta_A[9:]
+
+			# # TEST
 			# # rigid transform components
 			# self.A[:3] += 0.2*delta_A[:3]
 			# self.A[3:6] += 0.2*delta_A[3:6]
 			# # distortion correction
-			# self.A[6:9] += 0.2*delta_A[6:9]
-			# self.A[9:] += 0.2*delta_A[9:]
+			# self.A[6:9] -= 0.2*delta_A[6:9]
+			# self.A[9:] -= 0.2*delta_A[9:]
 
 			# going to have to remove globally extended axis pruning for now 
 			#  (not sure how ambiguities even propogate when you have a 12 DOF system)
@@ -1713,17 +1723,15 @@ class LC():
 		# print(y_j)
 
 		#get motion profile M using m_hat and lidar command velocity
-		#get scaling time (for composite yaw rotation)
-		period_lidar = 1
 
 		# #old way-- assumes full coverage of point returns (not always the case) ~~
+		## get scaling time (for composite yaw rotation)
+		# period_lidar = 1
 		# t_scale = (2*np.pi)/(-m_hat[-1] + (2*np.pi/period_lidar))
 		# svec = np.linspace(0,t_scale, len(y_j))
 		# M = m_hat * np.array([svec, svec, svec, svec, svec, svec]).T
 
 		# new way-- scale M by azimuth angle ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-		#TODO: need to set "wrap around" distortion azim angles as > 2pi so they are scaled correctly
 
 		yaw_angs = self.c2s(y_j)[:,1].numpy()
 		last_subzero_idx = int(len(yaw_angs) // 8)
@@ -1792,6 +1800,7 @@ class LC():
 		# H = np.array([H_x, H_y, H_z, H_phi, H_theta, H_psi]).T[0] #was this
 		H = np.array([H_x, H_y, H_z, -H_phi, -H_theta, -H_psi]).T[0] #seems to work better- so don't need to flip sign of delta_A for rotation states later on
 
+		# print(H_phi)
 
 		#scale each element of H_m proportional to theta angle
 		H_m = H * np.repeat(np.array([svec, svec, svec, svec, svec, svec]).T, repeats = 4, axis = 0)
