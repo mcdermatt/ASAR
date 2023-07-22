@@ -20,7 +20,7 @@ class ICET():
 
 		self.min_cell_distance = 1 #2 #begin closest spherical voxel here
 		#ignore "occupied" cells with fewer than this number of pts
-		self.min_num_pts = 115 #100 #was 50 for KITTI and Ford, need to lower to 25 for CODD 
+		self.min_num_pts = 50 #100 #was 50 for KITTI and Ford, need to lower to 25 for CODD 
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
 		self.niter = niter
@@ -194,7 +194,8 @@ class ICET():
 		rads = tf.transpose(idx_by_rag.to_tensor()) 
 		self.rads = rads #temp for debug
 		# bounds = get_cluster(rads, mnp = self.min_num_pts) #old (slow)
-		bounds = get_cluster_fast(rads, mnp = self.min_num_pts, thresh = 0.8) #new (20x faster)
+		#usually set max_buffer to 0.5 for normal data, I inflated it by a lot for VICET motion distortion data 
+		bounds = get_cluster_fast(rads, mnp = self.min_num_pts, thresh = 0.8, max_buffer = 2.5) #new (20x faster)
 
 		# #test 8/2/22 (need if we are using seprate threshold for enough1 and bounds)--------
 		# inside1, npts1 = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes, bounds)
@@ -662,8 +663,8 @@ class ICET():
 
 			self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
 			self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
-			self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
-			self.draw_ell(y0_i, sigma0_i, pc = 1, alpha = self.alpha) #only draw ells from scan 1 if scan 2 also has occupied cell
+			# self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
+			# self.draw_ell(y0_i, sigma0_i, pc = 1, alpha = self.alpha) #only draw ells from scan 1 if scan 2 also has occupied cell
 	
 			# #for debug 2/16/23
 			# # self.shade_residuals(self.corn, self.residuals) 
@@ -1895,18 +1896,19 @@ class ICET():
 	def draw_cloud(self, points, pc = 1):
 
 		if pc == 1:
-			color = [0.8, 0.5, 0.5]
+			color = '#a65852' #[0.8, 0.5, 0.5] #red
 		if pc == 2:
-			color = [0.5, 0.5, 0.8]
+			color =  '#2c7c94' #[0.5, 0.5, 0.8] #blue
 		if pc == 3:
 			color = [0.5, 0.8, 0.5]
 		
-		c = Points(points, c = color, r = 2.5, alpha = 0.5) #r = 2.5
+		c = Points(points, c = color, r = 2.5, alpha = 0.8) #r = 2.5
 		self.disp.append(c)
 
 	def draw_car(self):
 		# (used for making presentation graphics)
-		fname = "../honda.stl"
+		# fname = "../honda.stl"
+		fname = "honda.stl"
 		# car = Mesh(fname).c("gray").rotate(90, axis = (0,0,1)).addShadow(z=-1.85) #old vedo
 		car = Mesh(fname).c("gray").rotate(90, axis = (0,0,1))
 		car.pos(1.4,1,-1.72)
