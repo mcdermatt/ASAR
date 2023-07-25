@@ -14,6 +14,9 @@ class LC():
 		m_hat0 = np.array([0.0, 0.0, 0., 0., 0., 0.]), A0 = np.array([0., 0., 0., 0., 0., 0.,0., 0., 0., 0., 0., 0.]), 
 		group = 2, RM = True, DNN_filter = False, cheat = [], mnp = 50, solver = '6_state', max_buffer = 0.5 ):
 
+		np.random.seed(100)
+		tf.random.set_seed(100)
+
 		# self.run_profile = True
 		self.run_profile = False
 		self.st = time.time() #start time (for debug)
@@ -24,7 +27,7 @@ class LC():
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
 		self.niter = niter
-		self.alpha = 0.5 #controls alpha values when displaying ellipses
+		self.alpha = 0.7 #controls alpha values when displaying ellipses
 		self.cheat = cheat #overide for using ICET to generate training data for DNN
 		self.DNN_filter = DNN_filter
 		self.start_filter_iter = 7 #10 #iteration to start DNN rejection filter
@@ -97,10 +100,24 @@ class LC():
 			print("A0:\n", A0)
 			self.solve_12_state(niter = self.niter, A0 = A0, remove_moving = RM)
 
-		if self.draw == True:
-			# self.disp.append(addons.LegendBox(self.disp))
-			self.plt.show(self.disp, solver, resetcam = False) #was this
+		# if self.draw == True:
+		# 	#no special camera
+		# 	# self.plt.show(self.disp, solver, resetcam = False) #was this
 
+		# 	#init with fixed camera angle (for making figures)
+		# 	cam = dict(
+		# 		pos=(-46.32390, -12.33435, 56.92717),
+		# 		focalPoint=(2.001187, 0.6357523, -3.620514),
+		# 		viewup=(0.7370861, 0.2263244, 0.6367742),
+		# 		distance=78.54655,
+		# 		clippingRange=(46.50687, 106.3192),
+		# 		)
+		# 	lb = LegendBox([self.PointsObj1, self.PointsObj2], width=0.3, height=0.2, markers='s', bg = 'white', pos = 'top right', alpha = 0.1).font("Theemim")
+		# 	np.set_printoptions(precision=3, suppress=True)
+		# 	headerText = "Rigid Transform [x, y, z, roll, pitch, yaw]:  \n" + str(self.A[:6]) +"\n \n Motion Correction [x, y, z, roll, pitch, yaw]: \n" + str(self.A[6:])
+		# 	self.plt.show(self.disp, lb, headerText, camera=cam)
+		# 	fn = 'figures/gifs/scene2_' + str(self.niter)+ '.png'
+		# 	screenshot(fn)
 
 	def solve_12_state(self, niter, A0, remove_moving = False):
 		""" Jonitly solve for rigid transformation AND linear motion distortion 
@@ -197,26 +214,26 @@ class LC():
 			#convert back to spherical coordinates
 			self.cloud2_tensor_spherical = tf.cast(self.c2s(self.cloud2_tensor), tf.float32)
 
-			## or just flip the clouds before passing them in?? not sure why this was needed, keeping for now...
-			# #IMPORTANT-- after applying distortion correction, remove points from the beginning of scan 2 with an
-			# #			 absolute rotation of >= 2pi 
-			# #			NOTE:  -->  removing beginning pts here since newer college dataset is recorded cw but distortion correction
-			# #				 			code assumes ccw LIDAR rotation  
-			# #				   --> LIDAR sensor I simulated in ROS spins ccw so flip sign as needed 
-			# self.yaw_angs =  self.cloud2_tensor_spherical[:,1].numpy()
-			# yaw_angs_scaled = (self.yaw_angs + 2*np.pi)%(2*np.pi)
-			# #get indices len(yaw_angs_scaled)//8 where yaw_angs_scaled is less than pi  
-			# problem_idx = np.argwhere(yaw_angs_scaled[:len(yaw_angs_scaled)//8] < np.pi)
-			# all_idx = np.linspace(0,len(yaw_angs_scaled)-1, len(yaw_angs_scaled))
-			# good_idx = np.setdiff1d(all_idx, problem_idx).astype(np.int32)
+			# or just flip the clouds before passing them in?? not sure why this was needed, keeping for now...
+			#IMPORTANT-- after applying distortion correction, remove points from the beginning of scan 2 with an
+			#			 absolute rotation of >= 2pi 
+			#			NOTE:  -->  removing beginning pts here since newer college dataset is recorded cw but distortion correction
+			#				 			code assumes ccw LIDAR rotation  
+			#				   --> LIDAR sensor I simulated in ROS spins ccw so flip sign as needed 
+			self.yaw_angs =  self.cloud2_tensor_spherical[:,1].numpy()
+			yaw_angs_scaled = (self.yaw_angs + 2*np.pi)%(2*np.pi)
+			#get indices len(yaw_angs_scaled)//8 where yaw_angs_scaled is less than pi  
+			problem_idx = np.argwhere(yaw_angs_scaled[:len(yaw_angs_scaled)//8] < np.pi)
+			all_idx = np.linspace(0,len(yaw_angs_scaled)-1, len(yaw_angs_scaled))
+			good_idx = np.setdiff1d(all_idx, problem_idx).astype(np.int32)
 
-			# #only hold on to good index points
-			# self.cloud2_tensor_spherical = tf.gather(self.cloud2_tensor_spherical, good_idx)
-			# self.cloud2_tensor_spherical = tf.random.shuffle(tf.cast(tf.convert_to_tensor(self.cloud2_tensor_spherical), tf.float32))
-			# #hold on to a copy in cartesian space with same shuffling
-			# self.cloud2_tensor = tf.cast(self.s2c(self.cloud2_tensor_spherical), tf.float32)
+			#only hold on to good index points
+			self.cloud2_tensor_spherical = tf.gather(self.cloud2_tensor_spherical, good_idx)
+			self.cloud2_tensor_spherical = tf.random.shuffle(tf.cast(tf.convert_to_tensor(self.cloud2_tensor_spherical), tf.float32))
+			#hold on to a copy in cartesian space with same shuffling
+			self.cloud2_tensor = tf.cast(self.s2c(self.cloud2_tensor_spherical), tf.float32)
 
-			# #----------------------------------------------------------------------------------------------------
+			#----------------------------------------------------------------------------------------------------
 
 			#find points from scan 2 that fall inside clusters
 			inside2, npts2 = self.get_points_in_cluster(self.cloud2_tensor_spherical, occupied_spikes, bounds)
@@ -472,29 +489,49 @@ class LC():
 			self.A[6:9] += 0.2*delta_A[6:9]
 			self.A[9:] += 0.2*delta_A[9:]
 
-			# # TEST
-			# # rigid transform components
-			# self.A[:3] += 0.2*delta_A[:3]
-			# self.A[3:6] += 0.2*delta_A[3:6]
-			# # distortion correction
-			# self.A[6:9] -= 0.2*delta_A[6:9]
-			# self.A[9:] -= 0.2*delta_A[9:]
-
 			# going to have to remove globally extended axis pruning for now 
 			#  (not sure how ambiguities even propogate when you have a 12 DOF system)
 
 			print("A: \n", np.round(self.A, 4)[:6], "\n", np.round(self.A, 4)[6:])
 
-			#draw transformation history of PC2
 			if self.draw:
-				self.disp.append(Points(self.cloud2_tensor[:,:3],
-				 c = "#2c7c94", alpha = (i+1)/(niter+1), r=2.5)) #r=7
-				# self.draw_correspondences(mu1, mu2, corr) #corr displays just used correspondences
+				# #draw transformation history of PC2
+				# self.disp.append(Points(self.cloud2_tensor[:,:3],
+				#  c = "#2c7c94", alpha = (i+1)/(niter+1), r=2.5)) #r=7
+				# # self.draw_correspondences(mu1, mu2, corr) #corr displays just used correspondences
+
+				#Save screenshots for GitHub Repo GIFs ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+				self.disp = []
+				# self.draw_cloud(self.cloud1_tensor, pc = 1) #show only what fits inside grid
+				# self.draw_cloud(self.cloud2_tensor, pc = 2)
+
+				#draw flipped (for reverse gif)
+				self.draw_cloud(self.cloud1_tensor, pc = 2) #show only what fits inside grid
+				self.draw_cloud(self.cloud2_tensor, pc = 1)
+
+				#init with fixed camera angle (for making figures)
+				cam = dict(
+					pos=(-46.32390, -12.33435, 56.92717),
+					focalPoint=(2.001187, 0.6357523, -3.620514),
+					viewup=(0.7370861, 0.2263244, 0.6367742),
+					distance=78.54655,
+					clippingRange=(46.50687, 106.3192),
+					)
+				lb = LegendBox([self.PointsObj1, self.PointsObj2], width=0.3, height=0.2, markers='s', bg = 'white', pos = 'top right', alpha = 0.1).font("Theemim")
+				np.set_printoptions(precision=3, suppress=True)
+				headerText = "Rigid Transform [x, y, z, roll, pitch, yaw]:  \n" + str(self.A[:6]) +"\n \n Motion Correction [x, y, z, roll, pitch, yaw]: \n" + str(self.A[6:])
+				self.plt.show(self.disp, lb, headerText, camera=cam)
+				fn = 'figures/gifs/scene1_' + str(i)+ '.png'
+				screenshot(fn)
+				self.plt.remove(self.disp)
+				# time.sleep(1.0)
+				#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 
 		if self.draw:
 			self.draw_cloud(self.cloud1_tensor, pc = 1) #show only what fits inside grid
 			# self.draw_cloud(self.cloud2_tensor_OG, pc = 1) 
-			self.draw_cloud(self.cloud2_tensor, pc = 2) 
+			self.draw_cloud(self.cloud2_tensor, pc = 2)
 
 			# self.disp.append(Points(self.cloud1_tensor_OG, c='red',  r = 3.5, alpha =0.2))  
 			# self.disp.append(Points(self.cloud2_tensor_OG, c='blue',  r = 3, alpha =0.5))
@@ -517,14 +554,12 @@ class LC():
 			# # #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
-			self.draw_ell(y_j, sigma_j, pc = 2, alpha = self.alpha)
-			self.draw_ell(y_i, sigma_i, pc = 1, alpha = self.alpha)
+			# self.draw_ell(y_j, sigma_j, pc = 2, alpha = self.alpha)
+			# self.draw_ell(y_i, sigma_i, pc = 1, alpha = self.alpha)
 
 			if remove_moving:
 				self.draw_cell(bad_idx_corn_moving, bad = True)
 			# self.draw_correspondences(mu1, mu2, corr) #corr displays just used correspondences
-
-
 
 
 	def solve_6_state(self, niter, m_hat0, remove_moving = False):
@@ -2240,9 +2275,11 @@ class LC():
 		"""draw distribution ellipses given mu and sigma tensors"""
 
 		if pc == 1:
-			color = [0.8, 0.3, 0.3]
+			# color = [0.8, 0.3, 0.3]
+			color = '#a65852' #[0.8, 0.5, 0.5] #red
 		if pc ==2:
-			color = [0.3, 0.3, 0.8]
+			# color = [0.3, 0.3, 0.8]
+			color = '#2c7c94' #[0.5, 0.5, 0.8] #blue
 
 		for i in range(tf.shape(sigma)[0]):
 
@@ -2717,20 +2754,23 @@ class LC():
 	def draw_cloud(self, points, pc = 1):
 
 		if pc == 1:
-			color = [0.8, 0.5, 0.5]
-			c = Points(points, c = color, r = 2.5, alpha = 1.) #r = 2.5
+			color = '#a65852' #[0.8, 0.5, 0.5] #red
+			self.PointsObj1 = Points(points, c = color, r = 3, alpha = 0.5).legend("Keyframe Scan") #r = 2.5
+			self.disp.append(self.PointsObj1)
 		if pc == 2:
-			color = [0.5, 0.5, 0.8]
-			c = Points(points, c = color, r = 2.5, alpha = 1.) #r = 2.5
+			color = '#2c7c94' #[0.5, 0.5, 0.8] #blue
+			self.PointsObj2 = Points(points, c = color, r = 3, alpha = 0.5).legend("New Scan") #r = 2.5
+			self.disp.append(self.PointsObj2)
 		if pc == 3:
 			color = [0.5, 0.8, 0.5]
 			c = Points(points, c = color, r = 2.5, alpha = 1.) #r = 2.5
+			self.disp.append(c)
 		if pc == 4:
 			#HD MAP
 			c = Points(points, c = 'black', r = 2., alpha = 0.05) #r = 2.5
+			self.disp.append(c)
 
 		
-		self.disp.append(c)
 
 	def draw_car(self):
 		# (used for making presentation graphics)
