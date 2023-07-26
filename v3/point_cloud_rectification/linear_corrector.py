@@ -100,9 +100,9 @@ class LC():
 			print("A0:\n", A0)
 			self.solve_12_state(niter = self.niter, A0 = A0, remove_moving = RM)
 
-		# if self.draw == True:
-		# 	#no special camera
-		# 	# self.plt.show(self.disp, solver, resetcam = False) #was this
+		if self.draw == True:
+			#no special camera
+			self.plt.show(self.disp, solver, resetcam = False) #was this
 
 		# 	#init with fixed camera angle (for making figures)
 		# 	cam = dict(
@@ -214,24 +214,36 @@ class LC():
 			#convert back to spherical coordinates
 			self.cloud2_tensor_spherical = tf.cast(self.c2s(self.cloud2_tensor), tf.float32)
 
-			# or just flip the clouds before passing them in?? not sure why this was needed, keeping for now...
 			#IMPORTANT-- after applying distortion correction, remove points from the beginning of scan 2 with an
 			#			 absolute rotation of >= 2pi 
 			#			NOTE:  -->  removing beginning pts here since newer college dataset is recorded cw but distortion correction
 			#				 			code assumes ccw LIDAR rotation  
 			#				   --> LIDAR sensor I simulated in ROS spins ccw so flip sign as needed 
 			self.yaw_angs =  self.cloud2_tensor_spherical[:,1].numpy()
-			yaw_angs_scaled = (self.yaw_angs + 2*np.pi)%(2*np.pi)
+			yaw_angs_scaled = (self.yaw_angs + 2*np.pi)%(2*np.pi) #was this
+			# yaw_angs_scaled = self.yaw_angs #override test
 			#get indices len(yaw_angs_scaled)//8 where yaw_angs_scaled is less than pi  
-			problem_idx = np.argwhere(yaw_angs_scaled[:len(yaw_angs_scaled)//8] < np.pi)
+			problem_idx_beginning = np.argwhere(yaw_angs_scaled[:len(yaw_angs_scaled)//4] < np.pi)
 			all_idx = np.linspace(0,len(yaw_angs_scaled)-1, len(yaw_angs_scaled))
-			good_idx = np.setdiff1d(all_idx, problem_idx).astype(np.int32)
+			good_idx = np.setdiff1d(all_idx, problem_idx_beginning).astype(np.int32)
+
+			# Also remove points from the end of scan2 with an absolute rotation of < 0 
+			# 	(this will happen due to rigid transform)	
+			#TODO-- need to mess with indices since we're not starting  at zero here
+			yaw_angs_scaled = self.yaw_angs #override test
+			problem_idx_end = np.argwhere(yaw_angs_scaled[((3*len(yaw_angs_scaled))//4):] < 0)
+			problem_idx_end += (3*len(yaw_angs_scaled))//4
+			self.problem_idx_end = problem_idx_end
+			good_idx = np.setdiff1d(good_idx, problem_idx_end).astype(np.int32)
 
 			#only hold on to good index points
 			self.cloud2_tensor_spherical = tf.gather(self.cloud2_tensor_spherical, good_idx)
+			self.yaw_angs_fixed = self.cloud2_tensor_spherical[:,1].numpy()
+			self.cloud2_tensor_unshuffled = self.s2c(self.cloud2_tensor_spherical)
 			self.cloud2_tensor_spherical = tf.random.shuffle(tf.cast(tf.convert_to_tensor(self.cloud2_tensor_spherical), tf.float32))
 			#hold on to a copy in cartesian space with same shuffling
 			self.cloud2_tensor = tf.cast(self.s2c(self.cloud2_tensor_spherical), tf.float32)
+
 
 			#----------------------------------------------------------------------------------------------------
 
@@ -494,38 +506,38 @@ class LC():
 
 			print("A: \n", np.round(self.A, 4)[:6], "\n", np.round(self.A, 4)[6:])
 
-			if self.draw:
-				# #draw transformation history of PC2
-				# self.disp.append(Points(self.cloud2_tensor[:,:3],
-				#  c = "#2c7c94", alpha = (i+1)/(niter+1), r=2.5)) #r=7
-				# # self.draw_correspondences(mu1, mu2, corr) #corr displays just used correspondences
+			# if self.draw:
+			# 	#draw transformation history of PC2
+			# 	self.disp.append(Points(self.cloud2_tensor[:,:3],
+			# 	 c = "#2c7c94", alpha = (i+1)/(niter+1), r=2.5)) #r=7
+			# 	# self.draw_correspondences(mu1, mu2, corr) #corr displays just used correspondences
 
-				#Save screenshots for GitHub Repo GIFs ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-				self.disp = []
-				# self.draw_cloud(self.cloud1_tensor, pc = 1) #show only what fits inside grid
-				# self.draw_cloud(self.cloud2_tensor, pc = 2)
+			# 	#Save screenshots for GitHub Repo GIFs ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+			# 	self.disp = []
+			# 	# self.draw_cloud(self.cloud1_tensor, pc = 1) #show only what fits inside grid
+			# 	# self.draw_cloud(self.cloud2_tensor, pc = 2)
 
-				#draw flipped (for reverse gif)
-				self.draw_cloud(self.cloud1_tensor, pc = 2) #show only what fits inside grid
-				self.draw_cloud(self.cloud2_tensor, pc = 1)
+			# 	#draw flipped (for reverse gif)
+			# 	self.draw_cloud(self.cloud1_tensor, pc = 2) #show only what fits inside grid
+			# 	self.draw_cloud(self.cloud2_tensor, pc = 1)
 
-				#init with fixed camera angle (for making figures)
-				cam = dict(
-					pos=(-46.32390, -12.33435, 56.92717),
-					focalPoint=(2.001187, 0.6357523, -3.620514),
-					viewup=(0.7370861, 0.2263244, 0.6367742),
-					distance=78.54655,
-					clippingRange=(46.50687, 106.3192),
-					)
-				lb = LegendBox([self.PointsObj1, self.PointsObj2], width=0.3, height=0.2, markers='s', bg = 'white', pos = 'top right', alpha = 0.1).font("Theemim")
-				np.set_printoptions(precision=3, suppress=True)
-				headerText = "Rigid Transform [x, y, z, roll, pitch, yaw]:  \n" + str(self.A[:6]) +"\n \n Motion Correction [x, y, z, roll, pitch, yaw]: \n" + str(self.A[6:])
-				self.plt.show(self.disp, lb, headerText, camera=cam)
-				fn = 'figures/gifs/scene1_' + str(i)+ '.png'
-				screenshot(fn)
-				self.plt.remove(self.disp)
-				# time.sleep(1.0)
-				#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+			# 	#init with fixed camera angle (for making figures)
+			# 	cam = dict(
+			# 		pos=(-46.32390, -12.33435, 56.92717),
+			# 		focalPoint=(2.001187, 0.6357523, -3.620514),
+			# 		viewup=(0.7370861, 0.2263244, 0.6367742),
+			# 		distance=78.54655,
+			# 		clippingRange=(46.50687, 106.3192),
+			# 		)
+			# 	lb = LegendBox([self.PointsObj1, self.PointsObj2], width=0.3, height=0.2, markers='s', bg = 'white', pos = 'top right', alpha = 0.1).font("Theemim")
+			# 	np.set_printoptions(precision=3, suppress=True)
+			# 	headerText = "Rigid Transform [x, y, z, roll, pitch, yaw]:  \n" + str(self.A[:6]) +"\n \n Motion Correction [x, y, z, roll, pitch, yaw]: \n" + str(self.A[6:])
+			# 	self.plt.show(self.disp, lb, headerText, camera=cam)
+			# 	fn = 'figures/gifs/scene1_' + str(i)+ '.png'
+			# 	screenshot(fn)
+			# 	self.plt.remove(self.disp)
+			# 	# time.sleep(1.0)
+			# 	#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
 		if self.draw:
@@ -538,7 +550,7 @@ class LC():
 
 			# color = 255*np.linspace(0,1,len(self.cloud2_tensor))
 			# cname = np.array([255-color, color, 255-color]).T.tolist()
-			# self.disp.append(Points(self.cloud2_tensor, c=cname,  r = 3.5, alpha =0.5))
+			# self.disp.append(Points(self.cloud2_tensor_unshuffled, c=cname,  r = 3.5, alpha =0.5))
 
 			# #for generating before/ after w.r.t. hd map figures ~~~~~~~~~~~~~~~~
 			# self.draw_cloud(self.cloud1_tensor_OG, pc = 4) #show full cloud in black/gray (use this for HD Map) 
