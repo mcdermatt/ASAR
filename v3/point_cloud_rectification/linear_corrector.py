@@ -507,14 +507,15 @@ class LC():
 			print("A: \n", np.round(self.A, 4)[:6], "\n", np.round(self.A, 4)[6:])
 
 			# if self.draw:
-			# 	#draw transformation history of PC2
-			# 	self.disp.append(Points(self.cloud2_tensor[:,:3],
-			# 	 c = "#2c7c94", alpha = (i+1)/(niter+1), r=2.5)) #r=7
-			# 	# self.draw_correspondences(mu1, mu2, corr) #corr displays just used correspondences
+			# 	# #draw transformation history of PC2
+			# 	# self.disp.append(Points(self.cloud2_tensor[:,:3],
+			# 	#  c = "#2c7c94", alpha = (i+1)/(niter+1), r=2.5)) #r=7
+			# 	# # self.draw_correspondences(mu1, mu2, corr) #corr displays just used correspondences
 
 			# 	#Save screenshots for GitHub Repo GIFs ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 			# 	self.disp = []
-			# 	# self.draw_cloud(self.cloud1_tensor, pc = 1) #show only what fits inside grid
+			# 	# self.draw_cloud(self.cloud1_tensor, pc = 1) #keyframe scan
+			# 	# # self.draw_cloud(self.cloud1_tensor_OG, pc = 4) #HD Map 
 			# 	# self.draw_cloud(self.cloud2_tensor, pc = 2)
 
 			# 	#draw flipped (for reverse gif)
@@ -522,18 +523,49 @@ class LC():
 			# 	self.draw_cloud(self.cloud2_tensor, pc = 1)
 
 			# 	#init with fixed camera angle (for making figures)
+			# 	# #simple box scene
+			# 	# cam = dict(
+			# 	# 	pos=(-46.32390, -12.33435, 56.92717),
+			# 	# 	focalPoint=(2.001187, 0.6357523, -3.620514),
+			# 	# 	viewup=(0.7370861, 0.2263244, 0.6367742),
+			# 	# 	distance=78.54655,
+			# 	# 	clippingRange=(46.50687, 106.3192),
+			# 	# 	)
+			# 	#simulated road scene
 			# 	cam = dict(
-			# 		pos=(-46.32390, -12.33435, 56.92717),
-			# 		focalPoint=(2.001187, 0.6357523, -3.620514),
-			# 		viewup=(0.7370861, 0.2263244, 0.6367742),
-			# 		distance=78.54655,
-			# 		clippingRange=(46.50687, 106.3192),
-			# 		)
+			# 	pos=(-9.842172, -11.94795, 112.9464),
+			# 	focalPoint=(-0.5973682, 3.045212, -0.6966407),
+			# 	viewup=(-0.01501428, 0.9914549, 0.1295833),
+			# 	distance=115.0000,
+			# 	clippingRange=(82.56497, 144.7334),
+			# 	)
+			# 	#Newer College Data 1
+			# 	# cam = dict(
+			# 	# pos=(-91.61382, 34.01260, 134.6639),
+			# 	# focalPoint=(16.30665, 12.20836, 7.279790),
+			# 	# viewup=(0.6491758, 0.6173824, 0.4443082),
+			# 	# distance=168.3715,
+			# 	# clippingRange=(82.58661, 293.8548),
+			# 	# )
+			# 	# cam = dict(
+			# 	# pos=(-13.24463, 39.12952, 170.5800),
+			# 	# focalPoint=(-7.881813, 14.14937, 4.158266),
+			# 	# viewup=(0.9471037, -0.3114856, 0.07727416),
+			# 	# distance=168.3715,
+			# 	# clippingRange=(113.6005, 227.2748),
+			# 	# )
+			# 	# cam = dict(
+			# 	# pos=(-6.357143, 21.15389, 119.3103),
+			# 	# focalPoint=(-8.017636, 7.854122, 5.094057),
+			# 	# viewup=(0.9519211, -0.3055706, 0.02174261),
+			# 	# distance=115.0000,
+			# 	# clippingRange=(64.71405, 169.1223),
+			# 	# )
 			# 	lb = LegendBox([self.PointsObj1, self.PointsObj2], width=0.3, height=0.2, markers='s', bg = 'white', pos = 'top right', alpha = 0.1).font("Theemim")
 			# 	np.set_printoptions(precision=3, suppress=True)
 			# 	headerText = "Rigid Transform [x, y, z, roll, pitch, yaw]:  \n" + str(self.A[:6]) +"\n \n Motion Correction [x, y, z, roll, pitch, yaw]: \n" + str(self.A[6:])
 			# 	self.plt.show(self.disp, lb, headerText, camera=cam)
-			# 	fn = 'figures/gifs/scene1_' + str(i)+ '.png'
+			# 	fn = 'figures/gifs/scene2_reverse' + str(i)+ '.png'
 			# 	screenshot(fn)
 			# 	self.plt.remove(self.disp)
 			# 	# time.sleep(1.0)
@@ -2767,11 +2799,11 @@ class LC():
 
 		if pc == 1:
 			color = '#a65852' #[0.8, 0.5, 0.5] #red
-			self.PointsObj1 = Points(points, c = color, r = 3, alpha = 0.5).legend("Keyframe Scan") #r = 2.5
+			self.PointsObj1 = Points(points, c = color, r = 2.5, alpha = 0.5).legend("Keyframe Scan") #r = 2.5
 			self.disp.append(self.PointsObj1)
 		if pc == 2:
 			color = '#2c7c94' #[0.5, 0.5, 0.8] #blue
-			self.PointsObj2 = Points(points, c = color, r = 3, alpha = 0.5).legend("New Scan") #r = 2.5
+			self.PointsObj2 = Points(points, c = color, r = 2.5, alpha = 0.5).legend("New Scan") #r = 2.5
 			self.disp.append(self.PointsObj2)
 		if pc == 3:
 			color = [0.5, 0.8, 0.5]
@@ -2779,8 +2811,8 @@ class LC():
 			self.disp.append(c)
 		if pc == 4:
 			#HD MAP
-			c = Points(points, c = 'black', r = 2., alpha = 0.05) #r = 2.5
-			self.disp.append(c)
+			self.PointsObj1 = Points(points, c = 'black', r = 2.5, alpha = 0.1).legend("HD Map") #was 0.05 alpha for first HD Map GIF
+			self.disp.append(self.PointsObj1)
 
 		
 
