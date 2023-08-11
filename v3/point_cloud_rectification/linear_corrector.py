@@ -191,24 +191,24 @@ class LC():
 
 			# motion correcton -> rigid transform (was this first) ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-			#apply last estimate of correction to origonal point cloud 2
-			self.cloud2_tensor = self.apply_motion_profile(self.cloud2_tensor_OG, self.m_hat)
-			#apply last rigid transform
-			rot = R_tf(self.X_hat[3:]).numpy()
-			trans = self.X_hat[:3]
-			self.cloud2_tensor = (self.cloud2_tensor @ rot) + trans
-			self.cloud2_tensor = tf.cast(self.cloud2_tensor, tf.float32)
+			# #apply last estimate of correction to origonal point cloud 2
+			# self.cloud2_tensor = self.apply_motion_profile(self.cloud2_tensor_OG, self.m_hat)
+			# #apply last rigid transform
+			# rot = R_tf(self.X_hat[3:]).numpy()
+			# trans = self.X_hat[:3]
+			# self.cloud2_tensor = (self.cloud2_tensor @ rot) + trans
+			# self.cloud2_tensor = tf.cast(self.cloud2_tensor, tf.float32)
 
 			# rigid transform -> motion correction (test) ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 			# Not sure how much this actually makes a difference
 
-			# #apply last rigid transform
-			# rot = R_tf(self.X_hat[3:]).numpy()
-			# trans = self.X_hat[:3]
-			# self.cloud2_tensor = (self.cloud2_tensor_OG @ rot) + trans
-			# self.cloud2_tensor = tf.cast(self.cloud2_tensor, tf.float32)
-			# #apply last estimate of correction to original point cloud 2
-			# self.cloud2_tensor = self.apply_motion_profile(self.cloud2_tensor, self.m_hat) #, period_lidar = 0.1)
+			#apply last rigid transform
+			rot = R_tf(self.X_hat[3:]).numpy()
+			trans = self.X_hat[:3]
+			self.cloud2_tensor = (self.cloud2_tensor_OG @ rot) + trans
+			self.cloud2_tensor = tf.cast(self.cloud2_tensor, tf.float32)
+			#apply last estimate of correction to original point cloud 2
+			self.cloud2_tensor = self.apply_motion_profile(self.cloud2_tensor, self.m_hat) #, period_lidar = 0.1)
 			#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 			#convert back to spherical coordinates
@@ -493,13 +493,19 @@ class LC():
 			# self.A[6:9] += delta_A[6:9]
 			# self.A[9:] += delta_A[9:] #sign was flipped
 
-			#Scale down-- seems to work better
-			# rigid transform components
-			self.A[:3] += 0.2*delta_A[:3]
-			self.A[3:6] += 0.2*delta_A[3:6]
-			# distortion correction
-			self.A[6:9] += 0.2*delta_A[6:9]
-			self.A[9:] += 0.2*delta_A[9:]
+			# #Scale down-- seems to work better on more challenging scenes
+			# # rigid transform components
+			# self.A[:3] += 0.2*delta_A[:3]
+			# self.A[3:6] += 0.2*delta_A[3:6]
+			# # distortion correction
+			# self.A[6:9] += 0.2*delta_A[6:9]
+			# self.A[9:] += 0.2*delta_A[9:]
+
+			#Scale WAY down (for making GIFs)
+			self.A[:3] += 0.05*delta_A[:3]
+			self.A[3:6] += 0.05*delta_A[3:6]
+			self.A[6:9] += 0.05*delta_A[6:9]
+			self.A[9:] += 0.05*delta_A[9:]
 
 			# going to have to remove globally extended axis pruning for now 
 			#  (not sure how ambiguities even propogate when you have a 12 DOF system)
@@ -522,20 +528,20 @@ class LC():
 				# self.draw_cloud(self.cloud1_tensor, pc = 2) #show only what fits inside grid
 				# self.draw_cloud(self.cloud2_tensor, pc = 1)
 
-				# self.draw_ell(y_j, sigma_j, pc = 2, alpha = self.alpha)
-				# self.draw_ell(y_i, sigma_i, pc = 1, alpha = self.alpha)
-				# self.draw_correspondences(mu1, mu2, corr)
+				self.draw_ell(y_j, sigma_j, pc = 2, alpha = self.alpha)
+				self.draw_ell(y_i, sigma_i, pc = 1, alpha = self.alpha)
+				self.draw_correspondences(mu1, mu2, corr)
 				# self.draw_cell(corn)
 
 				#init with fixed camera angle (for making figures)
 				#simple box scene
-				# cam = dict(
-				# 	pos=(-46.32390, -12.33435, 56.92717),
-				# 	focalPoint=(2.001187, 0.6357523, -3.620514),
-				# 	viewup=(0.7370861, 0.2263244, 0.6367742),
-				# 	distance=78.54655,
-				# 	clippingRange=(46.50687, 106.3192),
-				# 	)
+				cam = dict(
+					pos=(-46.32390, -12.33435, 56.92717),
+					focalPoint=(2.001187, 0.6357523, -3.620514),
+					viewup=(0.7370861, 0.2263244, 0.6367742),
+					distance=78.54655,
+					clippingRange=(46.50687, 106.3192),
+					)
 				# #simulated road scene
 				# cam = dict(
 				# pos=(-9.842172, -11.94795, 112.9464),
@@ -567,18 +573,26 @@ class LC():
 				# clippingRange=(64.71405, 169.1223),
 				# )
 				#Ouster Sample Dataset:
-				cam = dict(
-				pos=(-88.81151, -55.86895, 125.8024),
-				focalPoint=(9.043253, 7.307033, 4.220277),
-				viewup=(0.5867778, 0.4216004, 0.6913356),
-				distance=168.3715,
-				clippingRange=(0.5807876, 580.7876),
-				)
+				# cam = dict(
+				# pos=(-88.81151, -55.86895, 125.8024),
+				# focalPoint=(9.043253, 7.307033, 4.220277),
+				# viewup=(0.5867778, 0.4216004, 0.6913356),
+				# distance=168.3715,
+				# clippingRange=(0.5807876, 580.7876),
+				# )
+				# #Gazebo Overhead Scene
+				# cam = dict(
+				# pos=(-0.5837673, 4.509973, 172.7076),
+				# focalPoint=(4.121704, 0.2800215, 4.455075),
+				# viewup=(0.9986616, -0.04282164, 0.02900584),
+				# distance=168.3715,
+				# clippingRange=(154.0573, 189.8254),
+				# )
 				lb = LegendBox([self.PointsObj1, self.PointsObj2], width=0.3, height=0.2, markers='s', bg = 'white', pos = 'top right', alpha = 0.1).font("Theemim")
 				np.set_printoptions(precision=3, suppress=True)
 				headerText = "Rigid Transform [x, y, z, roll, pitch, yaw]:  \n" + str(self.A[:6]) +"\n \n Motion Correction [x, y, z, roll, pitch, yaw]: \n" + str(self.A[6:])
 				self.plt.show(self.disp, lb, headerText, camera=cam)
-				fn = 'figures/gifs/test' + str(i)+ '.png'
+				fn = 'figures/gifs/test_flipped' + str(i)+ '.png'
 				screenshot(fn)
 				self.plt.remove(self.disp)
 				# time.sleep(1.0)
