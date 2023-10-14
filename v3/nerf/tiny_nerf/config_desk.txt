@@ -1,0 +1,16 @@
+expname = desk_test
+basedir = ./logs
+datadir = /home/derm/ASAR/v3/nerf/tiny_nerf/data/nerf_llff_data/desk
+
+dataset_type = llff
+no_ndc = True
+
+factor = 8
+llffhold = 8
+
+N_rand = 1024
+N_samples = 64
+N_importance = 64
+
+use_viewdirs = True
+raw_noise_std = 1e0

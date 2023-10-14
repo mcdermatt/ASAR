@@ -1,6 +1,7 @@
 expname = fern_test
 basedir = ./logs
-datadir = /home/derm/nerf/data/nerf_llff_data/fern
+#datadir = /home/derm/nerf/data/nerf_llff_data/fern
+datadir = /home/derm/ASAR/v3/nerf/tiny_nerf/data/nerf_llff_data/fern
 
 dataset_type = llff
 
