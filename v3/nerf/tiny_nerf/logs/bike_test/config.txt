@@ -1,0 +1,17 @@
+expname = bike_test
+basedir = ./logs
+datadir = /home/derm/ASAR/v3/nerf/tiny_nerf/data/nerf_llff_data/bike
+
+dataset_type = llff
+no_ndc = True
+
+factor = 8
+llffhold = 20
+
+N_rand = 4096
+N_samples = 64
+lrate = 3e-4
+
+use_viewdirs = True
+raw_noise_std = 1e0
+no_reload = True

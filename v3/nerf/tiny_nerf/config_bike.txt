@@ -10,7 +10,8 @@ llffhold = 20
 
 N_rand = 4096
 N_samples = 64
-N_importance = 64
+lrate = 3e-4
 
 use_viewdirs = True
 raw_noise_std = 1e0
+no_reload = True
