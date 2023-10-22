@@ -21,7 +21,7 @@ class LC():
 		self.run_profile = False
 		self.st = time.time() #start time (for debug)
 
-		self.min_cell_distance = 0.5 #1 #4 #2 #begin closest spherical voxel here
+		self.min_cell_distance = 0.25 #1 #4 #2 #begin closest spherical voxel here
 		#ignore "occupied" cells with fewer than this number of pts
 		self.min_num_pts = mnp #50 #100 #was 50 for KITTI and Ford, need to lower to 25 for CODD + simulated data
 		self.min_num_pts_HD_Map = 10
@@ -177,11 +177,11 @@ class LC():
 
 		U, L = self.get_U_and_L_cluster(sigma1_enough, mu1_enough, occupied_spikes, bounds)
 
-		if self.draw:
-			# self.visualize_L(mu1_enough, U, L)
-			self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
-			# self.draw_cell(corn)
-			# self.draw_car()
+		# if self.draw:
+		# 	# self.visualize_L(mu1_enough, U, L)
+		# 	self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
+		# 	# self.draw_cell(corn)
+		# 	# self.draw_car()
 
 		#main loop
 		for i in range(niter):
@@ -227,6 +227,7 @@ class LC():
 			# yaw_angs_scaled = self.yaw_angs #override test
 			#get indices len(yaw_angs_scaled)//8 where yaw_angs_scaled is less than pi  
 			problem_idx_beginning = np.argwhere(yaw_angs_scaled[:len(yaw_angs_scaled)//4] < np.pi)
+			# problem_idx_beginning = np.argwhere(yaw_angs_scaled[:len(yaw_angs_scaled)//4] > np.pi) #test flipped sign 10/22
 			all_idx = np.linspace(0,len(yaw_angs_scaled)-1, len(yaw_angs_scaled))
 			good_idx = np.setdiff1d(all_idx, problem_idx_beginning).astype(np.int32)
 
@@ -235,6 +236,7 @@ class LC():
 			#TODO-- need to mess with indices since we're not starting  at zero here
 			yaw_angs_scaled = self.yaw_angs #override test
 			problem_idx_end = np.argwhere(yaw_angs_scaled[((3*len(yaw_angs_scaled))//4):] < 0)
+			# problem_idx_end = np.argwhere(yaw_angs_scaled[((3*len(yaw_angs_scaled))//4):] > 0) #test flipped sign 10/22
 			problem_idx_end += (3*len(yaw_angs_scaled))//4
 			self.problem_idx_end = problem_idx_end
 			good_idx = np.setdiff1d(good_idx, problem_idx_end).astype(np.int32)
@@ -604,7 +606,7 @@ class LC():
 
 		if self.draw:
 			self.draw_cloud(self.cloud1_tensor, pc = 1) #show only what fits inside grid
-			# self.draw_cloud(self.cloud2_tensor_OG, pc = 1) 
+			self.draw_cloud(self.cloud2_tensor_OG, pc = 4) 
 			self.draw_cloud(self.cloud2_tensor, pc = 2)
 
 			# self.disp.append(Points(self.cloud1_tensor_OG, c='red',  r = 3.5, alpha =0.2))  
@@ -629,7 +631,7 @@ class LC():
 
 
 			self.draw_ell(y_j, sigma_j, pc = 2, alpha = self.alpha)
-			# self.draw_ell(y_i, sigma_i, pc = 1, alpha = self.alpha)
+			self.draw_ell(y_i, sigma_i, pc = 1, alpha = self.alpha)
 
 			if remove_moving:
 				self.draw_cell(bad_idx_corn_moving, bad = True)
@@ -2842,7 +2844,7 @@ class LC():
 			self.disp.append(c)
 		if pc == 4:
 			#HD MAP
-			self.PointsObj1 = Points(points, c = 'black', r = 2.5, alpha = 0.1).legend("HD Map") #was 0.05 alpha for first HD Map GIF
+			self.PointsObj1 = Points(points, c = 'black', r = 2.5, alpha = 0.5).legend("HD Map") #was 0.05 alpha for first HD Map GIF
 			self.disp.append(self.PointsObj1)
 
 		
