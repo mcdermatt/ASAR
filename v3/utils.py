@@ -87,6 +87,8 @@ def get_cluster_fast(rads, thresh = 0.5, mnp = 100, max_buffer = 0.5):
     #as described in paper
     #--------------------------------------------------------------------------------------------------------
     inner_idx = tf.gather(jumps_rag.to_tensor(), first_big_enough, batch_dims=1) + 1
+    # print("\n inner_idx", inner_idx)
+    # print("rads", rads)
     inner_radii  = tf.gather(tf.transpose(rads), inner_idx, batch_dims=1)
     #get radial distance of closest point on near side of cluster
     next_inner_idx = tf.gather(jumps_rag.to_tensor(), tf.nn.relu(first_big_enough - 1), batch_dims=1) -1 #think the -1 fixes bug (12/11)

@@ -21,9 +21,10 @@ class LC():
 		self.run_profile = False
 		self.st = time.time() #start time (for debug)
 
-		self.min_cell_distance = 1 #4 #2 #begin closest spherical voxel here
+		self.min_cell_distance = 0.5 #1 #4 #2 #begin closest spherical voxel here
 		#ignore "occupied" cells with fewer than this number of pts
 		self.min_num_pts = mnp #50 #100 #was 50 for KITTI and Ford, need to lower to 25 for CODD + simulated data
+		self.min_num_pts_HD_Map = 10
 		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
 		self.draw = draw
 		self.niter = niter
@@ -100,9 +101,9 @@ class LC():
 			print("A0:\n", A0)
 			self.solve_12_state(niter = self.niter, A0 = A0, remove_moving = RM)
 
-		# if self.draw == True:
-		# 	#no special camera
-		# 	self.plt.show(self.disp, solver, resetcam = False) #was this
+		if self.draw == True:
+			#no special camera
+			self.plt.show(self.disp, solver, resetcam = False) #was this
 
 		# 	#init with fixed camera angle (for making figures)
 		# 	cam = dict(
@@ -156,7 +157,9 @@ class LC():
 
 		rads = tf.transpose(idx_by_rag.to_tensor()) 
 		self.rads = rads
-		bounds = get_cluster_fast(rads, thresh = 0.5, mnp = self.min_num_pts, max_buffer = self.max_buffer)
+		# bounds = get_cluster_fast(rads, thresh = 0.5, mnp = self.min_num_pts, max_buffer = self.max_buffer)
+		#test-- override mnp just for formulating radial bounds from HD Map
+		bounds = get_cluster_fast(rads, thresh = 0.5, mnp = self.min_num_pts_HD_Map, max_buffer = self.max_buffer)
 
 		corn = self.get_corners_cluster(occupied_spikes, bounds)
 		inside1, npts1 = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes, bounds)	
@@ -174,9 +177,9 @@ class LC():
 
 		U, L = self.get_U_and_L_cluster(sigma1_enough, mu1_enough, occupied_spikes, bounds)
 
-		# if self.draw:
-		# 	self.visualize_L(mu1_enough, U, L)
-			# self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
+		if self.draw:
+			# self.visualize_L(mu1_enough, U, L)
+			self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
 			# self.draw_cell(corn)
 			# self.draw_car()
 
@@ -493,144 +496,144 @@ class LC():
 			# self.A[6:9] += delta_A[6:9]
 			# self.A[9:] += delta_A[9:] #sign was flipped
 
-			# #Scale down-- seems to work better on more challenging scenes
-			# # rigid transform components
-			# self.A[:3] += 0.2*delta_A[:3]
-			# self.A[3:6] += 0.2*delta_A[3:6]
-			# # distortion correction
-			# self.A[6:9] += 0.2*delta_A[6:9]
-			# self.A[9:] += 0.2*delta_A[9:]
+			#Scale down-- seems to work better on more challenging scenes
+			# rigid transform components
+			self.A[:3] += 0.2*delta_A[:3]
+			self.A[3:6] += 0.2*delta_A[3:6]
+			# distortion correction
+			self.A[6:9] += 0.2*delta_A[6:9]
+			self.A[9:] += 0.2*delta_A[9:]
 
-			#Scale WAY down (for making GIFs)
-			self.A[:3] += 0.05*delta_A[:3]
-			self.A[3:6] += 0.05*delta_A[3:6]
-			self.A[6:9] += 0.05*delta_A[6:9]
-			self.A[9:] += 0.05*delta_A[9:]
+			# #Scale WAY down (for making GIFs)
+			# self.A[:3] += 0.05*delta_A[:3]
+			# self.A[3:6] += 0.05*delta_A[3:6]
+			# self.A[6:9] += 0.05*delta_A[6:9]
+			# self.A[9:] += 0.05*delta_A[9:]
 
 			# going to have to remove globally extended axis pruning for now 
 			#  (not sure how ambiguities even propogate when you have a 12 DOF system)
 
 			print("A: \n", np.round(self.A, 4)[:6], "\n", np.round(self.A, 4)[6:])
 
-			if self.draw:
+			# if self.draw:
 				# #draw transformation history of PC2
 				# self.disp.append(Points(self.cloud2_tensor[:,:3],
 				#  c = "#2c7c94", alpha = (i+1)/(niter+1), r=2.5)) #r=7
 				# # self.draw_correspondences(mu1, mu2, corr) #corr displays just used correspondences
 
-				#Save screenshots for GitHub Repo GIFs ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-				self.disp = []
-				self.draw_cloud(self.cloud1_tensor, pc = 1) #keyframe scan
-				# self.draw_cloud(self.cloud1_tensor_OG, pc = 4) #HD Map 
-				self.draw_cloud(self.cloud2_tensor, pc = 2)
+				# #Save screenshots for GitHub Repo GIFs ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+				# self.disp = []
+				# self.draw_cloud(self.cloud1_tensor, pc = 1) #keyframe scan
+				# # self.draw_cloud(self.cloud1_tensor_OG, pc = 4) #HD Map 
+				# self.draw_cloud(self.cloud2_tensor, pc = 2)
 
-				# #draw flipped (for reverse gif)
-				# self.draw_cloud(self.cloud1_tensor, pc = 2) #show only what fits inside grid
-				# self.draw_cloud(self.cloud2_tensor, pc = 1)
+				# # #draw flipped (for reverse gif)
+				# # self.draw_cloud(self.cloud1_tensor, pc = 2) #show only what fits inside grid
+				# # self.draw_cloud(self.cloud2_tensor, pc = 1)
 
-				self.draw_ell(y_j, sigma_j, pc = 2, alpha = self.alpha)
-				self.draw_ell(y_i, sigma_i, pc = 1, alpha = self.alpha)
-				self.draw_correspondences(mu1, mu2, corr)
-				# self.draw_cell(corn)
+				# self.draw_ell(y_j, sigma_j, pc = 2, alpha = self.alpha)
+				# self.draw_ell(y_i, sigma_i, pc = 1, alpha = self.alpha)
+				# self.draw_correspondences(mu1, mu2, corr)
+				# # self.draw_cell(corn)
 
-				#init with fixed camera angle (for making figures)
-				#simple box scene
-				cam = dict(
-					pos=(-46.32390, -12.33435, 56.92717),
-					focalPoint=(2.001187, 0.6357523, -3.620514),
-					viewup=(0.7370861, 0.2263244, 0.6367742),
-					distance=78.54655,
-					clippingRange=(46.50687, 106.3192),
-					)
-				# #simulated road scene
+				# #init with fixed camera angle (for making figures)
+				# #simple box scene
 				# cam = dict(
-				# pos=(-9.842172, -11.94795, 112.9464),
-				# focalPoint=(-0.5973682, 3.045212, -0.6966407),
-				# viewup=(-0.01501428, 0.9914549, 0.1295833),
-				# distance=115.0000,
-				# clippingRange=(82.56497, 144.7334),
-				# )
-				#Newer College Data 1
-				# cam = dict(
-				# pos=(-91.61382, 34.01260, 134.6639),
-				# focalPoint=(16.30665, 12.20836, 7.279790),
-				# viewup=(0.6491758, 0.6173824, 0.4443082),
-				# distance=168.3715,
-				# clippingRange=(82.58661, 293.8548),
-				# )
-				# cam = dict(
-				# pos=(-13.24463, 39.12952, 170.5800),
-				# focalPoint=(-7.881813, 14.14937, 4.158266),
-				# viewup=(0.9471037, -0.3114856, 0.07727416),
-				# distance=168.3715,
-				# clippingRange=(113.6005, 227.2748),
-				# )
-				# cam = dict(
-				# pos=(-6.357143, 21.15389, 119.3103),
-				# focalPoint=(-8.017636, 7.854122, 5.094057),
-				# viewup=(0.9519211, -0.3055706, 0.02174261),
-				# distance=115.0000,
-				# clippingRange=(64.71405, 169.1223),
-				# )
-				#Ouster Sample Dataset:
-				# cam = dict(
-				# pos=(-88.81151, -55.86895, 125.8024),
-				# focalPoint=(9.043253, 7.307033, 4.220277),
-				# viewup=(0.5867778, 0.4216004, 0.6913356),
-				# distance=168.3715,
-				# clippingRange=(0.5807876, 580.7876),
-				# )
-				# #Gazebo Overhead Scene
-				# cam = dict(
-				# pos=(-0.5837673, 4.509973, 172.7076),
-				# focalPoint=(4.121704, 0.2800215, 4.455075),
-				# viewup=(0.9986616, -0.04282164, 0.02900584),
-				# distance=168.3715,
-				# clippingRange=(154.0573, 189.8254),
-				# )
-				lb = LegendBox([self.PointsObj1, self.PointsObj2], width=0.3, height=0.2, markers='s', bg = 'white', pos = 'top right', alpha = 0.1).font("Theemim")
-				np.set_printoptions(precision=3, suppress=True)
-				headerText = "Rigid Transform [x, y, z, roll, pitch, yaw]:  \n" + str(self.A[:6]) +"\n \n Motion Correction [x, y, z, roll, pitch, yaw]: \n" + str(self.A[6:])
-				self.plt.show(self.disp, lb, headerText, camera=cam)
-				fn = 'figures/gifs/test_flipped' + str(i)+ '.png'
-				screenshot(fn)
-				self.plt.remove(self.disp)
-				# time.sleep(1.0)
-				#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+				# 	pos=(-46.32390, -12.33435, 56.92717),
+				# 	focalPoint=(2.001187, 0.6357523, -3.620514),
+				# 	viewup=(0.7370861, 0.2263244, 0.6367742),
+				# 	distance=78.54655,
+				# 	clippingRange=(46.50687, 106.3192),
+				# 	)
+				# # #simulated road scene
+				# # cam = dict(
+				# # pos=(-9.842172, -11.94795, 112.9464),
+				# # focalPoint=(-0.5973682, 3.045212, -0.6966407),
+				# # viewup=(-0.01501428, 0.9914549, 0.1295833),
+				# # distance=115.0000,
+				# # clippingRange=(82.56497, 144.7334),
+				# # )
+				# #Newer College Data 1
+				# # cam = dict(
+				# # pos=(-91.61382, 34.01260, 134.6639),
+				# # focalPoint=(16.30665, 12.20836, 7.279790),
+				# # viewup=(0.6491758, 0.6173824, 0.4443082),
+				# # distance=168.3715,
+				# # clippingRange=(82.58661, 293.8548),
+				# # )
+				# # cam = dict(
+				# # pos=(-13.24463, 39.12952, 170.5800),
+				# # focalPoint=(-7.881813, 14.14937, 4.158266),
+				# # viewup=(0.9471037, -0.3114856, 0.07727416),
+				# # distance=168.3715,
+				# # clippingRange=(113.6005, 227.2748),
+				# # )
+				# # cam = dict(
+				# # pos=(-6.357143, 21.15389, 119.3103),
+				# # focalPoint=(-8.017636, 7.854122, 5.094057),
+				# # viewup=(0.9519211, -0.3055706, 0.02174261),
+				# # distance=115.0000,
+				# # clippingRange=(64.71405, 169.1223),
+				# # )
+				# #Ouster Sample Dataset:
+				# # cam = dict(
+				# # pos=(-88.81151, -55.86895, 125.8024),
+				# # focalPoint=(9.043253, 7.307033, 4.220277),
+				# # viewup=(0.5867778, 0.4216004, 0.6913356),
+				# # distance=168.3715,
+				# # clippingRange=(0.5807876, 580.7876),
+				# # )
+				# # #Gazebo Overhead Scene
+				# # cam = dict(
+				# # pos=(-0.5837673, 4.509973, 172.7076),
+				# # focalPoint=(4.121704, 0.2800215, 4.455075),
+				# # viewup=(0.9986616, -0.04282164, 0.02900584),
+				# # distance=168.3715,
+				# # clippingRange=(154.0573, 189.8254),
+				# # )
+				# lb = LegendBox([self.PointsObj1, self.PointsObj2], width=0.3, height=0.2, markers='s', bg = 'white', pos = 'top right', alpha = 0.1).font("Theemim")
+				# np.set_printoptions(precision=3, suppress=True)
+				# headerText = "Rigid Transform [x, y, z, roll, pitch, yaw]:  \n" + str(self.A[:6]) +"\n \n Motion Correction [x, y, z, roll, pitch, yaw]: \n" + str(self.A[6:])
+				# self.plt.show(self.disp, lb, headerText, camera=cam)
+				# fn = 'figures/gifs/test_flipped' + str(i)+ '.png'
+				# screenshot(fn)
+				# self.plt.remove(self.disp)
+				# # time.sleep(1.0)
+				# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
-		# if self.draw:
-		# 	self.draw_cloud(self.cloud1_tensor, pc = 1) #show only what fits inside grid
-		# 	# self.draw_cloud(self.cloud2_tensor_OG, pc = 1) 
-		# 	self.draw_cloud(self.cloud2_tensor, pc = 2)
+		if self.draw:
+			self.draw_cloud(self.cloud1_tensor, pc = 1) #show only what fits inside grid
+			# self.draw_cloud(self.cloud2_tensor_OG, pc = 1) 
+			self.draw_cloud(self.cloud2_tensor, pc = 2)
 
-		# 	# self.disp.append(Points(self.cloud1_tensor_OG, c='red',  r = 3.5, alpha =0.2))  
-		# 	# self.disp.append(Points(self.cloud2_tensor_OG, c='blue',  r = 3, alpha =0.5))
+			# self.disp.append(Points(self.cloud1_tensor_OG, c='red',  r = 3.5, alpha =0.2))  
+			# self.disp.append(Points(self.cloud2_tensor_OG, c='blue',  r = 3, alpha =0.5))
 
-		# 	# color = 255*np.linspace(0,1,len(self.cloud2_tensor))
-		# 	# cname = np.array([255-color, color, 255-color]).T.tolist()
-		# 	# self.disp.append(Points(self.cloud2_tensor_unshuffled, c=cname,  r = 3.5, alpha =0.5))
+			# color = 255*np.linspace(0,1,len(self.cloud2_tensor))
+			# cname = np.array([255-color, color, 255-color]).T.tolist()
+			# self.disp.append(Points(self.cloud2_tensor_unshuffled, c=cname,  r = 3.5, alpha =0.5))
 
-		# 	# #for generating before/ after w.r.t. hd map figures ~~~~~~~~~~~~~~~~
-		# 	# self.draw_cloud(self.cloud1_tensor_OG, pc = 4) #show full cloud in black/gray (use this for HD Map) 
-		# 	# self.disp.append(Points(self.cloud1_tensor_OG, c = 'black', r = 3, alpha = 0.3)) #show full cloud in black/gray (use this for raw LIDAR keyframe) 
-		# 	# self.disp.append(Points(self.cloud2_tensor_OG, c='#a65852',  r = 3,  alpha = 0.2)) #red
-		# 	# self.disp.append(Points(self.cloud2_tensor, c='#2c7c94',  r = 2.5, alpha =0.5))
-		# 	# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+			# #for generating before/ after w.r.t. hd map figures ~~~~~~~~~~~~~~~~
+			# self.draw_cloud(self.cloud1_tensor_OG, pc = 4) #show full cloud in black/gray (use this for HD Map) 
+			# self.disp.append(Points(self.cloud1_tensor_OG, c = 'black', r = 3, alpha = 0.3)) #show full cloud in black/gray (use this for raw LIDAR keyframe) 
+			# self.disp.append(Points(self.cloud2_tensor_OG, c='#a65852',  r = 3,  alpha = 0.2)) #red
+			# self.disp.append(Points(self.cloud2_tensor, c='#2c7c94',  r = 2.5, alpha =0.5))
+			# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-		# 	# ##for generating before after for registering two distorted frames fig
-		# 	# self.disp.append(Points(self.cloud1_tensor_OG, c='#a65852',  r = 3,  alpha = 0.5)) #red
-		# 	# self.disp.append(Points(self.cloud2_tensor_OG, c='#2c7c94',  r = 3,  alpha = 0.5))
-		# 	# # self.disp.append(Points(self.cloud2_tensor, c='#2c7c94',  r = 2.5, alpha =0.5))
-		# 	# # #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+			# ##for generating before after for registering two distorted frames fig
+			# self.disp.append(Points(self.cloud1_tensor_OG, c='#a65852',  r = 3,  alpha = 0.5)) #red
+			# self.disp.append(Points(self.cloud2_tensor_OG, c='#2c7c94',  r = 3,  alpha = 0.5))
+			# # self.disp.append(Points(self.cloud2_tensor, c='#2c7c94',  r = 2.5, alpha =0.5))
+			# # #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
-		# 	# self.draw_ell(y_j, sigma_j, pc = 2, alpha = self.alpha)
-		# 	# self.draw_ell(y_i, sigma_i, pc = 1, alpha = self.alpha)
+			self.draw_ell(y_j, sigma_j, pc = 2, alpha = self.alpha)
+			# self.draw_ell(y_i, sigma_i, pc = 1, alpha = self.alpha)
 
-		# 	if remove_moving:
-		# 		self.draw_cell(bad_idx_corn_moving, bad = True)
-		# 	# self.draw_correspondences(mu1, mu2, corr) #corr displays just used correspondences
+			if remove_moving:
+				self.draw_cell(bad_idx_corn_moving, bad = True)
+			# self.draw_correspondences(mu1, mu2, corr) #corr displays just used correspondences
 
 
 	def solve_6_state(self, niter, m_hat0, remove_moving = False):
@@ -1424,7 +1427,7 @@ class LC():
 			if remove_moving:
 				self.draw_cell(bad_idx_corn_moving, bad = True) #COMMENT OUT WHEN SHADING BY GRADIENT
 
-			# self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
+			self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
 			self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
 			self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
 
