@@ -21,18 +21,18 @@ class LC():
 		self.run_profile = False
 		self.st = time.time() #start time (for debug)
 
-		self.min_cell_distance = 0.25 #1 #4 #2 #begin closest spherical voxel here
+		self.min_cell_distance = 1 #4 #2 #begin closest spherical voxel here
 		#ignore "occupied" cells with fewer than this number of pts
 		self.min_num_pts = mnp #50 #100 #was 50 for KITTI and Ford, need to lower to 25 for CODD + simulated data
-		self.min_num_pts_HD_Map = 10
-		self.fid = fid # dimension of 3D grid: [fid, fid, fid]
+		self.min_num_pts_HD_Map = mnp #10 #(test)
+		self.fid = fid # dimension of 2D grid: [fid, fid]
 		self.draw = draw
 		self.niter = niter
 		self.alpha = 0.5 #0.7 #controls alpha values when displaying ellipses
 		self.cheat = cheat #overide for using ICET to generate training data for DNN
 		self.DNN_filter = DNN_filter
 		self.start_filter_iter = 7 #10 #iteration to start DNN rejection filter
-		self.start_RM_iter = 8 #iteration to start removing moving objects (set low to generate training data)
+		self.start_RM_iter = 25 #iteration to start removing moving objects (set low to generate training data)
 		self.DNN_thresh = 0.05 #0.03
 		self.RM_thresh = 0.25 #0.05 #0.25
 		self.max_buffer = max_buffer #2 max buffer width in spherical voxels
@@ -177,11 +177,11 @@ class LC():
 
 		U, L = self.get_U_and_L_cluster(sigma1_enough, mu1_enough, occupied_spikes, bounds)
 
-		# if self.draw:
-		# 	# self.visualize_L(mu1_enough, U, L)
-		# 	self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
-		# 	# self.draw_cell(corn)
-		# 	# self.draw_car()
+		if self.draw:
+			# self.visualize_L(mu1_enough, U, L)
+			self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha)
+			# self.draw_cell(corn)
+			# self.draw_car()
 
 		#main loop
 		for i in range(niter):
@@ -226,8 +226,8 @@ class LC():
 			yaw_angs_scaled = (self.yaw_angs + 2*np.pi)%(2*np.pi) #was this
 			# yaw_angs_scaled = self.yaw_angs #override test
 			#get indices len(yaw_angs_scaled)//8 where yaw_angs_scaled is less than pi  
-			problem_idx_beginning = np.argwhere(yaw_angs_scaled[:len(yaw_angs_scaled)//4] < np.pi)
-			# problem_idx_beginning = np.argwhere(yaw_angs_scaled[:len(yaw_angs_scaled)//4] > np.pi) #test flipped sign 10/22
+			# problem_idx_beginning = np.argwhere(yaw_angs_scaled[:len(yaw_angs_scaled)//4] < np.pi)
+			problem_idx_beginning = np.argwhere(yaw_angs_scaled[:len(yaw_angs_scaled)//4] > np.pi) #test flipped sign 10/22
 			all_idx = np.linspace(0,len(yaw_angs_scaled)-1, len(yaw_angs_scaled))
 			good_idx = np.setdiff1d(all_idx, problem_idx_beginning).astype(np.int32)
 
@@ -235,8 +235,8 @@ class LC():
 			# 	(this will happen due to rigid transform)	
 			#TODO-- need to mess with indices since we're not starting  at zero here
 			yaw_angs_scaled = self.yaw_angs #override test
-			problem_idx_end = np.argwhere(yaw_angs_scaled[((3*len(yaw_angs_scaled))//4):] < 0)
-			# problem_idx_end = np.argwhere(yaw_angs_scaled[((3*len(yaw_angs_scaled))//4):] > 0) #test flipped sign 10/22
+			# problem_idx_end = np.argwhere(yaw_angs_scaled[((3*len(yaw_angs_scaled))//4):] < 0)
+			problem_idx_end = np.argwhere(yaw_angs_scaled[((3*len(yaw_angs_scaled))//4):] > 0) #test flipped sign 10/22
 			problem_idx_end += (3*len(yaw_angs_scaled))//4
 			self.problem_idx_end = problem_idx_end
 			good_idx = np.setdiff1d(good_idx, problem_idx_end).astype(np.int32)
@@ -631,7 +631,7 @@ class LC():
 
 
 			self.draw_ell(y_j, sigma_j, pc = 2, alpha = self.alpha)
-			self.draw_ell(y_i, sigma_i, pc = 1, alpha = self.alpha)
+			# self.draw_ell(y_i, sigma_i, pc = 1, alpha = self.alpha)
 
 			if remove_moving:
 				self.draw_cell(bad_idx_corn_moving, bad = True)
@@ -2832,7 +2832,7 @@ class LC():
 
 		if pc == 1:
 			color = '#a65852' #[0.8, 0.5, 0.5] #red
-			self.PointsObj1 = Points(points, c = color, r = 2.5, alpha = 0.5).legend("Keyframe Scan") #r = 2.5
+			self.PointsObj1 = Points(points, c = color, r = 3., alpha = 0.5).legend("Keyframe Scan") #r = 2.5
 			self.disp.append(self.PointsObj1)
 		if pc == 2:
 			color = '#2c7c94' #[0.5, 0.5, 0.8] #blue
