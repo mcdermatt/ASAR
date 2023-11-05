@@ -28,9 +28,9 @@ class ICET():
 		self.cheat = cheat #overide for using ICET to generate training data for DNN
 		self.DNN_filter = DNN_filter
 		self.start_filter_iter = 7 #10 #iteration to start DNN rejection filter
-		self.start_RM_iter = 3 #10 #iteration to start removing moving objects (set low to generate training data)
+		self.start_RM_iter = 10 #10 #iteration to start removing moving objects (set low to generate training data)
 		self.DNN_thresh = 0.05 #0.03
-		self.RM_thresh = 0.075 #0.25
+		self.RM_thresh = 0.25 #0.25
 
 		before = time.time()
 
@@ -244,15 +244,15 @@ class ICET():
 			print("\n got U and L cluster", time.time() - before, "\n total: ",  time.time() - self.st)
 			before = time.time()
 
-		if self.draw:
-			# self.visualize_L(mu1_enough, U, L)
-			# self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha) #draw all available distributions from scan1
-			# self.draw_cell(corn)
-			self.draw_car()
-			# draw identified points inside useful clusters
-			# for n in range(tf.shape(inside1.to_tensor())[0]):
-			# 	temp = tf.gather(self.cloud1_tensor, inside1[n]).numpy()	
-			# 	self.disp.append(Points(temp, c = 'green', r = 5))
+		# if self.draw:
+		# 	# self.visualize_L(mu1_enough, U, L)
+		# 	# self.draw_ell(mu1_enough, sigma1_enough, pc = 1, alpha = self.alpha) #draw all available distributions from scan1
+		# 	# self.draw_cell(corn)
+		# 	self.draw_car()
+		# 	# draw identified points inside useful clusters
+		# 	# for n in range(tf.shape(inside1.to_tensor())[0]):
+		# 	# 	temp = tf.gather(self.cloud1_tensor, inside1[n]).numpy()	
+		# 	# 	self.disp.append(Points(temp, c = 'green', r = 5))
 
 		for i in range(niter):
 			#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -663,8 +663,8 @@ class ICET():
 
 			self.draw_cloud(self.cloud1_tensor.numpy(), pc = 1)
 			self.draw_cloud(self.cloud2_tensor.numpy(), pc = 2)
-			# self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
-			# self.draw_ell(y0_i, sigma0_i, pc = 1, alpha = self.alpha) #only draw ells from scan 1 if scan 2 also has occupied cell
+			self.draw_ell(y_i, sigma_i, pc = 2, alpha = self.alpha)
+			self.draw_ell(y0_i, sigma0_i, pc = 1, alpha = self.alpha) #only draw ells from scan 1 if scan 2 also has occupied cell
 	
 			# #for debug 2/16/23
 			# # self.shade_residuals(self.corn, self.residuals) 

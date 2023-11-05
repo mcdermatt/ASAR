@@ -32,7 +32,7 @@ class LC():
 		self.cheat = cheat #overide for using ICET to generate training data for DNN
 		self.DNN_filter = DNN_filter
 		self.start_filter_iter = 7 #10 #iteration to start DNN rejection filter
-		self.start_RM_iter = 25 #iteration to start removing moving objects (set low to generate training data)
+		self.start_RM_iter = 15 #iteration to start removing moving objects (set low to generate training data)
 		self.DNN_thresh = 0.05 #0.03
 		self.RM_thresh = 0.25 #0.05 #0.25
 		self.max_buffer = max_buffer #2 max buffer width in spherical voxels
@@ -675,7 +675,7 @@ class LC():
 
 		rads = tf.transpose(idx_by_rag.to_tensor()) 
 		self.rads = rads
-		bounds = get_cluster_fast(rads, thresh = 0.5, mnp = self.min_num_pts, max_buffer = self.max_buffer)
+		bounds = get_cluster_fast(rads, thresh = 0.8, mnp = self.min_num_pts, max_buffer = self.max_buffer)
 
 		corn = self.get_corners_cluster(occupied_spikes, bounds)
 		inside1, npts1 = self.get_points_in_cluster(self.cloud1_tensor_spherical, occupied_spikes, bounds)	
