@@ -1,0 +1,9 @@
+> install VScode and g++
+> hello world c++
+> install eigen3
+> eigen3 hello world
+
+_ install pcl
+_ pcl hello world
+_ test eigen3 matrix ops
+_ create random point cloud and draw in pcl

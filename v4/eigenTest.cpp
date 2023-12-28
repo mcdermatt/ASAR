@@ -45,8 +45,8 @@ int main()
     for (int i = 0; i < tensor.dimension(0); ++i) {
         for (int j = 0; j < tensor.dimension(1); ++j) {
             for (int k = 0; k < tensor.dimension(2); ++k) {
-                tensor.coeffRef(0,i, j) = 42.0;
-                // std::cout << "tensor(" << i << ", " << j << ", " << k << ") = " << tensor(i, j, k) << "\n";
+                // tensor.coeffRef(0,i, j) = 42.0;
+                std::cout << "tensor(" << i << ", " << j << ", " << k << ") = " << tensor(i, j, k) << "\n";
             }
         }
     }
