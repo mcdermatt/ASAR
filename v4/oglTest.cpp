@@ -20,7 +20,7 @@ GLuint vbo; // Vertex Buffer Object
 GLuint vao; // Vertex Array Object
 
 // Camera parameters
-glm::vec3 cameraPosition = glm::vec3(3.0f, 3.0f, 3.0f);
+glm::vec3 cameraPosition = glm::vec3(3.0f, 3.0f, 10.0f);
 glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
 glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
@@ -52,7 +52,7 @@ void mouse_callback(GLFWwindow* window, double xPos, double yPos) {
     lastX = xPos;
     lastY = yPos;
 
-    const GLfloat sensitivity = 0.05f;
+    const GLfloat sensitivity = 0.10f;
     xOffset *= sensitivity;
     yOffset *= sensitivity;
 
