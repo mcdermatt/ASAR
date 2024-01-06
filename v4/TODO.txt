@@ -2,8 +2,12 @@
 > hello world c++
 > install eigen3
 > eigen3 hello world
+> test eigen3 matrix ops
+> create random point cloud and draw in pcl
+> figure out how to draw ellipsoids (GLUT wayy easier than glew)
 
-_ install pcl
-_ pcl hello world
-_ test eigen3 matrix ops
-_ create random point cloud and draw in pcl
+_ make points skewed
+_ calculate covariance of points
+_ draw ellipsoid to show covariance of points
+_ load in point cloud data from external file
+_  

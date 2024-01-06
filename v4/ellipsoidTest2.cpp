@@ -2,6 +2,7 @@
 #include <Eigen/Dense>
 #include <random>
 #include <cmath>
+#include <iostream>
 
 GLdouble cameraDistance = 10.0;
 GLdouble cameraAngleX = 45.0;
@@ -167,11 +168,14 @@ int main(int argc, char** argv) {
     glutCreateWindow("Points and Ellipsoid");
     glutReshapeWindow(800, 600);
     glEnable(GL_DEPTH_TEST);
+    glEnable(GL_POINT_SMOOTH);
+    glEnable(GL_LINE_SMOOTH);
 
     //uniform cube
     // points = Eigen::MatrixXf::Random(100000, 3);
     //gaussian
-    points = generateEigenNormal(100000, 3, 0.0f, 1.0f);
+    points = generateEigenNormal(10000, 3, 0.0f, 1.0f);
+    std::cout << "Random Points:\n" << points << "\n";
 
     glutDisplayFunc(display);
     glutReshapeFunc(reshape);
