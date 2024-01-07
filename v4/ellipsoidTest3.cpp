@@ -5,6 +5,7 @@
 #include <cmath>
 #include <iostream>
 #include <vector>
+#include <glm/glm.hpp>
 
 GLuint pointsVBO, ellipsoidVBO, pointsVAO, ellipsoidVAO;
 
@@ -115,6 +116,45 @@ void initFrustumVBOAndVAO() {
 //     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);  // Restore to fill mode
 // }
 
+void drawCroppedSphere(GLfloat radius, GLfloat azimuthalMinDeg, GLfloat azimuthalMaxDeg,
+                       GLfloat elevationMinDeg, GLfloat elevationMaxDeg, GLint slices, GLint stacks) {
+    
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
+
+    for (GLint i = 0; i < slices; ++i) {
+        glBegin(GL_TRIANGLE_STRIP);
+        for (GLint j = 0; j <= stacks; ++j) {
+            // Calculate the azimuthal and elevation angles in radians
+            GLfloat azimuthalAngle1 = azimuthalMin + (azimuthalMax - azimuthalMin) * i / slices;
+            GLfloat elevationAngle1 = elevationMin + (elevationMax - elevationMin) * j / stacks;
+
+            GLfloat azimuthalAngle2 = azimuthalMin + (azimuthalMax - azimuthalMin) * (i + 1) / slices;
+            GLfloat elevationAngle2 = elevationMin + (elevationMax - elevationMin) * j / stacks;
+
+            // Calculate the coordinates on the sphere
+            GLfloat x1 = radius * cos(elevationAngle1) * cos(azimuthalAngle1);
+            GLfloat y1 = radius * cos(elevationAngle1) * sin(azimuthalAngle1);
+            GLfloat z1 = radius * sin(elevationAngle1);
+
+            GLfloat x2 = radius * cos(elevationAngle2) * cos(azimuthalAngle2);
+            GLfloat y2 = radius * cos(elevationAngle2) * sin(azimuthalAngle2);
+            GLfloat z2 = radius * sin(elevationAngle2);
+
+            // Draw the vertices
+            glVertex3f(x1, y1, z1);
+            glVertex3f(x2, y2, z2);
+        }
+        glEnd();
+    }
+    // glDisable(GL_BLEND);
+    // glDepthMask(GL_TRUE);
+    // glDisable(GL_DEPTH_TEST);
+}
+
+
 void drawFrustum(GLfloat azimuthalMin, GLfloat azimuthalMax, GLfloat elevationMin, GLfloat elevationMax,
                   GLfloat innerDistance, GLfloat outerDistance) {
     glBegin(GL_LINES);
@@ -123,48 +163,48 @@ void drawFrustum(GLfloat azimuthalMin, GLfloat azimuthalMax, GLfloat elevationMi
     GLfloat points[8][3];
 
     // Near surface
-    points[0][0] = innerDistance * std::cos(elevationMin * M_PI / 180.0) * std::cos(azimuthalMin * M_PI / 180.0);
-    points[0][1] = innerDistance * std::cos(elevationMin * M_PI / 180.0) * std::sin(azimuthalMin * M_PI / 180.0);
-    points[0][2] = innerDistance * std::sin(elevationMin * M_PI / 180.0);
+    points[0][0] = innerDistance * std::cos(elevationMin) * std::cos(azimuthalMin);
+    points[0][1] = innerDistance * std::cos(elevationMin) * std::sin(azimuthalMin);
+    points[0][2] = innerDistance * std::sin(elevationMin);
 
-    points[1][0] = innerDistance * std::cos(elevationMin * M_PI / 180.0) * std::cos(azimuthalMax * M_PI / 180.0);
-    points[1][1] = innerDistance * std::cos(elevationMin * M_PI / 180.0) * std::sin(azimuthalMax * M_PI / 180.0);
-    points[1][2] = innerDistance * std::sin(elevationMin * M_PI / 180.0);
+    points[1][0] = innerDistance * std::cos(elevationMin) * std::cos(azimuthalMax);
+    points[1][1] = innerDistance * std::cos(elevationMin) * std::sin(azimuthalMax);
+    points[1][2] = innerDistance * std::sin(elevationMin);
 
-    points[2][0] = innerDistance * std::cos(elevationMax * M_PI / 180.0) * std::cos(azimuthalMax * M_PI / 180.0);
-    points[2][1] = innerDistance * std::cos(elevationMax * M_PI / 180.0) * std::sin(azimuthalMax * M_PI / 180.0);
-    points[2][2] = innerDistance * std::sin(elevationMax * M_PI / 180.0);
+    points[2][0] = innerDistance * std::cos(elevationMax) * std::cos(azimuthalMax);
+    points[2][1] = innerDistance * std::cos(elevationMax) * std::sin(azimuthalMax);
+    points[2][2] = innerDistance * std::sin(elevationMax);
 
-    points[3][0] = innerDistance * std::cos(elevationMax * M_PI / 180.0) * std::cos(azimuthalMin * M_PI / 180.0);
-    points[3][1] = innerDistance * std::cos(elevationMax * M_PI / 180.0) * std::sin(azimuthalMin * M_PI / 180.0);
-    points[3][2] = innerDistance * std::sin(elevationMax * M_PI / 180.0);
+    points[3][0] = innerDistance * std::cos(elevationMax) * std::cos(azimuthalMin);
+    points[3][1] = innerDistance * std::cos(elevationMax) * std::sin(azimuthalMin);
+    points[3][2] = innerDistance * std::sin(elevationMax);
 
     // Far surface
-    points[4][0] = outerDistance * std::cos(elevationMin * M_PI / 180.0) * std::cos(azimuthalMin * M_PI / 180.0);
-    points[4][1] = outerDistance * std::cos(elevationMin * M_PI / 180.0) * std::sin(azimuthalMin * M_PI / 180.0);
-    points[4][2] = outerDistance * std::sin(elevationMin * M_PI / 180.0);
+    points[4][0] = outerDistance * std::cos(elevationMin) * std::cos(azimuthalMin);
+    points[4][1] = outerDistance * std::cos(elevationMin) * std::sin(azimuthalMin);
+    points[4][2] = outerDistance * std::sin(elevationMin);
 
-    points[5][0] = outerDistance * std::cos(elevationMin * M_PI / 180.0) * std::cos(azimuthalMax * M_PI / 180.0);
-    points[5][1] = outerDistance * std::cos(elevationMin * M_PI / 180.0) * std::sin(azimuthalMax * M_PI / 180.0);
-    points[5][2] = outerDistance * std::sin(elevationMin * M_PI / 180.0);
+    points[5][0] = outerDistance * std::cos(elevationMin) * std::cos(azimuthalMax);
+    points[5][1] = outerDistance * std::cos(elevationMin) * std::sin(azimuthalMax);
+    points[5][2] = outerDistance * std::sin(elevationMin);
 
-    points[6][0] = outerDistance * std::cos(elevationMax * M_PI / 180.0) * std::cos(azimuthalMax * M_PI / 180.0);
-    points[6][1] = outerDistance * std::cos(elevationMax * M_PI / 180.0) * std::sin(azimuthalMax * M_PI / 180.0);
-    points[6][2] = outerDistance * std::sin(elevationMax * M_PI / 180.0);
+    points[6][0] = outerDistance * std::cos(elevationMax) * std::cos(azimuthalMax);
+    points[6][1] = outerDistance * std::cos(elevationMax) * std::sin(azimuthalMax);
+    points[6][2] = outerDistance * std::sin(elevationMax);
 
-    points[7][0] = outerDistance * std::cos(elevationMax * M_PI / 180.0) * std::cos(azimuthalMin * M_PI / 180.0);
-    points[7][1] = outerDistance * std::cos(elevationMax * M_PI / 180.0) * std::sin(azimuthalMin * M_PI / 180.0);
-    points[7][2] = outerDistance * std::sin(elevationMax * M_PI / 180.0);
+    points[7][0] = outerDistance * std::cos(elevationMax) * std::cos(azimuthalMin);
+    points[7][1] = outerDistance * std::cos(elevationMax) * std::sin(azimuthalMin);
+    points[7][2] = outerDistance * std::sin(elevationMax);
 
     // Draw lines connecting the points
     for (int i = 0; i < 4; ++i) {
-        // Near surface
-        glVertex3fv(points[i]);
-        glVertex3fv(points[(i + 1) % 4]);
+        // // Near surface
+        // glVertex3fv(points[i]);
+        // glVertex3fv(points[(i + 1) % 4]);
 
-        // Far surface
-        glVertex3fv(points[i + 4]);
-        glVertex3fv(points[(i + 1) % 4 + 4]);
+        // // Far surface
+        // glVertex3fv(points[i + 4]);
+        // glVertex3fv(points[(i + 1) % 4 + 4]);
 
         // Connecting lines
         glVertex3fv(points[i]);
@@ -186,14 +226,22 @@ void drawFrustum(GLfloat azimuthalMin, GLfloat azimuthalMax, GLfloat elevationMi
     glVertex3f(0.0, 0.0, 0.0);
     glVertex3f(0.0, 0.0, 10.0);
 
-    // Print the coordinates for debugging
-    for (int i = 0; i < 8; ++i) {
-        std::cout << "Point " << i + 1 << ": (" << points[i][0] << ", " << points[i][1] << ", " << points[i][2] << ")\n";
-    }
-
     glEnd();
-}
 
+    // // Draw partial spheres on the inner and outer surfaces
+    // const int slices = 50;
+    // const int stacks = 50;
+
+    // // // Draw partial sphere on the inner surface
+    // glColor4f(1.0, 0.0, 0.0, 0.5);  // Red color with alpha blending
+    // drawCroppedSphere(innerDistance, azimuthalMin, azimuthalMax, elevationMin, elevationMax, 12, 12);
+
+    // // Draw partial sphere on the inner surface
+    // glColor4f(1.0, 0.0, 0.0, 0.5);  // Red color with alpha blending
+    // drawCroppedSphere(outerDistance, azimuthalMin, azimuthalMax, elevationMin, elevationMax, 12, 12);
+
+ 
+}
 
 void createVBO(GLuint& vbo, GLenum target, const Eigen::MatrixXf& data) {
     glGenBuffers(1, &vbo);
@@ -376,8 +424,23 @@ void display() {
         drawEllipsoid(ellipsoidMeans[i], ellipsoidCovariances[i], ellipsoidAlphas[i]);
     }
 
+    // // Draw partial sphere on the inner surface
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glDepthMask(GL_FALSE);
+
+    // Enable polygon smoothing for antialiasing
+    glEnable(GL_POLYGON_SMOOTH);
+    glHint(GL_POLYGON_SMOOTH_HINT, GL_NICEST);
+
+    glColor4f(1.0, 1.0, 1.0, 0.5);  // Red color with alpha blending
+    drawCroppedSphere(innerDistance, azimuthalMin, azimuthalMax, elevationMin, elevationMax, 12, 12);
+    glColor4f(1.0, 1.0, 1.0, 0.5);  // Red color with alpha blending
+    drawCroppedSphere(outerDistance, azimuthalMin, azimuthalMax, elevationMin, elevationMax, 12, 12);
+
     glDisable(GL_BLEND);
-    // glDisable(GL_DEPTH_TEST);  // Disable depth testing after drawing
+    glDepthMask(GL_TRUE);
+    glDisable(GL_DEPTH_TEST);  // Disable depth testing after drawing
 
     GLenum error = glGetError();
     if (error != GL_NO_ERROR) {
@@ -510,10 +573,10 @@ int main(int argc, char** argv) {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     // Set the frustum parameters as needed
-    azimuthalMin = 0; //-0.5* M_PI;
-    azimuthalMax = 90; //0.5 * M_PI;
-    elevationMin = -15; //-M_PI / 4.0;
-    elevationMax = 15; //M_PI / 4.0;
+    azimuthalMin = 0.25* M_PI;
+    azimuthalMax = 0.5 * M_PI;
+    elevationMin = -M_PI / 8.0;
+    elevationMax = M_PI / 8.0;
     innerDistance = 5.0;
     outerDistance = 15.0;
 
