@@ -21,6 +21,180 @@ std::vector<Eigen::Vector3f> ellipsoidMeans;
 std::vector<Eigen::Matrix3f> ellipsoidCovariances;
 std::vector<float> ellipsoidAlphas;
 
+Eigen::MatrixXf frustumVertices(8, 3);
+GLuint frustumVBO, frustumVAO;
+// GLdouble left = -1.0;
+// GLdouble right = 1.0;
+// GLdouble bottom = -1.0;
+// GLdouble top = 1.0;
+// GLdouble near = 1.0;
+// GLdouble far = 10.0;
+GLfloat azimuthalMin = 0.0;
+GLfloat azimuthalMax = 2.0 * M_PI;
+GLfloat elevationMin = -M_PI / 4.0;
+GLfloat elevationMax = M_PI / 4.0;
+GLfloat innerDistance = 5.0;
+GLfloat outerDistance = 10.0;
+
+void createFrustumVBO(GLuint& vbo, GLenum target, const Eigen::MatrixXf& data) {
+    glGenBuffers(1, &vbo);
+    glBindBuffer(target, vbo);
+    glBufferData(target, sizeof(float) * data.size(), data.data(), GL_STATIC_DRAW);
+    glBindBuffer(target, 0);
+}
+
+void createFrustumVAO(GLuint& vao, GLuint vbo, int vertexSize, GLuint shaderAttributeIndex, GLsizei dataSize) {
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glVertexAttribPointer(shaderAttributeIndex, vertexSize, GL_FLOAT, GL_FALSE, 0, nullptr);
+    glEnableVertexAttribArray(shaderAttributeIndex);
+    if (dataSize > 0) {
+        glBufferData(GL_ARRAY_BUFFER, sizeof(float) * dataSize, nullptr, GL_STATIC_DRAW);
+    }
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+}
+
+void initFrustumVBOAndVAO() {
+    Eigen::MatrixXf frustumVertices(8, 3);
+    // Define frustum vertices here (modify as needed)
+    frustumVertices <<
+        -1.0f, -1.0f, -1.0f,
+         1.0f, -1.0f, -1.0f,
+         1.0f,  1.0f, -1.0f,
+        -1.0f,  1.0f, -1.0f,
+        -1.0f, -1.0f,  1.0f,
+         1.0f, -1.0f,  1.0f,
+         1.0f,  1.0f,  1.0f,
+        -1.0f,  1.0f,  1.0f;
+
+    createFrustumVBO(frustumVBO, GL_ARRAY_BUFFER, frustumVertices);
+    createFrustumVAO(frustumVAO, frustumVBO, 3, 2, frustumVertices.rows());
+}
+
+// void drawFrustum(GLfloat left, GLfloat right, GLfloat bottom, GLfloat top, GLfloat nearVal, GLfloat farVal) {
+//     glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);  // Set to draw only wireframe
+
+//     glBegin(GL_QUADS);
+
+//     // Front face
+//     glVertex3f(left, bottom, -nearVal);
+//     glVertex3f(right, bottom, -nearVal);
+//     glVertex3f(right, top, -nearVal);
+//     glVertex3f(left, top, -nearVal);
+
+//     glEnd();
+
+//     glBegin(GL_QUADS);
+
+//     // Back face
+//     glVertex3f(left, bottom, -farVal);
+//     glVertex3f(right, bottom, -farVal);
+//     glVertex3f(right, top, -farVal);
+//     glVertex3f(left, top, -farVal);
+
+//     glEnd();
+
+//     glBegin(GL_QUAD_STRIP);
+
+//     // Connecting edges
+//     glVertex3f(left, bottom, -nearVal);
+//     glVertex3f(left, bottom, -farVal);
+//     glVertex3f(right, bottom, -nearVal);
+//     glVertex3f(right, bottom, -farVal);
+//     glVertex3f(right, top, -nearVal);
+//     glVertex3f(right, top, -farVal);
+//     glVertex3f(left, top, -nearVal);
+//     glVertex3f(left, top, -farVal);
+//     glVertex3f(left, bottom, -nearVal);
+//     glVertex3f(left, bottom, -farVal);
+
+//     glEnd();
+
+//     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);  // Restore to fill mode
+// }
+
+void drawFrustum(GLfloat azimuthalMin, GLfloat azimuthalMax, GLfloat elevationMin, GLfloat elevationMax,
+                  GLfloat innerDistance, GLfloat outerDistance) {
+    glBegin(GL_LINES);
+
+    // Define the eight points
+    GLfloat points[8][3];
+
+    // Near surface
+    points[0][0] = innerDistance * std::cos(elevationMin * M_PI / 180.0) * std::cos(azimuthalMin * M_PI / 180.0);
+    points[0][1] = innerDistance * std::cos(elevationMin * M_PI / 180.0) * std::sin(azimuthalMin * M_PI / 180.0);
+    points[0][2] = innerDistance * std::sin(elevationMin * M_PI / 180.0);
+
+    points[1][0] = innerDistance * std::cos(elevationMin * M_PI / 180.0) * std::cos(azimuthalMax * M_PI / 180.0);
+    points[1][1] = innerDistance * std::cos(elevationMin * M_PI / 180.0) * std::sin(azimuthalMax * M_PI / 180.0);
+    points[1][2] = innerDistance * std::sin(elevationMin * M_PI / 180.0);
+
+    points[2][0] = innerDistance * std::cos(elevationMax * M_PI / 180.0) * std::cos(azimuthalMax * M_PI / 180.0);
+    points[2][1] = innerDistance * std::cos(elevationMax * M_PI / 180.0) * std::sin(azimuthalMax * M_PI / 180.0);
+    points[2][2] = innerDistance * std::sin(elevationMax * M_PI / 180.0);
+
+    points[3][0] = innerDistance * std::cos(elevationMax * M_PI / 180.0) * std::cos(azimuthalMin * M_PI / 180.0);
+    points[3][1] = innerDistance * std::cos(elevationMax * M_PI / 180.0) * std::sin(azimuthalMin * M_PI / 180.0);
+    points[3][2] = innerDistance * std::sin(elevationMax * M_PI / 180.0);
+
+    // Far surface
+    points[4][0] = outerDistance * std::cos(elevationMin * M_PI / 180.0) * std::cos(azimuthalMin * M_PI / 180.0);
+    points[4][1] = outerDistance * std::cos(elevationMin * M_PI / 180.0) * std::sin(azimuthalMin * M_PI / 180.0);
+    points[4][2] = outerDistance * std::sin(elevationMin * M_PI / 180.0);
+
+    points[5][0] = outerDistance * std::cos(elevationMin * M_PI / 180.0) * std::cos(azimuthalMax * M_PI / 180.0);
+    points[5][1] = outerDistance * std::cos(elevationMin * M_PI / 180.0) * std::sin(azimuthalMax * M_PI / 180.0);
+    points[5][2] = outerDistance * std::sin(elevationMin * M_PI / 180.0);
+
+    points[6][0] = outerDistance * std::cos(elevationMax * M_PI / 180.0) * std::cos(azimuthalMax * M_PI / 180.0);
+    points[6][1] = outerDistance * std::cos(elevationMax * M_PI / 180.0) * std::sin(azimuthalMax * M_PI / 180.0);
+    points[6][2] = outerDistance * std::sin(elevationMax * M_PI / 180.0);
+
+    points[7][0] = outerDistance * std::cos(elevationMax * M_PI / 180.0) * std::cos(azimuthalMin * M_PI / 180.0);
+    points[7][1] = outerDistance * std::cos(elevationMax * M_PI / 180.0) * std::sin(azimuthalMin * M_PI / 180.0);
+    points[7][2] = outerDistance * std::sin(elevationMax * M_PI / 180.0);
+
+    // Draw lines connecting the points
+    for (int i = 0; i < 4; ++i) {
+        // Near surface
+        glVertex3fv(points[i]);
+        glVertex3fv(points[(i + 1) % 4]);
+
+        // Far surface
+        glVertex3fv(points[i + 4]);
+        glVertex3fv(points[(i + 1) % 4 + 4]);
+
+        // Connecting lines
+        glVertex3fv(points[i]);
+        glVertex3fv(points[i + 4]);
+    }
+
+    // X-axis (Red)
+    glColor3f(1.0, 0.0, 0.0);
+    glVertex3f(0.0, 0.0, 0.0);
+    glVertex3f(10.0, 0.0, 0.0);
+
+    // Y-axis (Green)
+    glColor3f(0.0, 1.0, 0.0);
+    glVertex3f(0.0, 0.0, 0.0);
+    glVertex3f(0.0, 10.0, 0.0);
+
+    // Z-axis (Blue)
+    glColor3f(0.0, 0.0, 1.0);
+    glVertex3f(0.0, 0.0, 0.0);
+    glVertex3f(0.0, 0.0, 10.0);
+
+    // Print the coordinates for debugging
+    for (int i = 0; i < 8; ++i) {
+        std::cout << "Point " << i + 1 << ": (" << points[i][0] << ", " << points[i][1] << ", " << points[i][2] << ")\n";
+    }
+
+    glEnd();
+}
+
+
 void createVBO(GLuint& vbo, GLenum target, const Eigen::MatrixXf& data) {
     glGenBuffers(1, &vbo);
     glBindBuffer(target, vbo);
@@ -60,6 +234,10 @@ void initVBOsAndVAOs() {
 
     createVBO(ellipsoidVBO, GL_ARRAY_BUFFER, ellipsoidVertices);
     createVAO(ellipsoidVAO, ellipsoidVBO, 3, 1, ellipsoidVertices.rows());  // Pass the size of ellipsoidVertices matrix
+
+    // Initialize VBO and VAO for frustum
+    initFrustumVBOAndVAO();
+
 }
 
 
@@ -154,7 +332,7 @@ void drawEllipsoid(const Eigen::Vector3f& mean, const Eigen::Matrix3f& covarianc
 // }
 
 void drawPoints() {
-    std::cout << "Drawing Points. Size: " << points.rows() << std::endl;
+    // std::cout << "Drawing Points. Size: " << points.rows() << std::endl;
     glPointSize(5.0f);
     glColor3f(1.0, 1.0, 1.0);  // White color
 
@@ -171,10 +349,11 @@ void display() {
     glLoadIdentity();
 
     GLdouble cameraX = cameraDistance * sin(cameraAngleY * M_PI / 180.0) * cos(cameraAngleX * M_PI / 180.0);
-    GLdouble cameraY = cameraDistance * sin(cameraAngleX * M_PI / 180.0);
-    GLdouble cameraZ = cameraDistance * cos(cameraAngleY * M_PI / 180.0) * cos(cameraAngleX * M_PI / 180.0);
+    GLdouble cameraY = cameraDistance * cos(cameraAngleY * M_PI / 180.0) * cos(cameraAngleX * M_PI / 180.0);
+    GLdouble cameraZ = cameraDistance * sin(cameraAngleX * M_PI / 180.0);
 
-    gluLookAt(cameraX, cameraY, cameraZ, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
+    gluLookAt(cameraX, cameraY, cameraZ, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0);
+
 
     glEnable(GL_DEPTH_TEST);  // Enable depth testing
     glEnable(GL_BLEND);
@@ -185,6 +364,12 @@ void display() {
     glEnable(GL_POINT_SMOOTH);
     drawPoints();
     glDisable(GL_POINT_SMOOTH);
+    
+    glEnable(GL_LINE_SMOOTH);
+    glLineWidth(2.0);
+    drawFrustum(azimuthalMin, azimuthalMax, 
+                elevationMin, elevationMax,
+                innerDistance, outerDistance);
 
     // Draw ellipsoids
     for (size_t i = 0; i < ellipsoidMeans.size(); ++i) {
@@ -229,7 +414,7 @@ void mouse(int button, int state, int x, int y) {
 }
 
 void motion(int x, int y) {
-    cameraAngleY -= (x - lastMouseX) * 0.1;
+    cameraAngleY += (x - lastMouseX) * 0.1;
     cameraAngleX += (y - lastMouseY) * 0.1;
 
     lastMouseX = x;
@@ -262,13 +447,16 @@ int main(int argc, char** argv) {
     // Initialize VBOs and VAOs
     initVBOsAndVAOs();
 
+    // //init frustrum
+    // initFrustumVBOAndVAO();
+
     // Initialize points
     Eigen::Matrix3f customCovariance;
     customCovariance << 1.0f, 0.5f, 0.3f,
                         0.5f, 2.0f, 0.8f,
                         0.3f, 0.8f, 1.5f;
     Eigen::Vector3f customMean(1.0f, 0.0f, 0.0f);
-    points = generateEigenCovariance(10000, customMean, customCovariance);
+    points = generateEigenCovariance(1000, customMean, customCovariance);
     std::cout << "Random Points:\n" << points << "\n";
 
     // Estimate mean and covariance of random points
@@ -286,15 +474,15 @@ int main(int argc, char** argv) {
     ellipsoidCovariances.push_back(covariance1);
     ellipsoidAlphas.push_back(alpha1);
 
-    // Eigen::Vector3f mean2(-1.0f, 0.0f, 0.0f);
-    // Eigen::Matrix3f covariance2;
-    // covariance2 << 2.0f, 0.3f, 0.5f,
-    //                0.3f, 1.5f, 0.8f,
-    //                0.5f, 0.8f, 2.0f;
-    // float alpha2 = 0.7f;
-    // ellipsoidMeans.push_back(mean2);
-    // ellipsoidCovariances.push_back(covariance2);
-    // ellipsoidAlphas.push_back(alpha2);
+    Eigen::Vector3f mean2(0.0f, 0.0f, 0.0f);
+    Eigen::Matrix3f covariance2;
+    covariance2 << 0.2f, 0.f, 0.f,
+                   0.f, 0.2f, 0.f,
+                   0.f, 0.f, 0.2f;
+    float alpha2 = 1.0f;
+    ellipsoidMeans.push_back(mean2);
+    ellipsoidCovariances.push_back(covariance2);
+    ellipsoidAlphas.push_back(alpha2);
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     for (int i = 0; i <= 100; i++){
@@ -311,7 +499,7 @@ int main(int argc, char** argv) {
         float randomAlpha = 0.5; 
 
         // std::cout << "randomMean:\n" << randomMean << "\n\n";
-        std::cout << "randomCovariance:\n" << randomCovariance << "\n\n";
+        // std::cout << "randomCovariance:\n" << randomCovariance << "\n\n";
 
         //push back to global vars
         ellipsoidMeans.push_back(randomMean);
@@ -321,6 +509,14 @@ int main(int argc, char** argv) {
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+    // Set the frustum parameters as needed
+    azimuthalMin = 0; //-0.5* M_PI;
+    azimuthalMax = 90; //0.5 * M_PI;
+    elevationMin = -15; //-M_PI / 4.0;
+    elevationMax = 15; //M_PI / 4.0;
+    innerDistance = 5.0;
+    outerDistance = 15.0;
+
     glutDisplayFunc(display);
     glutReshapeFunc(reshape);
     glutSpecialFunc(specialKeys);
@@ -329,14 +525,15 @@ int main(int argc, char** argv) {
     glutKeyboardFunc(keyboard);
 
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-
     glutMainLoop();
 
     // Clean up VBOs and VAOs
     glDeleteBuffers(1, &pointsVBO);
     glDeleteBuffers(1, &ellipsoidVBO);
+    glDeleteBuffers(1, &frustumVBO);
     glDeleteVertexArrays(1, &pointsVAO);
     glDeleteVertexArrays(1, &ellipsoidVAO);
+    glDeleteVertexArrays(1, &frustumVAO);
 
 
     return 0;
