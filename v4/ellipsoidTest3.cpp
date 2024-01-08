@@ -5,7 +5,11 @@
 #include <cmath>
 #include <iostream>
 #include <vector>
+#include <string>
 #include <glm/glm.hpp>
+// #include "npy.hpp"
+#include "csv-parser/single_include/csv.hpp"
+#include <fstream>
 
 GLuint pointsVBO, ellipsoidVBO, pointsVAO, ellipsoidVAO;
 
@@ -16,7 +20,7 @@ GLdouble cameraAngleY = -45.0;
 GLdouble lastMouseX = 0.0;
 GLdouble lastMouseY = 0.0;
 
-Eigen::MatrixXf points(10, 3);  // Declare points as a global variable
+Eigen::MatrixXf points(250000, 3);  // Declare points as a global variable
 
 std::vector<Eigen::Vector3f> ellipsoidMeans;
 std::vector<Eigen::Matrix3f> ellipsoidCovariances;
@@ -36,6 +40,15 @@ GLfloat elevationMin = -M_PI / 4.0;
 GLfloat elevationMax = M_PI / 4.0;
 GLfloat innerDistance = 5.0;
 GLfloat outerDistance = 10.0;
+
+// // Load points from external .npy file ~~~~~~~~~~~~~~~~~~~~~~~
+// const std::string path {"sample_data/frame_804.npy"};
+// npy::npy_data d = npy::read_npy<double>(path);
+// std::vector<double> data = d.data;
+// std::vector<unsigned long> shape = d.shape;
+// bool fortran_order = d.fortran_order;
+// //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 
 void createFrustumVBO(GLuint& vbo, GLenum target, const Eigen::MatrixXf& data) {
     glGenBuffers(1, &vbo);
@@ -426,7 +439,8 @@ void display() {
 
     // // Draw partial sphere on the inner surface
     glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glBlendFunc(GL_SRC_ALPHA_SATURATE, GL_ONE);
     glDepthMask(GL_FALSE);
 
     // Enable polygon smoothing for antialiasing
@@ -514,13 +528,60 @@ int main(int argc, char** argv) {
     // initFrustumVBOAndVAO();
 
     // Initialize points
-    Eigen::Matrix3f customCovariance;
-    customCovariance << 1.0f, 0.5f, 0.3f,
-                        0.5f, 2.0f, 0.8f,
-                        0.3f, 0.8f, 1.5f;
-    Eigen::Vector3f customMean(1.0f, 0.0f, 0.0f);
-    points = generateEigenCovariance(1000, customMean, customCovariance);
-    std::cout << "Random Points:\n" << points << "\n";
+    // Eigen::Matrix3f customCovariance;
+    // customCovariance << 1.0f, 0.5f, 0.3f,
+    //                     0.5f, 2.0f, 0.8f,
+    //                     0.3f, 0.8f, 1.5f;
+    // Eigen::Vector3f customMean(1.0f, 0.0f, 0.0f);
+    // points = generateEigenCovariance(1000, customMean, customCovariance);
+    // std::cout << "Random Points:\n" << points << "\n";
+
+    // load point data from .csv ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Ouster Sample Dataset
+    std::string csvFilePath = "sample_data/pcap_out_000106.csv";
+    // Open the CSV file
+    std::ifstream file(csvFilePath);
+    if (!file.is_open()) {
+        std::cerr << "Error: Could not open the CSV file." << std::endl;
+        return 1;
+    }
+    // Parse and process the CSV file, skipping the first row
+    csv::CSVReader reader(file, csv::CSVFormat().header_row(1).trim({}));
+    
+    // Initialize a vector to store rows temporarily
+    std::vector<Eigen::Vector3f> rows;
+
+    csv::CSVRow row;
+    reader.read_row(row); // Skip the first row
+    csv::CSVRow secondRow;
+    reader.read_row(secondRow); // Skip the second row
+    // Parse and process the CSV file
+    // Iterate over rows and fill the vector
+    for (csv::CSVRow& currentRow : reader) {
+        // Assuming three columns in each row
+        Eigen::Vector3f rowData;
+        rowData << static_cast<float>(currentRow[8].get<int>()),
+                   static_cast<float>(currentRow[9].get<int>()),
+                   static_cast<float>(currentRow[10].get<int>());
+
+        // Append the row to the vector
+        rows.push_back(rowData);
+    }
+
+    // Close the file before processing the vector
+    file.close();
+
+    // Preallocate memory for the dataMatrix
+    Eigen::MatrixXf dataMatrix(rows.size(), 3);
+
+    // Copy the data from the vector to the dataMatrix
+    for (size_t i = 0; i < rows.size(); ++i) {
+        dataMatrix.row(i) = rows[i]/1000;
+    }
+
+    points = dataMatrix;
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     // Estimate mean and covariance of random points
     Eigen::VectorXf mean = points.colwise().mean();
@@ -529,23 +590,23 @@ int main(int argc, char** argv) {
     std::cout << "Mean:\n" << mean << "\n\n";
     std::cout << "Covariance:\n" << covariance << "\n";
 
-    // Initialize ellipsoids with specified values ~~~~~~~~~~~
-    Eigen::Vector3f mean1 = mean;
-    Eigen::MatrixXf covariance1 = covariance;
-    float alpha1 = 0.5f;
-    ellipsoidMeans.push_back(mean1);
-    ellipsoidCovariances.push_back(covariance1);
-    ellipsoidAlphas.push_back(alpha1);
+    // // Initialize ellipsoids with specified values ~~~~~~~~~~~
+    // Eigen::Vector3f mean1 = mean;
+    // Eigen::MatrixXf covariance1 = covariance;
+    // float alpha1 = 0.5f;
+    // ellipsoidMeans.push_back(mean1);
+    // ellipsoidCovariances.push_back(covariance1);
+    // ellipsoidAlphas.push_back(alpha1);
 
-    Eigen::Vector3f mean2(0.0f, 0.0f, 0.0f);
-    Eigen::Matrix3f covariance2;
-    covariance2 << 0.2f, 0.f, 0.f,
-                   0.f, 0.2f, 0.f,
-                   0.f, 0.f, 0.2f;
-    float alpha2 = 1.0f;
-    ellipsoidMeans.push_back(mean2);
-    ellipsoidCovariances.push_back(covariance2);
-    ellipsoidAlphas.push_back(alpha2);
+    // Eigen::Vector3f mean2(0.0f, 0.0f, 0.0f);
+    // Eigen::Matrix3f covariance2;
+    // covariance2 << 0.2f, 0.f, 0.f,
+    //                0.f, 0.2f, 0.f,
+    //                0.f, 0.f, 0.2f;
+    // float alpha2 = 1.0f;
+    // ellipsoidMeans.push_back(mean2);
+    // ellipsoidCovariances.push_back(covariance2);
+    // ellipsoidAlphas.push_back(alpha2);
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     for (int i = 0; i <= 100; i++){
@@ -573,10 +634,10 @@ int main(int argc, char** argv) {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     // Set the frustum parameters as needed
-    azimuthalMin = 0.25* M_PI;
-    azimuthalMax = 0.5 * M_PI;
-    elevationMin = -M_PI / 8.0;
-    elevationMax = M_PI / 8.0;
+    azimuthalMin = 30 * (M_PI/ 180);
+    azimuthalMax = 60 * (M_PI/ 180);
+    elevationMin = 0 * (M_PI/ 180);
+    elevationMax = 30 * (M_PI/ 180);
     innerDistance = 5.0;
     outerDistance = 15.0;
 

@@ -5,9 +5,15 @@
 > test eigen3 matrix ops
 > create random point cloud and draw in pcl
 > figure out how to draw ellipsoids (GLUT wayy easier than glew)
+> make points skewed
+> calculate covariance of points
+> draw ellipsoid to show covariance of points
+> make function for displaying radial bounds
 
-_ make points skewed
-_ calculate covariance of points
-_ draw ellipsoid to show covariance of points
 _ load in point cloud data from external file
-_  
+_ fit radial bounds to point cloud data
+_ convert voxels to modern openGL (vbo & vao)
+_ adapt code to support drawing multiple voxels
+
+
+_ convert points to modern openGL
