@@ -214,6 +214,7 @@ void render() {
     // std::cout << "Size of VBO: " << bufferSize << " bytes" << std::endl;
 
     // Render points
+    // glPointSize(2.0f);
     glDrawArrays(GL_POINTS, 0, 77777); // TODO: need to adjust this to the length of buffer
 
     // std::cout << "Size of std::array: " << sizeof(vao) << " bytes" << std::endl;

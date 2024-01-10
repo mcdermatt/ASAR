@@ -9,8 +9,8 @@
 > calculate covariance of points
 > draw ellipsoid to show covariance of points
 > make function for displaying radial bounds
+> load in real point cloud data from external file
 
-_ load in point cloud data from external file
 _ fit radial bounds to point cloud data
 _ convert voxels to modern openGL (vbo & vao)
 _ adapt code to support drawing multiple voxels

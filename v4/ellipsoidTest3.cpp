@@ -528,60 +528,60 @@ int main(int argc, char** argv) {
     // initFrustumVBOAndVAO();
 
     // Initialize points
-    // Eigen::Matrix3f customCovariance;
-    // customCovariance << 1.0f, 0.5f, 0.3f,
-    //                     0.5f, 2.0f, 0.8f,
-    //                     0.3f, 0.8f, 1.5f;
-    // Eigen::Vector3f customMean(1.0f, 0.0f, 0.0f);
-    // points = generateEigenCovariance(1000, customMean, customCovariance);
-    // std::cout << "Random Points:\n" << points << "\n";
+    Eigen::Matrix3f customCovariance;
+    customCovariance << 1.0f, 0.5f, 0.3f,
+                        0.5f, 2.0f, 0.8f,
+                        0.3f, 0.8f, 1.5f;
+    Eigen::Vector3f customMean(1.0f, 0.0f, 0.0f);
+    points = generateEigenCovariance(1000, customMean, customCovariance);
+    std::cout << "Random Points:\n" << points << "\n";
 
-    // load point data from .csv ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // Ouster Sample Dataset
-    std::string csvFilePath = "sample_data/pcap_out_000106.csv";
-    // Open the CSV file
-    std::ifstream file(csvFilePath);
-    if (!file.is_open()) {
-        std::cerr << "Error: Could not open the CSV file." << std::endl;
-        return 1;
-    }
-    // Parse and process the CSV file, skipping the first row
-    csv::CSVReader reader(file, csv::CSVFormat().header_row(1).trim({}));
+    // // load point data from .csv ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // // Ouster Sample Dataset
+    // std::string csvFilePath = "sample_data/pcap_out_000106.csv";
+    // // Open the CSV file
+    // std::ifstream file(csvFilePath);
+    // if (!file.is_open()) {
+    //     std::cerr << "Error: Could not open the CSV file." << std::endl;
+    //     return 1;
+    // }
+    // // Parse and process the CSV file, skipping the first row
+    // csv::CSVReader reader(file, csv::CSVFormat().header_row(1).trim({}));
     
-    // Initialize a vector to store rows temporarily
-    std::vector<Eigen::Vector3f> rows;
+    // // Initialize a vector to store rows temporarily
+    // std::vector<Eigen::Vector3f> rows;
 
-    csv::CSVRow row;
-    reader.read_row(row); // Skip the first row
-    csv::CSVRow secondRow;
-    reader.read_row(secondRow); // Skip the second row
-    // Parse and process the CSV file
-    // Iterate over rows and fill the vector
-    for (csv::CSVRow& currentRow : reader) {
-        // Assuming three columns in each row
-        Eigen::Vector3f rowData;
-        rowData << static_cast<float>(currentRow[8].get<int>()),
-                   static_cast<float>(currentRow[9].get<int>()),
-                   static_cast<float>(currentRow[10].get<int>());
+    // csv::CSVRow row;
+    // reader.read_row(row); // Skip the first row
+    // csv::CSVRow secondRow;
+    // reader.read_row(secondRow); // Skip the second row
+    // // Parse and process the CSV file
+    // // Iterate over rows and fill the vector
+    // for (csv::CSVRow& currentRow : reader) {
+    //     // Assuming three columns in each row
+    //     Eigen::Vector3f rowData;
+    //     rowData << static_cast<float>(currentRow[8].get<int>()),
+    //                static_cast<float>(currentRow[9].get<int>()),
+    //                static_cast<float>(currentRow[10].get<int>());
 
-        // Append the row to the vector
-        rows.push_back(rowData);
-    }
+    //     // Append the row to the vector
+    //     rows.push_back(rowData);
+    // }
 
-    // Close the file before processing the vector
-    file.close();
+    // // Close the file before processing the vector
+    // file.close();
 
-    // Preallocate memory for the dataMatrix
-    Eigen::MatrixXf dataMatrix(rows.size(), 3);
+    // // Preallocate memory for the dataMatrix
+    // Eigen::MatrixXf dataMatrix(rows.size(), 3);
 
-    // Copy the data from the vector to the dataMatrix
-    for (size_t i = 0; i < rows.size(); ++i) {
-        dataMatrix.row(i) = rows[i]/1000;
-    }
+    // // Copy the data from the vector to the dataMatrix
+    // for (size_t i = 0; i < rows.size(); ++i) {
+    //     dataMatrix.row(i) = rows[i]/1000;
+    // }
 
-    points = dataMatrix;
+    // points = dataMatrix;
 
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     // Estimate mean and covariance of random points
     Eigen::VectorXf mean = points.colwise().mean();
@@ -591,12 +591,12 @@ int main(int argc, char** argv) {
     std::cout << "Covariance:\n" << covariance << "\n";
 
     // // Initialize ellipsoids with specified values ~~~~~~~~~~~
-    // Eigen::Vector3f mean1 = mean;
-    // Eigen::MatrixXf covariance1 = covariance;
-    // float alpha1 = 0.5f;
-    // ellipsoidMeans.push_back(mean1);
-    // ellipsoidCovariances.push_back(covariance1);
-    // ellipsoidAlphas.push_back(alpha1);
+    Eigen::Vector3f mean1 = mean;
+    Eigen::MatrixXf covariance1 = covariance;
+    float alpha1 = 0.5f;
+    ellipsoidMeans.push_back(mean1);
+    ellipsoidCovariances.push_back(covariance1);
+    ellipsoidAlphas.push_back(alpha1);
 
     // Eigen::Vector3f mean2(0.0f, 0.0f, 0.0f);
     // Eigen::Matrix3f covariance2;
