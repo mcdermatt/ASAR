@@ -12,6 +12,7 @@
 #include <fstream>
 #include <cmath>
 #include <limits>
+#include <algorithm>  // Include the algorithm header for std::sort
 
 using namespace Eigen;
 using namespace std;
@@ -153,13 +154,13 @@ void drawCroppedSphere(GLfloat radius, GLfloat azimuthalMinDeg, GLfloat azimutha
             GLfloat elevationAngle2 = elevationMin + (elevationMax - elevationMin) * j / stacks;
 
             // Calculate the coordinates on the sphere
-            GLfloat x1 = radius * cos(elevationAngle1) * cos(azimuthalAngle1);
-            GLfloat y1 = radius * cos(elevationAngle1) * sin(azimuthalAngle1);
-            GLfloat z1 = radius * sin(elevationAngle1);
+            GLfloat x1 = radius * sin(elevationAngle1) * cos(azimuthalAngle1);
+            GLfloat y1 = radius * sin(elevationAngle1) * sin(azimuthalAngle1);
+            GLfloat z1 = radius * cos(elevationAngle1);
 
-            GLfloat x2 = radius * cos(elevationAngle2) * cos(azimuthalAngle2);
-            GLfloat y2 = radius * cos(elevationAngle2) * sin(azimuthalAngle2);
-            GLfloat z2 = radius * sin(elevationAngle2);
+            GLfloat x2 = radius * sin(elevationAngle2) * cos(azimuthalAngle2);
+            GLfloat y2 = radius * sin(elevationAngle2) * sin(azimuthalAngle2);
+            GLfloat z2 = radius * cos(elevationAngle2);
 
             // Draw the vertices
             glVertex3f(x1, y1, z1);
@@ -181,38 +182,38 @@ void drawFrustum(GLfloat azimuthalMin, GLfloat azimuthalMax, GLfloat elevationMi
     GLfloat points[8][3];
 
     // Near surface
-    points[0][0] = innerDistance * std::cos(elevationMin) * std::cos(azimuthalMin);
-    points[0][1] = innerDistance * std::cos(elevationMin) * std::sin(azimuthalMin);
-    points[0][2] = innerDistance * std::sin(elevationMin);
+    points[0][0] = innerDistance * std::sin(elevationMin) * std::cos(azimuthalMin);
+    points[0][1] = innerDistance * std::sin(elevationMin) * std::sin(azimuthalMin);
+    points[0][2] = innerDistance * std::cos(elevationMin);
 
-    points[1][0] = innerDistance * std::cos(elevationMin) * std::cos(azimuthalMax);
-    points[1][1] = innerDistance * std::cos(elevationMin) * std::sin(azimuthalMax);
-    points[1][2] = innerDistance * std::sin(elevationMin);
+    points[1][0] = innerDistance * std::sin(elevationMin) * std::cos(azimuthalMax);
+    points[1][1] = innerDistance * std::sin(elevationMin) * std::sin(azimuthalMax);
+    points[1][2] = innerDistance * std::cos(elevationMin);
 
-    points[2][0] = innerDistance * std::cos(elevationMax) * std::cos(azimuthalMax);
-    points[2][1] = innerDistance * std::cos(elevationMax) * std::sin(azimuthalMax);
-    points[2][2] = innerDistance * std::sin(elevationMax);
+    points[2][0] = innerDistance * std::sin(elevationMax) * std::cos(azimuthalMax);
+    points[2][1] = innerDistance * std::sin(elevationMax) * std::sin(azimuthalMax);
+    points[2][2] = innerDistance * std::cos(elevationMax);
 
-    points[3][0] = innerDistance * std::cos(elevationMax) * std::cos(azimuthalMin);
-    points[3][1] = innerDistance * std::cos(elevationMax) * std::sin(azimuthalMin);
-    points[3][2] = innerDistance * std::sin(elevationMax);
+    points[3][0] = innerDistance * std::sin(elevationMax) * std::cos(azimuthalMin);
+    points[3][1] = innerDistance * std::sin(elevationMax) * std::sin(azimuthalMin);
+    points[3][2] = innerDistance * std::cos(elevationMax);
 
     // Far surface
-    points[4][0] = outerDistance * std::cos(elevationMin) * std::cos(azimuthalMin);
-    points[4][1] = outerDistance * std::cos(elevationMin) * std::sin(azimuthalMin);
-    points[4][2] = outerDistance * std::sin(elevationMin);
+    points[4][0] = outerDistance * std::sin(elevationMin) * std::cos(azimuthalMin);
+    points[4][1] = outerDistance * std::sin(elevationMin) * std::sin(azimuthalMin);
+    points[4][2] = outerDistance * std::cos(elevationMin);
 
-    points[5][0] = outerDistance * std::cos(elevationMin) * std::cos(azimuthalMax);
-    points[5][1] = outerDistance * std::cos(elevationMin) * std::sin(azimuthalMax);
-    points[5][2] = outerDistance * std::sin(elevationMin);
+    points[5][0] = outerDistance * std::sin(elevationMin) * std::cos(azimuthalMax);
+    points[5][1] = outerDistance * std::sin(elevationMin) * std::sin(azimuthalMax);
+    points[5][2] = outerDistance * std::cos(elevationMin);
 
-    points[6][0] = outerDistance * std::cos(elevationMax) * std::cos(azimuthalMax);
-    points[6][1] = outerDistance * std::cos(elevationMax) * std::sin(azimuthalMax);
-    points[6][2] = outerDistance * std::sin(elevationMax);
+    points[6][0] = outerDistance * std::sin(elevationMax) * std::cos(azimuthalMax);
+    points[6][1] = outerDistance * std::sin(elevationMax) * std::sin(azimuthalMax);
+    points[6][2] = outerDistance * std::cos(elevationMax);
 
-    points[7][0] = outerDistance * std::cos(elevationMax) * std::cos(azimuthalMin);
-    points[7][1] = outerDistance * std::cos(elevationMax) * std::sin(azimuthalMin);
-    points[7][2] = outerDistance * std::sin(elevationMax);
+    points[7][0] = outerDistance * std::sin(elevationMax) * std::cos(azimuthalMin);
+    points[7][1] = outerDistance * std::sin(elevationMax) * std::sin(azimuthalMin);
+    points[7][2] = outerDistance * std::cos(elevationMax);
 
     // Draw lines connecting the points
     for (int i = 0; i < 4; ++i) {
@@ -426,65 +427,6 @@ void drawPoints() {
     glEnd();
 }
 
-
-void display() {
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glLoadIdentity();
-
-    GLdouble cameraX = cameraDistance * sin(cameraAngleY * M_PI / 180.0) * cos(cameraAngleX * M_PI / 180.0);
-    GLdouble cameraY = cameraDistance * cos(cameraAngleY * M_PI / 180.0) * cos(cameraAngleX * M_PI / 180.0);
-    GLdouble cameraZ = cameraDistance * sin(cameraAngleX * M_PI / 180.0);
-
-    gluLookAt(cameraX, cameraY, cameraZ, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0);
-
-    glEnable(GL_DEPTH_TEST);  // Enable depth testing
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-    //draw points
-    glColor3f(1.0, 1.0, 1.0);
-    glEnable(GL_POINT_SMOOTH);
-    drawPoints();
-    glDisable(GL_POINT_SMOOTH);
-
-    glEnable(GL_LINE_SMOOTH);
-    glLineWidth(2.0);
-    drawFrustum(azimuthalMin, azimuthalMax, 
-                elevationMin, elevationMax,
-                innerDistance, outerDistance);
-
-    // Draw ellipsoids
-    for (size_t i = 0; i < ellipsoidMeans.size(); ++i) {
-        drawEllipsoid(ellipsoidMeans[i], ellipsoidCovariances[i], ellipsoidAlphas[i]);
-    }
-
-    // // Draw partial sphere on the inner surface
-    glEnable(GL_BLEND);
-    // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glBlendFunc(GL_SRC_ALPHA_SATURATE, GL_ONE);
-    glDepthMask(GL_FALSE);
-
-    // Enable polygon smoothing for antialiasing
-    glEnable(GL_POLYGON_SMOOTH);
-    glHint(GL_POLYGON_SMOOTH_HINT, GL_NICEST);
-
-    glColor4f(1.0, 1.0, 1.0, 0.5);  // Red color with alpha blending
-    drawCroppedSphere(innerDistance, azimuthalMin, azimuthalMax, elevationMin, elevationMax, 12, 12);
-    glColor4f(1.0, 1.0, 1.0, 0.5);  // Red color with alpha blending
-    drawCroppedSphere(outerDistance, azimuthalMin, azimuthalMax, elevationMin, elevationMax, 12, 12);
-
-    glDisable(GL_BLEND);
-    glDepthMask(GL_TRUE);
-    glDisable(GL_DEPTH_TEST);  // Disable depth testing after drawing
-
-    GLenum error = glGetError();
-    if (error != GL_NO_ERROR) {
-        std::cerr << "OpenGL Error: " << gluErrorString(error) << std::endl;
-    }
-
-    glutSwapBuffers();
-}
-
 void reshape(int w, int h) {
     glViewport(0, 0, w, h);
     glMatrixMode(GL_PROJECTION);
@@ -538,138 +480,203 @@ MatrixXf cartesianToSpherical(const MatrixXf& cartesianPoints) {
     VectorXf z = cartesianPoints.col(2);
 
     // Compute radius (r)
-    VectorXf r = VectorXf::Zero(cartesianPoints.rows());
+    // VectorXf r = VectorXf::Zero(cartesianPoints.rows());
+    VectorXf r = cartesianPoints.rowwise().norm();
 
     // Compute azimuthal angle (theta)
     VectorXf theta = VectorXf::Zero(cartesianPoints.rows());
     for (int i = 0; i < cartesianPoints.rows(); ++i) {
-        r(i) = cartesianPoints.row(i).norm();
-
-        // Check for invalid points
-        if (std::isfinite(x(i)) && std::isfinite(y(i)) && std::isfinite(r(i)) && r(i) != 0) {
-            theta(i) = std::atan2(y(i), x(i));
-            if (theta(i) < 0.0) {
-                theta(i) += 2.0 * M_PI;
-            }
-        } else {
-            // Handle invalid points by setting theta to a default value
-            theta(i) = 0.0;
+        theta(i) = std::atan2(y(i), x(i));
+        if (theta(i) < 0.0) {
+            theta(i) += 2.0 * M_PI;
         }
     }
 
-    // Compute elevation angle (phi)
+    // // Compute elevation angle (phi)
+    // VectorXf phi = VectorXf::Zero(cartesianPoints.rows());
+    // for (int i = 0; i < cartesianPoints.rows(); ++i) {
+    //     phi(i) = std::atan2(z(i), std::sqrt(x(i) * x(i) + y(i) * y(i)));
+    // }
+    // Compute elevation angle (phi) as the complement from the xy-plane
     VectorXf phi = VectorXf::Zero(cartesianPoints.rows());
     for (int i = 0; i < cartesianPoints.rows(); ++i) {
-        // Check for invalid points
-        if (std::isfinite(z(i)) && std::isfinite(r(i)) && r(i) != 0) {
-            phi(i) = std::acos(z(i) / r(i));
-        } else {
-            // Handle invalid points by setting phi to a default value
-            phi(i) = 0.0;
-        }
+        phi(i) = std::acos(z(i) / r(i));
+        // std::cout << "phi(i): \n" << phi(i) << "\n";
     }
 
     // Combine r, theta, phi into a new matrix
     MatrixXf sphericalPoints(cartesianPoints.rows(), 3);
     sphericalPoints << r, theta, phi;
 
+    // Replace NaN or -NaN values with [0, 0, 0]
+    for (int i = 0; i < sphericalPoints.rows(); ++i) {
+        for (int j = 0; j < sphericalPoints.cols(); ++j) {
+            if (std::isnan(sphericalPoints(i, j))) {
+                sphericalPoints(i, j) = 0.0;
+            }
+        }
+    }
+
     return sphericalPoints;
 }
 
+Eigen::MatrixXf sphericalToCartesian(const Eigen::MatrixXf& sphericalPoints) {
+    // Ensure that the input matrix has 3 columns (r, theta, phi)
+    assert(sphericalPoints.cols() == 3);
 
+    // Extract r, theta, phi columns
+    Eigen::VectorXf r = sphericalPoints.col(0);
+    Eigen::VectorXf theta = sphericalPoints.col(1);
+    Eigen::VectorXf phi = sphericalPoints.col(2);
 
-float sphericalDistance(const Vector3f& point1, const Vector3f& point2) {
-    // Extracting spherical coordinates
-    float r1 = point1(0);
-    float theta1 = point1(1);
-    float phi1 = point1(2);
+    // Convert spherical coordinates to Cartesian coordinates
+    Eigen::MatrixXf cartesianPoints(sphericalPoints.rows(), 3);
 
-    float r2 = point2(0);
-    float theta2 = point2(1);
-    float phi2 = point2(2);
+    for (int i = 0; i < sphericalPoints.rows(); ++i) {
+        float x = r(i) * sin(phi(i)) * cos(theta(i));
+        float y = r(i) * sin(phi(i)) * sin(theta(i));
+        float z = r(i) * cos(phi(i));
 
-    // Convert spherical coordinates to radians
-    float theta1Rad = theta1 * M_PI / 180.0;
-    float phi1Rad = phi1 * M_PI / 180.0;
-    float theta2Rad = theta2 * M_PI / 180.0;
-    float phi2Rad = phi2 * M_PI / 180.0;
+        cartesianPoints.row(i) << x, y, z;
+    }
 
-    // Calculate spherical distance using the spherical law of cosines
-    float distance = std::acos(std::sin(phi1Rad) * std::sin(phi2Rad) +
-                               std::cos(phi1Rad) * std::cos(phi2Rad) * std::cos(theta2Rad - theta1Rad)) * r1;
-
-    return distance;
+    return cartesianPoints;
 }
 
 // Function to find the first sufficiently large cluster of points
-void findCluster(const MatrixXf& cartesianPoints, int n, float thresh,
-                 float azimuthalMin, float azimuthalMax,
-                 float elevationMin, float elevationMax,
-                 float& innerDistance, float& outerDistance) {
-    // Convert Cartesian coordinates to spherical coordinates
-    MatrixXf sphericalCoords = cartesianToSpherical(cartesianPoints);
 
-    vector<Vector3f> localPoints;  // Renamed to avoid conflict with the global variable
+pair<float, float> findCluster(const MatrixXf& sphericalCoords, float azimuthalMin, float azimuthalMax, float elevationMin, float elevationMax, int n, float thresh) {
+    int numPoints = sphericalCoords.rows();
 
-    // Extracting points from Eigen matrix
-    for (int i = 0; i < sphericalCoords.rows(); ++i) {
+    float innerDistance = 0.0;
+    float outerDistance = 0.0;
+    vector<Vector3f> localPoints;
+
+    // // Create a vector to store indices for sorting
+    // std::vector<int> sortedIndices(numPoints);
+    // std::iota(sortedIndices.begin(), sortedIndices.end(), 0);
+
+    // // Sort the indices based on radial distance
+    // std::sort(sortedIndices.begin(), sortedIndices.end(), [&sphericalCoords](int a, int b) {
+    //     return sphericalCoords(a, 0) < sphericalCoords(b, 0);
+    // });
+
+    // Create an index array and sort it based on the radial distance
+    vector<int> index(numPoints);
+    iota(index.begin(), index.end(), 0); // Initialize index with 0, 1, ..., numPoints-1
+    sort(index.begin(), index.end(), [&](int a, int b) {
+        return sphericalCoords(a, 0) < sphericalCoords(b, 0);
+    });
+
+    for (int i : index) {
         Vector3f point = sphericalCoords.row(i);
+        // Vector3f point = sortedCoords.row(i);
         float r = point(0);
         float theta = point(1);
         float phi = point(2);
 
-        // Filtering points based on azimuthal and elevation range
+        cout << "r " << r << " phi " << phi << " theta " << theta << endl;
+
+        // Filtering points based on azimuthal, elevation range, and radial distance
         if (theta >= azimuthalMin && theta <= azimuthalMax &&
             phi >= elevationMin && phi <= elevationMax &&
-            r >= 1.0) {
+            r > 0) {
+
+            // Check for jumps in radial distance to identify clusters
+            if (!localPoints.empty() && std::abs(localPoints.back()(0) - r) > thresh) {
+                if (localPoints.size() >= n) {
+                    // Found a sufficiently large cluster
+                    innerDistance = localPoints.front()(0);
+                    outerDistance = localPoints.back()(0);
+                    cout << "Found cluster - Inner Distance: " << innerDistance << ", Outer Distance: " << outerDistance << endl;
+                    return {innerDistance, outerDistance};
+                } else {
+                    // Reset the cluster if it's not large enough
+                    localPoints.clear();
+                }
+            }
+
+            // Add the point to the current cluster
             localPoints.push_back(point);
         }
     }
 
-    int numPoints = localPoints.size();
-    innerDistance = 0.0;
-    outerDistance = 0.0;
-    cout << "numPoints = " << numPoints << endl;
+    cout << "No sufficiently large cluster found." << endl;
+    return {innerDistance, outerDistance};
+}
 
-    // Find the first sufficiently large cluster
-    for (int i = 0; i < numPoints; ++i) {
-        // cout << "Filtered Point " << i << ": r=" << localPoints[i](0) << ", theta=" << localPoints[i](1) << ", phi=" << localPoints[i](2) << endl;
-        float minDistance = numeric_limits<float>::infinity();
 
-        for (int j = 0; j < numPoints; ++j) {
-            if (i != j) {
-                float distance = sphericalDistance(localPoints[i], localPoints[j]);
-                minDistance = min(minDistance, distance);
-            }
-        }
-        cout << "Point " << i << ": minDistance=" << minDistance << endl;
+void display() {
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glLoadIdentity();
 
-        if (minDistance < thresh) {
-            innerDistance = min(innerDistance, localPoints[i](0));
-            outerDistance = max(outerDistance, localPoints[i](0));
+    GLdouble cameraX = cameraDistance * sin(cameraAngleY * M_PI / 180.0) * cos(cameraAngleX * M_PI / 180.0);
+    GLdouble cameraY = cameraDistance * cos(cameraAngleY * M_PI / 180.0) * cos(cameraAngleX * M_PI / 180.0);
+    GLdouble cameraZ = cameraDistance * sin(cameraAngleX * M_PI / 180.0);
 
-            if (i + n - 1 < numPoints) {
-                // Check if the cluster is sufficiently large
-                bool isCluster = true;
-                for (int k = i + 1; k < i + n; ++k) {
-                    float distance = sphericalDistance(localPoints[i], localPoints[k]);
-                    if (distance >= thresh) {
-                        isCluster = false;
-                        break;
-                    }
-                }
+    gluLookAt(cameraX, cameraY, cameraZ, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0);
 
-                if (isCluster) {
-                    // Found a sufficiently large cluster
-                    return;
-                }
-            }
-        }
+    glEnable(GL_DEPTH_TEST);  // Enable depth testing
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    //draw points
+    glColor3f(1.0, 1.0, 1.0);
+    glEnable(GL_POINT_SMOOTH);
+    drawPoints();
+    glDisable(GL_POINT_SMOOTH);
+
+    // //test--> go c2s and then s2c to verify that transforms are actually working
+    // Eigen::MatrixXf sphericalPoints = cartesianToSpherical(points);
+    // Eigen::MatrixXf cartesianPoints = sphericalToCartesian(sphericalPoints);
+    // glColor3f(1.0, 1.0, 1.0);
+    // glEnable(GL_POINT_SMOOTH);
+    // glPointSize(3.0f);
+    // glColor3f(1.0, 1.0, 1.0);  // White color
+    // glBegin(GL_POINTS);
+    // for (int i = 0; i < cartesianPoints.rows(); ++i) {
+    //     glVertex3f(cartesianPoints(i, 0), cartesianPoints(i, 1), cartesianPoints(i, 2));
+    // }
+    // glEnd();    
+    // glDisable(GL_POINT_SMOOTH);
+
+    glColor3f(0.8, 0.8, 1.0);
+    glEnable(GL_LINE_SMOOTH);
+    glLineWidth(2.0);
+    drawFrustum(azimuthalMin, azimuthalMax, 
+                elevationMin, elevationMax,
+                innerDistance, outerDistance);
+
+    // Draw ellipsoids
+    for (size_t i = 0; i < ellipsoidMeans.size(); ++i) {
+        drawEllipsoid(ellipsoidMeans[i], ellipsoidCovariances[i], ellipsoidAlphas[i]);
     }
 
-    // No sufficiently large cluster found
-    innerDistance = 0.0;
-    outerDistance = 0.0;
+    // // Draw partial sphere on the inner surface
+    glEnable(GL_BLEND);
+    // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glBlendFunc(GL_SRC_ALPHA_SATURATE, GL_ONE);
+    glDepthMask(GL_FALSE);
+
+    // Enable polygon smoothing for antialiasing
+    glEnable(GL_POLYGON_SMOOTH);
+    glHint(GL_POLYGON_SMOOTH_HINT, GL_NICEST);
+
+    glColor4f(0.8, 0.8, 1.0, 0.5); 
+    drawCroppedSphere(innerDistance, azimuthalMin, azimuthalMax, elevationMin, elevationMax, 12, 12);
+    glColor4f(0.8, 0.8, 1.0, 0.5);  
+    drawCroppedSphere(outerDistance, azimuthalMin, azimuthalMax, elevationMin, elevationMax, 12, 12);
+
+    glDisable(GL_BLEND);
+    glDepthMask(GL_TRUE);
+    glDisable(GL_DEPTH_TEST);  // Disable depth testing after drawing
+
+    GLenum error = glGetError();
+    if (error != GL_NO_ERROR) {
+        std::cerr << "OpenGL Error: " << gluErrorString(error) << std::endl;
+    }
+
+    glutSwapBuffers();
 }
 
 int main(int argc, char** argv) {
@@ -748,8 +755,8 @@ int main(int argc, char** argv) {
     Eigen::VectorXf mean = points.colwise().mean();
     Eigen::MatrixXf centered = points.rowwise() - mean.transpose();
     Eigen::MatrixXf covariance = (centered.adjoint() * centered) / static_cast<float>(points.rows() - 1);
-    std::cout << "Mean:\n" << mean << "\n\n";
-    std::cout << "Covariance:\n" << covariance << "\n";
+    // std::cout << "Mean:\n" << mean << "\n\n";
+    // std::cout << "Covariance:\n" << covariance << "\n";
 
     // // Initialize ellipsoids with specified values ~~~~~~~~~~~
     // Eigen::Vector3f mean1 = mean;
@@ -795,19 +802,23 @@ int main(int argc, char** argv) {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     // Set the frustum parameters as needed
-    azimuthalMin = 30 * (M_PI/ 180);
-    azimuthalMax = 60 * (M_PI/ 180);
-    elevationMin = 0 * (M_PI/ 180);
-    elevationMax = 30 * (M_PI/ 180);
+    azimuthalMin = 240 * (M_PI/ 180); //0-2pi
+    azimuthalMax = 255 * (M_PI/ 180);
+    elevationMin =  75 * (M_PI/ 180);
+    elevationMax = 90 * (M_PI/ 180);
     // innerDistance = 5.0;
     // outerDistance = 15.0;
 
-    int n = 3; // Size of the cluster
-    float thresh = 0.1; // Threshold for radial distance
+    int n = 30; // Size of the cluster
+    float thresh = 0.3; // Threshold for radial distance
     // findCluster(points, n, thresh, azimuthalMin, azimuthalMax, elevationMin, elevationMax);
-    // Eigen::MatrixXf pointsSpherical = cartesianToSpherical(points);
-    // std::cout << "pointsSpherical: \n" << pointsSpherical.size() << "\n";
-    findCluster(points, n, thresh, azimuthalMin, azimuthalMax, elevationMin, elevationMax, innerDistance, outerDistance);
+    Eigen::MatrixXf pointsSpherical = cartesianToSpherical(points);
+    std::cout << "pointsSpherical: \n" << pointsSpherical.rows() << "\n";
+    pair<float, float> clusterDistances = findCluster(pointsSpherical, azimuthalMin, azimuthalMax, elevationMin, elevationMax, n, thresh);
+
+    innerDistance = clusterDistances.first;
+    outerDistance = clusterDistances.second;
+
     std::cout << "innerDistance:\n" << innerDistance << "\n";
     std::cout << "outerDistnace:\n" << outerDistance << "\n";
 
