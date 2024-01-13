@@ -34,12 +34,7 @@ std::vector<float> ellipsoidAlphas;
 
 Eigen::MatrixXf frustumVertices(8, 3);
 GLuint frustumVBO, frustumVAO;
-// GLdouble left = -1.0;
-// GLdouble right = 1.0;
-// GLdouble bottom = -1.0;
-// GLdouble top = 1.0;
-// GLdouble near = 1.0;
-// GLdouble far = 10.0;
+
 GLfloat azimuthalMin = 0.0;
 GLfloat azimuthalMax = 2.0 * M_PI;
 GLfloat elevationMin = -M_PI / 4.0;
@@ -47,14 +42,8 @@ GLfloat elevationMax = M_PI / 4.0;
 GLfloat innerDistance = 5.0;
 GLfloat outerDistance = 10.0;
 
-// // Load points from external .npy file ~~~~~~~~~~~~~~~~~~~~~~~
-// const std::string path {"sample_data/frame_804.npy"};
-// npy::npy_data d = npy::read_npy<double>(path);
-// std::vector<double> data = d.data;
-// std::vector<unsigned long> shape = d.shape;
-// bool fortran_order = d.fortran_order;
-// //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
+//test -- set cluster bounds as [n, 6] matrix
+Eigen::MatrixXd clusterBounds(1000,6);
 
 void createFrustumVBO(GLuint& vbo, GLenum target, const Eigen::MatrixXf& data) {
     glGenBuffers(1, &vbo);
@@ -93,50 +82,8 @@ void initFrustumVBOAndVAO() {
     createFrustumVAO(frustumVAO, frustumVBO, 3, 2, frustumVertices.rows());
 }
 
-// void drawFrustum(GLfloat left, GLfloat right, GLfloat bottom, GLfloat top, GLfloat nearVal, GLfloat farVal) {
-//     glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);  // Set to draw only wireframe
-
-//     glBegin(GL_QUADS);
-
-//     // Front face
-//     glVertex3f(left, bottom, -nearVal);
-//     glVertex3f(right, bottom, -nearVal);
-//     glVertex3f(right, top, -nearVal);
-//     glVertex3f(left, top, -nearVal);
-
-//     glEnd();
-
-//     glBegin(GL_QUADS);
-
-//     // Back face
-//     glVertex3f(left, bottom, -farVal);
-//     glVertex3f(right, bottom, -farVal);
-//     glVertex3f(right, top, -farVal);
-//     glVertex3f(left, top, -farVal);
-
-//     glEnd();
-
-//     glBegin(GL_QUAD_STRIP);
-
-//     // Connecting edges
-//     glVertex3f(left, bottom, -nearVal);
-//     glVertex3f(left, bottom, -farVal);
-//     glVertex3f(right, bottom, -nearVal);
-//     glVertex3f(right, bottom, -farVal);
-//     glVertex3f(right, top, -nearVal);
-//     glVertex3f(right, top, -farVal);
-//     glVertex3f(left, top, -nearVal);
-//     glVertex3f(left, top, -farVal);
-//     glVertex3f(left, bottom, -nearVal);
-//     glVertex3f(left, bottom, -farVal);
-
-//     glEnd();
-
-//     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);  // Restore to fill mode
-// }
-
-void drawCroppedSphere(GLfloat radius, GLfloat azimuthalMinDeg, GLfloat azimuthalMaxDeg,
-                       GLfloat elevationMinDeg, GLfloat elevationMaxDeg, GLint slices, GLint stacks) {
+void drawCroppedSphere(GLfloat radius, GLfloat azimuthalMin, GLfloat azimuthalMax,
+                       GLfloat elevationMin, GLfloat elevationMax, GLint slices, GLint stacks) {
     
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -230,34 +177,41 @@ void drawFrustum(GLfloat azimuthalMin, GLfloat azimuthalMax, GLfloat elevationMi
         glVertex3fv(points[i + 4]);
     }
 
-    // X-axis (Red)
-    glColor3f(1.0, 0.0, 0.0);
-    glVertex3f(0.0, 0.0, 0.0);
-    glVertex3f(10.0, 0.0, 0.0);
+    // // X-axis (Red)
+    // glColor3f(1.0, 0.0, 0.0);
+    // glVertex3f(0.0, 0.0, 0.0);
+    // glVertex3f(10.0, 0.0, 0.0);
 
-    // Y-axis (Green)
-    glColor3f(0.0, 1.0, 0.0);
-    glVertex3f(0.0, 0.0, 0.0);
-    glVertex3f(0.0, 10.0, 0.0);
+    // // Y-axis (Green)
+    // glColor3f(0.0, 1.0, 0.0);
+    // glVertex3f(0.0, 0.0, 0.0);
+    // glVertex3f(0.0, 10.0, 0.0);
 
-    // Z-axis (Blue)
-    glColor3f(0.0, 0.0, 1.0);
-    glVertex3f(0.0, 0.0, 0.0);
-    glVertex3f(0.0, 0.0, 10.0);
+    // // Z-axis (Blue)
+    // glColor3f(0.0, 0.0, 1.0);
+    // glVertex3f(0.0, 0.0, 0.0);
+    // glVertex3f(0.0, 0.0, 10.0);
 
     glEnd();
 
-    // // Draw partial spheres on the inner and outer surfaces
-    // const int slices = 50;
-    // const int stacks = 50;
+    // // Draw partial sphere on the inner and outer surfaces
+    glEnable(GL_BLEND);
+    // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glBlendFunc(GL_SRC_ALPHA_SATURATE, GL_ONE);
+    glDepthMask(GL_FALSE);
 
-    // // // Draw partial sphere on the inner surface
-    // glColor4f(1.0, 0.0, 0.0, 0.5);  // Red color with alpha blending
-    // drawCroppedSphere(innerDistance, azimuthalMin, azimuthalMax, elevationMin, elevationMax, 12, 12);
+    // // Enable polygon smoothing for antialiasing
+    // glEnable(GL_POLYGON_SMOOTH);
+    // glHint(GL_POLYGON_SMOOTH_HINT, GL_NICEST);
 
-    // // Draw partial sphere on the inner surface
-    // glColor4f(1.0, 0.0, 0.0, 0.5);  // Red color with alpha blending
-    // drawCroppedSphere(outerDistance, azimuthalMin, azimuthalMax, elevationMin, elevationMax, 12, 12);
+    glColor4f(0.8, 0.8, 1.0, 0.7); 
+    drawCroppedSphere(innerDistance, azimuthalMin, azimuthalMax, elevationMin, elevationMax, 12, 12);
+    glColor4f(0.8, 0.8, 1.0, 0.7);  
+    drawCroppedSphere(outerDistance, azimuthalMin, azimuthalMax, elevationMin, elevationMax, 12, 12);
+
+    glDisable(GL_BLEND);
+    glDepthMask(GL_TRUE);
+    glDisable(GL_DEPTH_TEST);  // Disable depth testing after drawing
 
  
 }
@@ -544,7 +498,6 @@ Eigen::MatrixXf sphericalToCartesian(const Eigen::MatrixXf& sphericalPoints) {
 }
 
 // Function to find the first sufficiently large cluster of points
-
 pair<float, float> findCluster(const MatrixXf& sphericalCoords, float azimuthalMin, float azimuthalMax, float elevationMin, float elevationMax, int n, float thresh) {
     int numPoints = sphericalCoords.rows();
 
@@ -552,30 +505,11 @@ pair<float, float> findCluster(const MatrixXf& sphericalCoords, float azimuthalM
     float outerDistance = 0.0;
     vector<Vector3f> localPoints;
 
-    // // Create a vector to store indices for sorting
-    // std::vector<int> sortedIndices(numPoints);
-    // std::iota(sortedIndices.begin(), sortedIndices.end(), 0);
-
-    // // Sort the indices based on radial distance
-    // std::sort(sortedIndices.begin(), sortedIndices.end(), [&sphericalCoords](int a, int b) {
-    //     return sphericalCoords(a, 0) < sphericalCoords(b, 0);
-    // });
-
-    // Create an index array and sort it based on the radial distance
-    vector<int> index(numPoints);
-    iota(index.begin(), index.end(), 0); // Initialize index with 0, 1, ..., numPoints-1
-    sort(index.begin(), index.end(), [&](int a, int b) {
-        return sphericalCoords(a, 0) < sphericalCoords(b, 0);
-    });
-
-    for (int i : index) {
+    for (int i = 0; i < numPoints; i++) {
         Vector3f point = sphericalCoords.row(i);
-        // Vector3f point = sortedCoords.row(i);
         float r = point(0);
         float theta = point(1);
         float phi = point(2);
-
-        cout << "r " << r << " phi " << phi << " theta " << theta << endl;
 
         // Filtering points based on azimuthal, elevation range, and radial distance
         if (theta >= azimuthalMin && theta <= azimuthalMax &&
@@ -626,50 +560,26 @@ void display() {
     drawPoints();
     glDisable(GL_POINT_SMOOTH);
 
-    // //test--> go c2s and then s2c to verify that transforms are actually working
-    // Eigen::MatrixXf sphericalPoints = cartesianToSpherical(points);
-    // Eigen::MatrixXf cartesianPoints = sphericalToCartesian(sphericalPoints);
-    // glColor3f(1.0, 1.0, 1.0);
-    // glEnable(GL_POINT_SMOOTH);
-    // glPointSize(3.0f);
-    // glColor3f(1.0, 1.0, 1.0);  // White color
-    // glBegin(GL_POINTS);
-    // for (int i = 0; i < cartesianPoints.rows(); ++i) {
-    //     glVertex3f(cartesianPoints(i, 0), cartesianPoints(i, 1), cartesianPoints(i, 2));
-    // }
-    // glEnd();    
-    // glDisable(GL_POINT_SMOOTH);
+    // Draw single frustrum
+    // glColor3f(0.8, 0.8, 1.0);
+    // glEnable(GL_LINE_SMOOTH);
+    // glLineWidth(2.0);
+    // drawFrustum(azimuthalMin, azimuthalMax, 
+    //             elevationMin, elevationMax,
+    //             innerDistance, outerDistance);
 
+    // Draw all voxels
     glColor3f(0.8, 0.8, 1.0);
     glEnable(GL_LINE_SMOOTH);
-    glLineWidth(2.0);
-    drawFrustum(azimuthalMin, azimuthalMax, 
-                elevationMin, elevationMax,
-                innerDistance, outerDistance);
+    // glLineWidth(2.0);
+    for (size_t i = 0; i < clusterBounds.rows(); i++){
+        drawFrustum(clusterBounds(i,0), clusterBounds(i,1), clusterBounds(i,2), clusterBounds(i,3), clusterBounds(i,4), clusterBounds(i,5));
+    }
 
     // Draw ellipsoids
     for (size_t i = 0; i < ellipsoidMeans.size(); ++i) {
         drawEllipsoid(ellipsoidMeans[i], ellipsoidCovariances[i], ellipsoidAlphas[i]);
     }
-
-    // // Draw partial sphere on the inner surface
-    glEnable(GL_BLEND);
-    // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glBlendFunc(GL_SRC_ALPHA_SATURATE, GL_ONE);
-    glDepthMask(GL_FALSE);
-
-    // Enable polygon smoothing for antialiasing
-    glEnable(GL_POLYGON_SMOOTH);
-    glHint(GL_POLYGON_SMOOTH_HINT, GL_NICEST);
-
-    glColor4f(0.8, 0.8, 1.0, 0.5); 
-    drawCroppedSphere(innerDistance, azimuthalMin, azimuthalMax, elevationMin, elevationMax, 12, 12);
-    glColor4f(0.8, 0.8, 1.0, 0.5);  
-    drawCroppedSphere(outerDistance, azimuthalMin, azimuthalMax, elevationMin, elevationMax, 12, 12);
-
-    glDisable(GL_BLEND);
-    glDepthMask(GL_TRUE);
-    glDisable(GL_DEPTH_TEST);  // Disable depth testing after drawing
 
     GLenum error = glGetError();
     if (error != GL_NO_ERROR) {
@@ -802,25 +712,74 @@ int main(int argc, char** argv) {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     // Set the frustum parameters as needed
-    azimuthalMin = 240 * (M_PI/ 180); //0-2pi
-    azimuthalMax = 255 * (M_PI/ 180);
+    azimuthalMin = 120 * (M_PI/ 180); //0-2pi
+    azimuthalMax = 150 * (M_PI/ 180);
     elevationMin =  75 * (M_PI/ 180);
     elevationMax = 90 * (M_PI/ 180);
     // innerDistance = 5.0;
     // outerDistance = 15.0;
 
     int n = 30; // Size of the cluster
-    float thresh = 0.3; // Threshold for radial distance
+    float thresh = 0.1; // Threshold for radial distance
     // findCluster(points, n, thresh, azimuthalMin, azimuthalMax, elevationMin, elevationMax);
     Eigen::MatrixXf pointsSpherical = cartesianToSpherical(points);
     std::cout << "pointsSpherical: \n" << pointsSpherical.rows() << "\n";
-    pair<float, float> clusterDistances = findCluster(pointsSpherical, azimuthalMin, azimuthalMax, elevationMin, elevationMax, n, thresh);
+
+    // Sort sphericalCoords based on radial distance
+    vector<int> index(pointsSpherical.rows());
+    iota(index.begin(), index.end(), 0);
+    sort(index.begin(), index.end(), [&](int a, int b) {
+        return pointsSpherical(a, 0) < pointsSpherical(b, 0); // Sort by radial distance
+    });
+
+    // Create a sorted matrix using the sorted indices
+    MatrixXf sortedPointsSpherical(pointsSpherical.rows(), pointsSpherical.cols());
+    for (int i = 0; i < pointsSpherical.rows(); i++) {
+        sortedPointsSpherical.row(i) = pointsSpherical.row(index[i]);
+    }
+
+    pair<float, float> clusterDistances = findCluster(sortedPointsSpherical, azimuthalMin, azimuthalMax, elevationMin, elevationMax, n, thresh);
 
     innerDistance = clusterDistances.first;
     outerDistance = clusterDistances.second;
 
-    std::cout << "innerDistance:\n" << innerDistance << "\n";
-    std::cout << "outerDistnace:\n" << outerDistance << "\n";
+    // std::cout << "innerDistance:\n" << innerDistance << "\n";
+    // std::cout << "outerDistnace:\n" << outerDistance << "\n";
+
+    // set up spherical voxel grid ~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    // TODO: sort by radial distance IN CHUNKS so the if statement inside findCluster() doesn't have to check every point
+
+    int azimBins = 40;
+    int elevBins = 25;
+    float azimMin = 0;
+    float azimMax = 2*M_PI;
+    float elevMin = M_PI/4;
+    float elevMax = 5*M_PI/4;
+
+    int totalBins = azimBins*elevBins; 
+
+    for (int i = 0; i < totalBins; i++){
+        //[azimMin_i, azimMax_i, elevMin_i, elevMax_i, inner_i, outer_i]
+        float azimMin_i = (i % azimBins) * (azimMax - azimMin) / azimBins;  
+        float azimMax_i = ((i+1) % azimBins) * (azimMax - azimMin) / azimBins;  
+        if ((i+1) % azimBins == 0){
+            azimMax_i = 2*M_PI - 0.00001;
+        }
+
+        float elevMin_i = floor(i / azimBins) * (elevMax - elevMin) / elevBins;
+        float elevMax_i = (floor(i / azimBins) + 1) * (elevMax - elevMin) / elevBins;
+
+        pair<float, float> clusterDistances = findCluster(sortedPointsSpherical, azimMin_i, azimMax_i, elevMin_i, elevMax_i, n, thresh);
+        innerDistance = clusterDistances.first;
+        outerDistance = clusterDistances.second;
+
+        clusterBounds.row(i) << azimMin_i, azimMax_i, elevMin_i, elevMax_i, innerDistance, outerDistance;
+        cout << clusterBounds.row(i) << " i " << i << endl;
+        cout << clusterBounds(i,0) << "  " << clusterBounds(i,1) << " test " << i << endl;
+        }
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 
     glEnable(GL_DEPTH_TEST);
 
