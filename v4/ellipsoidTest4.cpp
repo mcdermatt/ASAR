@@ -17,6 +17,9 @@
 using namespace Eigen;
 using namespace std;
 
+// script for drawing spherical voxels on real point cloud data
+// works but takes > 400 Ms to fit the clusters (waaaay too slow)
+
 GLuint pointsVBO, ellipsoidVBO, pointsVAO, ellipsoidVAO;
 
 GLdouble cameraDistance = 10.0;

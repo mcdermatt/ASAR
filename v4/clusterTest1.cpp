@@ -128,9 +128,9 @@ pair<float, float> findCluster(const MatrixXf& sphericalCoords, int n, float thr
     return {innerDistance, outerDistance};
 }
 
-vector<vector<vector<int>>> sortSphericalCoordinates(const MatrixXf& sphericalCoords, int numBinsPhi, int numBinsTheta) {
+vector<vector<vector<int>>> sortSphericalCoordinates(const MatrixXf& sphericalCoords, int numBinsTheta, int numBinsPhi) {
     // Create a 2D vector of vectors to store point indices in each bin
-    vector<vector<vector<int>>> pointIndices(numBinsPhi, vector<vector<int>>(numBinsTheta));
+    vector<vector<vector<int>>> pointIndices(numBinsTheta, vector<vector<int>>(numBinsPhi));
 
     // Iterate through each spherical coordinate
     for (int i = 0; i < sphericalCoords.rows(); ++i) {
@@ -139,11 +139,11 @@ vector<vector<vector<int>>> sortSphericalCoordinates(const MatrixXf& sphericalCo
         float theta = sphericalCoords(i, 2);
 
         // Calculate bin indices
-        int binPhi = static_cast<int>((phi / (2 * M_PI)) * numBinsPhi) % numBinsPhi;
-        int binTheta = static_cast<int>((theta / M_PI) * numBinsTheta) % numBinsTheta;
+        int binTheta = static_cast<int>((theta / (2 * M_PI)) * numBinsTheta) % numBinsTheta;
+        int binPhi = static_cast<int>((phi / M_PI) * numBinsPhi) % numBinsPhi;
 
         // Store the point index in the corresponding bin
-        pointIndices[binPhi][binTheta].push_back(i);
+        pointIndices[binTheta][binPhi].push_back(i);
     }
 
     // Return the vector of point indices
@@ -305,18 +305,29 @@ int main(int argc, char** argv) {
                 pair<float, float> clusterDistances = findCluster(selectedPoints, n, thresh);
                 innerDistance = clusterDistances.first;
                 outerDistance = clusterDistances.second;
-
-                //TODO: convert [desiredPhi][desiredTheta] to azimMin, azimMax, elevMin, elevMax
             }
+            // use -1 value as a flag for unoccupied voxles
             else{
-                double innerDistance = -1;
-                double outerDistance = -1;
+                float innerDistance = -1;
+                float outerDistance = -1;
                 
             }
+            //convert [desiredPhi][desiredTheta] to azimMin, azimMax, elevMin, elevMax
+            float azimMin_i =  (static_cast<float>(theta) / numBinsTheta) * (2 * M_PI) ;
+            float azimMax_i =  (static_cast<float>(theta+1) / numBinsTheta) * (2 * M_PI) ;
+            float elevMin_i =  (static_cast<float>(phi) / numBinsPhi) * (M_PI) ;
+            float elevMax_i =  (static_cast<float>(phi+1) / numBinsPhi) * (M_PI) ;
+
+            // cout << "\n azimMin: " << azimMin_i << endl;
+            // cout << "azimMax: " << azimMax_i << endl;
+            // cout << "phiMin: " << elevMin_i << endl;
+            // cout << "phiMax: " << elevMax_i << endl;
+
+            clusterBounds.row(numBinsTheta*phi + theta ) << azimMin_i, azimMax_i, elevMin_i, elevMax_i, innerDistance, outerDistance;
+
         }
 
     }
-
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
