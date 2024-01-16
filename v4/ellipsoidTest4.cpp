@@ -466,7 +466,7 @@ MatrixXf cartesianToSpherical(const MatrixXf& cartesianPoints) {
     for (int i = 0; i < sphericalPoints.rows(); ++i) {
         for (int j = 0; j < sphericalPoints.cols(); ++j) {
             if (std::isnan(sphericalPoints(i, j))) {
-                sphericalPoints(i, j) = 0.0;
+                sphericalPoints(i, j) = 1000.0;
             }
         }
     }
@@ -513,8 +513,7 @@ pair<float, float> findCluster(const MatrixXf& sphericalCoords, float azimuthalM
 
         // Filtering points based on azimuthal, elevation range, and radial distance
         if (theta >= azimuthalMin && theta <= azimuthalMax &&
-            phi >= elevationMin && phi <= elevationMax &&
-            r > 0) {
+            phi >= elevationMin && phi <= elevationMax) {
 
             // Check for jumps in radial distance to identify clusters
             if (!localPoints.empty() && std::abs(localPoints.back()(0) - r) > thresh) {
@@ -522,23 +521,76 @@ pair<float, float> findCluster(const MatrixXf& sphericalCoords, float azimuthalM
                     // Found a sufficiently large cluster
                     innerDistance = localPoints.front()(0);
                     outerDistance = localPoints.back()(0);
-                    cout << "Found cluster - Inner Distance: " << innerDistance << ", Outer Distance: " << outerDistance << endl;
+                    // cout << "Found cluster - Inner Distance: " << innerDistance << ", Outer Distance: " << outerDistance << endl;
                     return {innerDistance, outerDistance};
                 } else {
                     // Reset the cluster if it's not large enough
                     localPoints.clear();
                 }
             }
-
             // Add the point to the current cluster
             localPoints.push_back(point);
         }
     }
-
-    cout << "No sufficiently large cluster found." << endl;
     return {innerDistance, outerDistance};
 }
 
+// Function to find clusters for multiple range specifications
+vector<pair<float, float>> findClusters(const MatrixXf& sphericalCoords, const vector<tuple<float, float, float, float>>& ranges, int n, float thresh) {
+    int numPoints = sphericalCoords.rows();
+
+    vector<pair<float, float>> results;
+
+    #pragma omp parallel for
+    for (int rangeIdx = 0; rangeIdx < ranges.size(); rangeIdx++) {
+        float azimuthalMin, azimuthalMax, elevationMin, elevationMax;
+        tie(azimuthalMin, azimuthalMax, elevationMin, elevationMax) = ranges[rangeIdx];
+
+        float innerDistance = 0.0;
+        float outerDistance = 0.0;
+        vector<Vector3f> localPoints;
+
+        for (int i = 0; i < numPoints; i++) {
+            Vector3f point = sphericalCoords.row(i);
+            float r = point(0);
+            float theta = point(1);
+            float phi = point(2);
+
+            // Filtering points based on azimuthal, elevation range, and radial distance
+            if (theta >= azimuthalMin && theta <= azimuthalMax &&
+                phi >= elevationMin && phi <= elevationMax) {
+
+                // Check for jumps in radial distance to identify clusters
+                if (!localPoints.empty() && std::abs(localPoints.back()(0) - r) > thresh) {
+                    if (localPoints.size() >= n) {
+                        // Found a sufficiently large cluster
+                        innerDistance = localPoints.front()(0);
+                        outerDistance = localPoints.back()(0);
+                        cout << "Found cluster - Inner Distance: " << innerDistance << ", Outer Distance: " << outerDistance << endl;
+                        #pragma omp critical
+                        results.push_back({innerDistance, outerDistance});
+                        break;  // Break to move on to the next range
+                    } else {
+                        // Reset the cluster if it's not large enough
+                        localPoints.clear();
+                    }
+                }
+
+                // Add the point to the current cluster
+                localPoints.push_back(point);
+            }
+        }
+
+        // No sufficiently large cluster found for this range
+        if (innerDistance == 0.0 && outerDistance == 0.0) {
+            cout << "No sufficiently large cluster found for range." << endl;
+            #pragma omp critical
+            results.push_back({innerDistance, outerDistance});
+        }
+    }
+
+    return results;
+}
 
 void display() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -719,8 +771,8 @@ int main(int argc, char** argv) {
     // innerDistance = 5.0;
     // outerDistance = 15.0;
 
-    int n = 30; // Size of the cluster
-    float thresh = 0.1; // Threshold for radial distance
+    int n = 20; // Size of the cluster
+    float thresh = 0.2; // Threshold for radial distance
     // findCluster(points, n, thresh, azimuthalMin, azimuthalMax, elevationMin, elevationMax);
     Eigen::MatrixXf pointsSpherical = cartesianToSpherical(points);
     std::cout << "pointsSpherical: \n" << pointsSpherical.rows() << "\n";
@@ -738,14 +790,6 @@ int main(int argc, char** argv) {
         sortedPointsSpherical.row(i) = pointsSpherical.row(index[i]);
     }
 
-    pair<float, float> clusterDistances = findCluster(sortedPointsSpherical, azimuthalMin, azimuthalMax, elevationMin, elevationMax, n, thresh);
-
-    innerDistance = clusterDistances.first;
-    outerDistance = clusterDistances.second;
-
-    // std::cout << "innerDistance:\n" << innerDistance << "\n";
-    // std::cout << "outerDistnace:\n" << outerDistance << "\n";
-
     // set up spherical voxel grid ~~~~~~~~~~~~~~~~~~~~~~~~~
 
     // TODO: sort by radial distance IN CHUNKS so the if statement inside findCluster() doesn't have to check every point
@@ -759,16 +803,27 @@ int main(int argc, char** argv) {
 
     int totalBins = azimBins*elevBins; 
 
+    auto before = std::chrono::system_clock::now();
+    auto beforeMs = std::chrono::time_point_cast<std::chrono::milliseconds>(before);
+
     for (int i = 0; i < totalBins; i++){
-        //[azimMin_i, azimMax_i, elevMin_i, elevMax_i, inner_i, outer_i]
+        //get [azimMin_i, azimMax_i, elevMin_i, elevMax_i, inner_i, outer_i]
         float azimMin_i = (i % azimBins) * (azimMax - azimMin) / azimBins;  
         float azimMax_i = ((i+1) % azimBins) * (azimMax - azimMin) / azimBins;  
         if ((i+1) % azimBins == 0){
             azimMax_i = 2*M_PI - 0.00001;
         }
-
         float elevMin_i = floor(i / azimBins) * (elevMax - elevMin) / elevBins;
         float elevMax_i = (floor(i / azimBins) + 1) * (elevMax - elevMin) / elevBins;
+
+        // //get relevant point to pass to findCluster() (we don't want to have to loop through everything each time)
+        // // Create a boolean mask indicating which rows satisfy the condition
+        // Eigen::Array<bool, Eigen::Dynamic, 1> mask = (sortedPointsSpherical.col(1).array() >= azimMin_i) && (sortedPointsSpherical.col(1).array() <= azimMax_i);        // Find the indices of the rows that satisfy the condition
+        // Eigen::ArrayXi row_indices = (mask.select(Eigen::ArrayXi::LinSpaced(sortedPointsSpherical.rows(), 0, sortedPointsSpherical.rows() - 1), -1)).eval();
+        // cout << "\n row indices \n" << row_indices << endl;
+
+        // // Create a new matrix using only the rows identified by the mask
+        // Eigen::MatrixXf test = sortedPointsSpherical.array().colwise() * mask.cast<float>().array();
 
         pair<float, float> clusterDistances = findCluster(sortedPointsSpherical, azimMin_i, azimMax_i, elevMin_i, elevMax_i, n, thresh);
         innerDistance = clusterDistances.first;
@@ -780,6 +835,45 @@ int main(int argc, char** argv) {
         }
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+    auto after = std::chrono::system_clock::now();
+    auto afterMs = std::chrono::time_point_cast<std::chrono::milliseconds>(after);
+
+    auto elapsedTimeMs = std::chrono::duration_cast<std::chrono::milliseconds>(afterMs - beforeMs).count();
+
+    cout << "Elapsed time: " << elapsedTimeMs << " ms" << endl;
+
+
+    // // Define multiple range specifications ~~~~ (doesn't really help)~~~~~~
+    // // Vector to store the tuples of azimuthal and elevation angles
+    // std::vector<std::tuple<float, float, float, float>> ranges;
+
+    // // Loop to add tuples to the vector
+    // for (int i = 0; i < totalBins; ++i) { // Adjust the loop condition as needed
+    //     // auto angles = computeAngles();
+
+    //     //get [azimMin_i, azimMax_i, elevMin_i, elevMax_i, inner_i, outer_i]
+    //     float azimMin_i = (i % azimBins) * (azimMax - azimMin) / azimBins;  
+    //     float azimMax_i = ((i+1) % azimBins) * (azimMax - azimMin) / azimBins;  
+    //     if ((i+1) % azimBins == 0){
+    //         azimMax_i = 2*M_PI - 0.00001;
+    //     }
+    //     float elevMin_i = floor(i / azimBins) * (elevMax - elevMin) / elevBins;
+    //     float elevMax_i = (floor(i / azimBins) + 1) * (elevMax - elevMin) / elevBins;
+
+    //     auto angles = std::make_tuple(azimMin_i, azimMax_i, elevMin_i, elevMax_i);
+
+    //     ranges.push_back(angles);
+    // }
+
+    // // Find clusters for each range specification
+    // vector<pair<float, float>> clusterResults = findClusters(sortedPointsSpherical, ranges, 3, 0.1);
+
+    // // for (int i = 0; i < totalBins; i++){
+    // //     // clusterBounds.row(i) << ranges[i], clusterResults[i,0], clusterResults[i,1];
+    // //     cout << ranges[i] << endl;
+    // // }
+
+    // //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     glEnable(GL_DEPTH_TEST);
 
