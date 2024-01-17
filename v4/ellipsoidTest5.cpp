@@ -46,7 +46,7 @@ GLfloat innerDistance = 5.0;
 GLfloat outerDistance = 10.0;
 
 //test -- set cluster bounds as [n, 6] matrix
-Eigen::MatrixXd clusterBounds(2500,6);
+Eigen::MatrixXd clusterBounds(10000,6);
 
 void createFrustumVBO(GLuint& vbo, GLenum target, const Eigen::MatrixXf& data) {
     glGenBuffers(1, &vbo);
@@ -350,7 +350,8 @@ void drawEllipsoid(const Eigen::Vector3f& mean, const Eigen::Matrix3f& covarianc
     glScalef(2 * sqrt(eigenvalues(0)), 2 * sqrt(eigenvalues(1)), 2 * sqrt(eigenvalues(2)));
 
     glColor4f(0.0, 0.0, 1.0, alpha);
-    glutSolidSphere(1.0, 100, 100);
+    // glutSolidSphere(1.0, 100, 100); //way too high res
+    glutSolidSphere(1.0, 10, 10);
 
     glDisable(GL_BLEND);
     glDepthMask(GL_TRUE);
@@ -500,7 +501,6 @@ Eigen::MatrixXf sphericalToCartesian(const Eigen::MatrixXf& sphericalPoints) {
     return cartesianPoints;
 }
 
-// Function to find the first sufficiently large cluster of points
 pair<float, float> findCluster(const MatrixXf& sphericalCoords, int n, float thresh) {
     int numPoints = sphericalCoords.rows();
 
@@ -510,31 +510,35 @@ pair<float, float> findCluster(const MatrixXf& sphericalCoords, int n, float thr
 
     for (int i = 0; i < numPoints; i++) {
         Vector3f point = sphericalCoords.row(i);
-        float r = point(0);
-        // float theta = point(1);
-        // float phi = point(2);
 
-        // Filtering points based on azimuthal, elevation range, and radial distance
-        // if (theta >= azimuthalMin && theta <= azimuthalMax &&
-        //     phi >= elevationMin && phi <= elevationMax) {
-
-        // Check for jumps in radial distance to identify clusters
-        if (!localPoints.empty() && std::abs(localPoints.back()(0) - r) > thresh) {
+        // Check if the point is within the threshold of the last point
+        if (!localPoints.empty() && std::abs(localPoints.back()(0) - point(0)) <= thresh) {
+            // Add the point to the current cluster
+            localPoints.push_back(point);
+        } else {
+            // Check if the cluster is sufficiently large
             if (localPoints.size() >= n) {
                 // Found a sufficiently large cluster
                 innerDistance = localPoints.front()(0);
                 outerDistance = localPoints.back()(0);
-                cout << "Found cluster - Inner Distance: " << innerDistance << ", Outer Distance: " << outerDistance << endl;
+                // cout << "Found cluster - Inner Distance: " << innerDistance << ", Outer Distance: " << outerDistance << endl;
                 return {innerDistance, outerDistance};
             } else {
                 // Reset the cluster if it's not large enough
                 localPoints.clear();
+                // Add the current point to start a new cluster
+                localPoints.push_back(point);
             }
         }
-        // Add the point to the current cluster
-        localPoints.push_back(point);
-        // }
     }
+    // Check for the last cluster at the end of the loop
+    if (localPoints.size() >= n) {
+        innerDistance = localPoints.front()(0);
+        outerDistance = localPoints.back()(0);
+        // cout << "Found cluster - Inner Distance: " << innerDistance << ", Outer Distance: " << outerDistance << endl;
+        return {innerDistance, outerDistance};
+    }
+
     return {innerDistance, outerDistance};
 }
 
@@ -546,8 +550,8 @@ vector<vector<vector<int>>> sortSphericalCoordinates(const MatrixXf& sphericalCo
     // Iterate through each spherical coordinate
     for (int i = 0; i < sphericalCoords.rows(); ++i) {
         // Extract phi and theta values
-        float phi = sphericalCoords(i, 1);
-        float theta = sphericalCoords(i, 2);
+        float theta = sphericalCoords(i, 1);
+        float phi = sphericalCoords(i, 2);
 
         // Calculate bin indices
         int binTheta = static_cast<int>((theta / (2 * M_PI)) * numBinsTheta) % numBinsTheta;
@@ -559,6 +563,83 @@ vector<vector<vector<int>>> sortSphericalCoordinates(const MatrixXf& sphericalCo
 
     // Return the vector of point indices
     return pointIndices;
+}
+
+// MatrixXf filterPointsInsideCluster(const MatrixXf& selectedPoints, const MatrixXd& clusterBounds) {
+//     int numPoints = selectedPoints.rows();
+//     int numClusters = clusterBounds.rows();
+
+//     MatrixXf filteredPoints(numPoints, 3);
+//     int filteredRowCount = 0;
+
+//     for (int i = 0; i < numClusters; i++) {
+//         float azimMin = clusterBounds(i, 0);
+//         float azimMax = clusterBounds(i, 1);
+//         float elevMin = clusterBounds(i, 2);
+//         float elevMax = clusterBounds(i, 3);
+//         float innerDistance = clusterBounds(i, 4);
+//         float outerDistance = clusterBounds(i, 5);
+
+//         for (int j = 0; j < numPoints; j++) {
+//             float azim = selectedPoints(j, 1);
+//             float elev = selectedPoints(j, 2);
+//             float r = selectedPoints(j, 0);
+
+//             // Check if the point is within the cluster bounds
+//             if (azim >= azimMin && azim <= azimMax &&
+//                 elev >= elevMin && elev <= elevMax &&
+//                 r >= innerDistance && r <= outerDistance) {
+//                 // Add the point to the filteredPoints matrix
+//                 filteredPoints.row(filteredRowCount++) = selectedPoints.row(j);
+//             }
+//         }
+//     }
+
+//     // Resize the matrix to remove unused rows
+//     filteredPoints.conservativeResize(filteredRowCount, 3);
+
+//     return filteredPoints;
+// }
+
+MatrixXf filterPointsInsideCluster(const MatrixXf& selectedPoints, const MatrixXd& clusterBounds) {
+    int numPoints = selectedPoints.rows();
+    int numClusters = clusterBounds.rows();
+
+    MatrixXf filteredPoints(numPoints, 3);
+    int filteredRowCount = 0;
+
+    for (int i = 0; i < numClusters; i++) {
+        float azimMin = clusterBounds(i, 0);
+        float azimMax = clusterBounds(i, 1);
+        float elevMin = clusterBounds(i, 2);
+        float elevMax = clusterBounds(i, 3);
+        float innerDistance = clusterBounds(i, 4);
+        float outerDistance = clusterBounds(i, 5);
+
+        for (int j = 0; j < numPoints; j++) {
+            float azim = selectedPoints(j, 1);
+            float elev = selectedPoints(j, 2);
+            float r = selectedPoints(j, 0);
+
+            // Check if the point is within the cluster bounds
+            if (azim >= azimMin && azim <= azimMax &&
+                elev >= elevMin && elev <= elevMax &&
+                r >= innerDistance && r <= outerDistance) {
+                // Add the point to the filteredPoints matrix
+                filteredPoints.row(filteredRowCount++) = selectedPoints.row(j);
+            }
+
+            // If the current point is beyond the outer distance, break the inner loop
+            if (r > outerDistance) {
+                break;
+            }
+        }
+    }
+
+    // Resize the matrix to remove unused rows
+    filteredPoints.conservativeResize(filteredRowCount, 3);
+
+    return filteredPoints;
 }
 
 
@@ -674,9 +755,7 @@ int main(int argc, char** argv) {
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    int n = 30; // min size of the cluster
-    float thresh = 0.1; // Threshold for radial distance
-    // findCluster(points, n, thresh, azimuthalMin, azimuthalMax, elevationMin, elevationMax);
+
     Eigen::MatrixXf pointsSpherical = cartesianToSpherical(points);
     std::cout << "pointsSpherical: \n" << pointsSpherical.rows() << "\n";
 
@@ -694,37 +773,29 @@ int main(int argc, char** argv) {
     }
 
     // set up spherical voxel grid ~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    // TODO: sort by radial distance IN CHUNKS so the if statement inside findCluster() doesn't have to check every point
-
-    int azimBins = 40;
-    int elevBins = 25;
-    float azimMin = 0;
-    float azimMax = 2*M_PI;
-    float elevMin = M_PI/4;
-    float elevMax = 5*M_PI/4;
-
-    int totalBins = azimBins*elevBins; 
+    int numBinsPhi = 80;  // Adjust the number of bins as needed
+    int numBinsTheta = 80; // Adjust the number of bins as needed
+    int n = 20; // min size of the cluster
+    float thresh = 0.3; // Threshold for radial distance
 
     auto before = std::chrono::system_clock::now();
     auto beforeMs = std::chrono::time_point_cast<std::chrono::milliseconds>(before);
 
-    int numBinsPhi = 50;  // Adjust the number of bins as needed
-    int numBinsTheta = 50; // Adjust the number of bins as needed
+    
 
     vector<vector<vector<int>>> pointIndices = sortSphericalCoordinates(sortedPointsSpherical, numBinsTheta, numBinsPhi);
 
     for (int phi = 0; phi < numBinsPhi; phi++){
         for (int theta = 0; theta< numBinsTheta; theta++){
             // Retrieve the point indices
-            // const vector<int>& indices = pointIndices[theta][phi]; //idk why this doesn't work
-            const vector<int>& indices = pointIndices[phi][theta]; 
+            const vector<int>& indices = pointIndices[theta][phi]; //idk why this doesn't work
+            // const vector<int>& indices = pointIndices[phi][theta]; 
 
             // cout << "Dimensions of sortedPointsSpherical: " << sortedPointsSpherical.rows() << " x " << sortedPointsSpherical.cols() << endl;
             // cout << "Size of indices: " << indices.size() << endl;
 
             // only calculate inner/outer bounds if there are a sufficient number of points in the spike 
-            if (indices.size() > 30) {
+            if (indices.size() > n) {
                 // // Print the point indices
                 // cout << "Point indices from [binsPhi = " << desiredPhi << "][binsTheta = " << desiredTheta << "]: ";
                 // for (int index : indices) {
@@ -738,14 +809,6 @@ int main(int argc, char** argv) {
                 for (int i = 0; i < indices.size(); ++i) {
                     selectedPoints.row(i) = sortedPointsSpherical.row(indices[i]);
                 }
-                // cout << "Points from [binsPhi = " << desiredPhi << "][binsTheta = " << desiredTheta << "]: \n" << endl;
-                // cout << selectedPoints << endl;
-
-                // Call the fast function
-                // std::pair<double, double> clusterDistances = findClusterFast<double>(selectedPoints.col(0).cast<double>(), n, thresh);
-                // Access the results
-                // double innerDistance = clusterDistances.first;
-                // double outerDistance = clusterDistances.second;
 
                 // call the old function for finding cluster distances
                 pair<float, float> clusterDistances = findCluster(selectedPoints, n, thresh);
@@ -766,13 +829,31 @@ int main(int argc, char** argv) {
             // float azimMin_i =  (static_cast<float>(theta) / numBinsTheta) * ( M_PI);
             // float azimMax_i =  (static_cast<float>(theta+1) / numBinsTheta) * ( M_PI) ;
 
-            // float elevMin_i =  (static_cast<float>(phi) / numBinsPhi) * (M_PI) ;
-            // float elevMax_i =  (static_cast<float>(phi+1) / numBinsPhi) * (M_PI) ;
+            float elevMin_i =  (static_cast<float>(phi) / numBinsPhi) * (M_PI) ;
+            float elevMax_i =  (static_cast<float>(phi+1) / numBinsPhi) * (M_PI) ;
             // //works(?)
-            float elevMin_i =  (static_cast<float>(phi) / numBinsPhi) * (2 * M_PI) ;
-            float elevMax_i =  (static_cast<float>(phi+1) / numBinsPhi) * (2 * M_PI) ;
+            // float elevMin_i =  (static_cast<float>(phi) / numBinsPhi) * (2 * M_PI) ;
+            // float elevMax_i =  (static_cast<float>(phi+1) / numBinsPhi) * (2 * M_PI) ;
 
             clusterBounds.row(numBinsTheta*phi + theta) << azimMin_i, azimMax_i, elevMin_i, elevMax_i, innerDistance, outerDistance;
+
+            //draw covariance ellipsoids
+            //TODO: don't repeat this
+            MatrixXf selectedPoints = MatrixXf::Zero(indices.size(), sortedPointsSpherical.cols());
+            for (int i = 0; i < indices.size(); ++i) {
+                selectedPoints.row(i) = sortedPointsSpherical.row(indices[i]);
+            }
+            MatrixXf filteredPoints = filterPointsInsideCluster(selectedPoints, clusterBounds.row(numBinsTheta*phi + theta));
+            MatrixXf filteredPointsCart = sphericalToCartesian(filteredPoints);
+            Eigen::VectorXf mean = filteredPointsCart.colwise().mean();
+            Eigen::MatrixXf centered = filteredPointsCart.rowwise() - mean.transpose();
+            Eigen::MatrixXf covariance = (centered.adjoint() * centered) / static_cast<float>(filteredPointsCart.rows() - 1);
+            // std::cout << "Mean:\n" << mean << "\n\n";
+            // std::cout << "Covariance:\n" << covariance << "\n";
+            float alpha1 = 0.5f;
+            ellipsoidMeans.push_back(mean);
+            ellipsoidCovariances.push_back(covariance);
+            ellipsoidAlphas.push_back(alpha1);
         }
 
     }
