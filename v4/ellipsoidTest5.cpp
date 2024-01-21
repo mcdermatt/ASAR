@@ -13,6 +13,7 @@
 #include <cmath>
 #include <limits>
 #include <algorithm>  // Include the algorithm header for std::sort
+#include <map>
 
 using namespace Eigen;
 using namespace std;
@@ -30,6 +31,8 @@ GLdouble lastMouseX = 0.0;
 GLdouble lastMouseY = 0.0;
 
 Eigen::MatrixXf points(250000, 3);  // Declare points as a global variable
+Eigen::MatrixXf points2(250000, 3);  // Declare points as a global variable
+Eigen::MatrixXf testPoints(250000, 3); //for debug
 
 std::vector<Eigen::Vector3f> ellipsoidMeans;
 std::vector<Eigen::Matrix3f> ellipsoidCovariances;
@@ -45,8 +48,18 @@ GLfloat elevationMax = M_PI / 4.0;
 GLfloat innerDistance = 5.0;
 GLfloat outerDistance = 10.0;
 
-//test -- set cluster bounds as [n, 6] matrix
+//set cluster bounds as [n, 6] matrix
 Eigen::MatrixXd clusterBounds(10000,6);
+
+//init structure to store covaraince matrices
+// Type definition for the covariance matrix
+using CovarianceMatrix = Matrix<float, 3, 3>;
+// Type definition for the data structure
+using CovarianceMap = map<int, map<int, CovarianceMatrix>>;
+// using CovarianceMap = map<int, map<int, Matrix<float, 3, 3>>>;
+
+// type definition for means vectors
+using MeanMap = map<int, map<int, Vector3f>>;
 
 void createFrustumVBO(GLuint& vbo, GLenum target, const Eigen::MatrixXf& data) {
     glGenBuffers(1, &vbo);
@@ -385,6 +398,19 @@ void drawPoints() {
     glEnd();
 }
 
+void drawTestPoints() {
+    // std::cout << "Drawing Points. Size: " << points.rows() << std::endl;
+    glPointSize(5.0f);
+    glColor3f(1.0, 0.0, 0.0);  // White color
+
+    glBegin(GL_POINTS);
+    for (int i = 0; i < testPoints.rows(); ++i) {
+        glVertex3f(testPoints(i, 0), testPoints(i, 1), testPoints(i, 2));
+    }
+    glEnd();
+}
+
+
 void reshape(int w, int h) {
     glViewport(0, 0, w, h);
     glMatrixMode(GL_PROJECTION);
@@ -501,7 +527,7 @@ Eigen::MatrixXf sphericalToCartesian(const Eigen::MatrixXf& sphericalPoints) {
     return cartesianPoints;
 }
 
-pair<float, float> findCluster(const MatrixXf& sphericalCoords, int n, float thresh) {
+pair<float, float> findCluster(const MatrixXf& sphericalCoords, int n, float thresh, float buff) {
     int numPoints = sphericalCoords.rows();
 
     float innerDistance = 0.0;
@@ -533,8 +559,8 @@ pair<float, float> findCluster(const MatrixXf& sphericalCoords, int n, float thr
     }
     // Check for the last cluster at the end of the loop
     if (localPoints.size() >= n) {
-        innerDistance = localPoints.front()(0);
-        outerDistance = localPoints.back()(0);
+        innerDistance = localPoints.front()(0) - buff;
+        outerDistance = localPoints.back()(0) + buff;
         // cout << "Found cluster - Inner Distance: " << innerDistance << ", Outer Distance: " << outerDistance << endl;
         return {innerDistance, outerDistance};
     }
@@ -564,42 +590,6 @@ vector<vector<vector<int>>> sortSphericalCoordinates(const MatrixXf& sphericalCo
     // Return the vector of point indices
     return pointIndices;
 }
-
-// MatrixXf filterPointsInsideCluster(const MatrixXf& selectedPoints, const MatrixXd& clusterBounds) {
-//     int numPoints = selectedPoints.rows();
-//     int numClusters = clusterBounds.rows();
-
-//     MatrixXf filteredPoints(numPoints, 3);
-//     int filteredRowCount = 0;
-
-//     for (int i = 0; i < numClusters; i++) {
-//         float azimMin = clusterBounds(i, 0);
-//         float azimMax = clusterBounds(i, 1);
-//         float elevMin = clusterBounds(i, 2);
-//         float elevMax = clusterBounds(i, 3);
-//         float innerDistance = clusterBounds(i, 4);
-//         float outerDistance = clusterBounds(i, 5);
-
-//         for (int j = 0; j < numPoints; j++) {
-//             float azim = selectedPoints(j, 1);
-//             float elev = selectedPoints(j, 2);
-//             float r = selectedPoints(j, 0);
-
-//             // Check if the point is within the cluster bounds
-//             if (azim >= azimMin && azim <= azimMax &&
-//                 elev >= elevMin && elev <= elevMax &&
-//                 r >= innerDistance && r <= outerDistance) {
-//                 // Add the point to the filteredPoints matrix
-//                 filteredPoints.row(filteredRowCount++) = selectedPoints.row(j);
-//             }
-//         }
-//     }
-
-//     // Resize the matrix to remove unused rows
-//     filteredPoints.conservativeResize(filteredRowCount, 3);
-
-//     return filteredPoints;
-// }
 
 MatrixXf filterPointsInsideCluster(const MatrixXf& selectedPoints, const MatrixXd& clusterBounds) {
     int numPoints = selectedPoints.rows();
@@ -663,6 +653,13 @@ void display() {
     drawPoints();
     glDisable(GL_POINT_SMOOTH);
 
+    //debug U, L ~~~~~~~~~~~~~~~~~~~
+    glColor3f(1.0, 1.0, 1.0);
+    glEnable(GL_POINT_SMOOTH);
+    drawTestPoints();
+    glDisable(GL_POINT_SMOOTH);
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
     // Draw single frustrum
     // glColor3f(0.8, 0.8, 1.0);
     // glEnable(GL_LINE_SMOOTH);
@@ -695,27 +692,12 @@ void display() {
     glutSwapBuffers();
 }
 
-int main(int argc, char** argv) {
-    glutInit(&argc, argv);
-    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH);
-    glutCreateWindow("Points and Ellipsoids");
-    glutReshapeWindow(1200, 800);
-
-    // Initialize GLEW
-    GLenum err = glewInit();
-    if (GLEW_OK != err) {
-        std::cerr << "Error: GLEW initialization failed: " << glewGetErrorString(err) << std::endl;
-        return -1;
-    }
-
-    // load point data from .csv ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // Ouster Sample Dataset
-    std::string csvFilePath = "sample_data/pcap_out_000106.csv";
+//function to load point cloud data from a csv
+MatrixXf loadPointCloudCSV(string filename){
     // Open the CSV file
-    std::ifstream file(csvFilePath);
+    std::ifstream file(filename);
     if (!file.is_open()) {
         std::cerr << "Error: Could not open the CSV file." << std::endl;
-        return 1;
     }
     // Parse and process the CSV file, skipping the first row
     csv::CSVReader reader(file, csv::CSVFormat().header_row(1).trim({}));
@@ -752,12 +734,30 @@ int main(int argc, char** argv) {
     }
 
     points = dataMatrix;
+    return points;
+}
 
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+int main(int argc, char** argv) {
+    glutInit(&argc, argv);
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH);
+    glutCreateWindow("Points and Ellipsoids");
+    glutReshapeWindow(1200, 800);
+    // Initialize GLEW
+    GLenum err = glewInit();
+    if (GLEW_OK != err) {
+        std::cerr << "Error: GLEW initialization failed: " << glewGetErrorString(err) << std::endl;
+        return -1;
+    }
+
+    // Load Ouster Sample Dataset
+    std::string csvFilePath1 = "sample_data/pcap_out_000106.csv";
+    points = loadPointCloudCSV(csvFilePath1);
+    std::string csvFilePath2 = "sample_data/pcap_out_000106.csv";
+    points2 = loadPointCloudCSV(csvFilePath2);
 
     Eigen::MatrixXf pointsSpherical = cartesianToSpherical(points);
-    std::cout << "pointsSpherical: \n" << pointsSpherical.rows() << "\n";
+    // std::cout << "pointsSpherical: \n" << pointsSpherical.rows() << "\n";
 
     // Sort sphericalCoords based on radial distance
     vector<int> index(pointsSpherical.rows());
@@ -777,83 +777,107 @@ int main(int argc, char** argv) {
     int numBinsTheta = 80; // Adjust the number of bins as needed
     int n = 20; // min size of the cluster
     float thresh = 0.3; // Threshold for radial distance
+    float buff = 0.0; //buffer to add to inner and outer cluster range (helps attract nearby distributions)
 
     auto before = std::chrono::system_clock::now();
     auto beforeMs = std::chrono::time_point_cast<std::chrono::milliseconds>(before);
 
-    
+    // init structure to store covariance data
+    CovarianceMap sigma1;
+    MeanMap mu1;
+    CovarianceMap L;
+    CovarianceMap U;
 
+    //get spherical coordiantes and fit gaussians to points from first scan 
     vector<vector<vector<int>>> pointIndices = sortSphericalCoordinates(sortedPointsSpherical, numBinsTheta, numBinsPhi);
-
     for (int phi = 0; phi < numBinsPhi; phi++){
         for (int theta = 0; theta< numBinsTheta; theta++){
-            // Retrieve the point indices
-            const vector<int>& indices = pointIndices[theta][phi]; //idk why this doesn't work
-            // const vector<int>& indices = pointIndices[phi][theta]; 
-
-            // cout << "Dimensions of sortedPointsSpherical: " << sortedPointsSpherical.rows() << " x " << sortedPointsSpherical.cols() << endl;
-            // cout << "Size of indices: " << indices.size() << endl;
+            // Retrieve the point indices inside angular bin
+            const vector<int>& indices = pointIndices[theta][phi];
 
             // only calculate inner/outer bounds if there are a sufficient number of points in the spike 
             if (indices.size() > n) {
-                // // Print the point indices
-                // cout << "Point indices from [binsPhi = " << desiredPhi << "][binsTheta = " << desiredTheta << "]: ";
-                // for (int index : indices) {
-                //     // cout << index << " ";
-                //     cout << sortedPointsSpherical.row(index) << endl;
-                // }
-                // cout << endl;
-
                 // Use the indices to access the corresponding rows in sortedPointsSpherical
                 MatrixXf selectedPoints = MatrixXf::Zero(indices.size(), sortedPointsSpherical.cols());
                 for (int i = 0; i < indices.size(); ++i) {
                     selectedPoints.row(i) = sortedPointsSpherical.row(indices[i]);
                 }
 
-                // call the old function for finding cluster distances
-                pair<float, float> clusterDistances = findCluster(selectedPoints, n, thresh);
+                // find inner and outer bounds for each theta/phi bin
+                pair<float, float> clusterDistances = findCluster(selectedPoints, n, thresh, buff);
                 innerDistance = clusterDistances.first;
                 outerDistance = clusterDistances.second;
+
+                //convert [desiredPhi][desiredTheta] to azimMin, azimMax, elevMin, elevMax
+                float azimMin_i =  (static_cast<float>(theta) / numBinsTheta) * (2 * M_PI) ;
+                float azimMax_i =  (static_cast<float>(theta+1) / numBinsTheta) * (2 * M_PI) ;
+                float elevMin_i =  (static_cast<float>(phi) / numBinsPhi) * (M_PI) ;
+                float elevMax_i =  (static_cast<float>(phi+1) / numBinsPhi) * (M_PI) ;
+                //hold on to these values
+                clusterBounds.row(numBinsTheta*phi + theta) << azimMin_i, azimMax_i, elevMin_i, elevMax_i, innerDistance, outerDistance;
+
+                // find points from first scan inside voxel bounds and fit gaussians to each cluster
+                MatrixXf filteredPoints = filterPointsInsideCluster(selectedPoints, clusterBounds.row(numBinsTheta*phi + theta));
+                MatrixXf filteredPointsCart = sphericalToCartesian(filteredPoints);
+                Eigen::VectorXf mean = filteredPointsCart.colwise().mean();
+                Eigen::MatrixXf centered = filteredPointsCart.rowwise() - mean.transpose();
+                Eigen::MatrixXf covariance = (centered.adjoint() * centered) / static_cast<float>(filteredPointsCart.rows() - 1);
+                // std::cout << "Mean:\n" << mean << "\n\n";
+                // std::cout << "Covariance:\n" << covariance << "\n";
+
+                //hold on to means and covariances of clusters from scan1
+                sigma1[theta][phi] = covariance;
+                mu1[theta][phi] = mean;
+                // cout << "\n mean: \n" << mu1[theta][phi] << "\n cov: \n" << sigma1[theta][phi] << "\n" << endl;
+
+
+                // get U and L ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> eigensolver(covariance);
+                Eigen::Vector3f eigenvalues = eigensolver.eigenvalues().real();
+                Eigen::Matrix3f eigenvectors = eigensolver.eigenvectors().real();
+                U[theta][phi] = eigenvectors;
+                // cout << "eigenvectors: " << U[theta][phi] << endl;
+                // cout << "eigenval: " << eigenvalues[0] << endl;
+
+                // create 6 2-sigma test points for each cluster and test to see if they fit inside the voxel
+                MatrixXf axislen(3,3);
+                axislen << eigenvalues[0], 0, 0,
+                            0, eigenvalues[1], 0,
+                            0, 0, eigenvalues[2];
+                axislen = 2.0 * axislen.array().sqrt(); //theoretically should be *2 not *3 but this seems to work better
+                // cout << "Initialized Matrix:\n" << axislen << endl;
+
+                MatrixXf rotated = axislen * U[theta][phi].transpose();
+                // cout << "Rotated: " << rotated << endl;
+                // cout << "\n mean: \n" << mu1[theta][phi] << endl;
+                // cout << "\n roated[0].T: \n "<< rotated.row(0).transpose() << endl;
+
+                MatrixXf tp1 = mu1[theta][phi] + rotated.row(0).transpose();
+                MatrixXf tp2 = mu1[theta][phi] - rotated.row(0).transpose();
+
+                testPoints.row(6*(numBinsTheta*phi + theta)) = tp1.transpose();
+                testPoints.row(6*(numBinsTheta*phi + theta)+1) = tp2.transpose();
+
+                // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+                //update for drawing
+                float alpha1 = 0.5f;
+                ellipsoidMeans.push_back(mean);
+                ellipsoidCovariances.push_back(covariance);
+                ellipsoidAlphas.push_back(alpha1);
+
             }
-            // use 0 value as a flag for unoccupied voxles
+            // use 0 value as a flag for unoccupied voxels
             else{
                 innerDistance = 0;
                 outerDistance = 0;
-                
+                float azimMin_i =  (static_cast<float>(theta) / numBinsTheta) * (2 * M_PI) ;
+                float azimMax_i =  (static_cast<float>(theta+1) / numBinsTheta) * (2 * M_PI) ;
+                float elevMin_i =  (static_cast<float>(phi) / numBinsPhi) * (M_PI) ;
+                float elevMax_i =  (static_cast<float>(phi+1) / numBinsPhi) * (M_PI) ;      
+                clusterBounds.row(numBinsTheta*phi + theta) << azimMin_i, azimMax_i, elevMin_i, elevMax_i, innerDistance, outerDistance;
             }
-            //convert [desiredPhi][desiredTheta] to azimMin, azimMax, elevMin, elevMax
-            //old
-            float azimMin_i =  (static_cast<float>(theta) / numBinsTheta) * (2 * M_PI) ;
-            float azimMax_i =  (static_cast<float>(theta+1) / numBinsTheta) * (2 * M_PI) ;
-            //test
-            // float azimMin_i =  (static_cast<float>(theta) / numBinsTheta) * ( M_PI);
-            // float azimMax_i =  (static_cast<float>(theta+1) / numBinsTheta) * ( M_PI) ;
 
-            float elevMin_i =  (static_cast<float>(phi) / numBinsPhi) * (M_PI) ;
-            float elevMax_i =  (static_cast<float>(phi+1) / numBinsPhi) * (M_PI) ;
-            // //works(?)
-            // float elevMin_i =  (static_cast<float>(phi) / numBinsPhi) * (2 * M_PI) ;
-            // float elevMax_i =  (static_cast<float>(phi+1) / numBinsPhi) * (2 * M_PI) ;
-
-            clusterBounds.row(numBinsTheta*phi + theta) << azimMin_i, azimMax_i, elevMin_i, elevMax_i, innerDistance, outerDistance;
-
-            //draw covariance ellipsoids
-            //TODO: don't repeat this
-            MatrixXf selectedPoints = MatrixXf::Zero(indices.size(), sortedPointsSpherical.cols());
-            for (int i = 0; i < indices.size(); ++i) {
-                selectedPoints.row(i) = sortedPointsSpherical.row(indices[i]);
-            }
-            MatrixXf filteredPoints = filterPointsInsideCluster(selectedPoints, clusterBounds.row(numBinsTheta*phi + theta));
-            MatrixXf filteredPointsCart = sphericalToCartesian(filteredPoints);
-            Eigen::VectorXf mean = filteredPointsCart.colwise().mean();
-            Eigen::MatrixXf centered = filteredPointsCart.rowwise() - mean.transpose();
-            Eigen::MatrixXf covariance = (centered.adjoint() * centered) / static_cast<float>(filteredPointsCart.rows() - 1);
-            // std::cout << "Mean:\n" << mean << "\n\n";
-            // std::cout << "Covariance:\n" << covariance << "\n";
-            float alpha1 = 0.5f;
-            ellipsoidMeans.push_back(mean);
-            ellipsoidCovariances.push_back(covariance);
-            ellipsoidAlphas.push_back(alpha1);
         }
 
     }
@@ -866,7 +890,14 @@ int main(int argc, char** argv) {
 
     auto elapsedTimeMs = std::chrono::duration_cast<std::chrono::milliseconds>(afterMs - beforeMs).count();
 
-    cout << "Elapsed time: " << elapsedTimeMs << " ms" << endl;
+    cout << "Fit spherical voxels and guassians for scan 1 in: " << elapsedTimeMs << " ms" << endl;
+
+    // TODO: construct full L and U matrices
+
+    // Main Loop
+    //TODO: fit points in scan2 to voxels
+
+
 
     glEnable(GL_DEPTH_TEST);
 
