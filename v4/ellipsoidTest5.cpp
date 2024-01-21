@@ -545,8 +545,8 @@ pair<float, float> findCluster(const MatrixXf& sphericalCoords, int n, float thr
             // Check if the cluster is sufficiently large
             if (localPoints.size() >= n) {
                 // Found a sufficiently large cluster
-                innerDistance = localPoints.front()(0);
-                outerDistance = localPoints.back()(0);
+                innerDistance = localPoints.front()(0) - buff;
+                outerDistance = localPoints.back()(0) + buff;
                 // cout << "Found cluster - Inner Distance: " << innerDistance << ", Outer Distance: " << outerDistance << endl;
                 return {innerDistance, outerDistance};
             } else {
@@ -630,6 +630,50 @@ MatrixXf filterPointsInsideCluster(const MatrixXf& selectedPoints, const MatrixX
     filteredPoints.conservativeResize(filteredRowCount, 3);
 
     return filteredPoints;
+}
+
+MatrixXi testSigmaPoints(const MatrixXf& selectedPoints, const MatrixXd& clusterBounds) {
+    int numPoints = selectedPoints.rows();
+    int numClusters = clusterBounds.rows();
+
+    // Vector to store indices of filtered points
+    vector<int> filteredIndices;
+
+    for (int i = 0; i < numClusters; i++) {
+        float azimMin = clusterBounds(i, 0);
+        float azimMax = clusterBounds(i, 1);
+        float elevMin = clusterBounds(i, 2);
+        float elevMax = clusterBounds(i, 3);
+        float innerDistance = clusterBounds(i, 4);
+        float outerDistance = clusterBounds(i, 5);
+
+        for (int j = 0; j < numPoints; j++) {
+            float azim = selectedPoints(j, 1);
+            float elev = selectedPoints(j, 2);
+            float r = selectedPoints(j, 0);
+
+            // Check if the point is within the cluster bounds
+            if (azim >= azimMin && azim <= azimMax &&
+                elev >= elevMin && elev <= elevMax &&
+                r >= innerDistance && r <= outerDistance) {
+                // Add the index to the filteredIndices vector
+                filteredIndices.push_back(j);
+            }
+
+            // If the current point is beyond the outer distance, break the inner loop
+            if (r > outerDistance) {
+                break;
+            }
+        }
+    }
+
+    // Create a matrix from the indices
+    MatrixXi filteredIndicesMatrix(filteredIndices.size(), 1);
+    for (size_t i = 0; i < filteredIndices.size(); i++) {
+        filteredIndicesMatrix(i, 0) = filteredIndices[i];
+    }
+
+    return filteredIndicesMatrix;
 }
 
 
@@ -773,11 +817,11 @@ int main(int argc, char** argv) {
     }
 
     // set up spherical voxel grid ~~~~~~~~~~~~~~~~~~~~~~~~~
-    int numBinsPhi = 80;  // Adjust the number of bins as needed
-    int numBinsTheta = 80; // Adjust the number of bins as needed
+    int numBinsPhi = 25;  // Adjust the number of bins as needed
+    int numBinsTheta = 25; // Adjust the number of bins as needed
     int n = 20; // min size of the cluster
     float thresh = 0.3; // Threshold for radial distance
-    float buff = 0.0; //buffer to add to inner and outer cluster range (helps attract nearby distributions)
+    float buff = 0.5; //buffer to add to inner and outer cluster range (helps attract nearby distributions)
 
     auto before = std::chrono::system_clock::now();
     auto beforeMs = std::chrono::time_point_cast<std::chrono::milliseconds>(before);
@@ -852,12 +896,33 @@ int main(int argc, char** argv) {
                 // cout << "\n mean: \n" << mu1[theta][phi] << endl;
                 // cout << "\n roated[0].T: \n "<< rotated.row(0).transpose() << endl;
 
-                MatrixXf tp1 = mu1[theta][phi] + rotated.row(0).transpose();
-                MatrixXf tp2 = mu1[theta][phi] - rotated.row(0).transpose();
+                // MatrixXf tp1 = mu1[theta][phi] + rotated.row(0).transpose(); //most compact axis
+                // MatrixXf tp2 = mu1[theta][phi] - rotated.row(0).transpose();
+                // MatrixXf tp3 = mu1[theta][phi] + rotated.row(1).transpose(); //middle
+                // MatrixXf tp4 = mu1[theta][phi] - rotated.row(1).transpose();
+                // MatrixXf tp5 = mu1[theta][phi] + rotated.row(2).transpose(); //largest axis
+                // MatrixXf tp6 = mu1[theta][phi] - rotated.row(2).transpose();
 
-                testPoints.row(6*(numBinsTheta*phi + theta)) = tp1.transpose();
-                testPoints.row(6*(numBinsTheta*phi + theta)+1) = tp2.transpose();
+                Eigen::MatrixXf sigmaPoints(6,3);
+                sigmaPoints.row(0) = mu1[theta][phi] + rotated.row(0).transpose(); //most compact axis
+                sigmaPoints.row(1) = mu1[theta][phi] - rotated.row(0).transpose();
+                sigmaPoints.row(2) = mu1[theta][phi] + rotated.row(1).transpose(); //middle
+                sigmaPoints.row(3) = mu1[theta][phi] - rotated.row(1).transpose();
+                sigmaPoints.row(4) = mu1[theta][phi] + rotated.row(2).transpose(); //largest axis
+                sigmaPoints.row(5) = mu1[theta][phi] - rotated.row(2).transpose();
 
+                // find out which test points fall inside the voxel bounds
+                Eigen::MatrixXf sigmaPointsSpherical = cartesianToSpherical(sigmaPoints);
+                MatrixXi sigmaPointsInside = testSigmaPoints(sigmaPointsSpherical, clusterBounds.row(numBinsTheta*phi + theta));
+                cout << "Sigma points inside: \n" << sigmaPointsInside << "\n" << endl;
+                
+                //draw all test points
+                testPoints.row(6*(numBinsTheta*phi + theta)) = sigmaPoints.row(0).transpose();
+                testPoints.row(6*(numBinsTheta*phi + theta)+1) = sigmaPoints.row(1).transpose();
+                testPoints.row(6*(numBinsTheta*phi + theta)+2) = sigmaPoints.row(2).transpose();
+                testPoints.row(6*(numBinsTheta*phi + theta)+3) = sigmaPoints.row(3).transpose();
+                testPoints.row(6*(numBinsTheta*phi + theta)+4) = sigmaPoints.row(4).transpose();
+                testPoints.row(6*(numBinsTheta*phi + theta)+5) = sigmaPoints.row(5).transpose();
                 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
                 //update for drawing
