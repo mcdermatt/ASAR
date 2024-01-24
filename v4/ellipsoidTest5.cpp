@@ -815,6 +815,15 @@ MatrixXf loadPointCloudCSV(string filename){
     // return points;
 }
 
+//given body frame xyz euler angles [phi, theta, psi], return 3x3 rotation matrix
+Matrix3f R(float phi, float theta, float psi){
+    MatrixXf mat(3,3); 
+    mat << cos(theta)*cos(psi), sin(psi)*cos(phi)+sin(phi)*sin(theta)*cos(psi), sin(phi)*sin(psi)-sin(theta)*cos(phi)*cos(psi),
+           -sin(psi)*cos(theta), cos(phi)*cos(psi)-sin(phi)*sin(theta)*sin(psi), sin(phi)*cos(psi)+sin(theta)*sin(psi)*cos(phi),
+           sin(theta), -sin(phi)*cos(theta), cos(phi)*cos(theta);
+
+    return mat;
+}
 
 int main(int argc, char** argv) {
     glutInit(&argc, argv);
@@ -829,8 +838,8 @@ int main(int argc, char** argv) {
     }
 
     // Load Ouster Sample Dataset
-    std::string csvFilePath1 = "sample_data/pcap_out_000260.csv";
-    std::string csvFilePath2 = "sample_data/pcap_out_000261.csv";
+    std::string csvFilePath1 = "sample_data/pcap_out_000106.csv";
+    std::string csvFilePath2 = "sample_data/pcap_out_000107.csv";
     points = loadPointCloudCSV(csvFilePath1);
     points2 = loadPointCloudCSV(csvFilePath2);
 
@@ -1006,8 +1015,13 @@ int main(int argc, char** argv) {
     cout << "Fit spherical voxels and guassians for scan 1 in: " << elapsedTimeMs << " ms" << endl;
 
     // Main Loop ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // TODO: apply transformation to points2
+    // apply transformation to points2
     
+    // TODO: get actual rotation angles from last state estimate
+    MatrixXf rot_mat = R(0.0f, 0.0f, 0.1f); 
+    // cout << "rotation matrix: \n" << rot_mat << endl; 
+    points2 << points2 * rot_mat;
+
     //fit points in scan2 to voxels
     Eigen::MatrixXf pointsSpherical2 = cartesianToSpherical(points2);
     // // Sort by radial distance -- not needed for scan2??
@@ -1022,6 +1036,7 @@ int main(int argc, char** argv) {
     //     sortedPointsSpherical2.row(i) = pointsSpherical2.row(index2[i]);
     // }
 
+    // setup L and U matrices according to correspondenes in iteration i
     // init L_i and U_i to be bigger than they need to be (size of number of voxels occupied by scan 1 x3)
     Eigen::MatrixXf L_i(3*occupiedCount, 3);
     Eigen::MatrixXf U_i(3*occupiedCount, 3);
