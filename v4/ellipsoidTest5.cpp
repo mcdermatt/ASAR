@@ -34,9 +34,12 @@ Eigen::MatrixXf points(250000, 3);  // Declare points as a global variable
 Eigen::MatrixXf points2(250000, 3);  // Declare points as a global variable
 Eigen::MatrixXf testPoints(250000, 3); //for debug
 
-std::vector<Eigen::Vector3f> ellipsoidMeans;
-std::vector<Eigen::Matrix3f> ellipsoidCovariances;
-std::vector<float> ellipsoidAlphas;
+std::vector<Eigen::Vector3f> ellipsoid1Means;
+std::vector<Eigen::Matrix3f> ellipsoid1Covariances;
+std::vector<float> ellipsoid1Alphas;
+std::vector<Eigen::Vector3f> ellipsoid2Means;
+std::vector<Eigen::Matrix3f> ellipsoid2Covariances;
+std::vector<float> ellipsoid2Alphas;
 
 Eigen::MatrixXf frustumVertices(8, 3);
 GLuint frustumVBO, frustumVAO;
@@ -252,47 +255,47 @@ void createVAO(GLuint& vao, GLuint vbo, int vertexSize, GLuint shaderAttributeIn
     glBindVertexArray(0);
 }
 
-void initVBOsAndVAOs() {
-    // Create VBO and VAO for points
-    // //test ~~~~~~~~~~~~
-    // // Generate Vertex Buffer Object (VBO)
-    // glGenBuffers(1, &pointsVBO);
-    // glBindBuffer(GL_ARRAY_BUFFER, pointsVBO);
-    // glBufferData(GL_ARRAY_BUFFER, points.size() * sizeof(GLfloat), points.data(), GL_STATIC_DRAW);
+// void initVBOsAndVAOs() {
+//     // Create VBO and VAO for points
+//     // //test ~~~~~~~~~~~~
+//     // // Generate Vertex Buffer Object (VBO)
+//     // glGenBuffers(1, &pointsVBO);
+//     // glBindBuffer(GL_ARRAY_BUFFER, pointsVBO);
+//     // glBufferData(GL_ARRAY_BUFFER, points.size() * sizeof(GLfloat), points.data(), GL_STATIC_DRAW);
 
-    // // Generate Vertex Array Object (VAO)
-    // glGenVertexArrays(1, &pointsVAO);
-    // glBindVertexArray(pointsVAO);
+//     // // Generate Vertex Array Object (VAO)
+//     // glGenVertexArrays(1, &pointsVAO);
+//     // glBindVertexArray(pointsVAO);
 
-    // // Specify the layout of the vertex data
-    // glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
-    // glEnableVertexAttribArray(0);
+//     // // Specify the layout of the vertex data
+//     // glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
+//     // glEnableVertexAttribArray(0);
 
-    // // Unbind VAO and VBO
-    // glBindVertexArray(0);
-    // glBindBuffer(GL_ARRAY_BUFFER, 0);
-    // // ~~~~~~~~~~~~~~~~
+//     // // Unbind VAO and VBO
+//     // glBindVertexArray(0);
+//     // glBindBuffer(GL_ARRAY_BUFFER, 0);
+//     // // ~~~~~~~~~~~~~~~~
 
-    // OLD-- using same function as ellipsoids
-    createVBO(pointsVBO, GL_ARRAY_BUFFER, points);
-    createVAO(pointsVAO, pointsVBO, 3, 0, points.rows());  // Pass the size of points matrix
+//     // OLD-- using same function as ellipsoids
+//     createVBO(pointsVBO, GL_ARRAY_BUFFER, points);
+//     createVAO(pointsVAO, pointsVBO, 3, 0, points.rows());  // Pass the size of points matrix
 
-    // Create VBO and VAO for ellipsoids
-    Eigen::MatrixXf ellipsoidVertices(100, 3);  // Adjust the number of vertices as needed
-    for (int i = 0; i < 100; ++i) {
-        float theta = 2.0 * M_PI * i / 100;
-        ellipsoidVertices(i, 0) = cos(theta);
-        ellipsoidVertices(i, 1) = sin(theta);
-        ellipsoidVertices(i, 2) = 0.0f;
-    }
+//     // Create VBO and VAO for ellipsoids
+//     Eigen::MatrixXf ellipsoidVertices(100, 3);  // 10x10 = 100 
+//     for (int i = 0; i < 100; ++i) {
+//         float theta = 2.0 * M_PI * i / 100;
+//         ellipsoidVertices(i, 0) = cos(theta);
+//         ellipsoidVertices(i, 1) = sin(theta);
+//         ellipsoidVertices(i, 2) = 0.0f;
+//     }
 
-    createVBO(ellipsoidVBO, GL_ARRAY_BUFFER, ellipsoidVertices);
-    createVAO(ellipsoidVAO, ellipsoidVBO, 3, 1, ellipsoidVertices.rows());  // Pass the size of ellipsoidVertices matrix
+//     createVBO(ellipsoidVBO, GL_ARRAY_BUFFER, ellipsoidVertices);
+//     createVAO(ellipsoidVAO, ellipsoidVBO, 3, 1, ellipsoidVertices.rows());  // Pass the size of ellipsoidVertices matrix
 
-    // Initialize VBO and VAO for frustum
-    initFrustumVBOAndVAO();
+//     // Initialize VBO and VAO for frustum
+//     initFrustumVBOAndVAO();
 
-}
+// }
 
 
 Eigen::MatrixXf generateEigenNormal(int rows, int cols, float mean, float stddev) {
@@ -338,7 +341,7 @@ Eigen::MatrixXf generateEigenCovariance(int rows, const Eigen::Vector3f& mean, c
     return points;
 }
 
-void drawEllipsoid(const Eigen::Vector3f& mean, const Eigen::Matrix3f& covariance, GLfloat alpha) {
+void drawEllipsoid(const Eigen::Vector3f& mean, const Eigen::Matrix3f& covariance, GLfloat alpha, const std::array<float, 3>& color) {
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glEnable(GL_DEPTH_TEST);
@@ -362,7 +365,8 @@ void drawEllipsoid(const Eigen::Vector3f& mean, const Eigen::Matrix3f& covarianc
     // Apply non-uniform scaling based on eigenvalues
     glScalef(2 * sqrt(eigenvalues(0)), 2 * sqrt(eigenvalues(1)), 2 * sqrt(eigenvalues(2)));
 
-    glColor4f(0.0, 0.0, 1.0, alpha);
+    // glColor4f(0.0, 0.0, 1.0, alpha);
+    glColor4f(color[0], color[1], color[2], alpha);
     // glutSolidSphere(1.0, 100, 100); //way too high res
     glutSolidSphere(1.0, 10, 10);
 
@@ -716,7 +720,6 @@ void display() {
     drawPoints2();
     glDisable(GL_POINT_SMOOTH);
 
-
     // //debug U, L ~~~~~~~~~~~~~~~~~~~
     // glColor3f(1.0, 1.0, 1.0);
     // glEnable(GL_POINT_SMOOTH);
@@ -744,8 +747,13 @@ void display() {
     }
 
     // Draw ellipsoids
-    for (size_t i = 0; i < ellipsoidMeans.size(); ++i) {
-        drawEllipsoid(ellipsoidMeans[i], ellipsoidCovariances[i], ellipsoidAlphas[i]);
+    array<float, 3> color1 = {0.1, 0.1, 1.0};
+    for (size_t i = 0; i < ellipsoid1Means.size(); ++i) {
+        drawEllipsoid(ellipsoid1Means[i], ellipsoid1Covariances[i], ellipsoid1Alphas[i], color1);
+    }
+    array<float, 3> color2 = {1., 0.1, 0.1};
+    for (size_t i = 0; i < ellipsoid2Means.size(); ++i) {
+        drawEllipsoid(ellipsoid2Means[i], ellipsoid2Covariances[i], ellipsoid2Alphas[i], color2);
     }
 
     GLenum error = glGetError();
@@ -822,8 +830,8 @@ int main(int argc, char** argv) {
 
     // Load Ouster Sample Dataset
     std::string csvFilePath1 = "sample_data/pcap_out_000260.csv";
-    points = loadPointCloudCSV(csvFilePath1);
     std::string csvFilePath2 = "sample_data/pcap_out_000261.csv";
+    points = loadPointCloudCSV(csvFilePath1);
     points2 = loadPointCloudCSV(csvFilePath2);
 
     auto before = std::chrono::system_clock::now();
@@ -859,6 +867,9 @@ int main(int argc, char** argv) {
     MeanMap mu2;
     CovarianceMap L;
     CovarianceMap U;
+
+    //count for figuring out how many voxles are occupied by scan1
+    int occupiedCount = 0;
 
     //get spherical coordiantes and fit gaussians to points from first scan 
     vector<vector<vector<int>>> pointIndices = sortSphericalCoordinates(sortedPointsSpherical, numBinsTheta, numBinsPhi);
@@ -960,13 +971,15 @@ int main(int argc, char** argv) {
                 }
 
                 // cout << "\n L: \n" << L[theta][phi] << endl;
+                occupiedCount++; 
+                // cout << "occupiedCount: " << occupiedCount << endl;
                 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
                 //update for drawing
-                float alpha1 = 0.5f;
-                ellipsoidMeans.push_back(mean);
-                ellipsoidCovariances.push_back(covariance);
-                ellipsoidAlphas.push_back(alpha1);
+                float alpha1 = 0.3f;
+                ellipsoid1Means.push_back(mean);
+                ellipsoid1Covariances.push_back(covariance);
+                ellipsoid1Alphas.push_back(alpha1);
 
             }
             // use 0 value as a flag for unoccupied voxels
@@ -992,28 +1005,32 @@ int main(int argc, char** argv) {
     auto elapsedTimeMs = std::chrono::duration_cast<std::chrono::milliseconds>(after1Ms - beforeMs).count();
     cout << "Fit spherical voxels and guassians for scan 1 in: " << elapsedTimeMs << " ms" << endl;
 
-    // TODO: construct full L and U matrices
-
     // Main Loop ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // TODO: apply transformation to points2
     
     //fit points in scan2 to voxels
     Eigen::MatrixXf pointsSpherical2 = cartesianToSpherical(points2);
-    // Sort by radial distance
-    vector<int> index2(pointsSpherical2.rows());
-    iota(index2.begin(), index2.end(), 0);
-    sort(index2.begin(), index2.end(), [&](int a, int b) {
-        return pointsSpherical2(a, 0) < pointsSpherical2(b, 0); // Sort by radial distance
-    });
+    // // Sort by radial distance -- not needed for scan2??
+    // vector<int> index2(pointsSpherical2.rows());
+    // iota(index2.begin(), index2.end(), 0);
+    // sort(index2.begin(), index2.end(), [&](int a, int b) {
+    //     return pointsSpherical2(a, 0) < pointsSpherical2(b, 0); // Sort by radial distance
+    // });
+    // // Create a sorted matrix using the sorted indices
+    // MatrixXf sortedPointsSpherical2(pointsSpherical2.rows(), pointsSpherical2.cols());
+    // for (int i = 0; i < pointsSpherical2.rows(); i++) {
+    //     sortedPointsSpherical2.row(i) = pointsSpherical2.row(index2[i]);
+    // }
 
-    // Create a sorted matrix using the sorted indices
-    MatrixXf sortedPointsSpherical2(pointsSpherical2.rows(), pointsSpherical2.cols());
-    for (int i = 0; i < pointsSpherical2.rows(); i++) {
-        sortedPointsSpherical2.row(i) = pointsSpherical2.row(index2[i]);
-    }
+    // init L_i and U_i to be bigger than they need to be (size of number of voxels occupied by scan 1 x3)
+    Eigen::MatrixXf L_i(3*occupiedCount, 3);
+    Eigen::MatrixXf U_i(3*occupiedCount, 3);
+    // cout << U_i.size() << endl;
 
     //fit gaussians
-    vector<vector<vector<int>>> pointIndices2 = sortSphericalCoordinates(sortedPointsSpherical2, numBinsTheta, numBinsPhi);
+    int c = 0;
+    // vector<vector<vector<int>>> pointIndices2 = sortSphericalCoordinates(sortedPointsSpherical2, numBinsTheta, numBinsPhi);
+    vector<vector<vector<int>>> pointIndices2 = sortSphericalCoordinates(pointsSpherical2, numBinsTheta, numBinsPhi);
     for (int phi = 0; phi < numBinsPhi; phi++){
         for (int theta = 0; theta< numBinsTheta; theta++){
             // Retrieve the point indices inside angular bin
@@ -1023,9 +1040,9 @@ int main(int argc, char** argv) {
             // only fit gaussians if there enough points from both scans 1 and 2 in the cell 
             if ((indices2.size() > n) && (indices1.size() > n)) {
                 // Use the indices to access the corresponding rows in sortedPointsSpherical
-                MatrixXf selectedPoints2 = MatrixXf::Zero(indices2.size(), sortedPointsSpherical2.cols());
+                MatrixXf selectedPoints2 = MatrixXf::Zero(indices2.size(), pointsSpherical2.cols());
                 for (int i = 0; i < indices2.size(); ++i) {
-                    selectedPoints2.row(i) = sortedPointsSpherical2.row(indices2[i]);
+                    selectedPoints2.row(i) = pointsSpherical2.row(indices2[i]);
                 }
 
                 // find points from first scan inside voxel bounds and fit gaussians to each cluster
@@ -1038,9 +1055,36 @@ int main(int argc, char** argv) {
                 //hold on to means and covariances of clusters from scan1
                 sigma2[theta][phi] = covariance;
                 mu2[theta][phi] = mean;
+                
+                //update L_i and U_i
+                // cout << U[theta][phi] << endl;
+                L_i.block(3*c, 0, 3, 3) << L[theta][phi];
+                U_i.block(3*c, 0, 3, 3) << U[theta][phi];
+                // cout << "U: " << typeid(U[theta][phi]).name() << endl;
+
+                //TODO: Get W
+
+                //TODO: get H
+
+                c++;
+
+                //update for drawing
+                float alpha2 = 0.3f;
+                ellipsoid2Means.push_back(mean);
+                ellipsoid2Covariances.push_back(covariance);
+                ellipsoid2Alphas.push_back(alpha2);
             }
         }
     }
+
+    // perform "conservative resize" on L_i and U_i before doing any calculations
+    // cout << "\n L_i before: \n " << L_i << endl;
+    L_i.conservativeResize(3*c, Eigen::NoChange);
+    U_i.conservativeResize(3*c, Eigen::NoChange);
+    // cout << "\n L_i after: \n " << L_i << endl;
+
+    // (H_z^T*W*H_z)
+
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     auto after2 = std::chrono::system_clock::now();
@@ -1051,7 +1095,7 @@ int main(int argc, char** argv) {
     glEnable(GL_DEPTH_TEST);
 
     // Initialize VBOs and VAOs
-    initVBOsAndVAOs();
+    // initVBOsAndVAOs();
 
     glutDisplayFunc(display);
     glutReshapeFunc(reshape);
@@ -1065,10 +1109,10 @@ int main(int argc, char** argv) {
 
     // Clean up VBOs and VAOs
     glDeleteBuffers(1, &pointsVBO);
-    glDeleteBuffers(1, &ellipsoidVBO);
+    // glDeleteBuffers(1, &ellipsoidVBO);
     glDeleteBuffers(1, &frustumVBO);
     glDeleteVertexArrays(1, &pointsVAO);
-    glDeleteVertexArrays(1, &ellipsoidVAO);
+    // glDeleteVertexArrays(1, &ellipsoidVAO);
     glDeleteVertexArrays(1, &frustumVAO);
 
 
