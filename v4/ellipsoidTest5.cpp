@@ -1024,7 +1024,7 @@ int main(int argc, char** argv) {
 
     //fit points in scan2 to voxels
     Eigen::MatrixXf pointsSpherical2 = cartesianToSpherical(points2);
-    // // Sort by radial distance -- not needed for scan2??
+    // // Sort by radial distance -- not needed for scan2
     // vector<int> index2(pointsSpherical2.rows());
     // iota(index2.begin(), index2.end(), 0);
     // sort(index2.begin(), index2.end(), [&](int a, int b) {
@@ -1036,10 +1036,14 @@ int main(int argc, char** argv) {
     //     sortedPointsSpherical2.row(i) = pointsSpherical2.row(index2[i]);
     // }
 
-    // setup L and U matrices according to correspondenes in iteration i
+    // setup L, U matrices according to correspondenes in iteration i
     // init L_i and U_i to be bigger than they need to be (size of number of voxels occupied by scan 1 x3)
     Eigen::MatrixXf L_i(3*occupiedCount, 3);
     Eigen::MatrixXf U_i(3*occupiedCount, 3);
+    
+    // It is inefficient to construct the full (H^T W H) matrix direclty since W is very sparse
+    // Instead we sum contributions from each voxel to a single 3x3 matrix to avoid memory inefficiency   
+    Eigen::MatrixXf HTWH_i(3, 3);
     // cout << U_i.size() << endl;
 
     //fit gaussians
@@ -1077,9 +1081,24 @@ int main(int argc, char** argv) {
                 U_i.block(3*c, 0, 3, 3) << U[theta][phi];
                 // cout << "U: " << typeid(U[theta][phi]).name() << endl;
 
-                //TODO: Get W
 
-                //TODO: get H
+
+                //add contributions to HTWH
+
+                // Get noise components
+                // TODO: the current weighting is slightly incorrect-- indices1.size() includes the number of all points in the radial bin (not just the ones within radial bounds)
+                Eigen::MatrixXf R(3,3);
+                // cout << filteredPoints2.size() << endl;
+                // cout << indices2.size() << endl;
+                R << (sigma1[theta][phi] / (indices1.size() - 1)) + (sigma2[theta][phi] / (indices2.size()-1));
+                cout << "R: \n" << R << endl;
+                // use projection matrix to remove extended directions
+                // R = L[theta][phi] * U[theta][phi].transpose() * R * U[theta][phi] * L[theta][phi].transpose();
+                // cout << "R: \n" << R << endl;
+                // invert noise to get Weighting
+                Eigen::MatrixXf W = R.inverse();
+                // cout << "W: \n" << W << endl;
+
 
                 c++;
 
@@ -1099,6 +1118,12 @@ int main(int argc, char** argv) {
     // cout << "\n L_i after: \n " << L_i << endl;
 
     // (H_z^T*W*H_z)
+
+    // GOAL: find linear perterbation dX to correct previous state estimate X
+    // dx = (H^T * W * H)^-1 * H^T * W * deltaY
+    // H -> appended jacobain matrix (3*occupiedCount, 6)
+    // W -> block diagonal weighting matrix (3*occupiedCount, 3*occupiedCount)
+
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
