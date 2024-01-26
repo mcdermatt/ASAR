@@ -815,6 +815,46 @@ MatrixXf loadPointCloudCSV(string filename){
     // return points;
 }
 
+MatrixXf get_H(Eigen::Vector3f mu, Eigen::Vector3f angs){
+
+    float phi = angs[0];
+    float theta = angs[1];
+    float psi = angs[2];    
+
+    MatrixXf H(3,6);
+    MatrixXf eye(3,3);
+    eye << -1, 0, 0,
+             0, -1, 0,
+             0, 0, -1;
+    H.block(0,0,3,3) << eye;
+
+    // deriv of R() wrt phi.dot(mu)
+    Eigen::MatrixXf Jx(3,3);
+    Jx << 0., (-sin(psi)*sin(phi) + cos(phi)*sin(theta)*cos(psi)), (cos(phi)*sin(psi) + sin(theta)*sin(phi)*cos(psi)),
+          0., (-sin(phi)*cos(psi) - cos(phi)*sin(theta)*sin(psi)), (cos(phi)*cos(psi) - sin(theta)*sin(psi)*sin(phi)), 
+          0., (-cos(phi)*cos(theta)), (-sin(phi)*cos(theta));
+    Jx = Jx * mu;
+    H.block(0, 3, 3, 1) = Jx;
+
+    // deriv of R() wrt theta.dot(mu)
+    Eigen::MatrixXf Jy(3,3);
+    Jy << (-sin(theta)*cos(psi)), (cos(theta)*sin(phi)*cos(psi)), (-cos(theta)*cos(phi)*cos(psi)),
+          (sin(psi)*sin(theta)), (-cos(theta)*sin(phi)*sin(psi)), (cos(theta)*sin(psi)*cos(phi)),
+          (cos(theta)), (sin(phi)*sin(theta)), (-sin(theta)*cos(phi));
+    Jy = Jy * mu;
+    H.block(0, 4, 3, 1) = Jy;
+
+    // deriv of R() wrt psi.dot(mu)
+    Eigen::MatrixXf Jz(3,3);
+    Jz << (-cos(theta)*sin(psi)), (cos(psi)*cos(phi) - sin(phi)*sin(theta)*sin(psi)), (cos(psi)*sin(phi) + sin(theta)*cos(phi)*sin(psi)),
+         (-cos(psi)*cos(theta)), (-sin(psi)*cos(phi) - sin(phi)*sin(theta)*cos(psi)), (-sin(phi)*sin(psi) + sin(theta)*cos(psi)*cos(phi)),
+         0., 0., 0.;
+    Jz = Jz * mu;
+    H.block(0, 5, 3, 1) = Jz;
+
+    return H;
+}
+
 //given body frame xyz euler angles [phi, theta, psi], return 3x3 rotation matrix
 Matrix3f R(float phi, float theta, float psi){
     MatrixXf mat(3,3); 
@@ -1042,8 +1082,8 @@ int main(int argc, char** argv) {
     Eigen::MatrixXf U_i(3*occupiedCount, 3);
     
     // It is inefficient to construct the full (H^T W H) matrix direclty since W is very sparse
-    // Instead we sum contributions from each voxel to a single 3x3 matrix to avoid memory inefficiency   
-    Eigen::MatrixXf HTWH_i(3, 3);
+    // Instead we sum contributions from each voxel to a single 6x6 matrix to avoid memory inefficiency   
+    Eigen::MatrixXf HTWH_i(6, 6);
     // cout << U_i.size() << endl;
 
     //fit gaussians
@@ -1084,20 +1124,38 @@ int main(int argc, char** argv) {
 
 
                 //add contributions to HTWH
-
                 // Get noise components
                 // TODO: the current weighting is slightly incorrect-- indices1.size() includes the number of all points in the radial bin (not just the ones within radial bounds)
                 Eigen::MatrixXf R(3,3);
                 // cout << filteredPoints2.size() << endl;
                 // cout << indices2.size() << endl;
                 R << (sigma1[theta][phi] / (indices1.size() - 1)) + (sigma2[theta][phi] / (indices2.size()-1));
-                cout << "R: \n" << R << endl;
+                // cout << "R: \n" << R << endl;
                 // use projection matrix to remove extended directions
                 // R = L[theta][phi] * U[theta][phi].transpose() * R * U[theta][phi] * L[theta][phi].transpose();
+                // Eigen::MatrixXf Ltest(2,3);
+                // Ltest << 1, 0, 0,
+                //          0, 1, 0;
+                // R = Ltest * U[theta][phi].transpose() * R * U[theta][phi] * Ltest.transpose();
                 // cout << "R: \n" << R << endl;
-                // invert noise to get Weighting
+                // invert noise to get weighting
                 Eigen::MatrixXf W = R.inverse();
                 // cout << "W: \n" << W << endl;
+
+                //get H matrix for voxel j
+                Eigen::Vector3f angs = {0, 0, 1}; // TODO-- make rotation components of X
+                Eigen::MatrixXf H_j = get_H(mu2[theta][phi], angs);
+                // cout << H_j << endl;
+
+                //suppress rows of H corresponding to overly extended directions
+                Eigen::MatrixXf H_z = L[theta][phi] * U[theta][phi].transpose() * H_j;
+                // cout << "\n L: \n" << L[theta][phi] << "\n H: " << endl;
+                // cout << H_z << endl;
+
+                //put together HTWH for voxel j and contribute to total HTWH_i (for all voxels of current iteration)
+                Eigen::MatrixXf HTWH_j = H_z.transpose() * W * H_z;
+                HTWH_i = HTWH_i + HTWH_j;
+
 
 
                 c++;
