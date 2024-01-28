@@ -903,9 +903,9 @@ int main(int argc, char** argv) {
     }
 
     // set up spherical voxel grid ~~~~~~~~~~~~~~~~~~~~~~~~~
-    int numBinsPhi = 50;  // Adjust the number of bins as needed
-    int numBinsTheta = 50; // Adjust the number of bins as needed
-    int n = 40; // min size of the cluster
+    int numBinsPhi = 25;  // Adjust the number of bins as needed
+    int numBinsTheta = 25; // Adjust the number of bins as needed
+    int n = 10; // min size of the cluster
     float thresh = 0.3; // Threshold for radial distance
     float buff = 0.2; //buffer to add to inner and outer cluster range (helps attract nearby distributions)
 
@@ -1052,29 +1052,19 @@ int main(int argc, char** argv) {
     auto after1 = std::chrono::system_clock::now();
     auto after1Ms = std::chrono::time_point_cast<std::chrono::milliseconds>(after1);
     auto elapsedTimeMs = std::chrono::duration_cast<std::chrono::milliseconds>(after1Ms - beforeMs).count();
-    cout << "Fit spherical voxels and guassians for scan 1 in: " << elapsedTimeMs << " ms" << endl;
+    std::cout << "Fit spherical voxels and guassians for scan 1 in: " << elapsedTimeMs << " ms" << std::endl;
+
+    // state vector X--- [x, y, z, phi, theta, psi]
+    Eigen::VectorXf X(6);
+    Eigen::VectorXf dx(6); //linear perterbation to X solved for during each iteration
+    // X << 0, 0, 0, 0, 0, 0;
+    X << 0, 0, 0, 0, 0, 0.1;
 
     // Main Loop ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // apply transformation to points2
-    
-    // TODO: get actual rotation angles from last state estimate
-    MatrixXf rot_mat = R(0.0f, 0.0f, 0.1f); 
+    MatrixXf rot_mat = R(X[3], X[4], X[5]); 
     // cout << "rotation matrix: \n" << rot_mat << endl; 
     points2 << points2 * rot_mat;
-
-    //fit points in scan2 to voxels
-    Eigen::MatrixXf pointsSpherical2 = cartesianToSpherical(points2);
-    // // Sort by radial distance -- not needed for scan2
-    // vector<int> index2(pointsSpherical2.rows());
-    // iota(index2.begin(), index2.end(), 0);
-    // sort(index2.begin(), index2.end(), [&](int a, int b) {
-    //     return pointsSpherical2(a, 0) < pointsSpherical2(b, 0); // Sort by radial distance
-    // });
-    // // Create a sorted matrix using the sorted indices
-    // MatrixXf sortedPointsSpherical2(pointsSpherical2.rows(), pointsSpherical2.cols());
-    // for (int i = 0; i < pointsSpherical2.rows(); i++) {
-    //     sortedPointsSpherical2.row(i) = pointsSpherical2.row(index2[i]);
-    // }
 
     // setup L, U matrices according to correspondenes in iteration i
     // init L_i and U_i to be bigger than they need to be (size of number of voxels occupied by scan 1 x3)
@@ -1084,12 +1074,29 @@ int main(int argc, char** argv) {
     // It is inefficient to construct the full (H^T W H) matrix direclty since W is very sparse
     // Instead we sum contributions from each voxel to a single 6x6 matrix to avoid memory inefficiency   
     Eigen::MatrixXf HTWH_i(6, 6);
-    // cout << U_i.size() << endl;
+    // Similarly, we accumulate contributions to (H^T W dz) from each voxel
+    Eigen::MatrixXf HTWdz_i(6,1); 
+
+    //fit points in scan2 to voxels
+    Eigen::MatrixXf pointsSpherical2 = cartesianToSpherical(points2);
+
+    // Sort sphericalCoords based on radial distance
+    vector<int> index2(pointsSpherical2.rows());
+    iota(index2.begin(), index2.end(), 0);
+    sort(index2.begin(), index2.end(), [&](int a, int b) {
+        return pointsSpherical2(a, 0) < pointsSpherical2(b, 0); // Sort by radial distance
+    });
+    // Create a sorted matrix using the sorted indices
+    MatrixXf sortedPointsSpherical2(pointsSpherical2.rows(), pointsSpherical2.cols());
+    for (int i = 0; i < pointsSpherical2.rows(); i++) {
+        sortedPointsSpherical2.row(i) = pointsSpherical2.row(index2[i]);
+    }
+    vector<vector<vector<int>>> pointIndices2 = sortSphericalCoordinates(sortedPointsSpherical2, numBinsTheta, numBinsPhi);
+    
+    // vector<vector<vector<int>>> pointIndices2 = sortSphericalCoordinates(pointsSpherical2, numBinsTheta, numBinsPhi); //test-- don't sort by spherical distance
 
     //fit gaussians
     int c = 0;
-    // vector<vector<vector<int>>> pointIndices2 = sortSphericalCoordinates(sortedPointsSpherical2, numBinsTheta, numBinsPhi);
-    vector<vector<vector<int>>> pointIndices2 = sortSphericalCoordinates(pointsSpherical2, numBinsTheta, numBinsPhi);
     for (int phi = 0; phi < numBinsPhi; phi++){
         for (int theta = 0; theta< numBinsTheta; theta++){
             // Retrieve the point indices inside angular bin
@@ -1098,97 +1105,123 @@ int main(int argc, char** argv) {
 
             // only fit gaussians if there enough points from both scans 1 and 2 in the cell 
             if ((indices2.size() > n) && (indices1.size() > n)) {
+            // if ((indices2.size() > n) && (clusterBounds.row(numBinsTheta*phi + theta)[5] > 1)) { //U and L won't exist if no useful bin in scan1
                 // Use the indices to access the corresponding rows in sortedPointsSpherical
-                MatrixXf selectedPoints2 = MatrixXf::Zero(indices2.size(), pointsSpherical2.cols());
+                // unsorted (test)
+                // MatrixXf selectedPoints2 = MatrixXf::Zero(indices2.size(), pointsSpherical2.cols());
+                // for (int i = 0; i < indices2.size(); ++i) {
+                //     selectedPoints2.row(i) = pointsSpherical2.row(indices2[i]);
+                // }
+                //sorted
+                MatrixXf selectedPoints2 = MatrixXf::Zero(indices2.size(), sortedPointsSpherical2.cols());
                 for (int i = 0; i < indices2.size(); ++i) {
-                    selectedPoints2.row(i) = pointsSpherical2.row(indices2[i]);
+                    selectedPoints2.row(i) = sortedPointsSpherical2.row(indices2[i]);
                 }
 
                 // find points from first scan inside voxel bounds and fit gaussians to each cluster
                 MatrixXf filteredPoints2 = filterPointsInsideCluster(selectedPoints2, clusterBounds.row(numBinsTheta*phi + theta));
-                MatrixXf filteredPointsCart2 = sphericalToCartesian(filteredPoints2);
-                Eigen::VectorXf mean = filteredPointsCart2.colwise().mean();
-                Eigen::MatrixXf centered = filteredPointsCart2.rowwise() - mean.transpose();
-                Eigen::MatrixXf covariance = (centered.adjoint() * centered) / static_cast<float>(filteredPointsCart2.rows() - 1);
+                // std::cout << "\n number of points from scan 2 inside bounds: " << filteredPoints2.size()/3 << endl;
+                // only carry on if there are enough points from scan2 actually inside the radial bounds
+                if (filteredPoints2.size()/3 > n){
+                    MatrixXf filteredPointsCart2 = sphericalToCartesian(filteredPoints2);
+                    Eigen::VectorXf mean = filteredPointsCart2.colwise().mean();
+                    Eigen::MatrixXf centered = filteredPointsCart2.rowwise() - mean.transpose();
+                    Eigen::MatrixXf covariance = (centered.adjoint() * centered) / static_cast<float>(filteredPointsCart2.rows() - 1);
 
-                //hold on to means and covariances of clusters from scan1
-                sigma2[theta][phi] = covariance;
-                mu2[theta][phi] = mean;
-                
-                //update L_i and U_i
-                // cout << U[theta][phi] << endl;
-                L_i.block(3*c, 0, 3, 3) << L[theta][phi];
-                U_i.block(3*c, 0, 3, 3) << U[theta][phi];
-                // cout << "U: " << typeid(U[theta][phi]).name() << endl;
+                    //hold on to means and covariances of clusters from scan1
+                    sigma2[theta][phi] = covariance;
+                    mu2[theta][phi] = mean;
+                    
+                    //update L_i and U_i
+                    // cout << U[theta][phi] << endl;
+                    // L_i.block(3*c, 0, 3, 3) << L[theta][phi];
+                    // U_i.block(3*c, 0, 3, 3) << U[theta][phi];
+                    // cout << "U: " << typeid(U[theta][phi]).name() << endl;
 
+                    //add contributions to HTWH
+                    // Get noise components
+                    // TODO: the current weighting is slightly incorrect-- indices1.size() includes the number of all points in the radial bin (not just the ones within radial bounds)
+                    Eigen::MatrixXf R_noise(3,3);
+                    // cout << filteredPoints2.size() << endl;
+                    // cout << indices2.size() << endl;
+                    R_noise << (sigma1[theta][phi] / (indices1.size() - 1)) + (sigma2[theta][phi] / (indices2.size()-1));
+                    cout << "R_noise: \n" << R_noise << endl;
+                    // use projection matrix to remove extended directions
+                    // R_noise = L[theta][phi] * U[theta][phi].transpose() * R_noise * U[theta][phi] * L[theta][phi].transpose();
+                    // R_noise = U[theta][phi].transpose() * R_noise; //test
+                    // invert noise to get weighting
+                    Eigen::MatrixXf W = R_noise.inverse();
+                    cout << "W: \n" << W << endl;
 
+                    //get H matrix for voxel j
+                    Eigen::Vector3f angs = {0, 0, 1}; // TODO-- make rotation components of X
+                    // cout << "mu2" << mu2[theta][phi] << endl;
+                    Eigen::MatrixXf H_j = get_H(mu2[theta][phi], angs);
+                    // cout << H_j << endl;
 
-                //add contributions to HTWH
-                // Get noise components
-                // TODO: the current weighting is slightly incorrect-- indices1.size() includes the number of all points in the radial bin (not just the ones within radial bounds)
-                Eigen::MatrixXf R(3,3);
-                // cout << filteredPoints2.size() << endl;
-                // cout << indices2.size() << endl;
-                R << (sigma1[theta][phi] / (indices1.size() - 1)) + (sigma2[theta][phi] / (indices2.size()-1));
-                // cout << "R: \n" << R << endl;
-                // use projection matrix to remove extended directions
-                // R = L[theta][phi] * U[theta][phi].transpose() * R * U[theta][phi] * L[theta][phi].transpose();
-                // Eigen::MatrixXf Ltest(2,3);
-                // Ltest << 1, 0, 0,
-                //          0, 1, 0;
-                // R = Ltest * U[theta][phi].transpose() * R * U[theta][phi] * Ltest.transpose();
-                // cout << "R: \n" << R << endl;
-                // invert noise to get weighting
-                Eigen::MatrixXf W = R.inverse();
-                // cout << "W: \n" << W << endl;
+                    //suppress rows of H corresponding to overly extended directions
+                    Eigen::MatrixXf H_z = L[theta][phi] * U[theta][phi].transpose() * H_j;
+                    // cout << "\n L: \n" << L[theta][phi] << "\n H_z: \n" << H_z << endl;
 
-                //get H matrix for voxel j
-                Eigen::Vector3f angs = {0, 0, 1}; // TODO-- make rotation components of X
-                Eigen::MatrixXf H_j = get_H(mu2[theta][phi], angs);
-                // cout << H_j << endl;
+                    //put together HTWH for voxel j and contribute to total HTWH_i (for all voxels of current iteration)
+                    Eigen::MatrixXf HTWH_j = H_z.transpose() * W * H_z;
+                    HTWH_i += HTWH_j;
+                    // std::cout << "HTWH_j: \n" << HTWH_j <<endl;
+                    // std::cout << "HTWH_i: \n" << HTWH_i << "\n" <<endl;
 
-                //suppress rows of H corresponding to overly extended directions
-                Eigen::MatrixXf H_z = L[theta][phi] * U[theta][phi].transpose() * H_j;
-                // cout << "\n L: \n" << L[theta][phi] << "\n H: " << endl;
-                // cout << H_z << endl;
+                    // //debug-- find where these nans are coming from
+                    // if (HTWH_j.array().isNaN().any()) {
+                    //     std::cout << "Nan at " << theta << " " << phi << endl;
+                    // }
+                    // else{
+                    //     std::cout << " --------- " << endl;
+                    // }
 
-                //put together HTWH for voxel j and contribute to total HTWH_i (for all voxels of current iteration)
-                Eigen::MatrixXf HTWH_j = H_z.transpose() * W * H_z;
-                HTWH_i = HTWH_i + HTWH_j;
+                    // get compact residuals between means of distributions from scans 1 and 2
+                    Eigen::Vector3f dz = L[theta][phi] * U[theta][phi].transpose() * (mu2[theta][phi] - mu1[theta][phi]) ;
+                    // std::cout << "dz: \n" << dz <<endl;
+                    HTWdz_i += H_z.transpose() * W * dz;
 
+                    c++;
 
-
-                c++;
-
-                //update for drawing
-                float alpha2 = 0.3f;
-                ellipsoid2Means.push_back(mean);
-                ellipsoid2Covariances.push_back(covariance);
-                ellipsoid2Alphas.push_back(alpha2);
+                    //update for drawing
+                    float alpha2 = 0.3f;
+                    ellipsoid2Means.push_back(mean);
+                    ellipsoid2Covariances.push_back(covariance);
+                    ellipsoid2Alphas.push_back(alpha2);
+                }
             }
         }
     }
 
     // perform "conservative resize" on L_i and U_i before doing any calculations
     // cout << "\n L_i before: \n " << L_i << endl;
-    L_i.conservativeResize(3*c, Eigen::NoChange);
-    U_i.conservativeResize(3*c, Eigen::NoChange);
+    // L_i.conservativeResize(3*c, Eigen::NoChange);
+    // U_i.conservativeResize(3*c, Eigen::NoChange);
     // cout << "\n L_i after: \n " << L_i << endl;
-
-    // (H_z^T*W*H_z)
 
     // GOAL: find linear perterbation dX to correct previous state estimate X
     // dx = (H^T * W * H)^-1 * H^T * W * deltaY
     // H -> appended jacobain matrix (3*occupiedCount, 6)
     // W -> block diagonal weighting matrix (3*occupiedCount, 3*occupiedCount)
 
+    //update X
+    // std::cout << "HTWH_i: \n" << HTWH_i <<endl;
+    // std::cout << "HTWdz_i: \n" << HTWdz_i <<endl;
+
+    dx = HTWH_i.inverse() * HTWdz_i;
+    std::cout << "dx: " << dx << endl;
+    // X += dx;
+
+
+    // TODO: Check condition for HTWH to suppress globally ambiguous components
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     auto after2 = std::chrono::system_clock::now();
     auto after2Ms = std::chrono::time_point_cast<std::chrono::milliseconds>(after2);
     auto elapsedTimeMs2 = std::chrono::duration_cast<std::chrono::milliseconds>(after2Ms - after1Ms).count();
-    cout << "Fit spherical voxels and guassians for scan 2 in: " << elapsedTimeMs2 << " ms" << endl;
+    std::cout << "Fit spherical voxels and guassians for scan 2 in: " << elapsedTimeMs2 << " ms" << endl;
 
     glEnable(GL_DEPTH_TEST);
 
