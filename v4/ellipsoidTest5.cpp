@@ -1058,7 +1058,7 @@ int main(int argc, char** argv) {
     Eigen::VectorXf X(6);
     Eigen::VectorXf dx(6); //linear perterbation to X solved for during each iteration
     // X << 0, 0, 0, 0, 0, 0;
-    X << 0, 0, 0, 0, 0, 0.1;
+    X << 0, 0, 0, 0, 0.05, -0.1;
 
     // Main Loop ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // apply transformation to points2
@@ -1093,7 +1093,8 @@ int main(int argc, char** argv) {
     }
     vector<vector<vector<int>>> pointIndices2 = sortSphericalCoordinates(sortedPointsSpherical2, numBinsTheta, numBinsPhi);
     
-    // vector<vector<vector<int>>> pointIndices2 = sortSphericalCoordinates(pointsSpherical2, numBinsTheta, numBinsPhi); //test-- don't sort by spherical distance
+    //test don't sort by spherical distance -- sorting by r is really slow, should I make a seprate func for the main loop?
+    // vector<vector<vector<int>>> pointIndices2 = sortSphericalCoordinates(pointsSpherical2, numBinsTheta, numBinsPhi); 
 
     //fit gaussians
     int c = 0;
@@ -1144,20 +1145,29 @@ int main(int argc, char** argv) {
                     Eigen::MatrixXf R_noise(3,3);
                     // cout << filteredPoints2.size() << endl;
                     // cout << indices2.size() << endl;
-                    R_noise << (sigma1[theta][phi] / (indices1.size() - 1)) + (sigma2[theta][phi] / (indices2.size()-1));
-                    cout << "R_noise: \n" << R_noise << endl;
+                    R_noise << (sigma1[theta][phi] / (indices1.size() - 1)) + (sigma2[theta][phi] / (indices2.size()-1)); //supposed to be this
+                    // R_noise << sigma1[theta][phi]  + sigma2[theta][phi]; //test
+                    // cout << "\n R_noise before projection: \n" << R_noise << endl;
+
                     // use projection matrix to remove extended directions
-                    // R_noise = L[theta][phi] * U[theta][phi].transpose() * R_noise * U[theta][phi] * L[theta][phi].transpose();
-                    // R_noise = U[theta][phi].transpose() * R_noise; //test
+                    R_noise = L[theta][phi] * U[theta][phi].transpose() * R_noise * U[theta][phi] * L[theta][phi].transpose(); //was this
+                    // cout << "R_noise after projection: \n" << R_noise << endl;
+
                     // invert noise to get weighting
-                    Eigen::MatrixXf W = R_noise.inverse();
-                    cout << "W: \n" << W << endl;
+                    //standard invese doesn't work for non full rank matrices
+                    // Eigen::MatrixXf W = R_noise.inverse(); 
+                    // Need to calculate pseudoinverse instead
+                    // Compute the complete orthogonal decomposition (COD) of A
+                    Eigen::CompleteOrthogonalDecomposition<Eigen::MatrixXf> cod(R_noise);
+                    Eigen::MatrixXf W = cod.pseudoInverse();
+                    // cout << "W: \n" << W << endl;
 
                     //get H matrix for voxel j
-                    Eigen::Vector3f angs = {0, 0, 1}; // TODO-- make rotation components of X
+                    Eigen::Vector3f angs;
+                    angs << X[3], X[4], X[5];
                     // cout << "mu2" << mu2[theta][phi] << endl;
-                    Eigen::MatrixXf H_j = get_H(mu2[theta][phi], angs);
-                    // cout << H_j << endl;
+                    Eigen::MatrixXf H_j = get_H(mu2[theta][phi], angs); //working correctly (same output as python code)
+                    // cout <<  "\n H_j: \n " << H_j << endl;
 
                     //suppress rows of H corresponding to overly extended directions
                     Eigen::MatrixXf H_z = L[theta][phi] * U[theta][phi].transpose() * H_j;
@@ -1165,25 +1175,21 @@ int main(int argc, char** argv) {
 
                     //put together HTWH for voxel j and contribute to total HTWH_i (for all voxels of current iteration)
                     Eigen::MatrixXf HTWH_j = H_z.transpose() * W * H_z;
+                    // Eigen::MatrixXf HTWH_j = H_j.transpose() * W * H_j; //test
                     HTWH_i += HTWH_j;
                     // std::cout << "HTWH_j: \n" << HTWH_j <<endl;
                     // std::cout << "HTWH_i: \n" << HTWH_i << "\n" <<endl;
 
-                    // //debug-- find where these nans are coming from
-                    // if (HTWH_j.array().isNaN().any()) {
-                    //     std::cout << "Nan at " << theta << " " << phi << endl;
-                    // }
-                    // else{
-                    //     std::cout << " --------- " << endl;
-                    // }
-
                     // get compact residuals between means of distributions from scans 1 and 2
-                    Eigen::Vector3f dz = L[theta][phi] * U[theta][phi].transpose() * (mu2[theta][phi] - mu1[theta][phi]) ;
+                    // Eigen::Vector3f dz = L[theta][phi] * U[theta][phi].transpose() * (mu2[theta][phi] - mu1[theta][phi]) ; //should be this?
+                    Eigen::Vector3f z1 = L[theta][phi] * U[theta][phi].transpose() * mu1[theta][phi];
+                    Eigen::Vector3f z2 = L[theta][phi] * U[theta][phi].transpose() * mu2[theta][phi];
+                    Eigen::Vector3f dz = z2-z1;
                     // std::cout << "dz: \n" << dz <<endl;
-                    HTWdz_i += H_z.transpose() * W * dz;
+                    HTWdz_i += H_z.transpose() * W * dz; //should be this
+                    // HTWdz_i += H_j.transpose() * W * dz; //test
 
                     c++;
-
                     //update for drawing
                     float alpha2 = 0.3f;
                     ellipsoid2Means.push_back(mean);
@@ -1194,12 +1200,6 @@ int main(int argc, char** argv) {
         }
     }
 
-    // perform "conservative resize" on L_i and U_i before doing any calculations
-    // cout << "\n L_i before: \n " << L_i << endl;
-    // L_i.conservativeResize(3*c, Eigen::NoChange);
-    // U_i.conservativeResize(3*c, Eigen::NoChange);
-    // cout << "\n L_i after: \n " << L_i << endl;
-
     // GOAL: find linear perterbation dX to correct previous state estimate X
     // dx = (H^T * W * H)^-1 * H^T * W * deltaY
     // H -> appended jacobain matrix (3*occupiedCount, 6)
@@ -1208,11 +1208,18 @@ int main(int argc, char** argv) {
     //update X
     // std::cout << "HTWH_i: \n" << HTWH_i <<endl;
     // std::cout << "HTWdz_i: \n" << HTWdz_i <<endl;
+    // std::cout << "HTWH_i.inverse(): \n" << HTWH_i.inverse() <<endl; //bad
 
-    dx = HTWH_i.inverse() * HTWdz_i;
-    std::cout << "dx: " << dx << endl;
+    //standard inverse
+    // dx = HTWH_i.inverse() * HTWdz_i;
+    //pseudoinverse
+    Eigen::CompleteOrthogonalDecomposition<Eigen::MatrixXf> cod(HTWH_i);
+    Eigen::MatrixXf HTWH_i_inverse = cod.pseudoInverse();
+    // std::cout << "HTWH_i_inverse: \n" << HTWH_i_inverse <<endl;
+    // std::cout << "HTWdz_i: \n" << HTWdz_i <<endl;
+    dx = HTWH_i_inverse * HTWdz_i; 
+    std::cout << "dx: \n " << dx << endl;
     // X += dx;
-
 
     // TODO: Check condition for HTWH to suppress globally ambiguous components
 
