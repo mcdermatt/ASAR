@@ -903,10 +903,10 @@ int main(int argc, char** argv) {
     }
 
     // set up spherical voxel grid ~~~~~~~~~~~~~~~~~~~~~~~~~
-    int numBinsPhi = 25;  // Adjust the number of bins as needed
-    int numBinsTheta = 25; // Adjust the number of bins as needed
-    int n = 10; // min size of the cluster
-    float thresh = 0.3; // Threshold for radial distance
+    int numBinsPhi = 50;  // Adjust the number of bins as needed
+    int numBinsTheta = 50; // Adjust the number of bins as needed
+    int n = 25; // min size of the cluster
+    float thresh = 0.3; // Jump threshold for beginning and ending radial clusters
     float buff = 0.2; //buffer to add to inner and outer cluster range (helps attract nearby distributions)
 
     // init structure to store covariance data
@@ -1058,13 +1058,15 @@ int main(int argc, char** argv) {
     Eigen::VectorXf X(6);
     Eigen::VectorXf dx(6); //linear perterbation to X solved for during each iteration
     // X << 0, 0, 0, 0, 0, 0;
-    X << 0, 0, 0, 0, 0.05, -0.1;
+    X << 0.2, 0, 0, 0, -0.05, 0.1;
 
     // Main Loop ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // apply transformation to points2
     MatrixXf rot_mat = R(X[3], X[4], X[5]); 
     // cout << "rotation matrix: \n" << rot_mat << endl; 
-    points2 << points2 * rot_mat;
+    Eigen::RowVector3f trans(X[0], X[1], X[2]);
+    points2 = (points2 * rot_mat);
+    points2.rowwise() += trans;
 
     // setup L, U matrices according to correspondenes in iteration i
     // init L_i and U_i to be bigger than they need to be (size of number of voxels occupied by scan 1 x3)
@@ -1074,8 +1076,10 @@ int main(int argc, char** argv) {
     // It is inefficient to construct the full (H^T W H) matrix direclty since W is very sparse
     // Instead we sum contributions from each voxel to a single 6x6 matrix to avoid memory inefficiency   
     Eigen::MatrixXf HTWH_i(6, 6);
+    HTWH_i.setZero();
     // Similarly, we accumulate contributions to (H^T W dz) from each voxel
     Eigen::MatrixXf HTWdz_i(6,1); 
+    HTWdz_i.setZero();
 
     //fit points in scan2 to voxels
     Eigen::MatrixXf pointsSpherical2 = cartesianToSpherical(points2);
@@ -1105,8 +1109,8 @@ int main(int argc, char** argv) {
             const vector<int>& indices2 = pointIndices2[theta][phi];
 
             // only fit gaussians if there enough points from both scans 1 and 2 in the cell 
-            if ((indices2.size() > n) && (indices1.size() > n)) {
-            // if ((indices2.size() > n) && (clusterBounds.row(numBinsTheta*phi + theta)[5] > 1)) { //U and L won't exist if no useful bin in scan1
+            // if ((indices2.size() > n) && (indices1.size() > n)) {
+            if ((indices2.size() > n) && (indices1.size() > n) && (clusterBounds.row(numBinsTheta*phi + theta)[5] > 1)) { //U and L won't exist if no useful bin in scan1
                 // Use the indices to access the corresponding rows in sortedPointsSpherical
                 // unsorted (test)
                 // MatrixXf selectedPoints2 = MatrixXf::Zero(indices2.size(), pointsSpherical2.cols());
@@ -1150,7 +1154,7 @@ int main(int argc, char** argv) {
                     // cout << "\n R_noise before projection: \n" << R_noise << endl;
 
                     // use projection matrix to remove extended directions
-                    R_noise = L[theta][phi] * U[theta][phi].transpose() * R_noise * U[theta][phi] * L[theta][phi].transpose(); //was this
+                    R_noise = L[theta][phi] * U[theta][phi].transpose() * R_noise * U[theta][phi] * L[theta][phi].transpose(); //was this in python
                     // cout << "R_noise after projection: \n" << R_noise << endl;
 
                     // invert noise to get weighting
@@ -1159,6 +1163,7 @@ int main(int argc, char** argv) {
                     // Need to calculate pseudoinverse instead
                     // Compute the complete orthogonal decomposition (COD) of A
                     Eigen::CompleteOrthogonalDecomposition<Eigen::MatrixXf> cod(R_noise);
+                    // cod.setThreshold(1e-6); //test
                     Eigen::MatrixXf W = cod.pseudoInverse();
                     // cout << "W: \n" << W << endl;
 
@@ -1185,9 +1190,7 @@ int main(int argc, char** argv) {
                     Eigen::Vector3f z1 = L[theta][phi] * U[theta][phi].transpose() * mu1[theta][phi];
                     Eigen::Vector3f z2 = L[theta][phi] * U[theta][phi].transpose() * mu2[theta][phi];
                     Eigen::Vector3f dz = z2-z1;
-                    // std::cout << "dz: \n" << dz <<endl;
                     HTWdz_i += H_z.transpose() * W * dz; //should be this
-                    // HTWdz_i += H_j.transpose() * W * dz; //test
 
                     c++;
                     //update for drawing
@@ -1205,19 +1208,30 @@ int main(int argc, char** argv) {
     // H -> appended jacobain matrix (3*occupiedCount, 6)
     // W -> block diagonal weighting matrix (3*occupiedCount, 3*occupiedCount)
 
-    //update X
-    // std::cout << "HTWH_i: \n" << HTWH_i <<endl;
+    //update X ~~~~~
+    std::cout << "\n HTWH_i: \n" << HTWH_i<<endl;
     // std::cout << "HTWdz_i: \n" << HTWdz_i <<endl;
     // std::cout << "HTWH_i.inverse(): \n" << HTWH_i.inverse() <<endl; //bad
+
+    //test condition number
+    Eigen::JacobiSVD<Eigen::MatrixXf> svd(HTWH_i);
+    Eigen::VectorXf singularValues = svd.singularValues();
+    float conditionNumber = singularValues.maxCoeff() / singularValues.minCoeff();
+    std::cout << "Condition Number: " << conditionNumber << std::endl;
+
 
     //standard inverse
     // dx = HTWH_i.inverse() * HTWdz_i;
     //pseudoinverse
     Eigen::CompleteOrthogonalDecomposition<Eigen::MatrixXf> cod(HTWH_i);
+    // cod.setThreshold(1e-15); //test
     Eigen::MatrixXf HTWH_i_inverse = cod.pseudoInverse();
+    // Eigen::MatrixXd HTWH_i_inverse = cod.pseudoInverse().cast<double>(); //test
     // std::cout << "HTWH_i_inverse: \n" << HTWH_i_inverse <<endl;
-    // std::cout << "HTWdz_i: \n" << HTWdz_i <<endl;
-    dx = HTWH_i_inverse * HTWdz_i; 
+    std::cout << "HTWdz_i: \n" << HTWdz_i <<endl;
+    dx = HTWH_i_inverse * HTWdz_i; //numerically unstable?
+    // dx = HTWH_i_inverse * HTWdz_i.cast<double>();
+
     std::cout << "dx: \n " << dx << endl;
     // X += dx;
 
