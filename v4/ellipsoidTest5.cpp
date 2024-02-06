@@ -886,23 +886,26 @@ int main(int argc, char** argv) {
     auto before = std::chrono::system_clock::now();
     auto beforeMs = std::chrono::time_point_cast<std::chrono::milliseconds>(before);
 
+    // for keyframe scan ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     Eigen::MatrixXf pointsSpherical = cartesianToSpherical(points);
     // std::cout << "pointsSpherical: \n" << pointsSpherical.rows() << "\n";
-
     // Sort sphericalCoords based on radial distance
     vector<int> index(pointsSpherical.rows());
     iota(index.begin(), index.end(), 0);
     sort(index.begin(), index.end(), [&](int a, int b) {
         return pointsSpherical(a, 0) < pointsSpherical(b, 0); // Sort by radial distance
     });
-
     // Create a sorted matrix using the sorted indices
     MatrixXf sortedPointsSpherical(pointsSpherical.rows(), pointsSpherical.cols());
     for (int i = 0; i < pointsSpherical.rows(); i++) {
         sortedPointsSpherical.row(i) = pointsSpherical.row(index[i]);
     }
 
-    // set up spherical voxel grid ~~~~~~~~~~~~~~~~~~~~~~~~~
+    // repeat for new scan(?) -- only want to do this once ~~~~~~
+
+
+
+    // set up spherical voxel grid ~~~~~~~~~~~~~~~~~~~~~~~~~~~
     int numBinsPhi = 65;  // Adjust the number of bins as needed
     int numBinsTheta = 65; // Adjust the number of bins as needed
     int n = 25; // min size of the cluster
@@ -1067,7 +1070,24 @@ int main(int argc, char** argv) {
     Eigen::RowVector3f trans0(X0[0], X0[1], X0[2]);
     points2 = (points2 * rot_mat0);
     points2.rowwise() += trans0;
-    Eigen::MatrixXf points2_OG = points2; //hold on to initial locations of points2
+    // Eigen::MatrixXf points2_OG = points2; //hold on to initial locations of points2
+
+    //sorting by spherical location once before loop ~~~~~~~~~~~~~~~~~~~~~~~
+    // (much faster but may introudce bias for very large translations)
+    Eigen::MatrixXf pointsSpherical2 = cartesianToSpherical(points2);
+    // Sort sphericalCoords based on radial distance
+    vector<int> index2(pointsSpherical2.rows());
+    iota(index2.begin(), index2.end(), 0);
+    sort(index2.begin(), index2.end(), [&](int a, int b) {
+        return pointsSpherical2(a, 0) < pointsSpherical2(b, 0); // Sort by radial distance
+    });
+    // Create a sorted matrix using the sorted indices
+    MatrixXf sortedPointsSpherical2(pointsSpherical2.rows(), pointsSpherical2.cols());
+    for (int i = 0; i < pointsSpherical2.rows(); i++) {
+        sortedPointsSpherical2.row(i) = pointsSpherical2.row(index2[i]);
+    }
+    Eigen::MatrixXf points2_OG = sphericalToCartesian(sortedPointsSpherical2);
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~      
 
     int runlen = 5;
     // Main Loop ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1075,7 +1095,6 @@ int main(int argc, char** argv) {
 
         // apply transformation to points2
         MatrixXf rot_mat = R(X[3], X[4], X[5]); 
-        // cout << "rotation matrix: \n" << rot_mat << endl; 
         Eigen::RowVector3f trans(X[0], X[1], X[2]);
         // rot -> trans
         // points2 = (points2_OG * rot_mat);
@@ -1083,11 +1102,6 @@ int main(int argc, char** argv) {
         // trans -> rot
         points2 = points2_OG.rowwise() + trans;
         points2 = points2 * rot_mat;
-
-        // setup L, U matrices according to correspondenes in iteration i
-        // init L_i and U_i to be bigger than they need to be (size of number of voxels occupied by scan 1 x3)
-        Eigen::MatrixXf L_i(3*occupiedCount, 3);
-        Eigen::MatrixXf U_i(3*occupiedCount, 3);
         
         // It is inefficient to construct the full (H^T W H) matrix direclty since W is very sparse
         // Instead we sum contributions from each voxel to a single 6x6 matrix to avoid memory inefficiency   
@@ -1099,22 +1113,21 @@ int main(int argc, char** argv) {
 
         //fit points in scan2 to voxels
         Eigen::MatrixXf pointsSpherical2 = cartesianToSpherical(points2);
-
-        // Sort sphericalCoords based on radial distance
-        vector<int> index2(pointsSpherical2.rows());
-        iota(index2.begin(), index2.end(), 0);
-        sort(index2.begin(), index2.end(), [&](int a, int b) {
-            return pointsSpherical2(a, 0) < pointsSpherical2(b, 0); // Sort by radial distance
-        });
-        // Create a sorted matrix using the sorted indices
-        MatrixXf sortedPointsSpherical2(pointsSpherical2.rows(), pointsSpherical2.cols());
-        for (int i = 0; i < pointsSpherical2.rows(); i++) {
-            sortedPointsSpherical2.row(i) = pointsSpherical2.row(index2[i]);
-        }
-        vector<vector<vector<int>>> pointIndices2 = sortSphericalCoordinates(sortedPointsSpherical2, numBinsTheta, numBinsPhi);
+        // // Sort sphericalCoords based on radial distance
+        // vector<int> index2(pointsSpherical2.rows());
+        // iota(index2.begin(), index2.end(), 0);
+        // sort(index2.begin(), index2.end(), [&](int a, int b) {
+        //     return pointsSpherical2(a, 0) < pointsSpherical2(b, 0); // Sort by radial distance
+        // });
+        // // Create a sorted matrix using the sorted indices
+        // MatrixXf sortedPointsSpherical2(pointsSpherical2.rows(), pointsSpherical2.cols());
+        // for (int i = 0; i < pointsSpherical2.rows(); i++) {
+        //     sortedPointsSpherical2.row(i) = pointsSpherical2.row(index2[i]);
+        // }
+        // vector<vector<vector<int>>> pointIndices2 = sortSphericalCoordinates(sortedPointsSpherical2, numBinsTheta, numBinsPhi);
         
-        //TODO-- don't sort cloud2 by spherical distance -- sorting by r is really slow, should I make a seprate func for the main loop?
-        // vector<vector<vector<int>>> pointIndices2 = sortSphericalCoordinates(pointsSpherical2, numBinsTheta, numBinsPhi); 
+        //don't sort cloud2 by spherical distance within loop
+        vector<vector<vector<int>>> pointIndices2 = sortSphericalCoordinates(pointsSpherical2, numBinsTheta, numBinsPhi); 
 
         //fit gaussians
         int c = 0;
@@ -1128,16 +1141,16 @@ int main(int argc, char** argv) {
                 // if ((indices2.size() > n) && (indices1.size() > n)) {
                 if ((indices2.size() > n) && (indices1.size() > n) && (clusterBounds.row(numBinsTheta*phi + theta)[5] > 1)) { //U and L won't exist if no useful bin in scan1
                     // Use the indices to access the corresponding rows in sortedPointsSpherical
-                    // unsorted (test)
-                    // MatrixXf selectedPoints2 = MatrixXf::Zero(indices2.size(), pointsSpherical2.cols());
-                    // for (int i = 0; i < indices2.size(); ++i) {
-                    //     selectedPoints2.row(i) = pointsSpherical2.row(indices2[i]);
-                    // }
-                    //sorted
-                    MatrixXf selectedPoints2 = MatrixXf::Zero(indices2.size(), sortedPointsSpherical2.cols());
+                    // when not sorting each time
+                    MatrixXf selectedPoints2 = MatrixXf::Zero(indices2.size(), pointsSpherical2.cols());
                     for (int i = 0; i < indices2.size(); ++i) {
-                        selectedPoints2.row(i) = sortedPointsSpherical2.row(indices2[i]);
+                        selectedPoints2.row(i) = pointsSpherical2.row(indices2[i]);
                     }
+                    // //when sorting each time
+                    // MatrixXf selectedPoints2 = MatrixXf::Zero(indices2.size(), sortedPointsSpherical2.cols());
+                    // for (int i = 0; i < indices2.size(); ++i) {
+                    //     selectedPoints2.row(i) = sortedPointsSpherical2.row(indices2[i]);
+                    // }
 
                     // find points from first scan inside voxel bounds and fit gaussians to each cluster
                     MatrixXf filteredPoints2 = filterPointsInsideCluster(selectedPoints2, clusterBounds.row(numBinsTheta*phi + theta));
