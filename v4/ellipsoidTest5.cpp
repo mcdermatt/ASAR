@@ -765,54 +765,85 @@ void display() {
 }
 
 //function to load point cloud data from a csv
-MatrixXf loadPointCloudCSV(string filename){
+MatrixXf loadPointCloudCSV(string filename, string datasetType = "csv"){
     // Open the CSV file
     std::ifstream file(filename);
     if (!file.is_open()) {
         std::cerr << "Error: Could not open the CSV file." << std::endl;
     }
-    // Parse and process the CSV file, skipping the first row
-    csv::CSVReader reader(file, csv::CSVFormat().header_row(1).trim({}));
-    
-    // Initialize a vector to store rows temporarily
-    std::vector<Eigen::Vector3f> rows;
 
-    csv::CSVRow row;
-    reader.read_row(row); // Skip the first row
-    csv::CSVRow secondRow;
-    reader.read_row(secondRow); // Skip the second row
-    // Parse and process the CSV file
-    // Iterate over rows and fill the vector
-    for (csv::CSVRow& currentRow : reader) {
-        // Assuming three columns in each row
-        Eigen::Vector3f rowData;
-        rowData << static_cast<float>(currentRow[8].get<int>()),
-                   static_cast<float>(currentRow[9].get<int>()),
-                   static_cast<float>(currentRow[10].get<int>());
+    if (datasetType == "ouster"){
+        // Parse and process the CSV file, skipping the first row
+        csv::CSVReader reader(file, csv::CSVFormat().header_row(1).trim({}));
+        
+        // Initialize a vector to store rows temporarily
+        std::vector<Eigen::Vector3f> rows;
 
-        // Append the row to the vector
-        rows.push_back(rowData);
+        csv::CSVRow row;
+        reader.read_row(row); // Skip the first row
+        csv::CSVRow secondRow;
+        reader.read_row(secondRow); // Skip the second row
+        // Parse and process the CSV file
+        // Iterate over rows and fill the vector
+        for (csv::CSVRow& currentRow : reader) {
+            // Assuming three columns in each row
+            Eigen::Vector3f rowData;
+            rowData << static_cast<float>(currentRow[8].get<int>()),
+                    static_cast<float>(currentRow[9].get<int>()),
+                    static_cast<float>(currentRow[10].get<int>());
+
+            // Append the row to the vector
+            rows.push_back(rowData);
+        }
+
+        // Close the file before processing the vector
+        file.close();
+
+        // Preallocate memory for the dataMatrix
+        Eigen::MatrixXf dataMatrix(rows.size(), 3);
+
+        // Copy the data from the vector to the dataMatrix
+        for (size_t i = 0; i < rows.size(); ++i) {
+            dataMatrix.row(i) = rows[i]/1000;
+        }
+        // points = dataMatrix;
+        // return points;
+        return dataMatrix;    // this seems to work?
+
+        // // Extract every nth point using the colon operator
+        // int n = 4;
+        // Eigen::MatrixXf points = dataMatrix.block(0, 0, dataMatrix.rows() / n, dataMatrix.cols());
+        // return points;
     }
 
-    // Close the file before processing the vector
-    file.close();
+    // for loading generic point cloud data provided in xyz
+    else{
+        //tab delimeter
+        csv::CSVReader reader(file, csv::CSVFormat().delimiter('\t'));
+        std::vector<Eigen::Vector3f> rows;
+        for (csv::CSVRow& currentRow : reader) {
+            // Assuming three columns in each row
+            Eigen::Vector3f rowData;
+            rowData << stof(currentRow[0].get<>()),
+                    stof(currentRow[1].get<>()),
+                    stof(currentRow[2].get<>());
+            // Append the row to the vector
+            rows.push_back(rowData);
+        }
+        // Close the file before processing the vector
+        file.close();
 
-    // Preallocate memory for the dataMatrix
-    Eigen::MatrixXf dataMatrix(rows.size(), 3);
+        // Preallocate memory for the dataMatrix
+        Eigen::MatrixXf dataMatrix(rows.size(), 3);
 
-    // Copy the data from the vector to the dataMatrix
-    for (size_t i = 0; i < rows.size(); ++i) {
-        dataMatrix.row(i) = rows[i]/1000;
+        // Copy the data from the vector to the dataMatrix
+        for (size_t i = 0; i < rows.size(); ++i) {
+            dataMatrix.row(i) = rows[i];
+        }
+        return dataMatrix; 
     }
 
-    // points = dataMatrix;
-    // return points;
-    return dataMatrix;    // this seems to work?
 
-    // // Extract every nth point using the colon operator
-    // int n = 4;
-    // Eigen::MatrixXf points = dataMatrix.block(0, 0, dataMatrix.rows() / n, dataMatrix.cols());
-    // return points;
 }
 
 MatrixXf get_H(Eigen::Vector3f mu, Eigen::Vector3f angs){
@@ -865,6 +896,35 @@ Matrix3f R(float phi, float theta, float psi){
     return mat;
 }
 
+tuple<MatrixXf, MatrixXf, MatrixXf> checkCondition(MatrixXf HTWH){
+    //function for checking condition number of HTWH
+    //      if not enough information present (i.e. any compoenents are globally ambiguous) create additional axis pruning matrix
+
+    // L2 = identity matrix which keeps non-extended axis of solution [n, 6]
+    //      n = number of non-globally ambiguous axis 
+    // lam = diagonal eigenvalue matrix [6,6]
+    // U2 = rotation matrix to transform for L2 pruning [6, 6]
+
+    float cutoff = 1e6;
+
+    Eigen::SelfAdjointEigenSolver<Eigen::MatrixXf> eigensolver(HTWH);
+    Eigen::MatrixXf U2 = eigensolver.eigenvectors().real();
+    Eigen::VectorXf eigenvalues = eigensolver.eigenvalues().real();
+
+    std::cout << "eigenvalues: \n" << eigenvalues << endl;
+    float condition = eigenvalues(5) / eigenvalues(0);
+    std::cout << "\n condition: " << condition << endl;
+
+    //chop off the top row of the eye matrix unit condition drops below desired threshold
+
+    MatrixXf L2;
+    MatrixXf lam;
+
+    return make_tuple(L2, lam, U2);
+
+}
+
+
 int main(int argc, char** argv) {
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH);
@@ -877,11 +937,18 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-    // Load Ouster Sample Dataset
-    std::string csvFilePath1 = "sample_data/pcap_out_000261.csv";
-    std::string csvFilePath2 = "sample_data/pcap_out_000262.csv";
-    points = loadPointCloudCSV(csvFilePath1);
-    points2 = loadPointCloudCSV(csvFilePath2);
+    // // Load Ouster Sample Dataset
+    // std::string csvFilePath1 = "sample_data/pcap_out_000261.csv";
+    // std::string csvFilePath2 = "sample_data/pcap_out_000262.csv";
+    // string datasetType = "ouster";
+
+    // Load generic csv dataset
+    std::string csvFilePath1 = "sample_data/big_curve_scan1.txt";
+    std::string csvFilePath2 = "sample_data/big_curve_scan2.txt";
+    string datasetType = "txt";
+
+    points = loadPointCloudCSV(csvFilePath1, datasetType);
+    points2 = loadPointCloudCSV(csvFilePath2, datasetType);
 
     auto before = std::chrono::system_clock::now();
     auto beforeMs = std::chrono::time_point_cast<std::chrono::milliseconds>(before);
@@ -901,14 +968,10 @@ int main(int argc, char** argv) {
         sortedPointsSpherical.row(i) = pointsSpherical.row(index[i]);
     }
 
-    // repeat for new scan(?) -- only want to do this once ~~~~~~
-
-
-
     // set up spherical voxel grid ~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    int numBinsPhi = 65;  // Adjust the number of bins as needed
-    int numBinsTheta = 65; // Adjust the number of bins as needed
-    int n = 25; // min size of the cluster
+    int numBinsPhi = 50;  // Adjust the number of bins as needed
+    int numBinsTheta = 50; // Adjust the number of bins as needed
+    int n = 50; // min size of the cluster
     float thresh = 0.3; // Jump threshold for beginning and ending radial clusters
     float buff = 0.2; //buffer to add to inner and outer cluster range (helps attract nearby distributions)
 
@@ -957,22 +1020,16 @@ int main(int argc, char** argv) {
                 Eigen::VectorXf mean = filteredPointsCart.colwise().mean();
                 Eigen::MatrixXf centered = filteredPointsCart.rowwise() - mean.transpose();
                 Eigen::MatrixXf covariance = (centered.adjoint() * centered) / static_cast<float>(filteredPointsCart.rows() - 1);
-                // std::cout << "Mean:\n" << mean << "\n\n";
-                // std::cout << "Covariance:\n" << covariance << "\n";
 
                 //hold on to means and covariances of clusters from scan1
                 sigma1[theta][phi] = covariance;
                 mu1[theta][phi] = mean;
-                // cout << "\n mean: \n" << mu1[theta][phi] << "\n cov: \n" << sigma1[theta][phi] << "\n" << endl;
-
 
                 // get U and L ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
                 Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> eigensolver(covariance);
                 Eigen::Vector3f eigenvalues = eigensolver.eigenvalues().real();
                 Eigen::Matrix3f eigenvectors = eigensolver.eigenvectors().real();
                 U[theta][phi] = eigenvectors;
-                // cout << "eigenvectors: " << U[theta][phi] << endl;
-                // cout << "eigenval: " << eigenvalues[0] << endl;
 
                 // create 6 2-sigma test points for each cluster and test to see if they fit inside the voxel
                 MatrixXf axislen(3,3);
@@ -1064,7 +1121,7 @@ int main(int argc, char** argv) {
 
     Eigen::VectorXf X0(6); // initial transformation (for testing)
     // X0 << 0.3, 0, 0, 0, -0.05, 0.1;
-    X0 << 0., 0, 0, 0, 0.0, 0.;
+    X0 << 0.1, 0.2, 0, 0, 0.0, 0.125;
 
     MatrixXf rot_mat0 = R(X0[3], X0[4], X0[5]); 
     Eigen::RowVector3f trans0(X0[0], X0[1], X0[2]);
@@ -1126,7 +1183,7 @@ int main(int argc, char** argv) {
         // }
         // vector<vector<vector<int>>> pointIndices2 = sortSphericalCoordinates(sortedPointsSpherical2, numBinsTheta, numBinsPhi);
         
-        //don't sort cloud2 by spherical distance within loop
+        //don't sort cloud2 by radial distance within loop
         vector<vector<vector<int>>> pointIndices2 = sortSphericalCoordinates(pointsSpherical2, numBinsTheta, numBinsPhi); 
 
         //fit gaussians
@@ -1141,7 +1198,7 @@ int main(int argc, char** argv) {
                 // if ((indices2.size() > n) && (indices1.size() > n)) {
                 if ((indices2.size() > n) && (indices1.size() > n) && (clusterBounds.row(numBinsTheta*phi + theta)[5] > 1)) { //U and L won't exist if no useful bin in scan1
                     // Use the indices to access the corresponding rows in sortedPointsSpherical
-                    // when not sorting each time
+                    // when not re-sorting by radial distance after each update of X
                     MatrixXf selectedPoints2 = MatrixXf::Zero(indices2.size(), pointsSpherical2.cols());
                     for (int i = 0; i < indices2.size(); ++i) {
                         selectedPoints2.row(i) = pointsSpherical2.row(indices2[i]);
@@ -1156,6 +1213,7 @@ int main(int argc, char** argv) {
                     MatrixXf filteredPoints2 = filterPointsInsideCluster(selectedPoints2, clusterBounds.row(numBinsTheta*phi + theta));
                     // std::cout << "\n number of points from scan 2 inside bounds: " << filteredPoints2.size()/3 << endl;
                     // only carry on if there are enough points from scan2 actually inside the radial bounds
+
                     if (filteredPoints2.size()/3 > n){
                         MatrixXf filteredPointsCart2 = sphericalToCartesian(filteredPoints2);
                         Eigen::VectorXf mean = filteredPointsCart2.colwise().mean();
@@ -1232,24 +1290,33 @@ int main(int argc, char** argv) {
         // std::cout << "HTWdz_i: \n" << HTWdz_i <<endl;
         // std::cout << "HTWH_i.inverse(): \n" << HTWH_i.inverse() <<endl; //bad
 
-        // //test condition number
-        // Eigen::JacobiSVD<Eigen::MatrixXf> svd(HTWH_i);
-        // Eigen::VectorXf singularValues = svd.singularValues();
-        // float conditionNumber = singularValues.maxCoeff() / singularValues.minCoeff();
-        // std::cout << "Condition Number: " << conditionNumber << std::endl;
+        // //test condition number of HTWH (debug)
+        Eigen::JacobiSVD<Eigen::MatrixXf> svd(HTWH_i);
+        Eigen::VectorXf singularValues = svd.singularValues();
+        float conditionNumber = singularValues.maxCoeff() / singularValues.minCoeff();
+        std::cout << "Condition Number: " << conditionNumber << std::endl;
 
-        // TODO: Check condition for HTWH to suppress globally ambiguous components
+        // TODO: Check condition for HTWH to suppress globally ambiguous components ~~~~~~~~~~~
+        auto result = checkCondition(HTWH_i);
+        MatrixXf L2 = get<0>(result);
+        MatrixXf lam = get<1>(result);
+        MatrixXf U2 = get<2>(result);
 
+        // std::cout << "U2: \n" << U2 << endl;
+        
+
+        // for debug: directly find solution without suppressing globally ambiguous axis ~~~~~~
         //standard inverse
-        // dx = HTWH_i.inverse() * HTWdz_i;
-        //pseudoinverse -- needed for when there are globally ambiguous components
-        Eigen::CompleteOrthogonalDecomposition<Eigen::MatrixXf> cod(HTWH_i);
-        // cod.setThreshold(1e-15); //test
-        Eigen::MatrixXf HTWH_i_inverse = cod.pseudoInverse();
-        // Eigen::MatrixXd HTWH_i_inverse = cod.pseudoInverse().cast<double>(); //test
-        // std::cout << "HTWH_i_inverse: \n" << HTWH_i_inverse <<endl;
-        // std::cout << "HTWdz_i: \n" << HTWdz_i <<endl;
-        dx = HTWH_i_inverse * HTWdz_i;
+        dx = HTWH_i.inverse() * HTWdz_i;
+        // //pseudoinverse -- needed for when there are globally ambiguous components
+        // Eigen::CompleteOrthogonalDecomposition<Eigen::MatrixXf> cod(HTWH_i);
+        // // cod.setThreshold(1e-15); //test
+        // Eigen::MatrixXf HTWH_i_inverse = cod.pseudoInverse();
+        // // Eigen::MatrixXd HTWH_i_inverse = cod.pseudoInverse().cast<double>(); //test
+        // // std::cout << "HTWH_i_inverse: \n" << HTWH_i_inverse <<endl;
+        // // std::cout << "HTWdz_i: \n" << HTWdz_i <<endl;
+        // dx = HTWH_i_inverse * HTWdz_i;
+        // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
         // std::cout << "dx: \n " << dx << endl;
         X += dx;
