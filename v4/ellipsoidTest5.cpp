@@ -905,20 +905,31 @@ tuple<MatrixXf, MatrixXf, MatrixXf> checkCondition(MatrixXf HTWH){
     // lam = diagonal eigenvalue matrix [6,6]
     // U2 = rotation matrix to transform for L2 pruning [6, 6]
 
-    float cutoff = 1e6;
+    //higher than this threshold and there is not enough information about a solution component to invert HTWH 
+    float cutoff = 1e7;
 
     Eigen::SelfAdjointEigenSolver<Eigen::MatrixXf> eigensolver(HTWH);
     Eigen::MatrixXf U2 = eigensolver.eigenvectors().real();
+    // Eigen::MatrixXf U2 = eigensolver.eigenvectors().real().transpose(); //test
     Eigen::VectorXf eigenvalues = eigensolver.eigenvalues().real();
 
-    std::cout << "eigenvalues: \n" << eigenvalues << endl;
+    std::cout << "\n eigenvalues: \n" << eigenvalues << endl;
     float condition = eigenvalues(5) / eigenvalues(0);
-    std::cout << "\n condition: " << condition << endl;
+    std::cout << "\n OG condition: " << condition << endl;
+
+    MatrixXf L2(6,6);
+    L2.setIdentity();
 
     //chop off the top row of the eye matrix unit condition drops below desired threshold
+    int eyecount = 1;
+    while (std::abs(condition) > cutoff){
+        L2.block(0, 0, L2.rows() - 1, L2.cols()) = L2.block(1, 0, L2.rows() - 1, L2.cols());
+        L2.conservativeResize(L2.rows() - 1, Eigen::NoChange);
+        condition = eigenvalues(5) / eigenvalues(eyecount);
+        eyecount++;
+    }
 
-    MatrixXf L2;
-    MatrixXf lam;
+    Eigen::MatrixXf lam = eigenvalues.asDiagonal();
 
     return make_tuple(L2, lam, U2);
 
@@ -1294,27 +1305,38 @@ int main(int argc, char** argv) {
         Eigen::JacobiSVD<Eigen::MatrixXf> svd(HTWH_i);
         Eigen::VectorXf singularValues = svd.singularValues();
         float conditionNumber = singularValues.maxCoeff() / singularValues.minCoeff();
-        std::cout << "Condition Number: " << conditionNumber << std::endl;
+        // std::cout << "Condition Number: " << conditionNumber << std::endl;
 
-        // TODO: Check condition for HTWH to suppress globally ambiguous components ~~~~~~~~~~~
+        //Check condition for HTWH to suppress globally ambiguous components ~~~~~~~~~~~
         auto result = checkCondition(HTWH_i);
         MatrixXf L2 = get<0>(result);
         MatrixXf lam = get<1>(result);
         MatrixXf U2 = get<2>(result);
 
-        // std::cout << "U2: \n" << U2 << endl;
-        
+        std::cout << "U2: \n" << U2 << endl;
+        std::cout << "lam: \n" << lam <<endl;
+        std::cout << "L2: \n" << L2 <<endl;
+
+        // dx = (pinv(L2 * lam * U2.T) * L2 * U2.T() ) * HTWdz_i;
+        // get pseudoinverse of inner parts
+        Eigen::MatrixXf innards = L2 * lam * U2.transpose(); 
+        // Eigen::MatrixXf innards = L2 * lam * U2;  //test
+        Eigen::CompleteOrthogonalDecomposition<Eigen::MatrixXf> cod(innards);
+        // std::cout << "innards: \n" << innards << endl;
+        Eigen::MatrixXf inverted_innards = cod.pseudoInverse();
+        // std::cout << "inverted innards: \n" << inverted_innards << endl;
+        dx = (inverted_innards * L2 * U2.transpose() ) * HTWdz_i;
+        // dx = (inverted_innards * L2 * U2 ) * HTWdz_i; //test
 
         // for debug: directly find solution without suppressing globally ambiguous axis ~~~~~~
         //standard inverse
-        dx = HTWH_i.inverse() * HTWdz_i;
-        // //pseudoinverse -- needed for when there are globally ambiguous components
-        // Eigen::CompleteOrthogonalDecomposition<Eigen::MatrixXf> cod(HTWH_i);
-        // // cod.setThreshold(1e-15); //test
-        // Eigen::MatrixXf HTWH_i_inverse = cod.pseudoInverse();
-        // // Eigen::MatrixXd HTWH_i_inverse = cod.pseudoInverse().cast<double>(); //test
-        // // std::cout << "HTWH_i_inverse: \n" << HTWH_i_inverse <<endl;
-        // // std::cout << "HTWdz_i: \n" << HTWdz_i <<endl;
+        // dx = HTWH_i.inverse() * HTWdz_i;
+        
+        //pseudoinverse -- needed for when there are globally ambiguous components
+        // Eigen::CompleteOrthogonalDecomposition<Eigen::MatrixXf> asdf(HTWH_i);
+        // Eigen::MatrixXf HTWH_i_inverse = asdf.pseudoInverse();
+        // std::cout << "HTWH_i_inverse: \n" << HTWH_i_inverse <<endl;
+        // std::cout << "HTWdz_i: \n" << HTWdz_i <<endl;
         // dx = HTWH_i_inverse * HTWdz_i;
         // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
