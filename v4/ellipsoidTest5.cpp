@@ -416,8 +416,8 @@ void drawPoints2() {
 
 void drawTestPoints() {
     // std::cout << "Drawing Points. Size: " << points.rows() << std::endl;
-    glPointSize(5.0f);
-    glColor3f(1.0, 0.0, 0.0);  // White color
+    glPointSize(10.0f);
+    glColor3f(1.0, 0.0, 0.0);  // red
 
     glBegin(GL_POINTS);
     for (int i = 0; i < testPoints.rows(); ++i) {
@@ -906,7 +906,7 @@ tuple<MatrixXf, MatrixXf, MatrixXf> checkCondition(MatrixXf HTWH){
     // U2 = rotation matrix to transform for L2 pruning [6, 6]
 
     //higher than this threshold and there is not enough information about a solution component to invert HTWH 
-    float cutoff = 1e7;
+    float cutoff = 1e5;
 
     Eigen::SelfAdjointEigenSolver<Eigen::MatrixXf> eigensolver(HTWH);
     Eigen::MatrixXf U2 = eigensolver.eigenvectors().real();
@@ -984,7 +984,7 @@ int main(int argc, char** argv) {
     int numBinsTheta = 50; // Adjust the number of bins as needed
     int n = 50; // min size of the cluster
     float thresh = 0.3; // Jump threshold for beginning and ending radial clusters
-    float buff = 0.2; //buffer to add to inner and outer cluster range (helps attract nearby distributions)
+    float buff = 0.5; //buffer to add to inner and outer cluster range (helps attract nearby distributions)
 
     // init structure to store covariance data
     CovarianceMap sigma1;
@@ -1040,7 +1040,8 @@ int main(int argc, char** argv) {
                 Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> eigensolver(covariance);
                 Eigen::Vector3f eigenvalues = eigensolver.eigenvalues().real();
                 Eigen::Matrix3f eigenvectors = eigensolver.eigenvectors().real();
-                U[theta][phi] = eigenvectors;
+                // U[theta][phi] = eigenvectors; // was this --> eigen and TF have different convenions for outputting eigenvectors?
+                U[theta][phi] = eigenvectors.transpose(); // test
 
                 // create 6 2-sigma test points for each cluster and test to see if they fit inside the voxel
                 MatrixXf axislen(3,3);
@@ -1049,15 +1050,25 @@ int main(int argc, char** argv) {
                             0, 0, eigenvalues[2];
                 axislen = 2.0 * axislen.array().sqrt(); //theoretically should be *2 not *3 but this seems to work better
 
-                MatrixXf rotated = axislen * U[theta][phi].transpose();
+                // MatrixXf rotated = axislen * U[theta][phi].transpose(); //was this
+                MatrixXf rotated = axislen * U[theta][phi]; //test
 
                 Eigen::MatrixXf sigmaPoints(6,3);
+                //converges faster on Ouster dataset, but won't work in simulated tunnel
                 sigmaPoints.row(0) = mu1[theta][phi] + rotated.row(0).transpose(); //most compact axis
                 sigmaPoints.row(1) = mu1[theta][phi] - rotated.row(0).transpose();
                 sigmaPoints.row(2) = mu1[theta][phi] + rotated.row(1).transpose(); //middle
                 sigmaPoints.row(3) = mu1[theta][phi] - rotated.row(1).transpose();
                 sigmaPoints.row(4) = mu1[theta][phi] + rotated.row(2).transpose(); //largest axis
                 sigmaPoints.row(5) = mu1[theta][phi] - rotated.row(2).transpose();
+
+                // debug-- make sure we are pruning the correct axis!
+                // sigmaPoints.row(5) = mu1[theta][phi] + rotated.row(0).transpose(); //most compact axis
+                // sigmaPoints.row(4) = mu1[theta][phi] - rotated.row(0).transpose();
+                // sigmaPoints.row(3) = mu1[theta][phi] + rotated.row(1).transpose(); //middle
+                // sigmaPoints.row(2) = mu1[theta][phi] - rotated.row(1).transpose();
+                // sigmaPoints.row(1) = mu1[theta][phi] + rotated.row(2).transpose(); //largest axis
+                // sigmaPoints.row(0) = mu1[theta][phi] - rotated.row(2).transpose();
 
                 // find out which test points fall inside the voxel bounds
                 Eigen::MatrixXf sigmaPointsSpherical = cartesianToSpherical(sigmaPoints);
@@ -1132,7 +1143,7 @@ int main(int argc, char** argv) {
 
     Eigen::VectorXf X0(6); // initial transformation (for testing)
     // X0 << 0.3, 0, 0, 0, -0.05, 0.1;
-    X0 << 0.1, 0.2, 0, 0, 0.0, 0.125;
+    X0 << 0., 0., 0, 0, 0.0, 0.;
 
     MatrixXf rot_mat0 = R(X0[3], X0[4], X0[5]); 
     Eigen::RowVector3f trans0(X0[0], X0[1], X0[2]);
@@ -1301,11 +1312,11 @@ int main(int argc, char** argv) {
         // std::cout << "HTWdz_i: \n" << HTWdz_i <<endl;
         // std::cout << "HTWH_i.inverse(): \n" << HTWH_i.inverse() <<endl; //bad
 
-        // //test condition number of HTWH (debug)
-        Eigen::JacobiSVD<Eigen::MatrixXf> svd(HTWH_i);
-        Eigen::VectorXf singularValues = svd.singularValues();
-        float conditionNumber = singularValues.maxCoeff() / singularValues.minCoeff();
-        // std::cout << "Condition Number: " << conditionNumber << std::endl;
+        // // //test condition number of HTWH (debug)
+        // Eigen::JacobiSVD<Eigen::MatrixXf> svd(HTWH_i);
+        // Eigen::VectorXf singularValues = svd.singularValues();
+        // float conditionNumber = singularValues.maxCoeff() / singularValues.minCoeff();
+        // // std::cout << "Condition Number: " << conditionNumber << std::endl;
 
         //Check condition for HTWH to suppress globally ambiguous components ~~~~~~~~~~~
         auto result = checkCondition(HTWH_i);
