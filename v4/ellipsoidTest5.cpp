@@ -906,7 +906,7 @@ tuple<MatrixXf, MatrixXf, MatrixXf> checkCondition(MatrixXf HTWH){
     // U2 = rotation matrix to transform for L2 pruning [6, 6]
 
     //higher than this threshold and there is not enough information about a solution component to invert HTWH 
-    float cutoff = 1e5;
+    float cutoff = 1e6;
 
     Eigen::SelfAdjointEigenSolver<Eigen::MatrixXf> eigensolver(HTWH);
     Eigen::MatrixXf U2 = eigensolver.eigenvectors().real();
@@ -948,15 +948,15 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-    // // Load Ouster Sample Dataset
-    // std::string csvFilePath1 = "sample_data/pcap_out_000261.csv";
-    // std::string csvFilePath2 = "sample_data/pcap_out_000262.csv";
-    // string datasetType = "ouster";
+    // Load Ouster Sample Dataset
+    std::string csvFilePath1 = "sample_data/pcap_out_000261.csv";
+    std::string csvFilePath2 = "sample_data/pcap_out_000262.csv";
+    string datasetType = "ouster";
 
-    // Load generic csv dataset
-    std::string csvFilePath1 = "sample_data/big_curve_scan1.txt";
-    std::string csvFilePath2 = "sample_data/big_curve_scan2.txt";
-    string datasetType = "txt";
+    // // Load generic csv dataset
+    // std::string csvFilePath1 = "sample_data/big_curve_scan1.txt";
+    // std::string csvFilePath2 = "sample_data/big_curve_scan2.txt";
+    // string datasetType = "txt";
 
     points = loadPointCloudCSV(csvFilePath1, datasetType);
     points2 = loadPointCloudCSV(csvFilePath2, datasetType);
@@ -1050,8 +1050,8 @@ int main(int argc, char** argv) {
                             0, 0, eigenvalues[2];
                 axislen = 2.0 * axislen.array().sqrt(); //theoretically should be *2 not *3 but this seems to work better
 
-                // MatrixXf rotated = axislen * U[theta][phi].transpose(); //was this
-                MatrixXf rotated = axislen * U[theta][phi]; //test
+                MatrixXf rotated = axislen * U[theta][phi].transpose(); //was this
+                // MatrixXf rotated = axislen * U[theta][phi]; //test
 
                 Eigen::MatrixXf sigmaPoints(6,3);
                 //converges faster on Ouster dataset, but won't work in simulated tunnel
