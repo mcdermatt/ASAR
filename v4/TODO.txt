@@ -14,16 +14,24 @@ DONE:
 > fit radial bounds to point cloud data
 > adapt code to support drawing multiple voxels
 > fit distributions to all points
+> calculate L and U
+> update loadPointCloudCSV to pass in type of dataset
 > accumulate HTWH HTWdz
-
+> Check condition -> L2 U2 lam
+> Get algorithm to converge
+> figure out how to do publisher/ subscriber in ROScpp
+> get velodyne point cloud velodyne msg to Eigen::MatrixXf
+        sensor_msgs/PointCloud2
 
 TODO:
 _ Make dedicated ICET script, restrucutre code as single function
-_ update loadPointCloudCSV to pass in type of dataset
-_ Check condition -> L2 U2 lam
-_ get ouster point cloud velodyne msg to Eigen::MatrixXf
-_ Implement threading 
-_ 
+_ Implement threading  
+_ Make ICET c++ node
+    _output transforms
+_ create and save rosbag of raw sensor data walking around apartment
+_ concat subsequent point clouds to map
+    _ use last transfrom to apply motion correction
+_ install gtsam c++
 
 
 ICE BOX:

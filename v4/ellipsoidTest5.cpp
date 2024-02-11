@@ -913,9 +913,9 @@ tuple<MatrixXf, MatrixXf, MatrixXf> checkCondition(MatrixXf HTWH){
     // Eigen::MatrixXf U2 = eigensolver.eigenvectors().real().transpose(); //test
     Eigen::VectorXf eigenvalues = eigensolver.eigenvalues().real();
 
-    std::cout << "\n eigenvalues: \n" << eigenvalues << endl;
+    // std::cout << "\n eigenvalues: \n" << eigenvalues << endl;
     float condition = eigenvalues(5) / eigenvalues(0);
-    std::cout << "\n OG condition: " << condition << endl;
+    // std::cout << "\n OG condition: " << condition << endl;
 
     MatrixXf L2(6,6);
     L2.setIdentity();
@@ -1324,9 +1324,9 @@ int main(int argc, char** argv) {
         MatrixXf lam = get<1>(result);
         MatrixXf U2 = get<2>(result);
 
-        std::cout << "U2: \n" << U2 << endl;
-        std::cout << "lam: \n" << lam <<endl;
-        std::cout << "L2: \n" << L2 <<endl;
+        // std::cout << "U2: \n" << U2 << endl;
+        // std::cout << "lam: \n" << lam <<endl;
+        // std::cout << "L2: \n" << L2 <<endl;
 
         // dx = (pinv(L2 * lam * U2.T) * L2 * U2.T() ) * HTWdz_i;
         // get pseudoinverse of inner parts
