@@ -22,16 +22,15 @@ DONE:
 > figure out how to do publisher/ subscriber in ROScpp
 > get velodyne point cloud velodyne msg to Eigen::MatrixXf
         sensor_msgs/PointCloud2
+> Make dedicated ICET script, restrucutre code as single function
+> Make ICET c++ node, output transforms and error bounds
+> create and save rosbag of raw sensor data walking around apartment
 
 TODO:
-_ Make dedicated ICET script, restrucutre code as single function
-_ Implement threading  
-_ Make ICET c++ node
-    _output transforms
-_ create and save rosbag of raw sensor data walking around apartment
 _ concat subsequent point clouds to map
     _ use last transfrom to apply motion correction
 _ install gtsam c++
+_ Implement threading  
 
 
 ICE BOX:

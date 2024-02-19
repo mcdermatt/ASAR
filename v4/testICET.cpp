@@ -19,6 +19,8 @@ using namespace std;
 //testing calling ICET from seprate script 
 // excuse the mess
 
+// /usr/bin/g++ -fdiagnostics-color=always -g /home/derm/ASAR/v4/testICET.cpp /home/derm/ASAR/v4/icet.cpp -O3 -o /home/derm/ASAR/v4/testICET -I/home/derm/vcpkg/installed/x64-linux/include -L/home/derm/vcpkg/installed/x64-linux/lib -lglfw -lGLEW -lGL -lGLU -lglut npy.hpp -I/home/derm/ASAR/v4 -pthread
+
 int main(int argc, char** argv) {
     
     Eigen::MatrixXf points(250000, 3);  // Declare points as a global variable
@@ -28,14 +30,16 @@ int main(int argc, char** argv) {
     auto beforeMs = std::chrono::time_point_cast<std::chrono::milliseconds>(before);
 
     //load point cloud files
-    // Load Ouster Sample Dataset
-    std::string csvFilePath1 = "sample_data/pcap_out_000261.csv";
-    std::string csvFilePath2 = "sample_data/pcap_out_000262.csv";
-    string datasetType = "ouster";
+    // // Load Ouster Sample Dataset
+    // std::string csvFilePath1 = "sample_data/pcap_out_000261.csv";
+    // std::string csvFilePath2 = "sample_data/pcap_out_000262.csv";
+    // string datasetType = "ouster";
     // // Load generic csv dataset
     // std::string csvFilePath1 = "sample_data/big_curve_scan1.txt";
     // std::string csvFilePath2 = "sample_data/big_curve_scan2.txt";
-    // string datasetType = "txt";
+    std::string csvFilePath1 = "/home/derm/rosbag/desk_test_25.txt";
+    std::string csvFilePath2 = "/home/derm/rosbag/desk_test_26.txt";
+    string datasetType = "txt";
     points = loadPointCloudCSV(csvFilePath1, datasetType);
     points2 = loadPointCloudCSV(csvFilePath2, datasetType);
 
@@ -50,11 +54,11 @@ int main(int argc, char** argv) {
     //init ICET parameters
     Eigen::VectorXf X0(6);
     X0 << 0., 0, 0., 0., 0., 0.;
-    int numBinsPhi = 50;
-    int numBinsTheta = 50;
-    int n = 50; // min size of the cluster
-    float thresh = 0.3; // Jump threshold for beginning and ending radial clusters
-    float buff = 0.5; //buffer to add to inner and outer cluster range (helps attract nearby distributions)
+    int numBinsPhi = 24;
+    int numBinsTheta = 75;
+    int n = 25; // min size of the cluster
+    float thresh = 0.1; // Jump threshold for beginning and ending radial clusters
+    float buff = 0.1; //buffer to add to inner and outer cluster range (helps attract nearby distributions)
     int runlen = 5; //number of iterations
     bool draw = false;
 
