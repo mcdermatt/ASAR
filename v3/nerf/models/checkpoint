@@ -1,2 +1,2 @@
-model_checkpoint_path: "bike.ckpt"
-all_model_checkpoint_paths: "bike.ckpt"
+model_checkpoint_path: "townV1.ckpt"
+all_model_checkpoint_paths: "townV1.ckpt"
