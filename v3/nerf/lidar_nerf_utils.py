@@ -118,9 +118,8 @@ def get_rays(H, W, c2w, phimin_patch, phimax_patch):
     #[r, theta, phi]
     dirs_test = tf.stack([-tf.ones_like(i), #r
                           #theta
-#                           ((i-32)/64)*(phimax-phimin), #for square images (FOV_vert==FOV_horiz)
-#                           (i - (1024//(2*n_rots)))  /(2048//(2*n_rots)) * (2*np.pi/n_rots), #for uninterpolated images
                             (i - (W//2))  /(W) * (2*np.pi/(1024//W)), #just use W
+                        # (i - (W//2))  /(W) * (2*np.pi/(128//W)), #scale down for debug
                           #phi
                           #need to manually account for elevation angle of patch 
                           #  (can not be inferred from c2w since that does not account for singularities near "poles" of spherical projection)
@@ -257,7 +256,7 @@ def calculate_loss(depth, ray_drop, target, target_drop_mask):
 
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~        
 
-    lam1 = 100 #100 #100 #10 #100
+    lam1 = 0 #100 #100 #10 #100
     lam2 = 1 #1/(64**2)
     loss = L_dist + lam1*L_reg + lam2*L_raydrop       
 
