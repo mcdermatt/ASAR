@@ -14,6 +14,7 @@
 #include <limits>
 #include <algorithm>  // Include the algorithm header for std::sort
 #include <map>
+#include <execution>
 
 using namespace Eigen;
 using namespace std;
@@ -948,19 +949,19 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-    // // Load Ouster Sample Dataset
-    // std::string csvFilePath1 = "sample_data/pcap_out_000261.csv";
-    // std::string csvFilePath2 = "sample_data/pcap_out_000262.csv";
-    // string datasetType = "ouster";
+    // Load Ouster Sample Dataset
+    std::string csvFilePath1 = "sample_data/pcap_out_000261.csv";
+    std::string csvFilePath2 = "sample_data/pcap_out_000262.csv";
+    string datasetType = "ouster";
 
     // // Load generic csv dataset
     // std::string csvFilePath1 = "sample_data/big_curve_scan1.txt";
     // std::string csvFilePath2 = "sample_data/big_curve_scan2.txt";
     // string datasetType = "txt";
 
-    std::string csvFilePath1 = "/home/derm/rosbag/desk_test_20.txt";
-    std::string csvFilePath2 = "/home/derm/rosbag/desk_test_21.txt";
-    string datasetType = "txt";
+    // std::string csvFilePath1 = "/home/derm/rosbag/desk_test_20.txt";
+    // std::string csvFilePath2 = "/home/derm/rosbag/desk_test_21.txt";
+    // string datasetType = "txt";
 
     points = loadPointCloudCSV(csvFilePath1, datasetType);
     points2 = loadPointCloudCSV(csvFilePath2, datasetType);
@@ -974,7 +975,8 @@ int main(int argc, char** argv) {
     // Sort sphericalCoords based on radial distance
     vector<int> index(pointsSpherical.rows());
     iota(index.begin(), index.end(), 0);
-    sort(index.begin(), index.end(), [&](int a, int b) {
+    // sort(index.begin(), index.end(), [&](int a, int b) { //old
+    sort(std::execution::par, index.begin(), index.end(), [&](int a, int b) {
         return pointsSpherical(a, 0) < pointsSpherical(b, 0); // Sort by radial distance
     });
     // Create a sorted matrix using the sorted indices
@@ -1162,7 +1164,7 @@ int main(int argc, char** argv) {
     // Sort sphericalCoords based on radial distance
     vector<int> index2(pointsSpherical2.rows());
     iota(index2.begin(), index2.end(), 0);
-    sort(index2.begin(), index2.end(), [&](int a, int b) {
+    sort(std::execution::par, index2.begin(), index2.end(), [&](int a, int b) {
         return pointsSpherical2(a, 0) < pointsSpherical2(b, 0); // Sort by radial distance
     });
     // Create a sorted matrix using the sorted indices
