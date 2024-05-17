@@ -1,7 +1,6 @@
 #ifndef VISUALIZATION_H
 #define VISUALIZATION_H
 
-// Include necessary OpenGL headers
 #include <GL/glew.h>
 #include <GL/glut.h>
 #include <Eigen/Dense>
@@ -23,8 +22,8 @@
 
 class visualization {
 public:
-    visualization(); // Constructor // int argc, char** argv
-    ~visualization(); // Destructor
+    visualization(); // int argc, char** argv
+    ~visualization();
 
     void initializeOpenGL(); //int argc, char** argv
     void render();
@@ -36,6 +35,15 @@ public:
     static void keyboard(unsigned char key, int x, int y);    
 
     Eigen::MatrixXf points1;
+    Eigen::MatrixXf points2;    
+    Eigen::MatrixXf clusterBounds;
+    std::vector<Eigen::Vector3f> ellipsoid1Means;
+    std::vector<Eigen::Matrix3f> ellipsoid1Covariances;
+    std::vector<float> ellipsoid1Alphas;
+
+    std::vector<Eigen::Vector3f> ellipsoid2Means;
+    std::vector<Eigen::Matrix3f> ellipsoid2Covariances;
+    std::vector<float> ellipsoid2Alphas;
 
 private:
     void handleReshape(int w, int h);
@@ -50,20 +58,17 @@ private:
     int lastMouseX;
     int lastMouseY;
 
-    void drawPoints1(); // Dummy function for drawing points
-    void drawPoints2(); // Dummy function for drawing points
-    void drawFrustum(float x, float y, float z, float w, float h, float d); // Dummy function for drawing frustum
-    void drawEllipsoid(const std::array<float, 3>& mean, const std::array<float, 9>& covariance, float alpha, const std::array<float, 3>& color); // Dummy function for drawing ellipsoid
+    void drawPoints1(); 
+    void drawPoints2();
+    void drawFrustum(GLfloat azimuthalMin, GLfloat azimuthalMax,
+                     GLfloat elevationMin, GLfloat elevationMax, 
+                     GLfloat innerDistance, GLfloat outerDistance);
+    void drawEllipsoid(const Eigen::Vector3f& mean, 
+                       const Eigen::Matrix3f& covariance, 
+                       GLfloat alpha, const std::array<float, 3>& color);
 
-    std::vector<std::array<float, 3>> ellipsoid1Means;
-    std::vector<std::array<float, 9>> ellipsoid1Covariances;
-    std::vector<float> ellipsoid1Alphas;
-
-    std::vector<std::array<float, 3>> ellipsoid2Means;
-    std::vector<std::array<float, 9>> ellipsoid2Covariances;
-    std::vector<float> ellipsoid2Alphas;
-
-    Eigen::MatrixXf clusterBounds; // Dummy variable for cluster bounds
+    void drawCroppedSphere(GLfloat radius, GLfloat azimuthalMin, GLfloat azimuthalMax,
+                       GLfloat elevationMin, GLfloat elevationMax, GLint slices, GLint stacks); 
 
 };
 

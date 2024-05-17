@@ -205,13 +205,164 @@ void visualization::drawPoints1() {
 }
 
 void visualization::drawPoints2() {
-    // Implement drawing of points
+    glPointSize(3.0f);
+    glColor3f(1., 0.5, 0.5);  // red
+    glBegin(GL_POINTS);
+    for (int i = 0; i < points2.rows(); ++i) {
+        glVertex3f(points2(i, 0), points2(i, 1), points2(i, 2));
+    }
+    glEnd();
 }
 
-void visualization::drawFrustum(float x, float y, float z, float w, float h, float d) {
-    // Implement drawing of frustum
+void visualization::drawCroppedSphere(GLfloat radius, GLfloat azimuthalMin, GLfloat azimuthalMax,
+                       GLfloat elevationMin, GLfloat elevationMax, GLint slices, GLint stacks) {
+    
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
+
+    for (GLint i = 0; i < slices; ++i) {
+        glBegin(GL_TRIANGLE_STRIP);
+        for (GLint j = 0; j <= stacks; ++j) {
+            // Calculate the azimuthal and elevation angles in radians
+            GLfloat azimuthalAngle1 = azimuthalMin + (azimuthalMax - azimuthalMin) * i / slices;
+            GLfloat elevationAngle1 = elevationMin + (elevationMax - elevationMin) * j / stacks;
+
+            GLfloat azimuthalAngle2 = azimuthalMin + (azimuthalMax - azimuthalMin) * (i + 1) / slices;
+            GLfloat elevationAngle2 = elevationMin + (elevationMax - elevationMin) * j / stacks;
+
+            // Calculate the coordinates on the sphere
+            GLfloat x1 = radius * sin(elevationAngle1) * cos(azimuthalAngle1);
+            GLfloat y1 = radius * sin(elevationAngle1) * sin(azimuthalAngle1);
+            GLfloat z1 = radius * cos(elevationAngle1);
+
+            GLfloat x2 = radius * sin(elevationAngle2) * cos(azimuthalAngle2);
+            GLfloat y2 = radius * sin(elevationAngle2) * sin(azimuthalAngle2);
+            GLfloat z2 = radius * cos(elevationAngle2);
+
+            // Draw the vertices
+            glVertex3f(x1, y1, z1);
+            glVertex3f(x2, y2, z2);
+        }
+        glEnd();
+    }
 }
 
-void visualization::drawEllipsoid(const std::array<float, 3>& mean, const std::array<float, 9>& covariance, float alpha, const std::array<float, 3>& color) {
-    // Implement drawing of ellipsoid
+void visualization::drawFrustum(GLfloat azimuthalMin, GLfloat azimuthalMax, 
+                                GLfloat elevationMin, GLfloat elevationMax,
+                                GLfloat innerDistance, GLfloat outerDistance) {
+
+    glBegin(GL_LINES);
+
+    // Define the eight points
+    GLfloat points[8][3];
+
+    // Near surface
+    points[0][0] = innerDistance * std::sin(elevationMin) * std::cos(azimuthalMin);
+    points[0][1] = innerDistance * std::sin(elevationMin) * std::sin(azimuthalMin);
+    points[0][2] = innerDistance * std::cos(elevationMin);
+
+    points[1][0] = innerDistance * std::sin(elevationMin) * std::cos(azimuthalMax);
+    points[1][1] = innerDistance * std::sin(elevationMin) * std::sin(azimuthalMax);
+    points[1][2] = innerDistance * std::cos(elevationMin);
+
+    points[2][0] = innerDistance * std::sin(elevationMax) * std::cos(azimuthalMax);
+    points[2][1] = innerDistance * std::sin(elevationMax) * std::sin(azimuthalMax);
+    points[2][2] = innerDistance * std::cos(elevationMax);
+
+    points[3][0] = innerDistance * std::sin(elevationMax) * std::cos(azimuthalMin);
+    points[3][1] = innerDistance * std::sin(elevationMax) * std::sin(azimuthalMin);
+    points[3][2] = innerDistance * std::cos(elevationMax);
+
+    // Far surface
+    points[4][0] = outerDistance * std::sin(elevationMin) * std::cos(azimuthalMin);
+    points[4][1] = outerDistance * std::sin(elevationMin) * std::sin(azimuthalMin);
+    points[4][2] = outerDistance * std::cos(elevationMin);
+
+    points[5][0] = outerDistance * std::sin(elevationMin) * std::cos(azimuthalMax);
+    points[5][1] = outerDistance * std::sin(elevationMin) * std::sin(azimuthalMax);
+    points[5][2] = outerDistance * std::cos(elevationMin);
+
+    points[6][0] = outerDistance * std::sin(elevationMax) * std::cos(azimuthalMax);
+    points[6][1] = outerDistance * std::sin(elevationMax) * std::sin(azimuthalMax);
+    points[6][2] = outerDistance * std::cos(elevationMax);
+
+    points[7][0] = outerDistance * std::sin(elevationMax) * std::cos(azimuthalMin);
+    points[7][1] = outerDistance * std::sin(elevationMax) * std::sin(azimuthalMin);
+    points[7][2] = outerDistance * std::cos(elevationMax);
+
+    // Draw lines connecting the points
+    for (int i = 0; i < 4; ++i) {
+        // // Near surface
+        // glVertex3fv(points[i]);
+        // glVertex3fv(points[(i + 1) % 4]);
+
+        // // Far surface
+        // glVertex3fv(points[i + 4]);
+        // glVertex3fv(points[(i + 1) % 4 + 4]);
+
+        // Connecting lines
+        glVertex3fv(points[i]);
+        glVertex3fv(points[i + 4]);
+    }
+
+    glEnd();
+
+    // // Draw partial sphere on the inner and outer surfaces
+    glEnable(GL_BLEND);
+    // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glBlendFunc(GL_SRC_ALPHA_SATURATE, GL_ONE);
+    glDepthMask(GL_FALSE);
+
+    // // Enable polygon smoothing for antialiasing
+    // glEnable(GL_POLYGON_SMOOTH);
+    // glHint(GL_POLYGON_SMOOTH_HINT, GL_NICEST);
+
+    glColor4f(0.8, 0.8, 1.0, 0.7); 
+    drawCroppedSphere(innerDistance, azimuthalMin, azimuthalMax, elevationMin, elevationMax, 12, 12);
+    glColor4f(0.8, 0.8, 1.0, 0.7);  
+    drawCroppedSphere(outerDistance, azimuthalMin, azimuthalMax, elevationMin, elevationMax, 12, 12);
+
+    glDisable(GL_BLEND);
+    glDepthMask(GL_TRUE);
+    glDisable(GL_DEPTH_TEST);  // Disable depth testing after drawing
+
+ 
+
+}
+
+void visualization::drawEllipsoid(const Eigen::Vector3f& mean, const Eigen::Matrix3f& covariance, GLfloat alpha, const std::array<float, 3>& color) {
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
+
+    Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> eigensolver(covariance);
+    Eigen::Vector3f eigenvalues = eigensolver.eigenvalues().real();
+    Eigen::Matrix3f eigenvectors = eigensolver.eigenvectors().real();
+
+    glPushMatrix();
+    glTranslatef(mean(0), mean(1), mean(2));
+
+    // Apply rotation based on eigenvectors
+    Eigen::Matrix4f rotationMatrix;
+    rotationMatrix << eigenvectors(0, 0), eigenvectors(0, 1), eigenvectors(0, 2), 0,
+                      eigenvectors(1, 0), eigenvectors(1, 1), eigenvectors(1, 2), 0,
+                      eigenvectors(2, 0), eigenvectors(2, 1), eigenvectors(2, 2), 0,
+                      0, 0, 0, 1;
+    glMultMatrixf(rotationMatrix.data());
+
+    // Apply non-uniform scaling based on eigenvalues
+    glScalef(2 * sqrt(eigenvalues(0)), 2 * sqrt(eigenvalues(1)), 2 * sqrt(eigenvalues(2)));
+
+    // glColor4f(0.0, 0.0, 1.0, alpha);
+    glColor4f(color[0], color[1], color[2], alpha);
+    glutSolidSphere(1.0, 30, 30); //slow high res
+    // glutSolidSphere(1.0, 10, 10); //faster low res
+
+    glDisable(GL_BLEND);
+    glDepthMask(GL_TRUE);
+    glDisable(GL_DEPTH_TEST);
+    glPopMatrix();
 }
