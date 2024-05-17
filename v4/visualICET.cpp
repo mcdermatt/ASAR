@@ -7,7 +7,6 @@
 #include <vector>
 #include <string>
 #include <glm/glm.hpp>
-// #include "npy.hpp"
 #include "csv-parser/single_include/csv.hpp"
 #include <fstream>
 #include <cmath>
@@ -15,12 +14,12 @@
 #include <algorithm>  // Include the algorithm header for std::sort
 #include <map>
 #include <execution>
+#include "ThreadPool.h"
 
 using namespace Eigen;
 using namespace std;
 
 // script for drawing spherical voxels on real point cloud data
-// TODO: implement same segfault fix that I needed to do for icet() in roscpp --> mean of empty matrix
 
 GLuint pointsVBO, ellipsoidVBO, pointsVAO, ellipsoidVAO;
 

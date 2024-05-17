@@ -25,14 +25,17 @@ DONE:
 > Make dedicated ICET script, restrucutre code as single function
 > Make ICET c++ node, output transforms and error bounds
 > create and save rosbag of raw sensor data walking around apartment
+> Threading tutorial
+> create threadpool class and template
 
 TODO:
-_ concat subsequent point clouds to map
-    _ use last transfrom to apply motion correction
-_ install gtsam c++
-_ Implement threading  
-
+_ encapsulate visualICET in class
+_ use threading on visualICET
+_ update woodhouse ICET with encapsulated and multithreaded version 
 
 ICE BOX:
 _ convert voxels to modern openGL (vbo & vao)
 _ convert points to modern openGL
+_ concat subsequent point clouds to map
+    _ use last transfrom to apply motion correction
+_ install gtsam c++
