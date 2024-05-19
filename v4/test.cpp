@@ -4,38 +4,47 @@
 #include <thread>
 #include <chrono>
 #include "visualization.h"
+#include "utils.h"
+#include "icet.h"
 using namespace std;
+
+//file for testing running updated ICET with visualization
 
 int main(){
 
     visualization viz;
 
-    //set points externally
-    Eigen::MatrixXf new1(1000, 3);
-    new1.setRandom();
-    viz.points1 = new1;
-    Eigen::MatrixXf new2(1000, 3);
-    new2.setRandom();
-    viz.points2 = new2;
+    // Load Ouster Sample Dataset
+    std::string csvFilePath1 = "sample_data/pcap_out_000261.csv";
+    std::string csvFilePath2 = "sample_data/pcap_out_000262.csv";
+    string datasetType = "ouster";
 
-    //set frustum externally using clusterBounds
-    Eigen::MatrixXf cb(10,6);
-    for (int i = 0; i < 10; i++){
-        cb.row(i) << i * M_PI/5, (i + 1)*M_PI/5 , 7*M_PI/16, M_PI/2, 2 + i/3, 3+i/3;
-    }
-    viz.clusterBounds = cb;
+    // // Load Matt's apartment dataset
+    // std::string csvFilePath1 = "/home/derm/rosbag/desk_test_20.txt";
+    // std::string csvFilePath2 = "/home/derm/rosbag/desk_test_21.txt";
+    // string datasetType = "txt";
 
-    //set covariance ellipsoids
-    vector<Eigen::Vector3f> e1mean;  
-    Eigen::Vector3f mu1 = {0.,1.,2.};
-    e1mean.push_back(mu1);
-    vector<Eigen::Matrix3f> e1cov;
-    Eigen::Matrix3f cov1 = Eigen::Matrix3f::Identity();
-    e1cov.push_back(cov1);
-    vector<float> e1alpha = {0.5};
-    viz.ellipsoid1Means = e1mean;
-    viz.ellipsoid1Covariances = e1cov;
-    viz.ellipsoid1Alphas = e1alpha;
+    Eigen::MatrixXf new1 = utils::loadPointCloudCSV(csvFilePath1, datasetType);
+    Eigen::MatrixXf new2 = utils::loadPointCloudCSV(csvFilePath2, datasetType);
+
+    int rl = 5;
+    ICET it(new1, new2, rl);
+
+    viz.points1 = it.points1;
+    viz.points2 = it.points2;
+    viz.clusterBounds = it.clusterBounds;
+
+    // //set covariance ellipsoids
+    // vector<Eigen::Vector3f> e1mean;  
+    // Eigen::Vector3f mu1 = {0.,1.,2.};
+    // e1mean.push_back(mu1);
+    // vector<Eigen::Matrix3f> e1cov;
+    // Eigen::Matrix3f cov1 = Eigen::Matrix3f::Identity();
+    // e1cov.push_back(cov1);
+    // vector<float> e1alpha = {0.5};
+    // viz.ellipsoid1Means = e1mean;
+    // viz.ellipsoid1Covariances = e1cov;
+    // viz.ellipsoid1Alphas = e1alpha;
 
     viz.display();
     glutMainLoop();

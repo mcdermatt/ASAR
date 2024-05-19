@@ -1,40 +1,74 @@
-// icet.h
 #ifndef ICET_H
 #define ICET_H
 
-// Include necessary headers
-#include <iostream>
+#include <GL/glew.h>
+#include <GL/glut.h>
 #include <Eigen/Dense>
+#include <random>
+#include <cmath>
+#include <iostream>
 #include <vector>
+#include <array>
+#include <string>
+#include <glm/glm.hpp>
+#include "csv-parser/single_include/csv.hpp"
+#include <fstream>
+#include <cmath>
+#include <limits>
+#include <algorithm> 
+#include <map>
+#include <execution>
+#include "ThreadPool.h"
+#include "utils.h"
 
-using namespace Eigen;
-using namespace std;
+using CovarianceMatrix = Eigen::Matrix<float, 3, 3>;
+using CovarianceMap = std::map<int, std::map<int, CovarianceMatrix>>;
+using MeanMap = std::map<int, std::map<int, Eigen::Vector3f>>;
 
-Eigen::MatrixXf generateEigenNormal(int rows, int cols, float mean, float stddev);
+class ICET{
+public:
+    ICET(Eigen::MatrixXf scan1, Eigen::MatrixXf scan2, int runlen);
+    ~ICET();
 
-Eigen::MatrixXf generateEigenCovariance(int rows, const Eigen::Vector3f& mean, const Eigen::Matrix3f& covariance);
+    //avoid using static methods so we can run multiple ICETs at once?
+    void step();
 
-MatrixXf cartesianToSpherical(const MatrixXf& cartesianPoints);
+    void fitScan1();
 
-Eigen::MatrixXf sphericalToCartesian(const Eigen::MatrixXf& sphericalPoints);
+    std::vector<std::vector<std::vector<int>>> sortSphericalCoordinates(Eigen::MatrixXf sphericalCoords);
 
-pair<float, float> findCluster(const MatrixXf& sphericalCoords, int n, float thresh, float buff);
+    std::pair<float, float> findCluster(const Eigen::MatrixXf& sphericalCoords, int n, float thresh, float buff);
 
-vector<vector<vector<int>>> sortSphericalCoordinates(const MatrixXf& sphericalCoords, int numBinsTheta, int numBinsPhi);
+    Eigen::MatrixXf filterPointsInsideCluster(const Eigen::MatrixXf& selectedPoints, const Eigen::MatrixXf& clusterBounds);
 
-MatrixXf filterPointsInsideCluster(const MatrixXf& selectedPoints, const MatrixXd& clusterBounds);
+    Eigen::MatrixXi testSigmaPoints(const Eigen::MatrixXf& selectedPoints, const Eigen::MatrixXf& clusterBounds);
 
-MatrixXi testSigmaPoints(const MatrixXf& selectedPoints, const MatrixXd& clusterBounds);
+    //algorithm params
+    int rl;
+    int numBinsPhi;  
+    int numBinsTheta;
+    int n; 
+    float thresh;
+    float buff; 
 
-MatrixXf loadPointCloudCSV(string filename, string datasetType = "csv");
+    Eigen::MatrixXf points1;
+    Eigen::MatrixXf points1Spherical;
+    Eigen::MatrixXf points2;
+    Eigen::MatrixXf points2Spherical;
+    Eigen::MatrixXf clusterBounds;
+    Eigen::MatrixXf testPoints;
 
-MatrixXf get_H(Eigen::Vector3f mu, Eigen::Vector3f angs);
+    CovarianceMap sigma1;
+    CovarianceMap sigma2;
+    MeanMap mu1;
+    MeanMap mu2;
+    CovarianceMap L;
+    CovarianceMap U;
 
-Matrix3f R(float phi, float theta, float psi);
+private:
 
-tuple<MatrixXf, MatrixXf, MatrixXf> checkCondition(MatrixXf HTWH);
+    std::string status; 
 
-Eigen::VectorXf icet(Eigen::MatrixXf points, Eigen::MatrixXf points2, Eigen::VectorXf X0, 
-                        int numBinsPhi, int numBinsTheta, int n, float thresh, float buff, int runlen, bool draw);
+};
 
-#endif // ICET_H
+#endif

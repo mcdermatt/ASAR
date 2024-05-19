@@ -47,8 +47,6 @@ void visualization::initializeOpenGL() { //int argc, char** argv
     if (GLEW_OK != err) {
         std::cerr << "Error: GLEW initialization failed: " << glewGetErrorString(err) << std::endl;
     }
-
-    std::cout << "OpenGL initialized." << std::endl;
 }
 
 void visualization::display(){
