@@ -18,6 +18,12 @@
 #include <algorithm> 
 #include <map>
 #include <execution>
+#include <chrono>
+#include <mutex>
+#include <condition_variable>
+#include <atomic>
+#include <future>
+#include <queue>
 #include "ThreadPool.h"
 #include "utils.h"
 
@@ -42,6 +48,8 @@ public:
     Eigen::MatrixXf filterPointsInsideCluster(const Eigen::MatrixXf& selectedPoints, const Eigen::MatrixXf& clusterBounds);
 
     Eigen::MatrixXi testSigmaPoints(const Eigen::MatrixXf& selectedPoints, const Eigen::MatrixXf& clusterBounds);
+
+    void fitCells1(const std::vector<int>& indices, int theta, int phi);
 
     //algorithm params
     int rl;
@@ -68,6 +76,9 @@ public:
 private:
 
     std::string status; 
+
+    ThreadPool pool;
+    std::vector<std::future<void>> futures;
 
 };
 

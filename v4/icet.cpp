@@ -15,6 +15,12 @@
 #include <algorithm>
 #include <map>
 #include <execution>
+#include <chrono>
+#include <mutex>
+#include <condition_variable>
+#include <atomic>
+#include <future>
+#include <queue>
 #include "ThreadPool.h"
 #include "utils.h"
 #include "icet.h"
@@ -23,7 +29,7 @@ using namespace Eigen;
 using namespace std;
 
 // Constructor implementation
-ICET::ICET(MatrixXf scan1, MatrixXf scan2, int runlen) : points1(scan1), points2(scan2), rl(runlen) {
+ICET::ICET(MatrixXf scan1, MatrixXf scan2, int runlen) : points1(scan1), points2(scan2), rl(runlen), pool(8) {
 
     // init hyperparameters
     numBinsPhi = 24;  // Adjust the number of bins as needed
@@ -53,15 +59,15 @@ ICET::~ICET() {
 
 void ICET::fitScan1(){
 
-    auto beforesort = std::chrono::system_clock::now();
-    auto beforesortms = std::chrono::time_point_cast<std::chrono::milliseconds>(beforesort);
+    // auto beforesort = std::chrono::system_clock::now();
+    // auto beforesortms = std::chrono::time_point_cast<std::chrono::milliseconds>(beforesort);
 
     points1Spherical = utils::cartesianToSpherical(points1);
 
-    auto aftersort = std::chrono::system_clock::now();
-    auto aftersortms = std::chrono::time_point_cast<std::chrono::milliseconds>(aftersort);
-    auto ets = std::chrono::duration_cast<std::chrono::milliseconds>(aftersortms - beforesortms).count();
-    std::cout << "c2s took: " << ets << " ms" << std::endl;
+    // auto aftersort = std::chrono::system_clock::now();
+    // auto aftersortms = std::chrono::time_point_cast<std::chrono::milliseconds>(aftersort);
+    // auto ets = std::chrono::duration_cast<std::chrono::milliseconds>(aftersortms - beforesortms).count();
+    // std::cout << "c2s took: " << ets << " ms" << std::endl;
 
     // Sort sphericalCoords based on radial distance
     vector<int> index(points1Spherical.rows());
@@ -80,126 +86,144 @@ void ICET::fitScan1(){
     //get spherical coordiantes and fit gaussians to points from first scan 
     vector<vector<vector<int>>> pointIndices1 = sortSphericalCoordinates(points1Spherical);
 
-    float innerDistance;
-    float outerDistance;
+    // Define a lambda function to wrap the member function fitCells1
+    auto task = [this](const std::vector<int>& indices, int theta, int phi) {
+        this->fitCells1(indices, theta, phi);
+    };
 
+
+    int count = 0;
     for (int phi = 0; phi < numBinsPhi; phi++){
         for (int theta = 0; theta< numBinsTheta; theta++){
             // Retrieve the point indices inside angular bin
             const vector<int>& indices = pointIndices1[theta][phi];
-
-            // only calculate inner/outer bounds if there are a sufficient number of points in the spike 
-            if (indices.size() > n) {
-                // Use the indices to access the corresponding rows in sortedPointsSpherical
-                MatrixXf selectedPoints = MatrixXf::Zero(indices.size(), points1Spherical.cols());
-                for (int i = 0; i < indices.size(); ++i) {
-                    selectedPoints.row(i) = points1Spherical.row(indices[i]);
-                }
-
-                // find inner and outer bounds for each theta/phi bin
-                pair<float, float> clusterDistances = findCluster(selectedPoints, n, thresh, buff);
-                innerDistance = clusterDistances.first;
-                outerDistance = clusterDistances.second;
-
-                //convert [desiredPhi][desiredTheta] to azimMin, azimMax, elevMin, elevMax
-                float azimMin_i =  (static_cast<float>(theta) / numBinsTheta) * (2 * M_PI) ;
-                float azimMax_i =  (static_cast<float>(theta+1) / numBinsTheta) * (2 * M_PI) ;
-                float elevMin_i =  (static_cast<float>(phi) / numBinsPhi) * (M_PI) ;
-                float elevMax_i =  (static_cast<float>(phi+1) / numBinsPhi) * (M_PI) ;
-                //hold on to these values
-                clusterBounds.row(numBinsTheta*phi + theta) << azimMin_i, azimMax_i, elevMin_i, elevMax_i, innerDistance, outerDistance;
-
-                // find points from first scan inside voxel bounds and fit gaussians to each cluster
-                MatrixXf filteredPoints = filterPointsInsideCluster(selectedPoints, clusterBounds.row(numBinsTheta*phi + theta));
-                if (outerDistance > 0.1){
-                    MatrixXf filteredPointsCart = utils::sphericalToCartesian(filteredPoints);
-                    Eigen::VectorXf mean = filteredPointsCart.colwise().mean();
-                    Eigen::MatrixXf centered = filteredPointsCart.rowwise() - mean.transpose();
-                    Eigen::MatrixXf covariance = (centered.adjoint() * centered) / static_cast<float>(filteredPointsCart.rows() - 1);
-
-                    //hold on to means and covariances of clusters from scan1
-                    sigma1[theta][phi] = covariance;
-                    mu1[theta][phi] = mean;
-
-                    // get U and L ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-                    Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> eigensolver(covariance);
-                    Eigen::Vector3f eigenvalues = eigensolver.eigenvalues().real();
-                    Eigen::Matrix3f eigenvectors = eigensolver.eigenvectors().real();
-                    // U[theta][phi] = eigenvectors; // was this --> eigen and TF have different convenions for outputting eigenvectors?
-                    U[theta][phi] = eigenvectors.transpose(); // test
-
-                    // create 6 2-sigma test points for each cluster and test to see if they fit inside the voxel
-                    MatrixXf axislen(3,3);
-                    axislen << eigenvalues[0], 0, 0,
-                                0, eigenvalues[1], 0,
-                                0, 0, eigenvalues[2];
-                    axislen = 2.0 * axislen.array().sqrt(); //theoretically should be *2 not *3 but this seems to work better
-
-                    MatrixXf rotated = axislen * U[theta][phi].transpose(); //was this
-                    // MatrixXf rotated = axislen * U[theta][phi]; //test
-
-                    Eigen::MatrixXf sigmaPoints(6,3);
-                    //converges faster on Ouster dataset, but won't work in simulated tunnel
-                    sigmaPoints.row(0) = mu1[theta][phi] + rotated.row(0).transpose(); //most compact axis
-                    sigmaPoints.row(1) = mu1[theta][phi] - rotated.row(0).transpose();
-                    sigmaPoints.row(2) = mu1[theta][phi] + rotated.row(1).transpose(); //middle
-                    sigmaPoints.row(3) = mu1[theta][phi] - rotated.row(1).transpose();
-                    sigmaPoints.row(4) = mu1[theta][phi] + rotated.row(2).transpose(); //largest axis
-                    sigmaPoints.row(5) = mu1[theta][phi] - rotated.row(2).transpose();
-
-                    // find out which test points fall inside the voxel bounds
-                    Eigen::MatrixXf sigmaPointsSpherical = utils::cartesianToSpherical(sigmaPoints);
-                    MatrixXi sigmaPointsInside = testSigmaPoints(sigmaPointsSpherical, clusterBounds.row(numBinsTheta*phi + theta));
-                    
-                    //see if each axis contains at least one test point within voxel
-                    if ((sigmaPointsInside.array() == 0).any() || (sigmaPointsInside.array() == 1).any()){
-                        L[theta][phi].row(0) << 1, 0, 0; 
-                    } 
-                    else{
-                        L[theta][phi].row(0) << 0, 0, 0;
-                        testPoints.row(6*(numBinsTheta*phi + theta)) = sigmaPoints.row(0).transpose();
-                        testPoints.row(6*(numBinsTheta*phi + theta)+1) = sigmaPoints.row(1).transpose();
-                    }
-                    if ((sigmaPointsInside.array() == 2).any() || (sigmaPointsInside.array() == 3).any()){
-                        L[theta][phi].row(1) << 0, 1, 0; 
-                    } 
-                    else{
-                        L[theta][phi].row(1) << 0, 0, 0;
-                        testPoints.row(6*(numBinsTheta*phi + theta)+2) = sigmaPoints.row(2).transpose();
-                        testPoints.row(6*(numBinsTheta*phi + theta)+3) = sigmaPoints.row(3).transpose();
-                    }
-                    if ((sigmaPointsInside.array() == 4).any() || (sigmaPointsInside.array() == 5).any()){
-                        L[theta][phi].row(2) << 0, 0, 1; 
-                    } 
-                    else{
-                        L[theta][phi].row(2) << 0, 0, 0;
-                        testPoints.row(6*(numBinsTheta*phi + theta)+4) = sigmaPoints.row(4).transpose();
-                        testPoints.row(6*(numBinsTheta*phi + theta)+5) = sigmaPoints.row(5).transpose();
-                    }
-                    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-                    // //update for drawing
-                    // float alpha1 = 0.3f;
-                    // ellipsoid1Means.push_back(mean);
-                    // ellipsoid1Covariances.push_back(covariance);
-                    // ellipsoid1Alphas.push_back(alpha1);
-                }
-            }
-            // use 0 value as a flag for unoccupied voxels
-            else{
-                innerDistance = 0;
-                outerDistance = 0;
-                float azimMin_i =  (static_cast<float>(theta) / numBinsTheta) * (2 * M_PI) ;
-                float azimMax_i =  (static_cast<float>(theta+1) / numBinsTheta) * (2 * M_PI) ;
-                float elevMin_i =  (static_cast<float>(phi) / numBinsPhi) * (M_PI) ;
-                float elevMax_i =  (static_cast<float>(phi+1) / numBinsPhi) * (M_PI) ;      
-                clusterBounds.row(numBinsTheta*phi + theta) << azimMin_i, azimMax_i, elevMin_i, elevMax_i, innerDistance, outerDistance;
-            }
-
+            futures.push_back(pool.enqueue(task, indices, theta, phi));
         }
+    }
+    // Wait for all tasks to complete
+    for (auto &fut : futures) {
+        fut.get();
+    }
+}
 
+void ICET::fitCells1(const vector<int>& indices, int theta, int phi){
+    float innerDistance;
+    float outerDistance;
+
+    cout << "theta: " << theta << "  phi: " << phi << endl;
+    if (phi * numBinsTheta + theta >= numBinsPhi*numBinsTheta){
+        cout << " problem " <<endl;
+        return;
     }
 
+
+    // only calculate inner/outer bounds if there are a sufficient number of points in the spike 
+    if (indices.size() > n) {
+        // Use the indices to access the corresponding rows in sortedPointsSpherical
+        MatrixXf selectedPoints = MatrixXf::Zero(indices.size(), points1Spherical.cols());
+        for (int i = 0; i < indices.size(); ++i) {
+            selectedPoints.row(i) = points1Spherical.row(indices[i]);
+        }
+
+        // find inner and outer bounds for each theta/phi bin
+        pair<float, float> clusterDistances = findCluster(selectedPoints, n, thresh, buff);
+        innerDistance = clusterDistances.first;
+        outerDistance = clusterDistances.second;
+
+        //convert [desiredPhi][desiredTheta] to azimMin, azimMax, elevMin, elevMax
+        float azimMin_i =  (static_cast<float>(theta) / numBinsTheta) * (2 * M_PI) ;
+        float azimMax_i =  (static_cast<float>(theta+1) / numBinsTheta) * (2 * M_PI) ;
+        float elevMin_i =  (static_cast<float>(phi) / numBinsPhi) * (M_PI) ;
+        float elevMax_i =  (static_cast<float>(phi+1) / numBinsPhi) * (M_PI) ;
+        //hold on to these values
+        clusterBounds.row(numBinsTheta*phi + theta) << azimMin_i, azimMax_i, elevMin_i, elevMax_i, innerDistance, outerDistance;
+
+        // find points from first scan inside voxel bounds and fit gaussians to each cluster
+        MatrixXf filteredPoints = filterPointsInsideCluster(selectedPoints, clusterBounds.row(numBinsTheta*phi + theta));
+        if (outerDistance > 0.1){
+            MatrixXf filteredPointsCart = utils::sphericalToCartesian(filteredPoints);
+            Eigen::VectorXf mean = filteredPointsCart.colwise().mean();
+            Eigen::MatrixXf centered = filteredPointsCart.rowwise() - mean.transpose();
+            Eigen::MatrixXf covariance = (centered.adjoint() * centered) / static_cast<float>(filteredPointsCart.rows() - 1);
+
+            //hold on to means and covariances of clusters from scan1
+            sigma1[theta][phi] = covariance;
+            mu1[theta][phi] = mean;
+
+            // get U and L ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> eigensolver(covariance);
+            Eigen::Vector3f eigenvalues = eigensolver.eigenvalues().real();
+            Eigen::Matrix3f eigenvectors = eigensolver.eigenvectors().real();
+            // U[theta][phi] = eigenvectors; // was this --> eigen and TF have different convenions for outputting eigenvectors?
+            U[theta][phi] = eigenvectors.transpose(); // test
+
+            // create 6 2-sigma test points for each cluster and test to see if they fit inside the voxel
+            MatrixXf axislen(3,3);
+            axislen << eigenvalues[0], 0, 0,
+                        0, eigenvalues[1], 0,
+                        0, 0, eigenvalues[2];
+            axislen = 2.0 * axislen.array().sqrt(); //theoretically should be *2 not *3 but this seems to work better
+
+            MatrixXf rotated = axislen * U[theta][phi].transpose(); //was this
+            // MatrixXf rotated = axislen * U[theta][phi]; //test
+
+            Eigen::MatrixXf sigmaPoints(6,3);
+            //converges faster on Ouster dataset, but won't work in simulated tunnel
+            sigmaPoints.row(0) = mu1[theta][phi] + rotated.row(0).transpose(); //most compact axis
+            sigmaPoints.row(1) = mu1[theta][phi] - rotated.row(0).transpose();
+            sigmaPoints.row(2) = mu1[theta][phi] + rotated.row(1).transpose(); //middle
+            sigmaPoints.row(3) = mu1[theta][phi] - rotated.row(1).transpose();
+            sigmaPoints.row(4) = mu1[theta][phi] + rotated.row(2).transpose(); //largest axis
+            sigmaPoints.row(5) = mu1[theta][phi] - rotated.row(2).transpose();
+
+            // find out which test points fall inside the voxel bounds
+            Eigen::MatrixXf sigmaPointsSpherical = utils::cartesianToSpherical(sigmaPoints);
+            MatrixXi sigmaPointsInside = testSigmaPoints(sigmaPointsSpherical, clusterBounds.row(numBinsTheta*phi + theta));
+            
+            //see if each axis contains at least one test point within voxel
+            if ((sigmaPointsInside.array() == 0).any() || (sigmaPointsInside.array() == 1).any()){
+                L[theta][phi].row(0) << 1, 0, 0; 
+            } 
+            else{
+                L[theta][phi].row(0) << 0, 0, 0;
+                testPoints.row(6*(numBinsTheta*phi + theta)) = sigmaPoints.row(0).transpose();
+                testPoints.row(6*(numBinsTheta*phi + theta)+1) = sigmaPoints.row(1).transpose();
+            }
+            if ((sigmaPointsInside.array() == 2).any() || (sigmaPointsInside.array() == 3).any()){
+                L[theta][phi].row(1) << 0, 1, 0; 
+            } 
+            else{
+                L[theta][phi].row(1) << 0, 0, 0;
+                testPoints.row(6*(numBinsTheta*phi + theta)+2) = sigmaPoints.row(2).transpose();
+                testPoints.row(6*(numBinsTheta*phi + theta)+3) = sigmaPoints.row(3).transpose();
+            }
+            if ((sigmaPointsInside.array() == 4).any() || (sigmaPointsInside.array() == 5).any()){
+                L[theta][phi].row(2) << 0, 0, 1; 
+            } 
+            else{
+                L[theta][phi].row(2) << 0, 0, 0;
+                testPoints.row(6*(numBinsTheta*phi + theta)+4) = sigmaPoints.row(4).transpose();
+                testPoints.row(6*(numBinsTheta*phi + theta)+5) = sigmaPoints.row(5).transpose();
+            }
+            // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+            // //update for drawing
+            // float alpha1 = 0.3f;
+            // ellipsoid1Means.push_back(mean);
+            // ellipsoid1Covariances.push_back(covariance);
+            // ellipsoid1Alphas.push_back(alpha1);
+        }
+    }
+    // use 0 value as a flag for unoccupied voxels
+    else{
+        innerDistance = 0;
+        outerDistance = 0;
+        float azimMin_i =  (static_cast<float>(theta) / numBinsTheta) * (2 * M_PI) ;
+        float azimMax_i =  (static_cast<float>(theta+1) / numBinsTheta) * (2 * M_PI) ;
+        float elevMin_i =  (static_cast<float>(phi) / numBinsPhi) * (M_PI) ;
+        float elevMax_i =  (static_cast<float>(phi+1) / numBinsPhi) * (M_PI) ;      
+        clusterBounds.row(numBinsTheta*phi + theta) << azimMin_i, azimMax_i, elevMin_i, elevMax_i, innerDistance, outerDistance;
+    }
 }
 
 void ICET::step(){
