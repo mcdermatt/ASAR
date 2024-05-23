@@ -11,11 +11,22 @@ visualization* visualizationInstance = nullptr;
 
 visualization::visualization() { //int argc, char** argv
     // Constructor implementation
-    cameraDistance = 10.0; // Example initial value
     cameraAngleX = 45.0;   // Example initial value
     cameraAngleY = 45.0;   // Example initial value
+    centerX = 0.;
+    centerY = 0.; 
+    centerZ = 0.;
+    cameraX = 0.;
+    cameraY = 0.;
+    cameraZ = 0.;
     lastMouseX = 0;
     lastMouseY = 0;
+    lastPanX = 0;
+    lastPanY = 0;
+    isPanning = false;
+    isRotating = false;
+    cameraDistance = 10.0;
+
     initializeOpenGL(); //argc, argv
     visualizationInstance = this; // Set the instance pointer
 }
@@ -104,21 +115,87 @@ void visualization::handleSpecialKeys(int key, int x, int y) {
 }
 
 void visualization::handleMouse(int button, int state, int x, int y) {
-    if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
+
+    // Check if the mouse button is a scroll wheel event
+    if (button == 3) { // Scroll up
+        cameraDistance *= 0.9;
+        glutPostRedisplay();
+    } else if (button == 4) { // Scroll down
+        cameraDistance *= 1.1;
+        glutPostRedisplay();
+    }
+
+    if (button == GLUT_MIDDLE_BUTTON && state == GLUT_DOWN) {
+        // Record the initial mouse position for panning
         lastMouseX = x;
         lastMouseY = y;
+        isPanning = true;
+    }
+    if (button == GLUT_MIDDLE_BUTTON && state == GLUT_UP) {
+        isPanning = false;
+    }
+
+    if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
+        // Record the initial mouse position for rotating
+        lastMouseX = x;
+        lastMouseY = y;
+        isRotating = true;
+    }
+    if (button == GLUT_LEFT_BUTTON && state == GLUT_UP) {
+        isRotating = false;
     }
 }
 
+
 void visualization::handleMotion(int x, int y) {
-    cameraAngleY += (x - lastMouseX) * 0.1;
-    cameraAngleX += (y - lastMouseY) * 0.1;
+    int dx = x - lastMouseX;
+    int dy = y - lastMouseY;
+
+    if (isPanning) {
+        float factor = 0.01f; // Adjust this factor to control panning speed
+
+        // Calculate the right vector (camera's local X axis)
+        float rightX = -cos(cameraAngleY * M_PI / 180.0);
+        float rightY = sin(cameraAngleY * M_PI / 180.0);
+        float rightZ = 0.0f;
+
+        // Calculate the up vector (camera's local Y axis)
+        float upX = sin(cameraAngleY * M_PI / 180.0) * sin(cameraAngleX * M_PI / 180.0);
+        float upY = cos(cameraAngleY * M_PI / 180.0) * sin(cameraAngleX * M_PI / 180.0);
+        float upZ = cos(cameraAngleX * M_PI / 180.0);
+
+        // Adjust center based on the mouse movement
+        centerX -= dx * factor * rightX + dy * factor * upX;
+        centerY -= dx * factor * rightY + dy * factor * upY;
+        centerZ += dx * factor * rightZ + dy * factor * upZ;
+
+
+        // Debug print statements
+        std::cout << "Panning: dx = " << dx << ", dy = " << dy << std::endl;
+        std::cout << "Center: (" << centerX << ", " << centerY << ", " << centerZ << ")" << std::endl;
+        std::cout << "Camera Angles: (" << cameraAngleX << ", " << cameraAngleY << ")" << std::endl;
+
+        glutPostRedisplay();
+    }
+
+    if (isRotating) {
+        cameraAngleY += dx * 0.1;
+        cameraAngleX += dy * 0.1;
+
+        // Clamp cameraAngleX to avoid flipping
+        if (cameraAngleX > 89.0f) cameraAngleX = 89.0f;
+        if (cameraAngleX < -89.0f) cameraAngleX = -89.0f;
+
+        glutPostRedisplay();
+    }
 
     lastMouseX = x;
     lastMouseY = y;
-
-    glutPostRedisplay();
 }
+
+
+
+
 
 void visualization::handleKeyboard(unsigned char key, int x, int y) {
     if (key == 27) {
@@ -127,9 +204,6 @@ void visualization::handleKeyboard(unsigned char key, int x, int y) {
 }
 
 void visualization::render() {
-    // Implement rendering using OpenGL
-    // std::cout << "Rendering visualization." << std::endl;
-
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glLoadIdentity();
 
@@ -137,7 +211,11 @@ void visualization::render() {
     GLdouble cameraY = cameraDistance * cos(cameraAngleY * M_PI / 180.0) * cos(cameraAngleX * M_PI / 180.0);
     GLdouble cameraZ = cameraDistance * sin(cameraAngleX * M_PI / 180.0);
 
-    gluLookAt(cameraX, cameraY, cameraZ, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0);
+    cameraX += centerX;
+    cameraY += centerY;
+    cameraZ += centerZ;
+
+    gluLookAt(cameraX, cameraY, cameraZ, centerX, centerY, centerZ, 0.0, 0.0, 1.0);
 
     glEnable(GL_DEPTH_TEST);  // Enable depth testing
     glEnable(GL_BLEND);
@@ -174,11 +252,11 @@ void visualization::render() {
 
     // Draw ellipsoids
     array<float, 3> color1 = {0.1, 0.1, 1.0};
-    for (size_t i = 0; i < ellipsoid1Means.size(); ++i) {
+    for (size_t i = 0; i < ellipsoid1Means.size(); i++) {
         drawEllipsoid(ellipsoid1Means[i], ellipsoid1Covariances[i], ellipsoid1Alphas[i], color1);
     }
     array<float, 3> color2 = {1., 0.1, 0.1};
-    for (size_t i = 0; i < ellipsoid2Means.size(); ++i) {
+    for (size_t i = 0; i < ellipsoid2Means.size(); i++) {
         drawEllipsoid(ellipsoid2Means[i], ellipsoid2Covariances[i], ellipsoid2Alphas[i], color2);
     }
 

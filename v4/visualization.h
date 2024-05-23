@@ -55,8 +55,17 @@ private:
     GLdouble cameraDistance;
     GLdouble cameraAngleX;
     GLdouble cameraAngleY;
+    GLdouble centerX;
+    GLdouble centerY;
+    GLdouble centerZ;
+    double cameraX, cameraY, cameraZ;
+
     int lastMouseX;
     int lastMouseY;
+    int lastPanX;
+    int lastPanY;
+    bool isPanning;
+    bool isRotating;
 
     void drawPoints1(); 
     void drawPoints2();

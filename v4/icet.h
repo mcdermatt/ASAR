@@ -40,6 +40,8 @@ public:
     void step();
 
     void fitScan1();
+    void prepScan2();
+    void fitScan2();
 
     std::vector<std::vector<std::vector<int>>> sortSphericalCoordinates(Eigen::MatrixXf sphericalCoords);
 
@@ -47,9 +49,11 @@ public:
 
     Eigen::MatrixXf filterPointsInsideCluster(const Eigen::MatrixXf& selectedPoints, const Eigen::MatrixXf& clusterBounds);
 
-    Eigen::MatrixXi testSigmaPoints(const Eigen::MatrixXf& selectedPoints, const Eigen::MatrixXf& clusterBounds);
+    Eigen::MatrixXi testSigmaPoints(const Eigen::MatrixXf& selectedPoints, const Eigen::MatrixXf& lims);
 
     void fitCells1(const std::vector<int>& indices, int theta, int phi);
+
+    Eigen::MatrixXf get_H(Eigen::Vector3f mu, Eigen::Vector3f angs);
 
     //algorithm params
     int rl;
@@ -62,6 +66,7 @@ public:
     Eigen::MatrixXf points1;
     Eigen::MatrixXf points1Spherical;
     Eigen::MatrixXf points2;
+    Eigen::MatrixXf points2_OG;
     Eigen::MatrixXf points2Spherical;
     Eigen::MatrixXf clusterBounds;
     Eigen::MatrixXf testPoints;
@@ -72,6 +77,23 @@ public:
     MeanMap mu2;
     CovarianceMap L;
     CovarianceMap U;
+    std::vector<std::vector<std::vector<int>>> pointIndices1;
+    std::vector<std::vector<std::vector<int>>> pointIndices2;
+
+    int occupiedCount; //debug
+
+    // state vector X--- [x, y, z, phi, theta, psi]
+    Eigen::VectorXf X; //global solution vector
+    Eigen::VectorXf X0; //initial estimate
+    Eigen::VectorXf dx; //linear perterbation to X solved for during each iteration
+
+    //for viz
+    std::vector<Eigen::Vector3f> ellipsoid1Means;
+    std::vector<Eigen::Matrix3f> ellipsoid1Covariances;
+    std::vector<float> ellipsoid1Alphas;
+    std::vector<Eigen::Vector3f> ellipsoid2Means;
+    std::vector<Eigen::Matrix3f> ellipsoid2Covariances;
+    std::vector<float> ellipsoid2Alphas;
 
 private:
 

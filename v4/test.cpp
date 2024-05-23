@@ -34,17 +34,17 @@ int main(){
     viz.points2 = it.points2;
     viz.clusterBounds = it.clusterBounds;
 
+    // cout << "filled ells inside main:  "<< it.ellipsoid1Means.size() << endl;
+    // cout << "occupied count: " << it.occupiedCount << endl;
+
     // //set covariance ellipsoids
-    // vector<Eigen::Vector3f> e1mean;  
-    // Eigen::Vector3f mu1 = {0.,1.,2.};
-    // e1mean.push_back(mu1);
-    // vector<Eigen::Matrix3f> e1cov;
-    // Eigen::Matrix3f cov1 = Eigen::Matrix3f::Identity();
-    // e1cov.push_back(cov1);
-    // vector<float> e1alpha = {0.5};
-    // viz.ellipsoid1Means = e1mean;
-    // viz.ellipsoid1Covariances = e1cov;
-    // viz.ellipsoid1Alphas = e1alpha;
+    viz.ellipsoid1Means = it.ellipsoid1Means;
+    viz.ellipsoid1Covariances = it.ellipsoid1Covariances;
+    viz.ellipsoid1Alphas = it.ellipsoid1Alphas;
+
+    viz.ellipsoid2Means = it.ellipsoid2Means;
+    viz.ellipsoid2Covariances = it.ellipsoid2Covariances;
+    viz.ellipsoid2Alphas = it.ellipsoid2Alphas;
 
     viz.display();
     glutMainLoop();

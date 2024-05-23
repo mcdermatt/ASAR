@@ -29,14 +29,22 @@ using namespace Eigen;
 using namespace std;
 
 // Constructor implementation
-ICET::ICET(MatrixXf scan1, MatrixXf scan2, int runlen) : points1(scan1), points2(scan2), rl(runlen), pool(8) {
+ICET::ICET(MatrixXf scan1, MatrixXf scan2, int runlen) : points1(scan1), points2(scan2), rl(runlen), pool(4) {
 
     // init hyperparameters
-    numBinsPhi = 24;  // Adjust the number of bins as needed
-    numBinsTheta = 75; // Adjust the number of bins as needed
+    numBinsPhi = 24; //50;  // Adjust the number of bins as needed
+    numBinsTheta = 75; //100; // Adjust the number of bins as needed
     n = 10; //50; // min size of the cluster
     thresh = 0.3; // 0.1 indoor, 0.3 outdoor; // Jump threshold for beginning and ending radial clusters
     buff = 0.5; // 0.1 indoor, outdoor 0.5; //buffer to add to inner and outer cluster range (helps attract nearby distributions)
+
+    X0.resize(6);
+    X.resize(6);
+    X0 << 0., 0., 0, 0, 0.0, 0.;
+    X << 0., 0., 0, 0, 0.0, 0.;
+    points2_OG = points2;
+
+    occupiedCount = 0; //debug
 
     clusterBounds.resize(numBinsPhi*numBinsTheta,6);
     testPoints.resize(numBinsPhi*numBinsTheta*6,3);
@@ -50,6 +58,16 @@ ICET::ICET(MatrixXf scan1, MatrixXf scan2, int runlen) : points1(scan1), points2
     auto after1Ms = std::chrono::time_point_cast<std::chrono::milliseconds>(after1);
     auto elapsedTimeMs = std::chrono::duration_cast<std::chrono::milliseconds>(after1Ms - beforeMs).count();
     std::cout << "Fit spherical voxels and guassians for scan 1 in: " << elapsedTimeMs << " ms" << std::endl;
+
+    prepScan2();
+
+    //main loop here
+    fitScan2();
+
+    auto afterAll = std::chrono::system_clock::now();
+    auto afterAllMs = std::chrono::time_point_cast<std::chrono::milliseconds>(afterAll);
+    auto elapsedTimeAllMs = std::chrono::duration_cast<std::chrono::milliseconds>(afterAllMs - beforeMs).count();
+    std::cout << "Whole process took: " << elapsedTimeAllMs << " ms" << std::endl;
 
 }
 
@@ -84,45 +102,50 @@ void ICET::fitScan1(){
     }
 
     //get spherical coordiantes and fit gaussians to points from first scan 
-    vector<vector<vector<int>>> pointIndices1 = sortSphericalCoordinates(points1Spherical);
+    pointIndices1 = sortSphericalCoordinates(points1Spherical);
 
-    // Define a lambda function to wrap the member function fitCells1
-    auto task = [this](const std::vector<int>& indices, int theta, int phi) {
-        this->fitCells1(indices, theta, phi);
-    };
-
+    // // Define a lambda function to wrap the member function fitCells1
+    // // not feasible to use threadpool since we need concurrent writes to U and L?
+    // auto task = [this](const std::vector<int>& indices, int theta, int phi) {
+    //     this->fitCells1(indices, theta, phi);
+    // };
 
     int count = 0;
     for (int phi = 0; phi < numBinsPhi; phi++){
         for (int theta = 0; theta< numBinsTheta; theta++){
             // Retrieve the point indices inside angular bin
             const vector<int>& indices = pointIndices1[theta][phi];
-            futures.push_back(pool.enqueue(task, indices, theta, phi));
+            // futures.push_back(pool.enqueue(task, indices, theta, phi)); //run multithread
+            fitCells1(indices, theta, phi); //no multithreading
         }
     }
-    // Wait for all tasks to complete
-    for (auto &fut : futures) {
-        fut.get();
-    }
+    // // Wait for all tasks to complete
+    // for (auto &fut : futures) {
+    //     fut.get();
+    // }
 }
 
 void ICET::fitCells1(const vector<int>& indices, int theta, int phi){
     float innerDistance;
     float outerDistance;
 
-    cout << "theta: " << theta << "  phi: " << phi << endl;
-    if (phi * numBinsTheta + theta >= numBinsPhi*numBinsTheta){
-        cout << " problem " <<endl;
-        return;
-    }
+    // cout << "theta: " << theta << "  phi: " << phi << endl;
+    // if (phi * numBinsTheta + theta >= numBinsPhi*numBinsTheta){
+    //     cout << " problem " <<endl;
+    //     return;
+    // }
 
 
     // only calculate inner/outer bounds if there are a sufficient number of points in the spike 
-    if (indices.size() > n) {
+    if (indices.size() >= n) {
+
+        occupiedCount++;
         // Use the indices to access the corresponding rows in sortedPointsSpherical
         MatrixXf selectedPoints = MatrixXf::Zero(indices.size(), points1Spherical.cols());
-        for (int i = 0; i < indices.size(); ++i) {
+        //TODO bug here--->
+        for (int i = 0; i < indices.size(); ++i) { 
             selectedPoints.row(i) = points1Spherical.row(indices[i]);
+            // cout << i;
         }
 
         // find inner and outer bounds for each theta/phi bin
@@ -146,6 +169,18 @@ void ICET::fitCells1(const vector<int>& indices, int theta, int phi){
             Eigen::MatrixXf centered = filteredPointsCart.rowwise() - mean.transpose();
             Eigen::MatrixXf covariance = (centered.adjoint() * centered) / static_cast<float>(filteredPointsCart.rows() - 1);
 
+            // cout << endl;
+            // cout << "selectedPoints: " << selectedPoints.rows() << endl;
+            // for (int i = 0; i < 10 && i <selectedPoints.rows();i++){
+            //     cout << selectedPoints.row(i) << endl;
+            // }
+            // cout << "filteredPoints: " << endl << filteredPoints.rows() << endl; 
+            // for (int i = 0; i < 10 && i <filteredPoints.rows();i++){
+            //     cout << filteredPoints.row(i) << endl;
+            // }
+            // cout << "filteredPointsCart: " << endl << filteredPointsCart.rows() << endl; 
+            // cout << "mean: " << endl << mean << endl << " covariance: " << endl << covariance << endl;
+
             //hold on to means and covariances of clusters from scan1
             sigma1[theta][phi] = covariance;
             mu1[theta][phi] = mean;
@@ -154,8 +189,7 @@ void ICET::fitCells1(const vector<int>& indices, int theta, int phi){
             Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> eigensolver(covariance);
             Eigen::Vector3f eigenvalues = eigensolver.eigenvalues().real();
             Eigen::Matrix3f eigenvectors = eigensolver.eigenvectors().real();
-            // U[theta][phi] = eigenvectors; // was this --> eigen and TF have different convenions for outputting eigenvectors?
-            U[theta][phi] = eigenvectors.transpose(); // test
+            U[theta][phi] = eigenvectors.transpose();
 
             // create 6 2-sigma test points for each cluster and test to see if they fit inside the voxel
             MatrixXf axislen(3,3);
@@ -164,8 +198,7 @@ void ICET::fitCells1(const vector<int>& indices, int theta, int phi){
                         0, 0, eigenvalues[2];
             axislen = 2.0 * axislen.array().sqrt(); //theoretically should be *2 not *3 but this seems to work better
 
-            MatrixXf rotated = axislen * U[theta][phi].transpose(); //was this
-            // MatrixXf rotated = axislen * U[theta][phi]; //test
+            MatrixXf rotated = axislen * U[theta][phi].transpose();
 
             Eigen::MatrixXf sigmaPoints(6,3);
             //converges faster on Ouster dataset, but won't work in simulated tunnel
@@ -207,11 +240,11 @@ void ICET::fitCells1(const vector<int>& indices, int theta, int phi){
             }
             // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-            // //update for drawing
-            // float alpha1 = 0.3f;
-            // ellipsoid1Means.push_back(mean);
-            // ellipsoid1Covariances.push_back(covariance);
-            // ellipsoid1Alphas.push_back(alpha1);
+            //update for drawing
+            float alpha1 = 0.3f;
+            ellipsoid1Means.push_back(mean);
+            ellipsoid1Covariances.push_back(covariance);
+            ellipsoid1Alphas.push_back(alpha1);
         }
     }
     // use 0 value as a flag for unoccupied voxels
@@ -226,9 +259,206 @@ void ICET::fitCells1(const vector<int>& indices, int theta, int phi){
     }
 }
 
+void ICET::prepScan2(){
+    //sort radially only once at begninning of process
+    points2Spherical = utils::cartesianToSpherical(points2);
+    vector<int> index(points2Spherical.rows());
+    iota(index.begin(), index.end(), 0);
+    sort(std::execution::par, index.begin(), index.end(), [&](int a, int b) {
+        return points2Spherical(a, 0) < points2Spherical(b, 0); // Sort by radial distance
+    });
+    for (int i = 0; i < points2Spherical.rows(); i++) {
+        if (index[i] != i) {
+            points2Spherical.row(i).swap(points2Spherical.row(index[i]));
+            std::swap(index[i], index[index[i]]); // Update the index
+        }
+    }
+    points2_OG = utils::sphericalToCartesian(points2Spherical);
+
+}
+
+void ICET::fitScan2(){
+    
+    // apply transformation to points2
+    MatrixXf rot_mat = utils::R(X[3], X[4], X[5]); 
+    Eigen::RowVector3f trans(X[0], X[1], X[2]);
+    points2 = points2_OG.rowwise() + trans;
+    points2 = points2 * rot_mat;
+
+    // It is inefficient to construct the full (H^T W H) matrix direclty since W is very sparse
+    // Instead we sum contributions from each voxel to a single 6x6 matrix to avoid memory inefficiency   
+    Eigen::MatrixXf HTWH_i(6, 6);
+    HTWH_i.setZero();
+    // Similarly, we accumulate contributions to (H^T W dz) from each voxel
+    Eigen::MatrixXf HTWdz_i(6,1); 
+    HTWdz_i.setZero();
+
+    Eigen::MatrixXf pointsSpherical2 = utils::cartesianToSpherical(points2);
+    pointIndices2 = sortSphericalCoordinates(pointsSpherical2); 
+
+    //fit gaussians
+    int c = 0;
+    for (int phi = 0; phi < numBinsPhi; phi++){
+        for (int theta = 0; theta< numBinsTheta; theta++){
+            // Retrieve the point indices inside angular bin
+            const vector<int>& indices1 = pointIndices1[theta][phi];
+            const vector<int>& indices2 = pointIndices2[theta][phi];
+
+            // only fit gaussians if there enough points from both scans 1 and 2 in the cell 
+            // if ((indices2.size() > n) && (indices1.size() > n)) {
+            if ((indices2.size() > n) && (indices1.size() > n) && (clusterBounds.row(numBinsTheta*phi + theta)[5] > 1)) { //U and L won't exist if no useful bin in scan1
+                // Use the indices to access the corresponding rows in sortedPointsSpherical
+                // when not re-sorting by radial distance after each update of X
+                MatrixXf selectedPoints2 = MatrixXf::Zero(indices2.size(), pointsSpherical2.cols());
+                for (int i = 0; i < indices2.size(); ++i) {
+                    selectedPoints2.row(i) = pointsSpherical2.row(indices2[i]);
+                }
+
+                // find points from first scan inside voxel bounds and fit gaussians to each cluster
+                MatrixXf filteredPoints2 = filterPointsInsideCluster(selectedPoints2, clusterBounds.row(numBinsTheta*phi + theta));
+                // std::cout << "\n number of points from scan 2 inside bounds: " << filteredPoints2.size()/3 << endl;
+                // only carry on if there are enough points from scan2 actually inside the radial bounds
+
+                if (filteredPoints2.size()/3 > n){
+                    MatrixXf filteredPointsCart2 = utils::sphericalToCartesian(filteredPoints2);
+                    Eigen::VectorXf mean = filteredPointsCart2.colwise().mean();
+                    Eigen::MatrixXf centered = filteredPointsCart2.rowwise() - mean.transpose();
+                    Eigen::MatrixXf covariance = (centered.adjoint() * centered) / static_cast<float>(filteredPointsCart2.rows() - 1);
+
+                    //hold on to means and covariances of clusters from scan1
+                    sigma2[theta][phi] = covariance;
+                    mu2[theta][phi] = mean;
+                    
+                    //add contributions to HTWH
+                    // Get noise components
+                    // TODO: the current weighting is slightly incorrect-- indices1.size() includes the number of all points in the radial bin (not just the ones within radial bounds)
+                    Eigen::MatrixXf R_noise(3,3);
+                    // cout << filteredPoints2.size() << endl;
+                    // cout << indices2.size() << endl;
+                    R_noise << (sigma1[theta][phi] / (indices1.size() - 1)) + (sigma2[theta][phi] / (indices2.size()-1)); //supposed to be this
+                    // cout << "\n R_noise before projection: \n" << R_noise << endl;
+
+                    // use projection matrix to remove extended directions
+                    R_noise = L[theta][phi] * U[theta][phi].transpose() * R_noise * U[theta][phi] * L[theta][phi].transpose(); //was this in python
+                    // cout << "R_noise after projection: \n" << R_noise << endl;
+
+                    // pinv noise to get weighting
+                    // Compute the complete orthogonal decomposition (COD) of A
+                    Eigen::CompleteOrthogonalDecomposition<Eigen::MatrixXf> cod(R_noise);
+                    Eigen::MatrixXf W = cod.pseudoInverse();
+                    // cout << "W: \n" << W << endl;
+
+                    //get H matrix for voxel j
+                    Eigen::Vector3f angs;
+                    angs << X[3], X[4], X[5];
+                    // cout << "mu2" << mu2[theta][phi] << endl;
+                    Eigen::MatrixXf H_j = get_H(mu2[theta][phi], angs); //working correctly (same output as python code)
+                    // cout <<  "\n H_j: \n " << H_j << endl;
+
+                    //suppress rows of H corresponding to overly extended directions
+                    Eigen::MatrixXf H_z = L[theta][phi] * U[theta][phi].transpose() * H_j;
+                    // cout << "\n L: \n" << L[theta][phi] << "\n H_z: \n" << H_z << endl;
+
+                    //put together HTWH for voxel j and contribute to total HTWH_i (for all voxels of current iteration)
+                    Eigen::MatrixXf HTWH_j = H_z.transpose() * W * H_z;
+                    // Eigen::MatrixXf HTWH_j = H_j.transpose() * W * H_j; //test
+                    HTWH_i += HTWH_j;
+                    // std::cout << "HTWH_j: \n" << HTWH_j <<endl;
+                    // std::cout << "HTWH_i: \n" << HTWH_i << "\n" <<endl;
+
+                    // get compact residuals between means of distributions from scans 1 and 2
+                    Eigen::Vector3f z1 = L[theta][phi] * U[theta][phi].transpose() * mu1[theta][phi];
+                    Eigen::Vector3f z2 = L[theta][phi] * U[theta][phi].transpose() * mu2[theta][phi];
+                    Eigen::Vector3f dz = z2-z1;
+                    HTWdz_i += H_z.transpose() * W * dz; 
+
+                    c++;
+                    //update for drawing
+                    float alpha2 = 0.3f;
+                    ellipsoid2Means.push_back(mean);
+                    ellipsoid2Covariances.push_back(covariance);
+                    ellipsoid2Alphas.push_back(alpha2);
+                }
+            }
+        }
+    }
+
+    // //Check condition for HTWH to suppress globally ambiguous components ~~~~~~~~~~~
+    // auto result = checkCondition(HTWH_i);
+    // MatrixXf L2 = get<0>(result);
+    // MatrixXf lam = get<1>(result);
+    // MatrixXf U2 = get<2>(result);
+
+    // // dx = (pinv(L2 * lam * U2.T) * L2 * U2.T() ) * HTWdz_i;
+    // // get pseudoinverse of inner parts
+    // Eigen::MatrixXf innards = L2 * lam * U2.transpose(); 
+    // Eigen::CompleteOrthogonalDecomposition<Eigen::MatrixXf> cod(innards);
+    // Eigen::MatrixXf inverted_innards = cod.pseudoInverse();
+    // dx = (inverted_innards * L2 * U2.transpose() ) * HTWdz_i;
+
+    // for debug: directly find solution without suppressing globally ambiguous axis ~~~~~~
+    // standard inverse
+    dx = HTWH_i.inverse() * HTWdz_i;
+    
+    // pseudoinverse -- needed for when there are globally ambiguous components
+    Eigen::CompleteOrthogonalDecomposition<Eigen::MatrixXf> asdf(HTWH_i);
+    Eigen::MatrixXf HTWH_i_inverse = asdf.pseudoInverse();
+    std::cout << "HTWH_i_inverse: \n" << HTWH_i_inverse <<endl;
+    std::cout << "HTWdz_i: \n" << HTWdz_i <<endl;
+    dx = HTWH_i_inverse * HTWdz_i;
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+
+    // std::cout << "dx: \n " << dx << endl;
+    X += dx;
+    std::cout << "X: \n " << X << endl;
+
+}
+
 void ICET::step(){
     cout << "rl: " << rl << endl;
     rl--;
+}
+
+MatrixXf ICET::get_H(Eigen::Vector3f mu, Eigen::Vector3f angs){
+
+    float phi = angs[0];
+    float theta = angs[1];
+    float psi = angs[2];    
+
+    MatrixXf H(3,6);
+    MatrixXf eye(3,3);
+    eye << -1, 0, 0,
+             0, -1, 0,
+             0, 0, -1;
+    H.block(0,0,3,3) << eye;
+
+    // deriv of R() wrt phi.dot(mu)
+    Eigen::MatrixXf Jx(3,3);
+    Jx << 0., (-sin(psi)*sin(phi) + cos(phi)*sin(theta)*cos(psi)), (cos(phi)*sin(psi) + sin(theta)*sin(phi)*cos(psi)),
+          0., (-sin(phi)*cos(psi) - cos(phi)*sin(theta)*sin(psi)), (cos(phi)*cos(psi) - sin(theta)*sin(psi)*sin(phi)), 
+          0., (-cos(phi)*cos(theta)), (-sin(phi)*cos(theta));
+    Jx = Jx * mu;
+    H.block(0, 3, 3, 1) = Jx;
+
+    // deriv of R() wrt theta.dot(mu)
+    Eigen::MatrixXf Jy(3,3);
+    Jy << (-sin(theta)*cos(psi)), (cos(theta)*sin(phi)*cos(psi)), (-cos(theta)*cos(phi)*cos(psi)),
+          (sin(psi)*sin(theta)), (-cos(theta)*sin(phi)*sin(psi)), (cos(theta)*sin(psi)*cos(phi)),
+          (cos(theta)), (sin(phi)*sin(theta)), (-sin(theta)*cos(phi));
+    Jy = Jy * mu;
+    H.block(0, 4, 3, 1) = Jy;
+
+    // deriv of R() wrt psi.dot(mu)
+    Eigen::MatrixXf Jz(3,3);
+    Jz << (-cos(theta)*sin(psi)), (cos(psi)*cos(phi) - sin(phi)*sin(theta)*sin(psi)), (cos(psi)*sin(phi) + sin(theta)*cos(phi)*sin(psi)),
+         (-cos(psi)*cos(theta)), (-sin(psi)*cos(phi) - sin(phi)*sin(theta)*cos(psi)), (-sin(phi)*sin(psi) + sin(theta)*cos(psi)*cos(phi)),
+         0., 0., 0.;
+    Jz = Jz * mu;
+    H.block(0, 5, 3, 1) = Jz;
+
+    return H;
 }
 
 vector<vector<vector<int>>> ICET::sortSphericalCoordinates(Eigen::MatrixXf sphericalCoords) {
@@ -301,40 +531,44 @@ pair<float, float> ICET::findCluster(const MatrixXf& sphericalCoords, int n, flo
     return {innerDistance, outerDistance};
 }
 
-MatrixXf ICET::filterPointsInsideCluster(const MatrixXf& selectedPoints, const MatrixXf& clusterBounds) {
+MatrixXf ICET::filterPointsInsideCluster(const MatrixXf& selectedPoints, const MatrixXf& lims) {
     int numPoints = selectedPoints.rows();
-    int numClusters = clusterBounds.rows();
+    int numClusters = lims.rows();
+
+    // cout << "numClusters: " << numClusters << endl;
 
     MatrixXf filteredPoints(numPoints, 3);
     int filteredRowCount = 0;
 
-    for (int i = 0; i < numClusters; i++) {
-        float azimMin = clusterBounds(i, 0);
-        float azimMax = clusterBounds(i, 1);
-        float elevMin = clusterBounds(i, 2);
-        float elevMax = clusterBounds(i, 3);
-        float innerDistance = clusterBounds(i, 4);
-        float outerDistance = clusterBounds(i, 5);
+    // for (int i = 0; i < numClusters; i++) {
+    float azimMin = lims(0, 0);
+    float azimMax = lims(0, 1);
+    float elevMin = lims(0, 2);
+    float elevMax = lims(0, 3);
+    float innerDistance = lims(0, 4);
+    float outerDistance = lims(0, 5);
 
-        for (int j = 0; j < numPoints; j++) {
-            float azim = selectedPoints(j, 1);
-            float elev = selectedPoints(j, 2);
-            float r = selectedPoints(j, 0);
+    for (int j = 0; j < numPoints; j++) {
+        float azim = selectedPoints(j, 1);
+        float elev = selectedPoints(j, 2);
+        float r = selectedPoints(j, 0);
 
-            // Check if the point is within the cluster bounds
-            if (azim >= azimMin && azim <= azimMax &&
-                elev >= elevMin && elev <= elevMax &&
-                r >= innerDistance && r <= outerDistance) {
-                // Add the point to the filteredPoints matrix
-                filteredPoints.row(filteredRowCount++) = selectedPoints.row(j);
-            }
-
-            // If the current point is beyond the outer distance, break the inner loop
-            if (r > outerDistance) {
-                break;
-            }
+        // Check if the point is within the cluster bounds
+        if (azim >= azimMin && azim <= azimMax &&
+            elev >= elevMin && elev <= elevMax &&
+            r >= innerDistance && r <= outerDistance) {
+            // Add the point to the filteredPoints matrix
+            filteredPoints.row(filteredRowCount++) = selectedPoints.row(j);
         }
+
+        //TODO: was able to do this in old ICET codebase but this seems to break things now
+        //      is there a reason selectedPoints isn't sorted?
+        // // If the current point is beyond the outer distance, break the inner loop
+        // if (r > outerDistance) {
+        //     break;
+        // }
     }
+    // }
 
     // Resize the matrix to remove unused rows
     filteredPoints.conservativeResize(filteredRowCount, 3);
