@@ -43,6 +43,8 @@ ICET::ICET(MatrixXf scan1, MatrixXf scan2, int runlen) : points1(scan1), points2
     X0 << 0., 0., 0, 0, 0.0, 0.;
     X << 0., 0., 0, 0, 0.0, 0.;
     points2_OG = points2;
+    HTWH_i.resize(6,6);
+    HTWdz_i.resize(6,1);
 
     occupiedCount = 0; //debug
 
@@ -62,7 +64,23 @@ ICET::ICET(MatrixXf scan1, MatrixXf scan2, int runlen) : points1(scan1), points2
     prepScan2();
 
     //main loop here
-    fitScan2();
+    for (int iter=0; iter<rl; iter++){
+        fitScan2();
+    }
+
+    // // if we want to threadpool fig gaussians in scan2, we can't draw ellipsoids for scan2 
+    // //update visualization for scan2 ellipsoids
+    // for (const auto& outerPair : sigma2) {
+    //     for (const auto& innerPair : outerPair.second) {
+    //         ellipsoid2Covariances.push_back(innerPair.second);
+    //     }
+    // }
+    // for (const auto& outerPair : mu2) {
+    //     for (const auto& innerPair : outerPair.second) {
+    //         ellipsoid2Means.push_back(innerPair.second);
+    //         ellipsoid2Alphas.push_back(0.3f);
+    //     }
+    // }
 
     auto afterAll = std::chrono::system_clock::now();
     auto afterAllMs = std::chrono::time_point_cast<std::chrono::milliseconds>(afterAll);
@@ -260,6 +278,9 @@ void ICET::fitCells1(const vector<int>& indices, int theta, int phi){
 }
 
 void ICET::prepScan2(){
+
+    //TODO: apply x0 here(?) to get a slightly better radial sorting
+
     //sort radially only once at begninning of process
     points2Spherical = utils::cartesianToSpherical(points2);
     vector<int> index(points2Spherical.rows());
@@ -277,139 +298,149 @@ void ICET::prepScan2(){
 
 }
 
+std::tuple<Eigen::MatrixXf, Eigen::MatrixXf> ICET::fitCells2(const std::vector<int>& indices1, const std::vector<int>& indices2, int theta, int phi){
+
+    Eigen::MatrixXf HTWdz_j;
+    HTWdz_j.resize(6,1);
+    HTWdz_j.setZero();
+    Eigen::MatrixXf HTWH_j;
+    HTWH_j.resize(6,6);
+    HTWH_j.setZero();
+
+    // only fit gaussians if there enough points from both scans 1 and 2 in the cell 
+    // if ((indices2.size() > n) && (indices1.size() > n)) {
+    if ((indices2.size() > n) && (indices1.size() > n) && (clusterBounds.row(numBinsTheta*phi + theta)[5] > 1)) { //U and L won't exist if no useful bin in scan1
+        // Use the indices to access the corresponding rows in sortedPointsSpherical
+        // when not re-sorting by radial distance after each update of X
+        MatrixXf selectedPoints2 = MatrixXf::Zero(indices2.size(), points2Spherical.cols());
+        for (int i = 0; i < indices2.size(); ++i) {
+            selectedPoints2.row(i) = points2Spherical.row(indices2[i]);
+        }
+
+        // find points from first scan inside voxel bounds and fit gaussians to each cluster
+        MatrixXf filteredPoints2 = filterPointsInsideCluster(selectedPoints2, clusterBounds.row(numBinsTheta*phi + theta));
+
+        // only carry on if there are enough points from scan2 actually inside the radial bounds
+        if (filteredPoints2.size()/3 > n){
+            MatrixXf filteredPointsCart2 = utils::sphericalToCartesian(filteredPoints2);
+            Eigen::VectorXf mean = filteredPointsCart2.colwise().mean();
+            Eigen::MatrixXf centered = filteredPointsCart2.rowwise() - mean.transpose();
+            Eigen::MatrixXf covariance = (centered.adjoint() * centered) / static_cast<float>(filteredPointsCart2.rows() - 1);
+
+            // //hold on to means and covariances of clusters-- can't do this and threadpool
+            // sigma2[theta][phi] = covariance;
+            // mu2[theta][phi] = mean;
+            
+            //add contributions to HTWH
+            // Get noise components
+            Eigen::MatrixXf R_noise(3,3);
+            R_noise << (sigma1[theta][phi] / (indices1.size() - 1)) + (covariance / (indices2.size()-1)); //supposed to be this
+            // use projection matrix to remove extended directions
+            R_noise = L[theta][phi] * U[theta][phi].transpose() * R_noise * U[theta][phi] * L[theta][phi].transpose(); //was this in python
+
+            // pinv noise to get weighting
+            Eigen::CompleteOrthogonalDecomposition<Eigen::MatrixXf> cod(R_noise);
+            Eigen::MatrixXf W = cod.pseudoInverse();
+
+            //get H matrix for voxel j
+            Eigen::Vector3f angs;
+            angs << X[3], X[4], X[5];
+            Eigen::MatrixXf H_j = get_H(mean, angs); //working correctly (same output as python code)
+
+            //suppress rows of H corresponding to overly extended directions
+            Eigen::MatrixXf H_z = L[theta][phi] * U[theta][phi].transpose() * H_j;
+
+            //put together HTWH for voxel j and contribute to total HTWH_i (for all voxels of current iteration)
+            HTWH_j = H_z.transpose() * W * H_z;
+
+            // get compact residuals between means of distributions from scans 1 and 2
+            Eigen::Vector3f z1 = L[theta][phi] * U[theta][phi].transpose() * mu1[theta][phi];
+            Eigen::Vector3f z2 = L[theta][phi] * U[theta][phi].transpose() * mean;
+            Eigen::Vector3f dz = z2-z1;
+            HTWdz_j = H_z.transpose() * W * dz;
+
+        }
+    }
+    
+    return std::make_tuple(HTWH_j, HTWdz_j);
+}
+
+void ICET::parallelFitCells2(const std::vector<std::vector<std::vector<int>>>& pointIndices1,
+                             const std::vector<std::vector<std::vector<int>>>& pointIndices2,
+                             int numBinsPhi, int numBinsTheta) {
+
+    // Create a vector to hold futures
+    std::vector<std::future<std::tuple<Eigen::MatrixXf, Eigen::MatrixXf>>> futures;
+
+    // Iterate over cells and submit tasks to the thread pool
+    for (int phi = 0; phi < numBinsPhi; phi++) {
+        for (int theta = 0; theta < numBinsTheta; theta++) {
+            const std::vector<int>& indices1 = pointIndices1[theta][phi];
+            const std::vector<int>& indices2 = pointIndices2[theta][phi];
+
+            // Submit task to thread pool
+            futures.push_back(pool.enqueue(&ICET::fitCells2, this, std::cref(indices1), std::cref(indices2), theta, phi));
+        }
+    }
+
+    // Wait for all tasks to complete and aggregate results
+    for (auto& future : futures) {
+        auto result = future.get();
+        HTWH_i += std::get<0>(result);
+        HTWdz_i += std::get<1>(result);
+    }
+}
+
 void ICET::fitScan2(){
     
-    // apply transformation to points2
+    // apply transformation to points2 (takes ~0.4ms)
     MatrixXf rot_mat = utils::R(X[3], X[4], X[5]); 
     Eigen::RowVector3f trans(X[0], X[1], X[2]);
     points2 = points2_OG.rowwise() + trans;
     points2 = points2 * rot_mat;
+    // points2 = points2_OG;
 
     // It is inefficient to construct the full (H^T W H) matrix direclty since W is very sparse
     // Instead we sum contributions from each voxel to a single 6x6 matrix to avoid memory inefficiency   
-    Eigen::MatrixXf HTWH_i(6, 6);
     HTWH_i.setZero();
     // Similarly, we accumulate contributions to (H^T W dz) from each voxel
-    Eigen::MatrixXf HTWdz_i(6,1); 
     HTWdz_i.setZero();
 
-    Eigen::MatrixXf pointsSpherical2 = utils::cartesianToSpherical(points2);
-    pointIndices2 = sortSphericalCoordinates(pointsSpherical2); 
+    points2Spherical = utils::cartesianToSpherical(points2);
+    pointIndices2 = sortSphericalCoordinates(points2Spherical); 
 
-    //fit gaussians
-    int c = 0;
-    for (int phi = 0; phi < numBinsPhi; phi++){
-        for (int theta = 0; theta< numBinsTheta; theta++){
-            // Retrieve the point indices inside angular bin
-            const vector<int>& indices1 = pointIndices1[theta][phi];
-            const vector<int>& indices2 = pointIndices2[theta][phi];
+    // //fit gaussians (single thread)
+    // for (int phi = 0; phi < numBinsPhi; phi++){
+    //     for (int theta = 0; theta< numBinsTheta; theta++){
+    //         // Retrieve the point indices inside angular bin
+    //         const vector<int>& indices1 = pointIndices1[theta][phi];
+    //         const vector<int>& indices2 = pointIndices2[theta][phi];
 
-            // only fit gaussians if there enough points from both scans 1 and 2 in the cell 
-            // if ((indices2.size() > n) && (indices1.size() > n)) {
-            if ((indices2.size() > n) && (indices1.size() > n) && (clusterBounds.row(numBinsTheta*phi + theta)[5] > 1)) { //U and L won't exist if no useful bin in scan1
-                // Use the indices to access the corresponding rows in sortedPointsSpherical
-                // when not re-sorting by radial distance after each update of X
-                MatrixXf selectedPoints2 = MatrixXf::Zero(indices2.size(), pointsSpherical2.cols());
-                for (int i = 0; i < indices2.size(); ++i) {
-                    selectedPoints2.row(i) = pointsSpherical2.row(indices2[i]);
-                }
+    //         //get cell j's contribution to HTWH and HTWdz for iteration i
+    //         std::tuple<Eigen::MatrixXf, Eigen::MatrixXf> result = fitCells2(indices1, indices2, theta, phi);
+    //         Eigen::MatrixXf HTWH_j = std::get<0>(result);
+    //         Eigen::MatrixXf HTWdz_j = std::get<1>(result);
+    //         HTWH_i += HTWH_j;
+    //         HTWdz_i += HTWdz_j;
+    //     }
+    // }
 
-                // find points from first scan inside voxel bounds and fit gaussians to each cluster
-                MatrixXf filteredPoints2 = filterPointsInsideCluster(selectedPoints2, clusterBounds.row(numBinsTheta*phi + theta));
-                // std::cout << "\n number of points from scan 2 inside bounds: " << filteredPoints2.size()/3 << endl;
-                // only carry on if there are enough points from scan2 actually inside the radial bounds
-
-                if (filteredPoints2.size()/3 > n){
-                    MatrixXf filteredPointsCart2 = utils::sphericalToCartesian(filteredPoints2);
-                    Eigen::VectorXf mean = filteredPointsCart2.colwise().mean();
-                    Eigen::MatrixXf centered = filteredPointsCart2.rowwise() - mean.transpose();
-                    Eigen::MatrixXf covariance = (centered.adjoint() * centered) / static_cast<float>(filteredPointsCart2.rows() - 1);
-
-                    //hold on to means and covariances of clusters from scan1
-                    sigma2[theta][phi] = covariance;
-                    mu2[theta][phi] = mean;
-                    
-                    //add contributions to HTWH
-                    // Get noise components
-                    // TODO: the current weighting is slightly incorrect-- indices1.size() includes the number of all points in the radial bin (not just the ones within radial bounds)
-                    Eigen::MatrixXf R_noise(3,3);
-                    // cout << filteredPoints2.size() << endl;
-                    // cout << indices2.size() << endl;
-                    R_noise << (sigma1[theta][phi] / (indices1.size() - 1)) + (sigma2[theta][phi] / (indices2.size()-1)); //supposed to be this
-                    // cout << "\n R_noise before projection: \n" << R_noise << endl;
-
-                    // use projection matrix to remove extended directions
-                    R_noise = L[theta][phi] * U[theta][phi].transpose() * R_noise * U[theta][phi] * L[theta][phi].transpose(); //was this in python
-                    // cout << "R_noise after projection: \n" << R_noise << endl;
-
-                    // pinv noise to get weighting
-                    // Compute the complete orthogonal decomposition (COD) of A
-                    Eigen::CompleteOrthogonalDecomposition<Eigen::MatrixXf> cod(R_noise);
-                    Eigen::MatrixXf W = cod.pseudoInverse();
-                    // cout << "W: \n" << W << endl;
-
-                    //get H matrix for voxel j
-                    Eigen::Vector3f angs;
-                    angs << X[3], X[4], X[5];
-                    // cout << "mu2" << mu2[theta][phi] << endl;
-                    Eigen::MatrixXf H_j = get_H(mu2[theta][phi], angs); //working correctly (same output as python code)
-                    // cout <<  "\n H_j: \n " << H_j << endl;
-
-                    //suppress rows of H corresponding to overly extended directions
-                    Eigen::MatrixXf H_z = L[theta][phi] * U[theta][phi].transpose() * H_j;
-                    // cout << "\n L: \n" << L[theta][phi] << "\n H_z: \n" << H_z << endl;
-
-                    //put together HTWH for voxel j and contribute to total HTWH_i (for all voxels of current iteration)
-                    Eigen::MatrixXf HTWH_j = H_z.transpose() * W * H_z;
-                    // Eigen::MatrixXf HTWH_j = H_j.transpose() * W * H_j; //test
-                    HTWH_i += HTWH_j;
-                    // std::cout << "HTWH_j: \n" << HTWH_j <<endl;
-                    // std::cout << "HTWH_i: \n" << HTWH_i << "\n" <<endl;
-
-                    // get compact residuals between means of distributions from scans 1 and 2
-                    Eigen::Vector3f z1 = L[theta][phi] * U[theta][phi].transpose() * mu1[theta][phi];
-                    Eigen::Vector3f z2 = L[theta][phi] * U[theta][phi].transpose() * mu2[theta][phi];
-                    Eigen::Vector3f dz = z2-z1;
-                    HTWdz_i += H_z.transpose() * W * dz; 
-
-                    c++;
-                    //update for drawing
-                    float alpha2 = 0.3f;
-                    ellipsoid2Means.push_back(mean);
-                    ellipsoid2Covariances.push_back(covariance);
-                    ellipsoid2Alphas.push_back(alpha2);
-                }
-            }
-        }
-    }
+    //fit gaussians (thread pool)
+    parallelFitCells2(pointIndices1, pointIndices2, numBinsPhi, numBinsTheta);
 
     // //Check condition for HTWH to suppress globally ambiguous components ~~~~~~~~~~~
-    // auto result = checkCondition(HTWH_i);
-    // MatrixXf L2 = get<0>(result);
-    // MatrixXf lam = get<1>(result);
-    // MatrixXf U2 = get<2>(result);
+    auto result = checkCondition(HTWH_i);
+    MatrixXf L2 = get<0>(result);
+    MatrixXf lam = get<1>(result);
+    MatrixXf U2 = get<2>(result);
 
-    // // dx = (pinv(L2 * lam * U2.T) * L2 * U2.T() ) * HTWdz_i;
-    // // get pseudoinverse of inner parts
-    // Eigen::MatrixXf innards = L2 * lam * U2.transpose(); 
-    // Eigen::CompleteOrthogonalDecomposition<Eigen::MatrixXf> cod(innards);
-    // Eigen::MatrixXf inverted_innards = cod.pseudoInverse();
-    // dx = (inverted_innards * L2 * U2.transpose() ) * HTWdz_i;
-
-    // for debug: directly find solution without suppressing globally ambiguous axis ~~~~~~
-    // standard inverse
-    dx = HTWH_i.inverse() * HTWdz_i;
+    // dx = (pinv(L2 * lam * U2.T) * L2 * U2.T() ) * HTWdz_i;
+    // get pseudoinverse of inner parts
+    Eigen::MatrixXf innards = L2 * lam * U2.transpose(); 
+    Eigen::CompleteOrthogonalDecomposition<Eigen::MatrixXf> cod(innards);
+    Eigen::MatrixXf inverted_innards = cod.pseudoInverse();
+    dx = (inverted_innards * L2 * U2.transpose() ) * HTWdz_i;
     
-    // pseudoinverse -- needed for when there are globally ambiguous components
-    Eigen::CompleteOrthogonalDecomposition<Eigen::MatrixXf> asdf(HTWH_i);
-    Eigen::MatrixXf HTWH_i_inverse = asdf.pseudoInverse();
-    std::cout << "HTWH_i_inverse: \n" << HTWH_i_inverse <<endl;
-    std::cout << "HTWdz_i: \n" << HTWdz_i <<endl;
-    dx = HTWH_i_inverse * HTWdz_i;
-    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-
-
     // std::cout << "dx: \n " << dx << endl;
     X += dx;
     std::cout << "X: \n " << X << endl;
@@ -419,6 +450,45 @@ void ICET::fitScan2(){
 void ICET::step(){
     cout << "rl: " << rl << endl;
     rl--;
+}
+
+tuple<MatrixXf, MatrixXf, MatrixXf> ICET::checkCondition(MatrixXf HTWH){
+    //function for checking condition number of HTWH
+    //      if not enough information present (i.e. any compoenents are globally ambiguous) create additional axis pruning matrix
+
+    // L2 = identity matrix which keeps non-extended axis of solution [n, 6]
+    //      n = number of non-globally ambiguous axis 
+    // lam = diagonal eigenvalue matrix [6,6]
+    // U2 = rotation matrix to transform for L2 pruning [6, 6]
+
+    //higher than this threshold and there is not enough information about a solution component to invert HTWH 
+    float cutoff = 1e6;
+
+    Eigen::SelfAdjointEigenSolver<Eigen::MatrixXf> eigensolver(HTWH);
+    Eigen::MatrixXf U2 = eigensolver.eigenvectors().real();
+    // Eigen::MatrixXf U2 = eigensolver.eigenvectors().real().transpose(); //test
+    Eigen::VectorXf eigenvalues = eigensolver.eigenvalues().real();
+
+    // std::cout << "\n eigenvalues: \n" << eigenvalues << endl;
+    float condition = eigenvalues(5) / eigenvalues(0);
+    // std::cout << "\n OG condition: " << condition << endl;
+
+    MatrixXf L2(6,6);
+    L2.setIdentity();
+
+    //chop off the top row of the eye matrix unit condition drops below desired threshold
+    int eyecount = 1;
+    while (std::abs(condition) > cutoff){
+        L2.block(0, 0, L2.rows() - 1, L2.cols()) = L2.block(1, 0, L2.rows() - 1, L2.cols());
+        L2.conservativeResize(L2.rows() - 1, Eigen::NoChange);
+        condition = eigenvalues(5) / eigenvalues(eyecount);
+        eyecount++;
+    }
+
+    Eigen::MatrixXf lam = eigenvalues.asDiagonal();
+
+    return make_tuple(L2, lam, U2);
+
 }
 
 MatrixXf ICET::get_H(Eigen::Vector3f mu, Eigen::Vector3f angs){

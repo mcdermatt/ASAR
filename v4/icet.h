@@ -53,7 +53,15 @@ public:
 
     void fitCells1(const std::vector<int>& indices, int theta, int phi);
 
+    std::tuple<Eigen::MatrixXf, Eigen::MatrixXf> fitCells2(const std::vector<int>& indices1, const std::vector<int>& indices2, int theta, int phi);
+
+    void parallelFitCells2(const std::vector<std::vector<std::vector<int>>>& pointIndices1,
+                       const std::vector<std::vector<std::vector<int>>>& pointIndices2,
+                       int numBinsPhi, int numBinsTheta);
+
     Eigen::MatrixXf get_H(Eigen::Vector3f mu, Eigen::Vector3f angs);
+
+    std::tuple<Eigen::MatrixXf, Eigen::MatrixXf, Eigen::MatrixXf> checkCondition(Eigen::MatrixXf HTWH);
 
     //algorithm params
     int rl;
@@ -70,6 +78,8 @@ public:
     Eigen::MatrixXf points2Spherical;
     Eigen::MatrixXf clusterBounds;
     Eigen::MatrixXf testPoints;
+    Eigen::MatrixXf HTWH_i;
+    Eigen::MatrixXf HTWdz_i; 
 
     CovarianceMap sigma1;
     CovarianceMap sigma2;
@@ -80,9 +90,8 @@ public:
     std::vector<std::vector<std::vector<int>>> pointIndices1;
     std::vector<std::vector<std::vector<int>>> pointIndices2;
 
-    int occupiedCount; //debug
+    int occupiedCount; //for debug
 
-    // state vector X--- [x, y, z, phi, theta, psi]
     Eigen::VectorXf X; //global solution vector
     Eigen::VectorXf X0; //initial estimate
     Eigen::VectorXf dx; //linear perterbation to X solved for during each iteration

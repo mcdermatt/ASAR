@@ -118,10 +118,10 @@ void visualization::handleMouse(int button, int state, int x, int y) {
 
     // Check if the mouse button is a scroll wheel event
     if (button == 3) { // Scroll up
-        cameraDistance *= 0.9;
+        cameraDistance *= 0.95;
         glutPostRedisplay();
     } else if (button == 4) { // Scroll down
-        cameraDistance *= 1.1;
+        cameraDistance *= 1.05;
         glutPostRedisplay();
     }
 
@@ -153,27 +153,17 @@ void visualization::handleMotion(int x, int y) {
 
     if (isPanning) {
         float factor = 0.01f; // Adjust this factor to control panning speed
-
         // Calculate the right vector (camera's local X axis)
         float rightX = -cos(cameraAngleY * M_PI / 180.0);
         float rightY = sin(cameraAngleY * M_PI / 180.0);
         float rightZ = 0.0f;
-
         // Calculate the up vector (camera's local Y axis)
         float upX = sin(cameraAngleY * M_PI / 180.0) * sin(cameraAngleX * M_PI / 180.0);
         float upY = cos(cameraAngleY * M_PI / 180.0) * sin(cameraAngleX * M_PI / 180.0);
         float upZ = cos(cameraAngleX * M_PI / 180.0);
-
-        // Adjust center based on the mouse movement
         centerX -= dx * factor * rightX + dy * factor * upX;
         centerY -= dx * factor * rightY + dy * factor * upY;
         centerZ += dx * factor * rightZ + dy * factor * upZ;
-
-
-        // Debug print statements
-        std::cout << "Panning: dx = " << dx << ", dy = " << dy << std::endl;
-        std::cout << "Center: (" << centerX << ", " << centerY << ", " << centerZ << ")" << std::endl;
-        std::cout << "Camera Angles: (" << cameraAngleX << ", " << cameraAngleY << ")" << std::endl;
 
         glutPostRedisplay();
     }

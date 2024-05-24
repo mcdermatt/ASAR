@@ -24,11 +24,11 @@ int main(){
     // std::string csvFilePath2 = "/home/derm/rosbag/desk_test_21.txt";
     // string datasetType = "txt";
 
-    Eigen::MatrixXf new1 = utils::loadPointCloudCSV(csvFilePath1, datasetType);
-    Eigen::MatrixXf new2 = utils::loadPointCloudCSV(csvFilePath2, datasetType);
+    Eigen::MatrixXf scan1 = utils::loadPointCloudCSV(csvFilePath1, datasetType);
+    Eigen::MatrixXf scan2 = utils::loadPointCloudCSV(csvFilePath2, datasetType);
 
-    int rl = 5;
-    ICET it(new1, new2, rl);
+    int run_length = 7;
+    ICET it(scan1, scan2, run_length);
 
     viz.points1 = it.points1;
     viz.points2 = it.points2;
