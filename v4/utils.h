@@ -13,6 +13,8 @@ namespace utils {
 
     Eigen::MatrixXf sphericalToCartesian(const Eigen::MatrixXf& sphericalPoints);
 
+    Eigen::Matrix3f R(float phi, float theta, float psi);
+
 }
 
 #endif 

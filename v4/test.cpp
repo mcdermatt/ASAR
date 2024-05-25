@@ -27,15 +27,25 @@ int main(){
     Eigen::MatrixXf scan1 = utils::loadPointCloudCSV(csvFilePath1, datasetType);
     Eigen::MatrixXf scan2 = utils::loadPointCloudCSV(csvFilePath2, datasetType);
 
+    auto before = std::chrono::system_clock::now();
+    auto beforeMs = std::chrono::time_point_cast<std::chrono::milliseconds>(before);
+
     int run_length = 7;
-    ICET it(scan1, scan2, run_length);
+    Eigen::VectorXf X0;
+    X0.resize(6);
+    X0 << 1., 0., 0., 0., 0., 0.; //set initial estimate
+    ICET it(scan1, scan2, run_length, X0);
+    Eigen::VectorXf X = it.X;
+    cout << "soln: " << endl << X;
+
+    auto afterAll = std::chrono::system_clock::now();
+    auto afterAllMs = std::chrono::time_point_cast<std::chrono::milliseconds>(afterAll);
+    auto elapsedTimeAllMs = std::chrono::duration_cast<std::chrono::milliseconds>(afterAllMs - beforeMs).count();
+    std::cout << "Whole process took: " << elapsedTimeAllMs << " ms" << std::endl;
 
     viz.points1 = it.points1;
     viz.points2 = it.points2;
     viz.clusterBounds = it.clusterBounds;
-
-    // cout << "filled ells inside main:  "<< it.ellipsoid1Means.size() << endl;
-    // cout << "occupied count: " << it.occupiedCount << endl;
 
     // //set covariance ellipsoids
     viz.ellipsoid1Means = it.ellipsoid1Means;

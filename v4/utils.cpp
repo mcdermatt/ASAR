@@ -202,4 +202,14 @@ namespace utils{
         return cartesianPoints;
     }
 
+    Eigen::Matrix3f R(float phi, float theta, float psi){
+        //given body frame xyz euler angles [phi, theta, psi], return 3x3 rotation matrix
+        MatrixXf mat(3,3); 
+        mat << cos(theta)*cos(psi), sin(psi)*cos(phi)+sin(phi)*sin(theta)*cos(psi), sin(phi)*sin(psi)-sin(theta)*cos(phi)*cos(psi),
+            -sin(psi)*cos(theta), cos(phi)*cos(psi)-sin(phi)*sin(theta)*sin(psi), sin(phi)*cos(psi)+sin(theta)*sin(psi)*cos(phi),
+            sin(theta), -sin(phi)*cos(theta), cos(phi)*cos(theta);
+
+        return mat;
+    }
+
 }

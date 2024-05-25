@@ -27,9 +27,9 @@ void do_work(const int vec_size){
 
 
 int main() {
-    const int num_threads = 8;
-    const int num_calls = 512;
-    const int vec_size = 10'000;
+    const int num_threads = 4;
+    const int num_calls = 128;
+    const int vec_size = 1'000;
     cout << num_calls << " function calls for vec size " << vec_size << endl;
 
     //for single thread ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

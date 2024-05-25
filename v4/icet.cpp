@@ -29,7 +29,7 @@ using namespace Eigen;
 using namespace std;
 
 // Constructor implementation
-ICET::ICET(MatrixXf scan1, MatrixXf scan2, int runlen) : points1(scan1), points2(scan2), rl(runlen), pool(4) {
+ICET::ICET(MatrixXf& scan1, MatrixXf& scan2, int runlen, Eigen::VectorXf X0) : points1(scan1), points2(scan2), rl(runlen), X(X0), pool(4) {
 
     // init hyperparameters
     numBinsPhi = 24; //50;  // Adjust the number of bins as needed
@@ -38,35 +38,16 @@ ICET::ICET(MatrixXf scan1, MatrixXf scan2, int runlen) : points1(scan1), points2
     thresh = 0.3; // 0.1 indoor, 0.3 outdoor; // Jump threshold for beginning and ending radial clusters
     buff = 0.5; // 0.1 indoor, outdoor 0.5; //buffer to add to inner and outer cluster range (helps attract nearby distributions)
 
-    X0.resize(6);
-    X.resize(6);
-    X0 << 0., 0., 0, 0, 0.0, 0.;
-    X << 0., 0., 0, 0, 0.0, 0.;
     points2_OG = points2;
     HTWH_i.resize(6,6);
     HTWdz_i.resize(6,1);
 
-    occupiedCount = 0; //debug
-
     clusterBounds.resize(numBinsPhi*numBinsTheta,6);
     testPoints.resize(numBinsPhi*numBinsTheta*6,3);
 
-    auto before = std::chrono::system_clock::now();
-    auto beforeMs = std::chrono::time_point_cast<std::chrono::milliseconds>(before);
-
     fitScan1();
-
-    auto after1 = std::chrono::system_clock::now();
-    auto after1Ms = std::chrono::time_point_cast<std::chrono::milliseconds>(after1);
-    auto elapsedTimeMs = std::chrono::duration_cast<std::chrono::milliseconds>(after1Ms - beforeMs).count();
-    std::cout << "Fit spherical voxels and guassians for scan 1 in: " << elapsedTimeMs << " ms" << std::endl;
-
     prepScan2();
-
-    //main loop here
-    for (int iter=0; iter<rl; iter++){
-        fitScan2();
-    }
+    for (int iter=0; iter<rl; iter++){fitScan2();}
 
     // // if we want to threadpool fig gaussians in scan2, we can't draw ellipsoids for scan2 
     // //update visualization for scan2 ellipsoids
@@ -81,11 +62,6 @@ ICET::ICET(MatrixXf scan1, MatrixXf scan2, int runlen) : points1(scan1), points2
     //         ellipsoid2Alphas.push_back(0.3f);
     //     }
     // }
-
-    auto afterAll = std::chrono::system_clock::now();
-    auto afterAllMs = std::chrono::time_point_cast<std::chrono::milliseconds>(afterAll);
-    auto elapsedTimeAllMs = std::chrono::duration_cast<std::chrono::milliseconds>(afterAllMs - beforeMs).count();
-    std::cout << "Whole process took: " << elapsedTimeAllMs << " ms" << std::endl;
 
 }
 
@@ -157,7 +133,6 @@ void ICET::fitCells1(const vector<int>& indices, int theta, int phi){
     // only calculate inner/outer bounds if there are a sufficient number of points in the spike 
     if (indices.size() >= n) {
 
-        occupiedCount++;
         // Use the indices to access the corresponding rows in sortedPointsSpherical
         MatrixXf selectedPoints = MatrixXf::Zero(indices.size(), points1Spherical.cols());
         //TODO bug here--->
@@ -279,7 +254,11 @@ void ICET::fitCells1(const vector<int>& indices, int theta, int phi){
 
 void ICET::prepScan2(){
 
-    //TODO: apply x0 here(?) to get a slightly better radial sorting
+    // //apply x0 here to get slightly better radial sorting (since we only do it once for scan2)
+    // MatrixXf rot_mat = utils::R(X[3], X[4], X[5]); 
+    // Eigen::RowVector3f trans(X[0], X[1], X[2]);
+    // points2 = points2_OG.rowwise() + trans;
+    // points2 = points2 * rot_mat;
 
     //sort radially only once at begninning of process
     points2Spherical = utils::cartesianToSpherical(points2);
@@ -392,7 +371,7 @@ void ICET::parallelFitCells2(const std::vector<std::vector<std::vector<int>>>& p
 }
 
 void ICET::fitScan2(){
-    
+
     // apply transformation to points2 (takes ~0.4ms)
     MatrixXf rot_mat = utils::R(X[3], X[4], X[5]); 
     Eigen::RowVector3f trans(X[0], X[1], X[2]);
@@ -443,7 +422,7 @@ void ICET::fitScan2(){
     
     // std::cout << "dx: \n " << dx << endl;
     X += dx;
-    std::cout << "X: \n " << X << endl;
+    // std::cout << "X: \n " << X << endl;
 
 }
 
