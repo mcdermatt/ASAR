@@ -42,6 +42,7 @@ def posenc(x, embed_dims):
 
 #2**18 is waaaaay too fine to learn anything on most of the channels!?!
 # L_embed =  5 #18 #15 #10 #6
+pos_embed_dims = 14 #14 #15
 embed_fn = posenc
 
 def init_model(D=8, W=256): #8,256
@@ -50,9 +51,9 @@ def init_model(D=8, W=256): #8,256
     dense = lambda W=W, act=relu : tf.keras.layers.Dense(W, activation=act, kernel_initializer='glorot_uniform')
 
 #     inputs = tf.keras.Input(shape=(3 + 3*2*L_embed)) #old (embed everything together)
-    inputs = tf.keras.Input(shape=(6 + 3*2*(4) + 3*2*(14))) #new (embedding dims (4) and (10) )
+    inputs = tf.keras.Input(shape=(6 + 3*2*(4) + 3*2*(pos_embed_dims))) #new (embedding dims (4) and (10) )
     # outputs = inputs #old
-    outputs = inputs[:,:(3+3*2*(14))] #only look at positional stuff for now
+    outputs = inputs[:,:(3+3*2*(pos_embed_dims))] #only look at positional stuff for now
 
     #try removing view dependant effects from density 
 
@@ -61,11 +62,11 @@ def init_model(D=8, W=256): #8,256
         outputs = tf.keras.layers.LayerNormalization()(outputs) #as recomended by LOC-NDF 
         
         if i%4==0 and i>0:
-            outputs = tf.concat([outputs, inputs[:,:(3+3*2*(14))]], -1)
+            outputs = tf.concat([outputs, inputs[:,:(3+3*2*(pos_embed_dims))]], -1)
 
     #extend small MLP after output of density channel to get ray drop
     sigma_channel = dense(1, act=None)(outputs)    
-    rd_start = tf.concat([outputs, inputs[:,(3+3*2*(14)):]], -1)
+    rd_start = tf.concat([outputs, inputs[:,(3+3*2*(pos_embed_dims)):]], -1)
     rd_channel = dense(256, act=relu)(outputs) #OG NeRF structure
     # rd_channel = dense(256, act=relu)(outputs) #test adding another channel
     rd_channel = dense(128, act=relu)(rd_channel)
@@ -90,35 +91,36 @@ def get_rays(H, W, c2w, phimin_patch, phimax_patch):
     i, j = tf.meshgrid(tf.range(W, dtype=tf.float32), tf.range(H, dtype=tf.float32), indexing='xy')
 
     #~~~~~~~~~~~~~~~~~~~~~~~~~
-    #Cylindrical projection model (new)
-    dirs_test = tf.stack([-tf.ones_like(i), #r
-                      #theta
-                      # (i - (1024//(2*n_rots)))  /(2048//(2*n_rots)) * (2*np.pi/n_rots) + np.pi, #for uninterpolated images
-                      (i - (W//2))  /(W) * (2*np.pi/(1024//W)) + np.pi, #just use W
-                      #phi
-                      # (phimax_patch + phimin_patch)/2 - ((-j+((H-1)/2))/(H-1))*(phimax_patch-phimin_patch) #-np.pi/2 #using 5/1
-                     np.arcsin((phimax_patch + phimin_patch)/2 - ((-j+((H-1)/2))/(H-1))*(phimax_patch-phimin_patch)) #-np.pi/2 #TEST
-                     ], -1)
-    dirs_test = tf.reshape(dirs_test,[-1,3])
-    dirs_test = cylindrical_to_cartesian(dirs_test)
+    # #Cylindrical projection model (new) -- working better 5/27
+    # dirs_test = tf.stack([-tf.ones_like(i), #r
+    #                   #theta
+    #                   # (i - (1024//(2*n_rots)))  /(2048//(2*n_rots)) * (2*np.pi/n_rots) + np.pi, #for uninterpolated images
+    #                   (i - (W//2))  /(W) * (2*np.pi/(1024//W)) + np.pi, #just use W
+    #                   #phi
+    #                   # (phimax_patch + phimin_patch)/2 - ((-j+((H-1)/2))/(H-1))*(phimax_patch-phimin_patch) #-np.pi/2 #using 5/1
+    #                  np.arcsin((phimax_patch + phimin_patch)/2 - ((-j+((H-1)/2))/(H-1))*(phimax_patch-phimin_patch)) #-np.pi/2 #TEST
+    #                  ], -1)
+    # dirs_test = tf.reshape(dirs_test,[-1,3])
+    # dirs_test = cylindrical_to_cartesian(dirs_test)
     
     #~~~~~~~~~~~~~~~~~~~~~~~~~
-    # #Spherical projection model (old)
-    # #[r, theta, phi]
-    # dirs_test = tf.stack([-tf.ones_like(i), #r
-    #                       #theta
-    #                         (i - (W//2))  /(W) * (2*np.pi/(1024//W)), #just use W
-    #                       #phi
-    #                       #need to manually account for elevation angle of patch 
-    #                       #  (can not be inferred from c2w since that does not account for singularities near "poles" of spherical projection)
-    #                       # (phimax_patch + phimin_patch)/2 + ((-j+(H/2))/(H))*(phimax_patch-phimin_patch) -np.pi/2 #slightly wrong
-    #                     (phimax_patch + phimin_patch)/2 - ((-j+((H-1)/2))/(H-1))*(phimax_patch-phimin_patch) -np.pi/2 #using 5/1
-    #                     # (phimax_patch + phimin_patch)/2 + ((-j+((H-1)/2))/(H-1))*(phimax_patch-phimin_patch) -np.pi/2 #TEST--flip order within patch
-    #                     #TEST--linear spacing in elevation angle (not vertical translation)
-    #                     # np.arcsin((phimax_patch + phimin_patch)/2 - ((-j+((H-1)/2))/(H-1))*(phimax_patch-phimin_patch)) -np.pi/2 
-    #                      ], -1)
-    # dirs_test = tf.reshape(dirs_test,[-1,3])
-    # dirs_test = spherical_to_cartesian(dirs_test)
+    #Spherical projection model (old)
+    #[r, theta, phi]
+    dirs_test = tf.stack([-tf.ones_like(i), #r
+                          #theta
+                            (i - (W//2))  /(W) * (2*np.pi/(1024//W)), #just use W
+                          #phi
+                          #need to manually account for elevation angle of patch 
+                          #  (can not be inferred from c2w since that does not account for singularities near "poles" of spherical projection)
+                          # (phimax_patch + phimin_patch)/2 + ((-j+(H/2))/(H))*(phimax_patch-phimin_patch) -np.pi/2 #slightly wrong
+                        # (phimax_patch + phimin_patch)/2 - ((-j+((H-1)/2))/(H-1))*(phimax_patch-phimin_patch) -np.pi/2 #using 5/1
+                        -((phimax_patch + phimin_patch)/2 - ((-j+((H-1)/2))/(H-1))*(phimax_patch-phimin_patch)) -np.pi/2 #Seems to fix issue with z axis translation flip!
+                         ], -1)
+    dirs_test = tf.reshape(dirs_test,[-1,3])
+    dirs_test = spherical_to_cartesian(dirs_test)
+
+    #TEST
+    # dirs_test[:,3] = -dirs_test[:,3]
 
     #~~~~~~~~~~~~~~~~~~~~~~~~~
     
@@ -156,7 +158,7 @@ def render_rays(network_fn, rays_o, rays_d, z_vals):
 
     ray_pos = rays_o[...,None,:] + rays_d[...,None,:] * z_vals
     ray_pos_flat = tf.reshape(ray_pos, [-1, 3])
-    encoded_ray_pos = embed_fn(ray_pos_flat, 14) #10 embedding dims for pos
+    encoded_ray_pos = embed_fn(ray_pos_flat, pos_embed_dims) #10 embedding dims for pos
     ray_dir = tf.reshape(rays_d[..., None,:]*tf.ones_like(z_vals, dtype = tf.float32), [-1,3]) #test
     encoded_ray_dir = embed_fn(ray_dir, 4)  # embedding dims for dir
 
@@ -245,7 +247,7 @@ def calculate_loss(depth, ray_drop, target, target_drop_mask):
 
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~        
 
-    lam1 = 100 #100 #100 #10 #100
+    lam1 = 0 #100 #100 #10 #100
     lam2 = 1 #1/(64**2)
     loss = L_dist + lam1*L_reg + lam2*L_raydrop       
 
