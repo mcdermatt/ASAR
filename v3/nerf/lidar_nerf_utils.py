@@ -89,47 +89,36 @@ def cylindrical_to_cartesian(pts):
 def get_rays(H, W, c2w, phimin_patch, phimax_patch):
     i, j = tf.meshgrid(tf.range(W, dtype=tf.float32), tf.range(H, dtype=tf.float32), indexing='xy')
 
-    # phimin = np.deg2rad(-16)  #old
-    # phimax = np.deg2rad(17.75)
-    # phimin = np.deg2rad(-15.594) #used this for v10
-    # phimax = np.deg2rad(17.743)
-    # phimin = np.deg2rad(-5)  #TEST
-    # phimax = np.deg2rad(27)
-    # phimax = np.deg2rad(15.594) #test
-    # phimin = np.deg2rad(-17.743)    
     #~~~~~~~~~~~~~~~~~~~~~~~~~
-#     #Cylindrical projection model (new)
-#     dirs_test = tf.stack([-tf.ones_like(i), #r
-#                       #theta
-#                       # (i - (1024//(2*n_rots)))  /(2048//(2*n_rots)) * (2*np.pi/n_rots) + np.pi, #for uninterpolated images
-#                       (i - (W//2))  /(W) * (2*np.pi/(1024//W)) + np.pi, #just use W
-#                       #phi
-#                       # (phimax_patch + phimin_patch)/2 - ((-j+(32//n_vert_patches))/(64//n_vert_patches))*(phimax_patch-phimin_patch)
-#                       # (phimax_patch + phimin_patch)/2 + ((-j+(H/2))/(H))*(phimax_patch-phimin_patch) #- np.pi/2
-#                       (phimax_patch + phimin_patch)/2 - ((-j+((H-1)/2))/(H-1))*(phimax_patch-phimin_patch) #-np.pi/2 #using 5/1
-#                      ], -1)
-#     dirs_test = tf.reshape(dirs_test,[-1,3])
-# #     dirs_test = LC.s2c(LC, dirs_test)    #was this
-# #     dirs_test = spherical_to_cartesian(dirs_test)  #does the same thing
-#     dirs_test = cylindrical_to_cartesian(dirs_test)  #test
+    #Cylindrical projection model (new)
+    dirs_test = tf.stack([-tf.ones_like(i), #r
+                      #theta
+                      # (i - (1024//(2*n_rots)))  /(2048//(2*n_rots)) * (2*np.pi/n_rots) + np.pi, #for uninterpolated images
+                      (i - (W//2))  /(W) * (2*np.pi/(1024//W)) + np.pi, #just use W
+                      #phi
+                      # (phimax_patch + phimin_patch)/2 - ((-j+((H-1)/2))/(H-1))*(phimax_patch-phimin_patch) #-np.pi/2 #using 5/1
+                     np.arcsin((phimax_patch + phimin_patch)/2 - ((-j+((H-1)/2))/(H-1))*(phimax_patch-phimin_patch)) #-np.pi/2 #TEST
+                     ], -1)
+    dirs_test = tf.reshape(dirs_test,[-1,3])
+    dirs_test = cylindrical_to_cartesian(dirs_test)
     
     #~~~~~~~~~~~~~~~~~~~~~~~~~
-    #Spherical projection model (old)
-    #[r, theta, phi]
-    dirs_test = tf.stack([-tf.ones_like(i), #r
-                          #theta
-                            (i - (W//2))  /(W) * (2*np.pi/(1024//W)), #just use W
-                        # (i - (W//2))  /(W) * (2*np.pi/(128//W)), #scale down for debug
-                          #phi
-                          #need to manually account for elevation angle of patch 
-                          #  (can not be inferred from c2w since that does not account for singularities near "poles" of spherical projection)
-                          # (phimax_patch + phimin_patch)/2 + ((-j+(H/2))/(H))*(phimax_patch-phimin_patch) -np.pi/2 #slightly wrong
-                        # (phimax_patch + phimin_patch)/2 + ((-j+((H-1)/2))/(H-1))*(phimax_patch-phimin_patch) -np.pi/2 #better!
-                        (phimax_patch + phimin_patch)/2 - ((-j+((H-1)/2))/(H-1))*(phimax_patch-phimin_patch) -np.pi/2 #using 5/1
-                        # (phimax_patch + phimin_patch)/2 + ((-j+((H-1)/2))/(H-1))*(phimax_patch-phimin_patch) -np.pi/2 #TEST--flip order within patch
-                         ], -1)
-    dirs_test = tf.reshape(dirs_test,[-1,3])
-    dirs_test = LC.s2c(LC, dirs_test)     
+    # #Spherical projection model (old)
+    # #[r, theta, phi]
+    # dirs_test = tf.stack([-tf.ones_like(i), #r
+    #                       #theta
+    #                         (i - (W//2))  /(W) * (2*np.pi/(1024//W)), #just use W
+    #                       #phi
+    #                       #need to manually account for elevation angle of patch 
+    #                       #  (can not be inferred from c2w since that does not account for singularities near "poles" of spherical projection)
+    #                       # (phimax_patch + phimin_patch)/2 + ((-j+(H/2))/(H))*(phimax_patch-phimin_patch) -np.pi/2 #slightly wrong
+    #                     (phimax_patch + phimin_patch)/2 - ((-j+((H-1)/2))/(H-1))*(phimax_patch-phimin_patch) -np.pi/2 #using 5/1
+    #                     # (phimax_patch + phimin_patch)/2 + ((-j+((H-1)/2))/(H-1))*(phimax_patch-phimin_patch) -np.pi/2 #TEST--flip order within patch
+    #                     #TEST--linear spacing in elevation angle (not vertical translation)
+    #                     # np.arcsin((phimax_patch + phimin_patch)/2 - ((-j+((H-1)/2))/(H-1))*(phimax_patch-phimin_patch)) -np.pi/2 
+    #                      ], -1)
+    # dirs_test = tf.reshape(dirs_test,[-1,3])
+    # dirs_test = spherical_to_cartesian(dirs_test)
 
     #~~~~~~~~~~~~~~~~~~~~~~~~~
     
@@ -256,7 +245,7 @@ def calculate_loss(depth, ray_drop, target, target_drop_mask):
 
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~        
 
-    lam1 = 0 #100 #100 #10 #100
+    lam1 = 100 #100 #100 #10 #100
     lam2 = 1 #1/(64**2)
     loss = L_dist + lam1*L_reg + lam2*L_raydrop       
 
@@ -408,11 +397,10 @@ def spherical_to_cartesian(pts):
     # out = tf.Variable([x, y, z])
     return(out)
 
-#test
 def cylindrical_to_cartesian(pts):
 
-    x = pts[:,0]*tf.math.cos(pts[:,1])
-    y = pts[:,0]*tf.math.sin(pts[:,1]) 
+    x = pts[:,0]*tf.math.cos(pts[:,1]) #old
+    y = pts[:,0]*tf.math.sin(pts[:,1]) #old
     z = pts[:,2]
 
     out = tf.transpose(tf.Variable([x, y, z]))
