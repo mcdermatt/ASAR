@@ -31,10 +31,13 @@ int main(){
     auto beforeMs = std::chrono::time_point_cast<std::chrono::milliseconds>(before);
 
     int run_length = 7;
+    int numBinsPhi = 24;
+    // int numBinsPhi = 18; //for 32 channel sensor
+    int numBinsTheta = 75; 
     Eigen::VectorXf X0;
     X0.resize(6);
     X0 << 1., 0., 0., 0., 0., 0.; //set initial estimate
-    ICET it(scan1, scan2, run_length, X0);
+    ICET it(scan1, scan2, run_length, X0, numBinsPhi, numBinsTheta);
     Eigen::VectorXf X = it.X;
     cout << "soln: " << endl << X;
 

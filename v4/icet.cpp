@@ -29,11 +29,11 @@ using namespace Eigen;
 using namespace std;
 
 // Constructor implementation
-ICET::ICET(MatrixXf& scan1, MatrixXf& scan2, int runlen, Eigen::VectorXf X0) : points1(scan1), points2(scan2), rl(runlen), X(X0), pool(4) {
+ICET::ICET(MatrixXf& scan1, MatrixXf& scan2, int runlen, Eigen::VectorXf X0,
+           int num_bins_phi, int num_bins_theta) : points1(scan1), points2(scan2), rl(runlen), X(X0), 
+           numBinsPhi(num_bins_phi), numBinsTheta(num_bins_theta), pool(4) {
 
-    // init hyperparameters
-    numBinsPhi = 24; //50;  // Adjust the number of bins as needed
-    numBinsTheta = 75; //100; // Adjust the number of bins as needed
+    // init hyperparameters for spherical voxels
     n = 10; //50; // min size of the cluster
     thresh = 0.3; // 0.1 indoor, 0.3 outdoor; // Jump threshold for beginning and ending radial clusters
     buff = 0.5; // 0.1 indoor, outdoor 0.5; //buffer to add to inner and outer cluster range (helps attract nearby distributions)

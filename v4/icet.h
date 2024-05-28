@@ -34,7 +34,7 @@ using MeanMap = std::map<int, std::map<int, Eigen::Vector3f>>;
 class ICET{
 public:
     ICET(Eigen::MatrixXf& scan1, Eigen::MatrixXf& scan2, int runlen, 
-    Eigen::VectorXf X0);
+    Eigen::VectorXf X0, int num_bins_phi, int num_bins_theta);
     ~ICET();
 
     //avoid using static methods so we can run multiple ICETs at once?
@@ -92,7 +92,6 @@ public:
     std::vector<std::vector<std::vector<int>>> pointIndices2;
 
     Eigen::VectorXf X; //global solution vector
-    // Eigen::VectorXf X0; //initial estimate
     Eigen::VectorXf dx; //linear perterbation to X solved for during each iteration
 
     //for viz
