@@ -108,7 +108,9 @@ def get_rays(H, W, c2w, phimin_patch, phimax_patch):
     #[r, theta, phi]
     dirs_test = tf.stack([-tf.ones_like(i), #r
                           #theta
-                            (i - (W//2))  /(W) * (2*np.pi/(1024//W)), #just use W
+                            # (i - (W//2))  /(W) * (2*np.pi/(1024//W)), #old-- unequal split!
+                          # (i - ((W-1)/2))  /(W-1) * (2*np.pi/(1024//(W-1))), #test-- equal split
+                          (i - ((W-1)/2))  /(W) * (2*np.pi/(1024//(W))), #test-- slightly more accurate
                           #phi
                           #need to manually account for elevation angle of patch 
                           #  (can not be inferred from c2w since that does not account for singularities near "poles" of spherical projection)
