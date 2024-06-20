@@ -40,9 +40,10 @@ def posenc(x, embed_dims):
       rets.append(fn(2.**i * x))
   return tf.concat(rets, -1)
 
-#2**18 is waaaaay too fine to learn anything on most of the channels!?!
+#2**18 is below the sensor noise threshold??
 # L_embed =  5 #18 #15 #10 #6
-pos_embed_dims = 14 #14 #15
+pos_embed_dims = 14 #14
+rot_embed_dims = 4 #4
 embed_fn = posenc
 
 def init_model(D=8, W=256): #8,256
@@ -51,7 +52,7 @@ def init_model(D=8, W=256): #8,256
     dense = lambda W=W, act=relu : tf.keras.layers.Dense(W, activation=act, kernel_initializer='glorot_uniform')
 
 #     inputs = tf.keras.Input(shape=(3 + 3*2*L_embed)) #old (embed everything together)
-    inputs = tf.keras.Input(shape=(6 + 3*2*(4) + 3*2*(pos_embed_dims))) #new (embedding dims (4) and (10) )
+    inputs = tf.keras.Input(shape=(6 + 3*2*(rot_embed_dims) + 3*2*(pos_embed_dims))) #new (embedding dims (4) and (10) )
     # outputs = inputs #old
     outputs = inputs[:,:(3+3*2*(pos_embed_dims))] #only look at positional stuff for now
 
@@ -59,10 +60,11 @@ def init_model(D=8, W=256): #8,256
 
     for i in range(D):
         outputs = dense()(outputs)
-        outputs = tf.keras.layers.LayerNormalization()(outputs) #as recomended by LOC-NDF 
+        # outputs = tf.keras.layers.LayerNormalization()(outputs) #old
         
         if i%4==0 and i>0:
             outputs = tf.concat([outputs, inputs[:,:(3+3*2*(pos_embed_dims))]], -1)
+            outputs = tf.keras.layers.LayerNormalization()(outputs) #as recomended by LOC-NDF 
 
     #extend small MLP after output of density channel to get ray drop
     sigma_channel = dense(1, act=None)(outputs)    
@@ -147,22 +149,13 @@ def render_rays(network_fn, rays_o, rays_d, z_vals):
     def batchify(fn, chunk=1024*512): #1024*512 converged for v4 #1024*32 in TinyNeRF
         return lambda inputs : tf.concat([fn(inputs[i:i+chunk]) for i in range(0, inputs.shape[0], chunk)], 0)
 
-#     #Old version (pass in pts directly, no seperation of positions and directions) ~~~~~~
-#     #[image_height, image_width, batch_size, 3]
-#     pts = rays_o[...,None,:] + rays_d[...,None,:] * z_vals
-#     # Run network to estimate densities and ray drop 
-#     pts_flat = tf.reshape(pts, [-1,3])
-#     pts_flat = embed_fn(pts_flat)
-#     raw = batchify(network_fn)(pts_flat)
-#     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    #New version-- encode both positions and directions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    #Encode positions and directions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     ray_pos = rays_o[...,None,:] + rays_d[...,None,:] * z_vals
     ray_pos_flat = tf.reshape(ray_pos, [-1, 3])
     encoded_ray_pos = embed_fn(ray_pos_flat, pos_embed_dims) #10 embedding dims for pos
     ray_dir = tf.reshape(rays_d[..., None,:]*tf.ones_like(z_vals, dtype = tf.float32), [-1,3]) #test
-    encoded_ray_dir = embed_fn(ray_dir, 4)  # embedding dims for dir
+    encoded_ray_dir = embed_fn(ray_dir, rot_embed_dims)  # embedding dims for dir
 
 #     print("ray_pos", np.shape(ray_pos))
 #     print("ray_dir", np.shape(ray_dir))
@@ -172,9 +165,7 @@ def render_rays(network_fn, rays_o, rays_d, z_vals):
     encoded_both = tf.concat([encoded_ray_pos, encoded_ray_dir], axis = -1)
 #     print("encoded_both", np.shape(encoded_both))
     raw = batchify(network_fn)(encoded_both) #old
-
-    # print("raw", np.shape(raw))
-    
+    # print("raw", np.shape(raw))    
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # print("problem here: ", [ray_pos.shape[0],ray_pos.shape[1],-1,2])    
 #     raw = tf.reshape(raw, list(pts.shape[:-1]) + [2]) # [depth, ray drop] #old
@@ -185,14 +176,19 @@ def render_rays(network_fn, rays_o, rays_d, z_vals):
     sigma_a = tf.nn.relu(raw[...,0])
     ray_drop = tf.nn.relu(raw[...,1])
     
-    # Do volume rendering with unique z vals for each ray
-    dists = tf.concat([z_vals[:,:,1:,:] - z_vals[:,:,:-1,:], tf.broadcast_to([1e10], z_vals[:,:,:1,:].shape)], -2) 
-    dists = dists[:,:,:,0]
+    # #Image-NeRF cumulative pixel rendering~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~     
+    # # Do volume rendering with unique z vals for each ray
+    # dists = tf.concat([z_vals[:,:,1:,:] - z_vals[:,:,:-1,:], tf.broadcast_to([1e10], z_vals[:,:,:1,:].shape)], -2) 
+    # dists = dists[:,:,:,0]
+    # # print("sigma_a", np.shape(sigma_a))
+    # # print("dists", np.shape(dists))
+    # alpha = 1.-tf.exp(-sigma_a * dists)  # possible issue with how we are using dists here?? 
+    #                                      #   we don't care how much material passes through???
 
-    # print("sigma_a", np.shape(sigma_a))
-    # print("dists", np.shape(dists))
-    
-    alpha = 1.-tf.exp(-sigma_a * dists)  
+    #NEW-- first in line-of-sight rendering ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    alpha = 1. - tf.exp(-sigma_a * z_vals[:,:,:,0])
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
     weights = alpha * tf.math.cumprod(1.-alpha + 1e-10, -1, exclusive=True)
     depth_map = tf.reduce_sum(weights * z_vals[:,:,:,0], -1)
     ray_drop_map = tf.reduce_sum(weights * ray_drop, -1) #axis was -2, changed to -1 
@@ -207,10 +203,21 @@ def calculate_loss(depth, ray_drop, target, target_drop_mask):
     L_raydrop = tf.keras.losses.binary_crossentropy(target_drop_mask, ray_drop)
     L_raydrop = tf.math.reduce_mean(tf.abs(L_raydrop))
 
-    #distance loss (suppressing ray drop areas)
+    #masked distance loss (suppressing ray drop areas)
     depth_nondrop = tf.math.multiply(depth, target_drop_mask)
     target_nondrop = tf.math.multiply(target, target_drop_mask)
     L_dist = tf.reduce_mean(tf.abs(depth_nondrop - target_nondrop))
+    # print("L_dist old", tf.shape(L_dist))
+
+    # #Try Huber Loss instead of simple masked distance loss
+    # depth_nondrop = tf.math.multiply(depth, target_drop_mask)
+    # target_nondrop = tf.math.multiply(target, target_drop_mask)
+    # abs_error = tf.abs(depth_nondrop - target_nondrop)
+    # delta = 0.05 #1.0
+    # quadratic = tf.minimum(abs_error, delta)
+    # linear = abs_error - quadratic
+    # L_dist = tf.reduce_mean(0.5 * quadratic**2 + delta * linear)
+    # # print("L_dist new", tf.shape(L_dist))
     
     #Gradient Loss (structural regularization for smooth surfaces) -- (LiDAR-NeRF method) ~~~~~~~~~~~
 #     thresh = 0.025 #was at 0.025, set to 0.1 in LiDAR-NeRF
@@ -249,9 +256,12 @@ def calculate_loss(depth, ray_drop, target, target_drop_mask):
 
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~        
 
-    lam1 = 0 #100 #100 #10 #100
+    lam0 = 10 #NEED TO USE THIS WHEN SCALING DOWN EVERYTHING TO FIT IN UNIT BOX(?)
+              # othersize loss gets dominated by raydrop?? 
+    lam1 = 0 #100 
     lam2 = 1 #1/(64**2)
-    loss = L_dist + lam1*L_reg + lam2*L_raydrop       
+    loss = lam0*L_dist + lam1*L_reg + lam2*L_raydrop       
+    # print("L_dist: ", L_dist,"\n L_raydrop:", lam2*L_raydrop )
 
     return(loss)
 
