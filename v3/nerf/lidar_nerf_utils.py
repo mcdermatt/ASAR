@@ -42,8 +42,8 @@ def posenc(x, embed_dims):
 
 #2**18 is below the sensor noise threshold??
 # L_embed =  5 #18 #15 #10 #6
-pos_embed_dims = 14 #14
-rot_embed_dims = 4 #4
+pos_embed_dims = 18 #14
+rot_embed_dims = 8 #4
 embed_fn = posenc
 
 def init_model(D=8, W=256): #8,256
@@ -173,10 +173,10 @@ def render_rays(network_fn, rays_o, rays_d, z_vals):
     raw = tf.reshape(raw, [ray_pos.shape[0],ray_pos.shape[1],-1,2]) # test -- doesn't allow upscaling when rendering?
 #     print("raw", np.shape(raw))
     
-    sigma_a = tf.nn.relu(raw[...,0])
-    ray_drop = tf.nn.relu(raw[...,1])
     
-    # #Image-NeRF cumulative pixel rendering~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~     
+    # #Image-NeRF volume rendering ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~     
+    # sigma_a = tf.nn.relu(raw[...,0])
+    # ray_drop = tf.nn.relu(raw[...,1])
     # # Do volume rendering with unique z vals for each ray
     # dists = tf.concat([z_vals[:,:,1:,:] - z_vals[:,:,:-1,:], tf.broadcast_to([1e10], z_vals[:,:,:1,:].shape)], -2) 
     # dists = dists[:,:,:,0]
@@ -184,15 +184,86 @@ def render_rays(network_fn, rays_o, rays_d, z_vals):
     # # print("dists", np.shape(dists))
     # alpha = 1.-tf.exp(-sigma_a * dists)  # possible issue with how we are using dists here?? 
     #                                      #   we don't care how much material passes through???
+    # weights = alpha * tf.math.cumprod(1.-alpha + 1e-10, -1, exclusive=True)
+    # depth_map = tf.reduce_sum(weights * z_vals[:,:,:,0], -1)
+    # ray_drop_map = tf.reduce_sum(weights * ray_drop, -1) #axis was -2, changed to -1 
+    # acc_map = tf.reduce_sum(weights, -1)
 
-    #NEW-- first in line-of-sight rendering ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    alpha = 1. - tf.exp(-sigma_a * z_vals[:,:,:,0])
-    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # #Stochastic volume rendering ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    weights = alpha * tf.math.cumprod(1.-alpha + 1e-10, -1, exclusive=True)
-    depth_map = tf.reduce_sum(weights * z_vals[:,:,:,0], -1)
-    ray_drop_map = tf.reduce_sum(weights * ray_drop, -1) #axis was -2, changed to -1 
-    acc_map = tf.reduce_sum(weights, -1)
+    # # Extract sigma_a and ray_drop predictions
+    # sigma_a = tf.nn.relu(raw[..., 0])
+    # ray_drop = tf.nn.relu(raw[..., 1])
+
+    # # Convert sigma to detection probability
+    # alpha = 1. - tf.exp(-sigma_a * z_vals[..., 0])
+
+    # # Sample random variables for point detection
+    # rv = tf.random.uniform(sigma_a.shape, minval=0, maxval=1)
+    # detections = tf.cast(rv < alpha, tf.float32)
+
+    # # Apply detections to alpha to get stochastic alpha
+    # stochastic_alpha = alpha * detections
+
+    # # Compute weights for volume rendering
+    # dists = tf.concat([z_vals[..., 1:] - z_vals[..., :-1], tf.broadcast_to([1e10], z_vals[..., :1].shape)], axis=-1)
+    # dists = dists[..., 0]
+    # weights = stochastic_alpha * tf.math.cumprod(1. - stochastic_alpha + 1e-10, axis=-1, exclusive=True)
+
+    # # Compute depth_map
+    # depth_map = tf.reduce_sum(weights * z_vals[..., 0], axis=-1)
+
+    # # Compute ray_drop_map using the same weights
+    # ray_drop_map = tf.reduce_sum(weights * ray_drop, axis=-1)
+    # acc_map = tf.reduce_sum(weights, axis=-1)
+
+    # #first in line-of-sight (i.e. depth-NeRF) rendering ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # sigma_a = tf.nn.relu(raw[...,0]) #[0, 10+]
+    # ray_drop = tf.nn.relu(raw[...,1])
+    # alpha = 1. - tf.exp(-sigma_a * z_vals[:,:,:,0])
+    
+    # weights = alpha * tf.math.cumprod(1.-alpha + 1e-10, -1, exclusive=True)
+    # depth_map = tf.reduce_sum(weights * z_vals[:,:,:,0], -1)
+    # ray_drop_map = tf.reduce_sum(weights * ray_drop, -1) #axis was -2, changed to -1 
+    # acc_map = tf.reduce_sum(weights, -1)
+    
+    #stochasitc depth-NeRF rendering model ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    ##NOTE-- we can do EITHER coarse-to-fine sampling or have a direct depth-NeRF but NOT both
+    # sigma_a = tf.sigmoid(raw[...,0]) # [0,1]
+    sigma_a = tf.nn.relu(raw[...,0]) #[0, 10+]
+    ray_drop = tf.nn.relu(raw[...,1])
+
+    # print("raw[:10,0,0]",raw[:10,0,0,0])
+    # print("sigma_a:", sigma_a[:10,0,0])
+    # print(tf.shape(raw))
+    # print("raw[0,0,:,0]",raw[0,0,:,0]) #look at along a single ray
+    # print("\n sigma_a:", sigma_a[0,0,:10])
+
+    # Sample random variables for point detection
+    rv = tf.random.uniform(sigma_a.shape, minval=0, maxval=1)
+
+    # Calculate alpha using the probabilistic model
+    alpha = 1. - tf.exp(-sigma_a * z_vals[..., 0])
+    # print("alpha:", alpha[0,0,:10])
+
+    # Introduce stochasticity for detection
+    detections = tf.cast(rv < alpha, tf.float32)
+
+    # Apply detections to alpha to get stochastic alpha
+    stochastic_alpha = alpha * detections
+    # stochastic_alpha = alpha #for debug
+
+    # Compute weights for depth-based rendering
+    weights = stochastic_alpha * tf.math.cumprod(1. - stochastic_alpha + 1e-10, axis=-1, exclusive=True)
+
+    # Compute depth_map
+    depth_map = tf.reduce_sum(weights * z_vals[..., 0], axis=-1)
+
+    # Compute ray_drop_map using the same weights
+    ray_drop_map = tf.reduce_sum(weights * ray_drop, axis=-1)
+    acc_map = tf.reduce_sum(weights, axis=-1)
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
     
     return depth_map, acc_map, ray_drop_map, weights
 
@@ -213,7 +284,7 @@ def calculate_loss(depth, ray_drop, target, target_drop_mask):
     # depth_nondrop = tf.math.multiply(depth, target_drop_mask)
     # target_nondrop = tf.math.multiply(target, target_drop_mask)
     # abs_error = tf.abs(depth_nondrop - target_nondrop)
-    # delta = 0.05 #1.0
+    # delta = 0.0025 #0.05 
     # quadratic = tf.minimum(abs_error, delta)
     # linear = abs_error - quadratic
     # L_dist = tf.reduce_mean(0.5 * quadratic**2 + delta * linear)
@@ -256,12 +327,12 @@ def calculate_loss(depth, ray_drop, target, target_drop_mask):
 
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~        
 
-    lam0 = 10 #NEED TO USE THIS WHEN SCALING DOWN EVERYTHING TO FIT IN UNIT BOX(?)
+    lam0 = 10 #10 #NEED TO USE THIS WHEN SCALING DOWN EVERYTHING TO FIT IN UNIT BOX(?)
               # othersize loss gets dominated by raydrop?? 
     lam1 = 0 #100 
     lam2 = 1 #1/(64**2)
     loss = lam0*L_dist + lam1*L_reg + lam2*L_raydrop       
-    # print("L_dist: ", L_dist,"\n L_raydrop:", lam2*L_raydrop )
+    # print("L_dist: ", lam0*L_dist, "\n L_raydrop:", lam2*L_raydrop )
 
     return(loss)
 
