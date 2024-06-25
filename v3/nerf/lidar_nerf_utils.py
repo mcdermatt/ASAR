@@ -42,10 +42,12 @@ def posenc(x, embed_dims):
 
 #2**18 is below the sensor noise threshold??
 # L_embed =  5 #18 #15 #10 #6
-pos_embed_dims = 18 #14
-rot_embed_dims = 8 #4
+pos_embed_dims = 14 #14
+rot_embed_dims = 4 #4
 embed_fn = posenc
 
+#old: [sigma, ray_drop]
+#new: [sigma_1, sigma_2, p(reflect), ray_drop]
 def init_model(D=8, W=256): #8,256
 #     relu = tf.keras.layers.ReLU() #OG NeRF   
     relu = tf.keras.layers.LeakyReLU() #per LOC-NDF   
@@ -67,12 +69,14 @@ def init_model(D=8, W=256): #8,256
             outputs = tf.keras.layers.LayerNormalization()(outputs) #as recomended by LOC-NDF 
 
     #extend small MLP after output of density channel to get ray drop
-    sigma_channel = dense(1, act=None)(outputs)    
+    # sigma_channel = dense(1, act=None)(outputs) #was this
+    sigma_channel = dense(2, act=None)(outputs) #adding another channel to seperate 1st and 2nd returns      
     rd_start = tf.concat([outputs, inputs[:,(3+3*2*(pos_embed_dims)):]], -1)
     rd_channel = dense(256, act=relu)(outputs) #OG NeRF structure
-    # rd_channel = dense(256, act=relu)(outputs) #test adding another channel
     rd_channel = dense(128, act=relu)(rd_channel)
-    rd_channel = dense(1, act=tf.keras.activations.sigmoid)(rd_channel)
+    # rd_channel = dense(1, act=tf.keras.activations.sigmoid)(rd_channel) #was this
+    rd_channel = dense(2, act=tf.keras.activations.sigmoid)(rd_channel) #adding a 2nd channel for 1st vs 2nd return 
+                    #patrial reflectance is view dependant (Snell's law)
     out = tf.concat([sigma_channel, rd_channel], -1)
     model = tf.keras.Model(inputs=inputs, outputs=out)
     
@@ -157,6 +161,7 @@ def render_rays(network_fn, rays_o, rays_d, z_vals):
     ray_dir = tf.reshape(rays_d[..., None,:]*tf.ones_like(z_vals, dtype = tf.float32), [-1,3]) #test
     encoded_ray_dir = embed_fn(ray_dir, rot_embed_dims)  # embedding dims for dir
 
+    # print(rays_o)
 #     print("ray_pos", np.shape(ray_pos))
 #     print("ray_dir", np.shape(ray_dir))
 #     print("encoded_ray_pos", np.shape(encoded_ray_pos))
@@ -170,20 +175,107 @@ def render_rays(network_fn, rays_o, rays_d, z_vals):
     # print("problem here: ", [ray_pos.shape[0],ray_pos.shape[1],-1,2])    
 #     raw = tf.reshape(raw, list(pts.shape[:-1]) + [2]) # [depth, ray drop] #old
 
-    raw = tf.reshape(raw, [ray_pos.shape[0],ray_pos.shape[1],-1,2]) # test -- doesn't allow upscaling when rendering?
-#     print("raw", np.shape(raw))
+    # raw = tf.reshape(raw, [ray_pos.shape[0],ray_pos.shape[1],-1,2]) #old: [sigma, ray_drop]
+    raw = tf.reshape(raw, [ray_pos.shape[0],ray_pos.shape[1],-1,4])   #new: [sigma_1, sigma_2, p(reflect), ray_drop]
+    # print("raw", np.shape(raw))
     
-    
+    # two sigma channel method ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
+    sigma_a1 = tf.nn.relu(raw[...,0])
+    sigma_a2 = tf.nn.relu(raw[...,1])
+    prob_reflect  = tf.sigmoid(raw[...,2])
+    ray_drop = tf.nn.relu(raw[...,3])
+
+    #volume render
+    dists = tf.concat([z_vals[:,:,1:,:] - z_vals[:,:,:-1,:], tf.broadcast_to([1e10], z_vals[:,:,:1,:].shape)], -2) 
+    dists = dists[:,:,:,0]
+    alpha1 = 1.-tf.exp(-sigma_a1 * dists) 
+    #distance render
+    # alpha1 = 1. - tf.exp(-sigma_a1 * z_vals[..., 0]) 
+    # alpha2 = 1. - tf.exp(-sigma_a2 * z_vals[..., 0])
+    weights1 = alpha1 * tf.math.cumprod(1. - alpha1 + 1e-10, axis=-1, exclusive=True)
+    # weights2 = alpha2 * tf.math.cumprod(1. - alpha2 + 1e-10, axis=-1, exclusive=True)
+
+    # Mask to ensure that weights2 starts after the peak of weights1 + buffer_distance -  - - - - - - -  - - - -
+    # Calculate the peak indices of weights1
+    buffer_distance = 0.005 #0.005
+    peak_indices1 = tf.argmax(weights1, axis=-1, output_type=tf.int32)
+    peak_depths1 = tf.gather(z_vals[..., 0], peak_indices1, batch_dims=2) + buffer_distance #batch_dims was 1...
+    peak_depths1 = tf.expand_dims(peak_depths1, axis=-1)
+    valid_mask = (z_vals[:,:,:,0] >= peak_depths1)
+    sigma_a2 = sigma_a2 * tf.cast(valid_mask, sigma_a2.dtype)
+
+    #volume render
+    dists = tf.concat([z_vals[:,:,1:,:] - z_vals[:,:,:-1,:], tf.broadcast_to([1e10], z_vals[:,:,:1,:].shape)], -2) 
+    dists = dists[:,:,:,0]
+    alpha2 = 1.-tf.exp(-sigma_a2 * dists)
+    #distance render
+    # alpha2 = 1. - tf.exp(-sigma_a2 * z_vals[..., 0])
+
+    weights2 = alpha2 * tf.math.cumprod(1. - alpha2 + 1e-10, axis=-1, exclusive=True)
+    # print("weights2: ", weights2[:,:,0])
+    # print(np.shape(z_vals), np.shape(peak_depths1))
+    # print("\n z_vals:", z_vals[0,0,:10], "\n peak_depths1:", peak_depths1[0,0,:10])
+    # print("\n valid mask:", valid_mask[0,0,:100]) #---> visually looks like it's doing the right thing (in print statement at least)
+    #  -  - - - - - - -  - - - - -  - - - - - - -  - - - - -  - - - - - - -  - - - - -  - - - - - - -  - - - -
+
+    #apply prob reflect before reducing -------------------------------------------
+    # #(i.e. attempt to learn a probibility of reflection for every point in the space)
+    # depth_map1 = weights1 * z_vals[..., 0]
+    # depth_map2 = weights2 * z_vals[..., 0]
+
+    # # Generate uniform random variable for stochastic selection
+    # rv = tf.random.uniform(tf.shape(prob_reflect), 0, 1)
+    # # Determine which points use depth_map1 and which use depth_map2 based on prob_reflect
+    # use_depth_map2 = rv < prob_reflect
+
+    # # use_depth_map2 = prob_reflect > 0.5 #no stochasticity
+    # # print(prob_reflect[:,0,0])
+
+    # # Apply the selection to each point along the ray
+    # depth_map = tf.where(use_depth_map2, depth_map2, depth_map1)
+    # depth_map = tf.reduce_sum(depth_map, axis=-1)  # Sum over the depth dimension to get final depth_map
+
+    # #collapse again so we can draw...
+    # depth_map1 = tf.reduce_sum(depth_map1, axis = -1)
+    # depth_map2 = tf.reduce_sum(depth_map2, axis = -1) #+ depth_map1 + buffer_distance ##try stacking again?? -- (since we lost initial z vals??)
+
+    #apply prob reflect after reducing -------------------------------------------
+    # (i.e. probabiltiy of reflection is function of entire ray eminating from sensor, 
+    #  not of intividual sample points along that ray)
+
+    depth_map1 = tf.reduce_sum(weights1 * z_vals[..., 0], axis = -1)
+    # depth_map2 = tf.reduce_sum(weights2 * z_vals[..., 0], axis = -1) 
+    depth_map2 = tf.reduce_sum(weights2 * z_vals[..., 0], axis = -1) #+ depth_map1 + buffer_distance #test 
+    # prob_reflect = tf.reduce_max(prob_reflect, axis = -1)
+    prob_reflect = tf.reduce_mean(prob_reflect, axis = -1)
+    # print(prob_reflect)
+
+    #stochastic
+    rv = tf.random.uniform(tf.shape(prob_reflect), 0, 1)
+    depth_map = tf.where(rv < prob_reflect, depth_map2, depth_map1) 
+    #deterministic
+    # depth_map = tf.where(0.5 < prob_reflect, depth_map2, depth_map1)
+
+    # print(np.shape(depth_map1))
+    # print("prob_reflect", prob_reflect[0,0,:])
+    # # print(np.shape(rv), np.shape(prob_reflect), np.shape(depth_map1))
+    # depth_map = tf.where(rv < prob_reflect, depth_map2, depth_map1)
+    # # print(np.shape(depth_map))
+
+    #-----------------------------------------------------------------------------
+
+    ray_drop_map = tf.reduce_sum(weights1 * ray_drop, -1) #axis was -2, changed to -1 
+    acc_map = tf.reduce_sum(weights1, -1)
+    #debug
+    weights = (weights1 + weights2) / 2 
+    # depth_map = depth_map[...,None] #test
+
     # #Image-NeRF volume rendering ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~     
     # sigma_a = tf.nn.relu(raw[...,0])
     # ray_drop = tf.nn.relu(raw[...,1])
-    # # Do volume rendering with unique z vals for each ray
     # dists = tf.concat([z_vals[:,:,1:,:] - z_vals[:,:,:-1,:], tf.broadcast_to([1e10], z_vals[:,:,:1,:].shape)], -2) 
     # dists = dists[:,:,:,0]
-    # # print("sigma_a", np.shape(sigma_a))
-    # # print("dists", np.shape(dists))
-    # alpha = 1.-tf.exp(-sigma_a * dists)  # possible issue with how we are using dists here?? 
-    #                                      #   we don't care how much material passes through???
+    # alpha = 1.-tf.exp(-sigma_a * dists)
     # weights = alpha * tf.math.cumprod(1.-alpha + 1e-10, -1, exclusive=True)
     # depth_map = tf.reduce_sum(weights * z_vals[:,:,:,0], -1)
     # ray_drop_map = tf.reduce_sum(weights * ray_drop, -1) #axis was -2, changed to -1 
@@ -217,55 +309,58 @@ def render_rays(network_fn, rays_o, rays_d, z_vals):
     # ray_drop_map = tf.reduce_sum(weights * ray_drop, axis=-1)
     # acc_map = tf.reduce_sum(weights, axis=-1)
 
-    # #first in line-of-sight (i.e. depth-NeRF) rendering ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # #first in line-of-sight (direct depth) rendering ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # sigma_a = tf.nn.relu(raw[...,0]) #[0, 10+]
     # ray_drop = tf.nn.relu(raw[...,1])
     # alpha = 1. - tf.exp(-sigma_a * z_vals[:,:,:,0])
     
     # weights = alpha * tf.math.cumprod(1.-alpha + 1e-10, -1, exclusive=True)
     # depth_map = tf.reduce_sum(weights * z_vals[:,:,:,0], -1)
+
     # ray_drop_map = tf.reduce_sum(weights * ray_drop, -1) #axis was -2, changed to -1 
     # acc_map = tf.reduce_sum(weights, -1)
     
-    #stochasitc depth-NeRF rendering model ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    ##NOTE-- we can do EITHER coarse-to-fine sampling or have a direct depth-NeRF but NOT both
-    # sigma_a = tf.sigmoid(raw[...,0]) # [0,1]
-    sigma_a = tf.nn.relu(raw[...,0]) #[0, 10+]
-    ray_drop = tf.nn.relu(raw[...,1])
+    # #stochasitc depth-NeRF rendering model ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # ##NOTE-- we can do EITHER coarse-to-fine sampling or have a direct depth-NeRF but NOT both
+    # # sigma_a = tf.sigmoid(raw[...,0]) # [0,1]
+    # sigma_a = tf.nn.relu(raw[...,0]) #[0, 10+]
+    # ray_drop = tf.nn.relu(raw[...,1])
 
-    # print("raw[:10,0,0]",raw[:10,0,0,0])
-    # print("sigma_a:", sigma_a[:10,0,0])
-    # print(tf.shape(raw))
-    # print("raw[0,0,:,0]",raw[0,0,:,0]) #look at along a single ray
-    # print("\n sigma_a:", sigma_a[0,0,:10])
+    # # print("raw[:10,0,0]",raw[:10,0,0,0])
+    # # print("sigma_a:", sigma_a[:10,0,0])
+    # # print(tf.shape(raw))
+    # # print("raw[0,0,:,0]",raw[0,0,:,0]) #look at along a single ray
+    # # print("\n sigma_a:", sigma_a[0,0,:10])
 
-    # Sample random variables for point detection
-    rv = tf.random.uniform(sigma_a.shape, minval=0, maxval=1)
+    # # Sample random variables for point detection
+    # rv = tf.random.uniform(sigma_a.shape, minval=0, maxval=1)
 
-    # Calculate alpha using the probabilistic model
-    alpha = 1. - tf.exp(-sigma_a * z_vals[..., 0])
-    # print("alpha:", alpha[0,0,:10])
+    # # Calculate alpha using the probabilistic model
+    # alpha = 1. - tf.exp(-sigma_a * z_vals[..., 0])
+    # # print("alpha:", alpha[0,0,:10])
 
-    # Introduce stochasticity for detection
-    detections = tf.cast(rv < alpha, tf.float32)
+    # # Introduce stochasticity for detection
+    # detections = tf.cast(rv < alpha, tf.float32)
 
-    # Apply detections to alpha to get stochastic alpha
-    stochastic_alpha = alpha * detections
-    # stochastic_alpha = alpha #for debug
+    # # Apply detections to alpha to get stochastic alpha
+    # stochastic_alpha = alpha * detections
+    # # stochastic_alpha = alpha #for debug
 
-    # Compute weights for depth-based rendering
-    weights = stochastic_alpha * tf.math.cumprod(1. - stochastic_alpha + 1e-10, axis=-1, exclusive=True)
+    # # Compute weights for depth-based rendering
+    # weights = stochastic_alpha * tf.math.cumprod(1. - stochastic_alpha + 1e-10, axis=-1, exclusive=True)
 
-    # Compute depth_map
-    depth_map = tf.reduce_sum(weights * z_vals[..., 0], axis=-1)
+    # # Compute depth_map
+    # depth_map = tf.reduce_sum(weights * z_vals[..., 0], axis=-1)
 
-    # Compute ray_drop_map using the same weights
-    ray_drop_map = tf.reduce_sum(weights * ray_drop, axis=-1)
-    acc_map = tf.reduce_sum(weights, axis=-1)
-    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # # Compute ray_drop_map using the same weights
+    # ray_drop_map = tf.reduce_sum(weights * ray_drop, axis=-1)
+    # acc_map = tf.reduce_sum(weights, axis=-1)
+
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     
-    return depth_map, acc_map, ray_drop_map, weights
+    # return depth_map, acc_map, ray_drop_map, weights
+    return depth_map, acc_map, ray_drop_map, weights, depth_map1, depth_map2
 
 def calculate_loss(depth, ray_drop, target, target_drop_mask):
     """L_total = L_dist + lam1*L_intensity + lam2*L_raydrop + lam3*L_reg"""
