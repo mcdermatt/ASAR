@@ -46,41 +46,79 @@ pos_embed_dims = 14 #14
 rot_embed_dims = 4 #4
 embed_fn = posenc
 
-#old: [sigma, ray_drop]
-#new: [sigma_1, sigma_2, p(reflect), ray_drop]
+#NEW-- try seperate paths for two channels
 def init_model(D=8, W=256): #8,256
-#     relu = tf.keras.layers.ReLU() #OG NeRF   
     relu = tf.keras.layers.LeakyReLU() #per LOC-NDF   
     dense = lambda W=W, act=relu : tf.keras.layers.Dense(W, activation=act, kernel_initializer='glorot_uniform')
 
-#     inputs = tf.keras.Input(shape=(3 + 3*2*L_embed)) #old (embed everything together)
-    inputs = tf.keras.Input(shape=(6 + 3*2*(rot_embed_dims) + 3*2*(pos_embed_dims))) #new (embedding dims (4) and (10) )
-    # outputs = inputs #old
-    outputs = inputs[:,:(3+3*2*(pos_embed_dims))] #only look at positional stuff for now
+    inputs = tf.keras.Input(shape=(6 + 3*2*(rot_embed_dims) + 3*2*(pos_embed_dims)))
+    outputs = inputs[:,:(3+3*2*(pos_embed_dims))] 
 
-    #try removing view dependant effects from density 
-
-    for i in range(D):
+    for i in range(D//2):
         outputs = dense()(outputs)
-        # outputs = tf.keras.layers.LayerNormalization()(outputs) #old
-        
         if i%4==0 and i>0:
             outputs = tf.concat([outputs, inputs[:,:(3+3*2*(pos_embed_dims))]], -1)
-            outputs = tf.keras.layers.LayerNormalization()(outputs) #as recomended by LOC-NDF 
+            outputs = tf.keras.layers.LayerNormalization()(outputs) 
 
-    #extend small MLP after output of density channel to get ray drop
-    # sigma_channel = dense(1, act=None)(outputs) #was this
-    sigma_channel = dense(2, act=None)(outputs) #adding another channel to seperate 1st and 2nd returns      
+    # Split into two branches
+    branch1 = outputs
+    branch2 = outputs
+
+    for i in range(D//2, D):
+        branch1 = dense()(branch1)
+        branch2 = dense()(branch2)
+        if i%4==0 and i>0:
+            branch1 = tf.concat([branch1, inputs[:,:(3+3*2*(pos_embed_dims))]], -1)
+            branch1 = tf.keras.layers.LayerNormalization()(branch1)
+            branch2 = tf.concat([branch2, inputs[:,:(3+3*2*(pos_embed_dims))]], -1)
+            branch2 = tf.keras.layers.LayerNormalization()(branch2)
+
+    sigma_channel1 = dense(1, act=None)(branch1)
+    sigma_channel2 = dense(1, act=None)(branch2)
+    
     rd_start = tf.concat([outputs, inputs[:,(3+3*2*(pos_embed_dims)):]], -1)
-    rd_channel = dense(256, act=relu)(outputs) #OG NeRF structure
+    rd_channel = dense(256, act=relu)(outputs)
     rd_channel = dense(128, act=relu)(rd_channel)
-    # rd_channel = dense(1, act=tf.keras.activations.sigmoid)(rd_channel) #was this
-    rd_channel = dense(2, act=tf.keras.activations.sigmoid)(rd_channel) #adding a 2nd channel for 1st vs 2nd return 
-                    #patrial reflectance is view dependant (Snell's law)
-    out = tf.concat([sigma_channel, rd_channel], -1)
+    rd_channel = dense(2, act=tf.keras.activations.sigmoid)(rd_channel)
+
+    out = tf.concat([sigma_channel1, sigma_channel2, rd_channel], -1)
     model = tf.keras.Model(inputs=inputs, outputs=out)
     
     return model
+
+# #old: [sigma, ray_drop]
+# #new: [sigma_1, sigma_2, p(reflect), ray_drop]
+# def init_model(D=8, W=256): #8,256
+# #     relu = tf.keras.layers.ReLU() #OG NeRF   
+#     relu = tf.keras.layers.LeakyReLU() #per LOC-NDF   
+#     dense = lambda W=W, act=relu : tf.keras.layers.Dense(W, activation=act, kernel_initializer='glorot_uniform')
+
+# #     inputs = tf.keras.Input(shape=(3 + 3*2*L_embed)) #old (embed everything together)
+#     inputs = tf.keras.Input(shape=(6 + 3*2*(rot_embed_dims) + 3*2*(pos_embed_dims))) #new (embedding dims (4) and (10) )
+#     # outputs = inputs #old
+#     outputs = inputs[:,:(3+3*2*(pos_embed_dims))] #only look at positional stuff for now
+
+#     for i in range(D):
+#         outputs = dense()(outputs)
+#         # outputs = tf.keras.layers.LayerNormalization()(outputs) #old
+        
+#         if i%4==0 and i>0:
+#             outputs = tf.concat([outputs, inputs[:,:(3+3*2*(pos_embed_dims))]], -1)
+#             outputs = tf.keras.layers.LayerNormalization()(outputs) #as recomended by LOC-NDF 
+
+#     #extend small MLP after output of density channel to get ray drop
+#     # sigma_channel = dense(1, act=None)(outputs) #was this
+#     sigma_channel = dense(2, act=None)(outputs) #adding another channel to seperate 1st and 2nd returns      
+#     rd_start = tf.concat([outputs, inputs[:,(3+3*2*(pos_embed_dims)):]], -1)
+#     rd_channel = dense(256, act=relu)(outputs) #OG NeRF structure
+#     rd_channel = dense(128, act=relu)(rd_channel)
+#     # rd_channel = dense(1, act=tf.keras.activations.sigmoid)(rd_channel) #was this
+#     rd_channel = dense(2, act=tf.keras.activations.sigmoid)(rd_channel) #adding a 2nd channel for 1st vs 2nd return 
+#                     #patrial reflectance is view dependant (Snell's law)
+#     out = tf.concat([sigma_channel, rd_channel], -1)
+#     model = tf.keras.Model(inputs=inputs, outputs=out)
+    
+#     return model
 
 def cylindrical_to_cartesian(pts):
 
@@ -189,6 +227,7 @@ def render_rays(network_fn, rays_o, rays_d, z_vals):
     dists = tf.concat([z_vals[:,:,1:,:] - z_vals[:,:,:-1,:], tf.broadcast_to([1e10], z_vals[:,:,:1,:].shape)], -2) 
     dists = dists[:,:,:,0]
     alpha1 = 1.-tf.exp(-sigma_a1 * dists) 
+    # alpha2 = 1.-tf.exp(-sigma_a2 * dists) 
     #distance render
     # alpha1 = 1. - tf.exp(-sigma_a1 * z_vals[..., 0]) 
     # alpha2 = 1. - tf.exp(-sigma_a2 * z_vals[..., 0])
@@ -197,9 +236,9 @@ def render_rays(network_fn, rays_o, rays_d, z_vals):
 
     # Mask to ensure that weights2 starts after the peak of weights1 + buffer_distance -  - - - - - - -  - - - -
     # Calculate the peak indices of weights1
-    buffer_distance = 0.005 #0.005
+    buffer_distance = 0.01 #0.005
     peak_indices1 = tf.argmax(weights1, axis=-1, output_type=tf.int32)
-    peak_depths1 = tf.gather(z_vals[..., 0], peak_indices1, batch_dims=2) + buffer_distance #batch_dims was 1...
+    peak_depths1 = tf.gather(z_vals[..., 0], peak_indices1, batch_dims=2) + buffer_distance
     peak_depths1 = tf.expand_dims(peak_depths1, axis=-1)
     valid_mask = (z_vals[:,:,:,0] >= peak_depths1)
     sigma_a2 = sigma_a2 * tf.cast(valid_mask, sigma_a2.dtype)
@@ -245,7 +284,7 @@ def render_rays(network_fn, rays_o, rays_d, z_vals):
 
     depth_map1 = tf.reduce_sum(weights1 * z_vals[..., 0], axis = -1)
     # depth_map2 = tf.reduce_sum(weights2 * z_vals[..., 0], axis = -1) 
-    depth_map2 = tf.reduce_sum(weights2 * z_vals[..., 0], axis = -1) #+ depth_map1 + buffer_distance #test 
+    depth_map2 = tf.reduce_sum(weights2 * z_vals[..., 0], axis = -1)
     # prob_reflect = tf.reduce_max(prob_reflect, axis = -1)
     prob_reflect = tf.reduce_mean(prob_reflect, axis = -1)
     # print(prob_reflect)
@@ -362,7 +401,7 @@ def render_rays(network_fn, rays_o, rays_d, z_vals):
     # return depth_map, acc_map, ray_drop_map, weights
     return depth_map, acc_map, ray_drop_map, weights, depth_map1, depth_map2
 
-def calculate_loss(depth, ray_drop, target, target_drop_mask):
+def calculate_loss(depth, ray_drop, target, target_drop_mask, d1 = None, d2 = None):
     """L_total = L_dist + lam1*L_intensity + lam2*L_raydrop + lam3*L_reg"""
 
     #ray drop loss
@@ -421,13 +460,31 @@ def calculate_loss(depth, ray_drop, target, target_drop_mask):
     L_reg = tf.cast(L_reg, tf.float32)    
 
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~        
+    #if depth maps for channels 1 and 2 are provided, include similarity loss
+    if d1 is not None:
+        channel1 = d1
+        channel2 = d2
+        channel1_flat = tf.reshape(channel1, [tf.shape(channel1)[0], -1])
+        channel2_flat = tf.reshape(channel2, [tf.shape(channel2)[0], -1])
+        dot_product = tf.reduce_sum(channel1_flat * channel2_flat, axis=1)
+        norm_channel1 = tf.norm(channel1_flat, axis=1)
+        norm_channel2 = tf.norm(channel2_flat, axis=1)
+        cosine_similarity = dot_product / (norm_channel1 * norm_channel2 + 1e-8)
+        similarity_loss = (tf.reduce_mean(cosine_similarity) + 1) / 2
+        # print(similarity_loss)
+    else:
+        similarity_loss = 0
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~        
+
 
     lam0 = 10 #10 #NEED TO USE THIS WHEN SCALING DOWN EVERYTHING TO FIT IN UNIT BOX(?)
               # othersize loss gets dominated by raydrop?? 
     lam1 = 0 #100 
     lam2 = 1 #1/(64**2)
-    loss = lam0*L_dist + lam1*L_reg + lam2*L_raydrop       
-    # print("L_dist: ", lam0*L_dist, "\n L_raydrop:", lam2*L_raydrop )
+    lam3 = 1. 
+
+    loss = lam0*L_dist + lam1*L_reg + lam2*L_raydrop + lam3*similarity_loss        
+    # print("\n L_dist: ", lam0*L_dist, "\n L_raydrop:", lam2*L_raydrop, "\n L_similarity: ", lam3*similarity_loss)
 
     return(loss)
 
