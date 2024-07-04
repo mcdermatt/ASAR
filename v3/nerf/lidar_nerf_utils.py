@@ -511,14 +511,16 @@ def render_rays(network_fn, rays_o, rays_d, z_vals):
     roll = tf.random.uniform(tf.shape(alpha))
     hit_surfs = tf.argmax(roll < alpha, axis = -1)
     depth_map = tf.gather_nd(z_vals, hit_surfs[:,:,None], batch_dims = 2)[:,:,0]
-    weights = alpha * tf.math.cumprod(1. - alpha + 1e-10, axis=-1, exclusive=True)
+    # weights = alpha * tf.math.cumprod(1. - alpha + 1e-10, axis=-1, exclusive=True) #was this
+    weights = np.gradient(CDF, axis = 2) + 1e-8 #TEST
 
     # #OLD - get smooth interpolation using weights (but no stochasticity)
     # weights = alpha * tf.math.cumprod(1.-alpha + 1e-10, -1, exclusive=True)
     # depth_map = tf.reduce_sum(weights * z_vals[:,:,:,0], -1)
 
     # Compute ray_drop_map using the same weights
-    ray_drop_map = tf.reduce_sum(weights * ray_drop, axis=-1)
+    ray_drop_map = tf.reduce_sum(weights * ray_drop, axis=-1) #works ish (but not great)
+    # ray_drop_map = tf.reduce_max(ray_drop, axis=-1) #should be better but was failing
     acc_map = tf.reduce_sum(weights, axis=-1)
 
     # # #first in line-of-sight (direct depth) rendering ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -656,13 +658,14 @@ def calculate_loss(depth, ray_drop, target, target_drop_mask,
         CDFdiff = tf.abs(CDF - gtCDF)
         CDFdiff = tf.math.multiply(CDFdiff, target_drop_mask)
         # CDF_loss = tf.reduce_sum(CDFdiff) #L1 Loss-- old
-        CDF_loss = tf.reduce_sum(CDFdiff**2) #L2 Loss-- NEW
+        # CDF_loss = tf.reduce_sum(CDFdiff**2) #L2 Loss-- NEW
+        CDF_loss = tf.reduce_sum(CDFdiff**2 + CDFdiff) #TEST using both
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     lam0 = 0 #10 #NEED TO USE THIS WHEN SCALING DOWN EVERYTHING TO FIT IN UNIT BOX(?)
               # othersize loss gets dominated by raydrop?? 
     lam1 = 0 #100 
-    lam2 = 100. #1 
+    lam2 = 1000. #1 
     lam3 = 0. 
     lam4 = 0.1
 
