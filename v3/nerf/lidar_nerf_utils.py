@@ -42,8 +42,8 @@ def posenc(x, embed_dims):
 
 #2**18 is below the sensor noise threshold??
 # L_embed =  5 #18 #15 #10 #6
-pos_embed_dims = 14 #14
-rot_embed_dims = 4 #4
+pos_embed_dims = 15 #14
+rot_embed_dims = 5 #4
 embed_fn = posenc
 
 
@@ -201,11 +201,15 @@ def init_model(D=8, W=256): #8,256
     rd_start = tf.concat([outputs, inputs[:,(3+3*2*(pos_embed_dims)):]], -1)
     rd_channel = dense(256, act=relu)(outputs) #OG NeRF structure
     rd_channel = dense(128, act=relu)(rd_channel)
-    rd_channel = dense(1, act=tf.keras.activations.sigmoid)(rd_channel) #was this
-    # rd_channel = dense(2, act=tf.keras.activations.sigmoid)(rd_channel) #adding a 2nd channel for 1st vs 2nd return 
+    # rd_channel = dense(1, act=tf.keras.activations.sigmoid)(rd_channel) #was this
                     #patrial reflectance is view dependant (Snell's law)
-    out = tf.concat([sigma_channel, rd_channel], -1)
-    model = tf.keras.Model(inputs=inputs, outputs=out)
+    #WAS THIS-- output density as func of position only, ray drop as pos+view direction
+    # rd_channel = dense(2, act=tf.keras.activations.sigmoid)(rd_channel) #adding a 2nd channel for 1st vs 2nd return 
+    # out = tf.concat([sigma_channel, rd_channel], -1)
+    # model = tf.keras.Model(inputs=inputs, outputs=out)
+    #TEST -- both func of both
+    rd_channel = dense(2, act=None)(rd_channel) #adding a 2nd channel for 1st vs 2nd return 
+    model = tf.keras.Model(inputs=inputs, outputs=rd_channel)
     
     return model
 
@@ -247,9 +251,9 @@ def get_rays(H, W, c2w, phimin_patch, phimax_patch):
                           #phi
                           #need to manually account for elevation angle of patch 
                           #  (can not be inferred from c2w since that does not account for singularities near "poles" of spherical projection)
-                          # (phimax_patch + phimin_patch)/2 + ((-j+(H/2))/(H))*(phimax_patch-phimin_patch) -np.pi/2 #slightly wrong
                         # (phimax_patch + phimin_patch)/2 - ((-j+((H-1)/2))/(H-1))*(phimax_patch-phimin_patch) -np.pi/2 #using 5/1
-                        -((phimax_patch + phimin_patch)/2 - ((-j+((H-1)/2))/(H-1))*(phimax_patch-phimin_patch)) -np.pi/2 #Seems to fix issue with z axis translation flip!
+                        # -((phimax_patch + phimin_patch)/2 - ((-j+((H-1)/2))/(H-1))*(phimax_patch-phimin_patch)) -np.pi/2 #Seems to fix issue with z axis translation flip!
+                        -(-((phimax_patch + phimin_patch)/2 - ((-j+((H-1)/2))/(H-1))*(phimax_patch-phimin_patch)) + np.pi/2) #TEST 7/5
                          ], -1)
     dirs_test = tf.reshape(dirs_test,[-1,3])
     dirs_test = spherical_to_cartesian(dirs_test)
@@ -353,7 +357,7 @@ def render_rays(network_fn, rays_o, rays_d, z_vals):
 #     print("encoded_ray_dir", np.shape(encoded_ray_dir))
     
     encoded_both = tf.concat([encoded_ray_pos, encoded_ray_dir], axis = -1)
-#     print("encoded_both", np.shape(encoded_both))
+    # print("encoded_both", np.shape(encoded_both)) #(65536, 126)
     raw = batchify(network_fn)(encoded_both) #old
     # print("raw", np.shape(raw))    
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -476,7 +480,8 @@ def render_rays(network_fn, rays_o, rays_d, z_vals):
     # Extract sigma_a and ray_drop predictions
     sigma_a = tf.nn.relu(raw[..., 0])
     # sigma_a = tf.sigmoid(raw[..., 0]) #test
-    ray_drop = tf.nn.relu(raw[..., 1])
+    # ray_drop = tf.nn.relu(raw[..., 1])
+    ray_drop = tf.sigmoid(raw[..., 1])
 
     # Compute weights for volume rendering
     temp = z_vals[:,:,1:,0] - z_vals[:,:,:-1,0]
@@ -507,16 +512,16 @@ def render_rays(network_fn, rays_o, rays_d, z_vals):
     # # Compute depth_map
     # depth_map = tf.reduce_sum(weights * z_vals[..., 0], axis=-1)
 
-    #NEW - 
-    roll = tf.random.uniform(tf.shape(alpha))
-    hit_surfs = tf.argmax(roll < alpha, axis = -1)
-    depth_map = tf.gather_nd(z_vals, hit_surfs[:,:,None], batch_dims = 2)[:,:,0]
-    # weights = alpha * tf.math.cumprod(1. - alpha + 1e-10, axis=-1, exclusive=True) #was this
-    weights = np.gradient(CDF, axis = 2) + 1e-8 #TEST
+    # #NEW - 
+    # roll = tf.random.uniform(tf.shape(alpha))
+    # hit_surfs = tf.argmax(roll < alpha, axis = -1)
+    # depth_map = tf.gather_nd(z_vals, hit_surfs[:,:,None], batch_dims = 2)[:,:,0]
+    # # weights = alpha * tf.math.cumprod(1. - alpha + 1e-10, axis=-1, exclusive=True) #was this
+    # weights = np.gradient(CDF, axis = 2) + 1e-8 #TEST
 
-    # #OLD - get smooth interpolation using weights (but no stochasticity)
-    # weights = alpha * tf.math.cumprod(1.-alpha + 1e-10, -1, exclusive=True)
-    # depth_map = tf.reduce_sum(weights * z_vals[:,:,:,0], -1)
+    #OLD - get smooth interpolation using weights (but no stochasticity)
+    weights = alpha * tf.math.cumprod(1.-alpha + 1e-10, -1, exclusive=True)
+    depth_map = tf.reduce_sum(weights * z_vals[:,:,:,0], -1)
 
     # Compute ray_drop_map using the same weights
     ray_drop_map = tf.reduce_sum(weights * ray_drop, axis=-1) #works ish (but not great)
