@@ -42,8 +42,8 @@ def posenc(x, embed_dims):
 
 #2**18 is below the sensor noise threshold??
 # L_embed =  5 #18 #15 #10 #6
-pos_embed_dims = 15 #14
-rot_embed_dims = 5 #4
+pos_embed_dims = 14 #14
+rot_embed_dims = 4 #4
 embed_fn = posenc
 
 
@@ -252,8 +252,8 @@ def get_rays(H, W, c2w, phimin_patch, phimax_patch):
                           #need to manually account for elevation angle of patch 
                           #  (can not be inferred from c2w since that does not account for singularities near "poles" of spherical projection)
                         # (phimax_patch + phimin_patch)/2 - ((-j+((H-1)/2))/(H-1))*(phimax_patch-phimin_patch) -np.pi/2 #using 5/1
-                        # -((phimax_patch + phimin_patch)/2 - ((-j+((H-1)/2))/(H-1))*(phimax_patch-phimin_patch)) -np.pi/2 #Seems to fix issue with z axis translation flip!
-                        -(-((phimax_patch + phimin_patch)/2 - ((-j+((H-1)/2))/(H-1))*(phimax_patch-phimin_patch)) + np.pi/2) #TEST 7/5
+                        -((phimax_patch + phimin_patch)/2 - ((-j+((H-1)/2))/(H-1))*(phimax_patch-phimin_patch)) -np.pi/2 #Seems to fix issue with z axis translation flip!
+                        # -(-((phimax_patch + phimin_patch)/2 - ((-j+((H-1)/2))/(H-1))*(phimax_patch-phimin_patch)) + np.pi/2) #TEST 7/5
                          ], -1)
     dirs_test = tf.reshape(dirs_test,[-1,3])
     dirs_test = spherical_to_cartesian(dirs_test)
@@ -497,31 +497,47 @@ def render_rays(network_fn, rays_o, rays_d, z_vals):
     CDF = 1-tf.math.cumprod((1-alpha), axis = -1)
     # print("\n z_vals:", z_vals[0,0,:10,0])
     # print("dists: ", dists[0,0,:10])
-    # print("\n sigma_a", np.shape(sigma_a), sigma_a[0,0,:10])
-    # print("alpha", np.shape(alpha), alpha[0,0,:10])
-    # print("CDF: ", np.shape(CDF), CDF[0,0,:10])
+    # print("\n sigma_a", np.shape(sigma_a), sigma_a[0,0,:]) #raw network output
+    # print("alpha", np.shape(alpha), alpha[0,0,:]) #PDF
+    # print("CDF: ", np.shape(CDF), CDF[0,0,:]) #CDF
 
-    # #OLD
-    # # Sample random variables for point detection
-    # rv = tf.random.uniform(sigma_a.shape, minval=0, maxval=1)
-    # detections = tf.cast(rv < alpha, tf.float32)
-    # # Apply detections to alpha to get stochastic alpha
-    # stochastic_alpha = alpha * detections
-    # weights = stochastic_alpha * tf.math.cumprod(1. - stochastic_alpha + 1e-10, axis=-1, exclusive=True)
-    # print("weights:", weights[0,0,:10])
-    # # Compute depth_map
-    # depth_map = tf.reduce_sum(weights * z_vals[..., 0], axis=-1)
-
-    # #NEW - 
+    # #stochastic render (had this for a while) ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
     # roll = tf.random.uniform(tf.shape(alpha))
     # hit_surfs = tf.argmax(roll < alpha, axis = -1)
     # depth_map = tf.gather_nd(z_vals, hit_surfs[:,:,None], batch_dims = 2)[:,:,0]
     # # weights = alpha * tf.math.cumprod(1. - alpha + 1e-10, axis=-1, exclusive=True) #was this
-    # weights = np.gradient(CDF, axis = 2) + 1e-8 #TEST
+    # weights = np.gradient(CDF, axis = 2) + 1e-8 #works but fuzzy
 
-    #OLD - get smooth interpolation using weights (but no stochasticity)
+    # #OLD - get smooth interpolation using weights (but no stochasticity)~~~~~~~~~~
+    # weights = alpha * tf.math.cumprod(1.-alpha + 1e-10, -1, exclusive=True)
+    # depth_map = tf.reduce_sum(weights * z_vals[:,:,:,0], -1)
+
+    #NEW --- randomly select a position to start weighted smoothing ~~~~~~~~~~~~~~~~~~
+    ## best of both worlds-- smooth rendering with no floaters 
+    roll = tf.random.uniform(tf.shape(alpha))
+    hit_surfs = tf.argmax(roll < alpha, axis = -1)
+    #bring in a bit so we still get a smooth render 
+    #(still avoids most collisions)
+    hit_surfs = 9*hit_surfs//10
+
+    # Create a tensor of indices for the last dimension
+    last_dim_indices = tf.range(tf.shape(alpha)[-1], dtype=tf.int64)  # shape: [128]
+    # Create a mask by comparing last_dim_indices with hit_surfs
+    hit_surfs_expanded = hit_surfs[:, :, tf.newaxis]  # shape: [64, 8, 1]
+    mask = last_dim_indices[tf.newaxis, tf.newaxis, :] <= hit_surfs_expanded  # shape: [64, 8, 128]
+    # Invert the mask to have ones for values to keep and zeros for values to set to zero
+    mask = tf.cast(~mask, dtype=tf.float32)  # shape: [64, 8, 128]
+    weights = alpha * tf.math.cumprod(1.-alpha + 1e-10, -1, exclusive=True)
+
+    # Apply the mask to the alpha tensor
+    # alpha2 = alpha * mask
+    # weights2 = alpha2 * tf.math.cumprod(1.-alpha2 + 1e-10, -1, exclusive=True)
+    # depth_map = tf.reduce_sum(weights2 * z_vals[:,:,:,0], -1)
+    alpha = alpha * mask
     weights = alpha * tf.math.cumprod(1.-alpha + 1e-10, -1, exclusive=True)
     depth_map = tf.reduce_sum(weights * z_vals[:,:,:,0], -1)
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 
     # Compute ray_drop_map using the same weights
     ray_drop_map = tf.reduce_sum(weights * ray_drop, axis=-1) #works ish (but not great)
@@ -610,23 +626,23 @@ def calculate_loss(depth, ray_drop, target, target_drop_mask,
 #     thresh = 0.025 #was at 0.025, set to 0.1 in LiDAR-NeRF
     ##--seems like this works better if I set different values for each component
     #    this makes sense since the resolution of the sensor is differnt in horizontal and vertical(?)
-    thresh_horiz = 0.025 
-    thresh_vert = 0.025
-    # thresh_horiz = 0.001 #test 
-    # thresh_vert = 0.01 #test
+    # thresh_horiz = 0.025 
+    # thresh_vert = 0.025
+    thresh_horiz = 0.05 #test 
+    thresh_vert = 0.005 #test
     mask = np.ones(np.shape(target[:,:,0]))
     vertical_grad_target = np.gradient(target[:,:,0])[0] 
-    # vertical_past_thresh = np.argwhere(tf.abs(vertical_grad_target) > thresh_vert) #old
+    vertical_past_thresh = np.argwhere(tf.abs(vertical_grad_target) > thresh_vert) #old
     # #test for double gradient 
-    vertical_grad_target2 = np.gradient(vertical_grad_target)[0] 
-    vertical_past_thresh = np.argwhere(tf.abs(vertical_grad_target2) > thresh_vert)
+    # vertical_grad_target2 = np.gradient(vertical_grad_target)[0] 
+    # vertical_past_thresh = np.argwhere(tf.abs(vertical_grad_target2) > thresh_vert)
 
     mask[vertical_past_thresh[:,0], vertical_past_thresh[:,1]] = 0 #1
     horizontal_grad_target = np.gradient(target[:,:,0])[1]
-    # horizontal_past_thresh = np.argwhere(tf.abs(horizontal_grad_target) > thresh_horiz) #old
+    horizontal_past_thresh = np.argwhere(tf.abs(horizontal_grad_target) > thresh_horiz) #old
     # #test for double gradient
-    horizontal_grad_target2 = np.gradient(horizontal_grad_target)[1]  
-    horizontal_past_thresh = np.argwhere(tf.abs(horizontal_grad_target2) > thresh_horiz)
+    # horizontal_grad_target2 = np.gradient(horizontal_grad_target)[1]  
+    # horizontal_past_thresh = np.argwhere(tf.abs(horizontal_grad_target2) > thresh_horiz)
     mask[horizontal_past_thresh[:,0], horizontal_past_thresh[:,1]] = 0 #1
     
     vertical_grad_inference = np.gradient(depth[:,:,0])[0]
@@ -639,42 +655,39 @@ def calculate_loss(depth, ray_drop, target, target_drop_mask,
     L_reg = np.multiply(mag_difference, mask)
     L_reg = L_reg[:,:,None]
     L_reg = tf.reduce_mean(tf.math.multiply(L_reg, target_drop_mask))
-    L_reg = tf.cast(L_reg, tf.float32)    
-
-    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~        
-    #if depth maps for channels 1 and 2 are provided, include similarity loss
-    if d1 is not None:
-        channel1 = d1
-        channel2 = d2
-        channel1_flat = tf.reshape(channel1, [tf.shape(channel1)[0], -1])
-        channel2_flat = tf.reshape(channel2, [tf.shape(channel2)[0], -1])
-        dot_product = tf.reduce_sum(channel1_flat * channel2_flat, axis=1)
-        norm_channel1 = tf.norm(channel1_flat, axis=1)
-        norm_channel2 = tf.norm(channel2_flat, axis=1)
-        cosine_similarity = dot_product / (norm_channel1 * norm_channel2 + 1e-8)
-        similarity_loss = (tf.reduce_mean(cosine_similarity) + 1) / 2
-        # print(similarity_loss)
-    else:
-        similarity_loss = 0
-    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~        
+    L_reg = tf.cast(L_reg, tf.float32)         
 
     #if we're using CDF for loss instead of distance error ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     if CDF is not None:
         CDFdiff = tf.abs(CDF - gtCDF)
         CDFdiff = tf.math.multiply(CDFdiff, target_drop_mask)
+
+       # #TEMP ~~~ prevent gradient mask from getting rid of double returns in windows, etc.
+        save_non_ground = tf.zeros_like(mask).numpy()
+        save_non_ground[:40,:] = 1 #prevent anything in the top ~3/4 of image from getting masked
+        save_non_groud = tf.convert_to_tensor(save_non_ground)
+        together = tf.concat([save_non_groud[:,:,None], mask[:,:,None]], axis = -1)
+        mask = tf.math.reduce_max(together, axis = -1)
+        mask = tf.cast(mask, tf.float32)
+        #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+        #TEST-- suppress high gradient regions to minimize bias induced by beam spreading
+        CDFdiff_low_grad = tf.math.multiply(CDFdiff, mask[:,:,None])
+        CDFdiff = 0.2*CDFdiff + 0.8*CDFdiff_low_grad
+ 
+
         # CDF_loss = tf.reduce_sum(CDFdiff) #L1 Loss-- old
         # CDF_loss = tf.reduce_sum(CDFdiff**2) #L2 Loss-- NEW
-        CDF_loss = tf.reduce_sum(CDFdiff**2 + CDFdiff) #TEST using both
+        CDF_loss = tf.reduce_sum(CDFdiff**2 + CDFdiff) #using both -- works much better!
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     lam0 = 0 #10 #NEED TO USE THIS WHEN SCALING DOWN EVERYTHING TO FIT IN UNIT BOX(?)
               # othersize loss gets dominated by raydrop?? 
     lam1 = 0 #100 
     lam2 = 1000. #1 
-    lam3 = 0. 
     lam4 = 0.1
 
-    loss = lam0*L_dist + lam1*L_reg + lam2*L_raydrop + lam3*similarity_loss + lam4*CDF_loss
+    loss = lam0*L_dist + lam1*L_reg + lam2*L_raydrop + lam4*CDF_loss
     # print("\n L_dist: ", lam0*L_dist, "\n L_raydrop:", lam2*L_raydrop, "\n L_CDF:", lam4*CDF_loss)
 
     return(loss)
