@@ -502,41 +502,41 @@ def render_rays(network_fn, rays_o, rays_d, z_vals):
     # print("CDF: ", np.shape(CDF), CDF[0,0,:]) #CDF
 
     # #stochastic render (had this for a while) ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
-    # roll = tf.random.uniform(tf.shape(alpha))
-    # hit_surfs = tf.argmax(roll < alpha, axis = -1)
-    # depth_map = tf.gather_nd(z_vals, hit_surfs[:,:,None], batch_dims = 2)[:,:,0]
-    # # weights = alpha * tf.math.cumprod(1. - alpha + 1e-10, axis=-1, exclusive=True) #was this
-    # weights = np.gradient(CDF, axis = 2) + 1e-8 #works but fuzzy
+    roll = tf.random.uniform(tf.shape(alpha))
+    hit_surfs = tf.argmax(roll < alpha, axis = -1)
+    depth_map = tf.gather_nd(z_vals, hit_surfs[:,:,None], batch_dims = 2)[:,:,0]
+    # weights = alpha * tf.math.cumprod(1. - alpha + 1e-10, axis=-1, exclusive=True) #was this
+    weights = np.gradient(CDF, axis = 2) + 1e-8 #works but fuzzy
 
     # #OLD - get smooth interpolation using weights (but no stochasticity)~~~~~~~~~~
     # weights = alpha * tf.math.cumprod(1.-alpha + 1e-10, -1, exclusive=True)
     # depth_map = tf.reduce_sum(weights * z_vals[:,:,:,0], -1)
 
-    #NEW --- randomly select a position to start weighted smoothing ~~~~~~~~~~~~~~~~~~
-    ## best of both worlds-- smooth rendering with no floaters 
-    roll = tf.random.uniform(tf.shape(alpha))
-    hit_surfs = tf.argmax(roll < alpha, axis = -1)
-    #bring in a bit so we still get a smooth render 
-    #(still avoids most collisions)
-    hit_surfs = 9*hit_surfs//10
+    # # #NEW --- randomly select a position to start weighted smoothing ~~~~~~~~~~~~~~~~~~
+    # ## best of both worlds-- smooth rendering with no floaters 
+    # roll = tf.random.uniform(tf.shape(alpha))
+    # hit_surfs = tf.argmax(roll < alpha, axis = -1)
+    # #bring in a bit so we still get a smooth render 
+    # #(still avoids most collisions)
+    # hit_surfs = 9*hit_surfs//10
 
-    # Create a tensor of indices for the last dimension
-    last_dim_indices = tf.range(tf.shape(alpha)[-1], dtype=tf.int64)  # shape: [128]
-    # Create a mask by comparing last_dim_indices with hit_surfs
-    hit_surfs_expanded = hit_surfs[:, :, tf.newaxis]  # shape: [64, 8, 1]
-    mask = last_dim_indices[tf.newaxis, tf.newaxis, :] <= hit_surfs_expanded  # shape: [64, 8, 128]
-    # Invert the mask to have ones for values to keep and zeros for values to set to zero
-    mask = tf.cast(~mask, dtype=tf.float32)  # shape: [64, 8, 128]
-    weights = alpha * tf.math.cumprod(1.-alpha + 1e-10, -1, exclusive=True)
+    # # Create a tensor of indices for the last dimension
+    # last_dim_indices = tf.range(tf.shape(alpha)[-1], dtype=tf.int64)  # shape: [128]
+    # # Create a mask by comparing last_dim_indices with hit_surfs
+    # hit_surfs_expanded = hit_surfs[:, :, tf.newaxis]  # shape: [64, 8, 1]
+    # mask = last_dim_indices[tf.newaxis, tf.newaxis, :] <= hit_surfs_expanded  # shape: [64, 8, 128]
+    # # Invert the mask to have ones for values to keep and zeros for values to set to zero
+    # mask = tf.cast(~mask, dtype=tf.float32)  # shape: [64, 8, 128]
+    # weights = alpha * tf.math.cumprod(1.-alpha + 1e-10, -1, exclusive=True)
 
-    # Apply the mask to the alpha tensor
-    # alpha2 = alpha * mask
-    # weights2 = alpha2 * tf.math.cumprod(1.-alpha2 + 1e-10, -1, exclusive=True)
-    # depth_map = tf.reduce_sum(weights2 * z_vals[:,:,:,0], -1)
-    alpha = alpha * mask
-    weights = alpha * tf.math.cumprod(1.-alpha + 1e-10, -1, exclusive=True)
-    depth_map = tf.reduce_sum(weights * z_vals[:,:,:,0], -1)
-    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # # Apply the mask to the alpha tensor
+    # # alpha2 = alpha * mask
+    # # weights2 = alpha2 * tf.math.cumprod(1.-alpha2 + 1e-10, -1, exclusive=True)
+    # # depth_map = tf.reduce_sum(weights2 * z_vals[:,:,:,0], -1)
+    # alpha = alpha * mask
+    # weights = alpha * tf.math.cumprod(1.-alpha + 1e-10, -1, exclusive=True)
+    # depth_map = tf.reduce_sum(weights * z_vals[:,:,:,0], -1)
+    # # #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
     # Compute ray_drop_map using the same weights
