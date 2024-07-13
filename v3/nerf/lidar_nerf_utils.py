@@ -336,7 +336,7 @@ def get_rays(H, W, c2w, phimin_patch, phimax_patch):
 
 
 # adjusted from vanilla NeRF to pass in sample locations, still essentially just the image-nerf loss process
-def render_rays(network_fn, rays_o, rays_d, z_vals):
+def render_rays(network_fn, rays_o, rays_d, z_vals, fine = False):
     
     def batchify(fn, chunk=1024*512): #1024*512 converged for v4 #1024*32 in TinyNeRF
         return lambda inputs : tf.concat([fn(inputs[i:i+chunk]) for i in range(0, inputs.shape[0], chunk)], 0)
@@ -483,6 +483,7 @@ def render_rays(network_fn, rays_o, rays_d, z_vals):
     # ray_drop = tf.nn.relu(raw[..., 1])
     ray_drop = tf.sigmoid(raw[..., 1])
 
+    ##TODO -- potential issue here???
     # Compute weights for volume rendering
     temp = z_vals[:,:,1:,0] - z_vals[:,:,:-1,0]
     # print("temp:", np.shape(temp))
@@ -501,42 +502,48 @@ def render_rays(network_fn, rays_o, rays_d, z_vals):
     # print("alpha", np.shape(alpha), alpha[0,0,:]) #PDF
     # print("CDF: ", np.shape(CDF), CDF[0,0,:]) #CDF
 
-    # #stochastic render (had this for a while) ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
-    roll = tf.random.uniform(tf.shape(alpha))
-    hit_surfs = tf.argmax(roll < alpha, axis = -1)
-    depth_map = tf.gather_nd(z_vals, hit_surfs[:,:,None], batch_dims = 2)[:,:,0]
-    # weights = alpha * tf.math.cumprod(1. - alpha + 1e-10, axis=-1, exclusive=True) #was this
-    weights = np.gradient(CDF, axis = 2) + 1e-8 #works but fuzzy
+    #stochastic render (had this for a while) ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
+    if fine == False:
+        roll = tf.random.uniform(tf.shape(alpha))
+        hit_surfs = tf.argmax(roll < alpha, axis = -1)
+        depth_map = tf.gather_nd(z_vals, hit_surfs[:,:,None], batch_dims = 2)[:,:,0]
+        # weights = alpha * tf.math.cumprod(1. - alpha + 1e-10, axis=-1, exclusive=True) #was this
+        weights = np.gradient(CDF, axis = 2) + 1e-8 #works but fuzzy
+        # weights = tf.cast(roll < alpha, tf.float32) * alpha * tf.math.cumprod(1. - alpha + 1e-10, axis=-1, exclusive=True) #test
+        # print("alpha", tf.shape(alpha))
+        # print("hit_surfs", tf.shape(hit_surfs))
 
-    # #OLD - get smooth interpolation using weights (but no stochasticity)~~~~~~~~~~
+    # # #OLD - get smooth interpolation using weights (but no stochasticity)~~~~~~~~~~
     # weights = alpha * tf.math.cumprod(1.-alpha + 1e-10, -1, exclusive=True)
     # depth_map = tf.reduce_sum(weights * z_vals[:,:,:,0], -1)
 
-    # # #NEW --- randomly select a position to start weighted smoothing ~~~~~~~~~~~~~~~~~~
-    # ## best of both worlds-- smooth rendering with no floaters 
-    # roll = tf.random.uniform(tf.shape(alpha))
-    # hit_surfs = tf.argmax(roll < alpha, axis = -1)
-    # #bring in a bit so we still get a smooth render 
-    # #(still avoids most collisions)
-    # hit_surfs = 9*hit_surfs//10
+    # randomly select a position to start weighted smoothing ~~~~~~~~~~~~~~~~~~~~~~~~
+    # produces fewer floaters than only smooth interpolation
+    if fine == True:
+        ## best of both worlds-- smooth rendering with no floaters 
+        roll = tf.random.uniform(tf.shape(alpha))
+        hit_surfs = tf.argmax(roll < alpha, axis = -1)
+        #bring in a bit so we still get a smooth render 
+        #(still avoids most collisions)
+        hit_surfs = 9*hit_surfs//10
 
-    # # Create a tensor of indices for the last dimension
-    # last_dim_indices = tf.range(tf.shape(alpha)[-1], dtype=tf.int64)  # shape: [128]
-    # # Create a mask by comparing last_dim_indices with hit_surfs
-    # hit_surfs_expanded = hit_surfs[:, :, tf.newaxis]  # shape: [64, 8, 1]
-    # mask = last_dim_indices[tf.newaxis, tf.newaxis, :] <= hit_surfs_expanded  # shape: [64, 8, 128]
-    # # Invert the mask to have ones for values to keep and zeros for values to set to zero
-    # mask = tf.cast(~mask, dtype=tf.float32)  # shape: [64, 8, 128]
-    # weights = alpha * tf.math.cumprod(1.-alpha + 1e-10, -1, exclusive=True)
+        # Create a tensor of indices for the last dimension
+        last_dim_indices = tf.range(tf.shape(alpha)[-1], dtype=tf.int64)  # shape: [128]
+        # Create a mask by comparing last_dim_indices with hit_surfs
+        hit_surfs_expanded = hit_surfs[:, :, tf.newaxis]  # shape: [64, 8, 1]
+        mask = last_dim_indices[tf.newaxis, tf.newaxis, :] <= hit_surfs_expanded  # shape: [64, 8, 128]
+        # Invert the mask to have ones for values to keep and zeros for values to set to zero
+        mask = tf.cast(~mask, dtype=tf.float32)  # shape: [64, 8, 128]
+        weights = alpha * tf.math.cumprod(1.-alpha + 1e-10, -1, exclusive=True)
 
-    # # Apply the mask to the alpha tensor
-    # # alpha2 = alpha * mask
-    # # weights2 = alpha2 * tf.math.cumprod(1.-alpha2 + 1e-10, -1, exclusive=True)
-    # # depth_map = tf.reduce_sum(weights2 * z_vals[:,:,:,0], -1)
-    # alpha = alpha * mask
-    # weights = alpha * tf.math.cumprod(1.-alpha + 1e-10, -1, exclusive=True)
-    # depth_map = tf.reduce_sum(weights * z_vals[:,:,:,0], -1)
-    # # #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        # Apply the mask to the alpha tensor
+        # alpha2 = alpha * mask
+        # weights2 = alpha2 * tf.math.cumprod(1.-alpha2 + 1e-10, -1, exclusive=True)
+        # depth_map = tf.reduce_sum(weights2 * z_vals[:,:,:,0], -1)
+        alpha = alpha * mask
+        weights = alpha * tf.math.cumprod(1.-alpha + 1e-10, -1, exclusive=True)
+        depth_map = tf.reduce_sum(weights * z_vals[:,:,:,0], -1)
+    # #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
     # Compute ray_drop_map using the same weights
