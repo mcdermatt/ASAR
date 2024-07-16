@@ -686,6 +686,7 @@ def calculate_loss(depth, ray_drop, target, target_drop_mask,
         # CDF_loss = tf.reduce_sum(CDFdiff) #L1 Loss-- old
         # CDF_loss = tf.reduce_sum(CDFdiff**2) #L2 Loss-- NEW
         CDF_loss = tf.reduce_sum(CDFdiff**2 + CDFdiff) #using both -- works much better!
+        # CDF_loss = tf.reduce_sum(0.1*(CDFdiff**2) + 0.9*CDFdiff) #test-- weight L1 more heavily
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     lam0 = 0 #10 #NEED TO USE THIS WHEN SCALING DOWN EVERYTHING TO FIT IN UNIT BOX(?)
