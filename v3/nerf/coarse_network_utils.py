@@ -164,6 +164,7 @@ def calculate_loss_coarse_network(z_vals_coarse, z_vals_fine, weights_coarse, we
 
     # Calculate the final loss
     mask = tf.cast(fine_sum > weights_coarse, tf.float32)
-    L = tf.reduce_sum(mask * (fine_sum - weights_coarse), axis=2)
+    # L = tf.reduce_sum(mask * (fine_sum - weights_coarse), axis=2)#old
+    L = tf.reduce_sum(mask * (fine_sum - weights_coarse) * width_coarse, axis=2) #scale by width of each coarse ray
 
     return L
