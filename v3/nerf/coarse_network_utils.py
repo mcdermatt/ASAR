@@ -108,64 +108,62 @@ def resample_z_vals(z_vals_coarse, weights_coarse, w_coarse, n_resample=128):
 
     return z_vals_new
 
-# continuous_samples = resample_z_vals(z_vals_coarse, weights_coarse, w_coarse, H = H, W=W)
 
+def safe_segment_sum(data, segment_ids, num_segments):
+    # Extract dimensions
+    batch_size, num_rays, num_samples = tf.shape(data)
+    
+    # Flatten data and segment_ids
+    data_flat = tf.reshape(data, [-1])
+    segment_ids_flat = tf.reshape(segment_ids, [-1])
+    
+    # Initialize segment_sums tensor
+    segment_sums = tf.zeros([batch_size * num_rays, num_segments], dtype=data.dtype)
+    
+    # Calculate indices for tensor_scatter_nd_add
+    indices = tf.stack([
+        tf.repeat(tf.range(batch_size * num_rays), num_samples),  # Repeat for each sample
+        segment_ids_flat
+    ], axis=1)
+    
+    # Scatter the data
+    segment_sums = tf.tensor_scatter_nd_add(segment_sums, indices, data_flat)
+    
+    # Reshape segment_sums to match original shape
+    segment_sums = tf.reshape(segment_sums, [batch_size, num_rays, num_segments])
+    
+    return segment_sums
 
 def calculate_loss_coarse_network(z_vals_coarse, z_vals_fine, weights_coarse, weights_fine):
-    '''Calculate loss for coarse network. Given histograms for scene density outptut by fine network,
+    '''Calculate loss for coarse network. Given histograms for scene density output by fine network,
     see how close the density estimated by the coarse network got us.'''
-    
-    print("\n calculate loss coarse network \n")
-    
-    def safe_segment_sum(data, segment_ids, num_segments):
-        # Initialize an array to store the segment sums
-        segment_sums = tf.zeros((num_segments,), dtype=data.dtype)
-        # Compute the segment sums using tensor_scatter_nd_add
-        segment_sums = tf.tensor_scatter_nd_add(segment_sums, tf.expand_dims(segment_ids, 1), data)
-        return segment_sums
 
+    # Calculate widths for coarse and fine z values
+    width_fine = tf.experimental.numpy.diff(z_vals_fine, axis=2)
+    width_fine = tf.concat([width_fine, tf.ones_like(width_fine[:, :, :1]) * 0.001], axis=2)
 
-    def run_on_ray(index): 
-        i, j = index
-        zc = z_vals_coarse[i, j]
-        zf = z_vals_fine[i, j]
-        wc = weights_coarse[i, j]
-        wf = weights_fine[i, j]
-        width_fine_for_ray = width_fine[i,j] 
-        width_coarse_for_ray = width_coarse[i,j]
-        
-        idx = tf.searchsorted(zc, zf, side='right') - 1
-        fine_sum = safe_segment_sum(wf*width_fine_for_ray, idx, len(zc))/width_coarse_for_ray        
+    width_coarse = tf.experimental.numpy.diff(z_vals_coarse, axis=2)
+    width_coarse = tf.concat([width_coarse, tf.ones_like(width_coarse[:, :, :1]) * 0.001], axis=2)
 
-        mask = tf.cast(fine_sum > wc , tf.float32)
-        L_i = tf.math.reduce_sum(mask*(fine_sum-wc))
-        return L_i
-    
-    #get spacing between subsequent z measurements in z_vals_fine to weight contributions
-    width_fine = tf.experimental.numpy.diff(z_vals_fine, axis = 2)
-    padding_config = [[0, 0],[0, 0],[0, 1]]
-    width_fine = tf.pad(width_fine, padding_config, constant_values=0.001)
-    
-    width_coarse = tf.experimental.numpy.diff(z_vals_coarse, axis = 2)
-    padding_config = [[0, 0],[0, 0],[0, 1]]
-    width_coarse = tf.pad(width_coarse, padding_config, constant_values=0.001)
+    # Normalize coarse and fine weights
+    area_coarse = tf.reduce_sum(weights_coarse * width_coarse, axis=2, keepdims=True)
+    weights_coarse /= area_coarse
 
-    #normalize coarse and fine to contain an area of 1
-    area_coarse = tf.math.reduce_sum(weights_coarse * width_coarse, axis =2)[:,:,None]
-    weights_coarse = weights_coarse/area_coarse
-    area_fine = tf.math.reduce_sum(weights_fine * width_fine, axis =2)[:,:,None]
-    weights_fine = weights_fine/area_fine
-    # print("sum weights coarse:", tf.math.reduce_sum(weights_coarse * width_coarse[:,:,:], axis = 2)) #will be all ones if norm'd correctly
-    # print("sum weights fine:",tf.math.reduce_sum(weights_fine * width_fine[:,:,:], axis = 2)) #will be all ones if norm'd correctly
+    area_fine = tf.reduce_sum(weights_fine * width_fine, axis=2, keepdims=True)
+    weights_fine /= area_fine
 
-    #map over each batch dimension
-    indices = tf.stack(tf.meshgrid(tf.range(z_vals_coarse.shape[0]), tf.range(z_vals_coarse.shape[1]), indexing='ij'), axis=-1)
-    indices = tf.reshape(indices, (-1, 2))
-    
-    # Use tf.map_fn to apply the run_on_ray() in parallel over batch dimensions    
-    L = tf.map_fn(run_on_ray, indices, fn_output_signature=tf.float32)
-    L = tf.reshape(L, (z_vals_coarse.shape[0], z_vals_coarse.shape[1]))
-    
+    # Compute the index for gathering width_coarse
+    idx = tf.searchsorted(z_vals_coarse, z_vals_fine, side='right') - 1
+    idx = tf.clip_by_value(idx, 0, z_vals_coarse.shape[2] - 1)
+
+    # Compute fine_sum
+    fine_sum = safe_segment_sum(weights_fine * width_fine, idx, z_vals_coarse.shape[2])
+
+    # Ensure fine_sum and width_coarse have compatible shapes
+    fine_sum /= width_coarse
+
+    # Calculate the final loss
+    mask = tf.cast(fine_sum > weights_coarse, tf.float32)
+    L = tf.reduce_sum(mask * (fine_sum - weights_coarse), axis=2)
+
     return L
-
-# L = calculate_loss_coarse_network(z_vals_coarse[...,0], z_vals_fine[...,0], weights_coarse[...,0], weights_fine[...,0])
