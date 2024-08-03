@@ -42,8 +42,11 @@ def posenc(x, embed_dims):
 
 #2**18 is below the sensor noise threshold??
 # L_embed =  5 #18 #15 #10 #6
-pos_embed_dims = 14 #14
-rot_embed_dims = 4 #4
+pos_embed_dims = 18 #14
+rot_embed_dims = 6 #4
+pos_embed_dims_coarse = 18 
+rot_embed_dims_coarse = 6 
+
 embed_fn = posenc
 
 
@@ -135,46 +138,6 @@ embed_fn = posenc
 #     return model
 
 
-# #try seperate paths for two density channels
-# def init_model(D=8, W=256): #8,256
-#     relu = tf.keras.layers.LeakyReLU() #per LOC-NDF   
-#     dense = lambda W=W, act=relu : tf.keras.layers.Dense(W, activation=act, kernel_initializer='glorot_uniform')
-
-#     inputs = tf.keras.Input(shape=(6 + 3*2*(rot_embed_dims) + 3*2*(pos_embed_dims)))
-#     outputs = inputs[:,:(3+3*2*(pos_embed_dims))] 
-
-#     for i in range(D//2):
-#         outputs = dense()(outputs)
-#         if i%4==0 and i>0:
-#             outputs = tf.concat([outputs, inputs[:,:(3+3*2*(pos_embed_dims))]], -1)
-#             outputs = tf.keras.layers.LayerNormalization()(outputs) 
-
-#     # Split into two branches
-#     branch1 = outputs
-#     branch2 = outputs
-
-#     for i in range(D//2, D):
-#         branch1 = dense()(branch1)
-#         branch2 = dense()(branch2)
-#         if i%4==0 and i>0:
-#             branch1 = tf.concat([branch1, inputs[:,:(3+3*2*(pos_embed_dims))]], -1)
-#             branch1 = tf.keras.layers.LayerNormalization()(branch1)
-#             branch2 = tf.concat([branch2, inputs[:,:(3+3*2*(pos_embed_dims))]], -1)
-#             branch2 = tf.keras.layers.LayerNormalization()(branch2)
-
-#     sigma_channel1 = dense(1, act=None)(branch1)
-#     sigma_channel2 = dense(1, act=None)(branch2)
-    
-#     rd_start = tf.concat([outputs, inputs[:,(3+3*2*(pos_embed_dims)):]], -1)
-#     rd_channel = dense(256, act=relu)(outputs)
-#     rd_channel = dense(128, act=relu)(rd_channel)
-#     rd_channel = dense(2, act=tf.keras.activations.sigmoid)(rd_channel)
-
-#     out = tf.concat([sigma_channel1, sigma_channel2, rd_channel], -1)
-#     model = tf.keras.Model(inputs=inputs, outputs=out)
-    
-#     return model
-
 #old: [sigma, ray_drop]
 #test: [sigma_1, sigma_2, p(reflect), ray_drop]
 def init_model(D=8, W=256): #8,256
@@ -212,6 +175,53 @@ def init_model(D=8, W=256): #8,256
     model = tf.keras.Model(inputs=inputs, outputs=rd_channel)
     
     return model
+
+# def init_model_proposal(D=8, W=256):
+#     relu = tf.keras.layers.ReLU() #OG NeRF   
+#     dense = lambda W=W, act=relu : tf.keras.layers.Dense(W, activation=act, kernel_initializer='glorot_uniform')
+#     inputs = tf.keras.Input(shape=(6 + 3*2*(rot_embed_dims_coarse) + 3*2*(pos_embed_dims_coarse))) #new (embedding dims (4) and (10) )
+#     outputs = inputs[:,:] #only look at positional stuff for now
+#     outputs = dense(256, act=relu)(outputs)
+#     outputs = dense(256, act=relu)(outputs)
+#     outputs = dense(256, act=relu)(outputs)
+#     outputs = dense(128, act=relu)(outputs)
+#     outputs = dense(1, act=relu)(outputs) 
+#     model = tf.keras.Model(inputs=inputs, outputs=outputs)
+    
+#     return model
+
+def init_model_proposal(D=8, W=256): 
+    relu = tf.keras.layers.ReLU() #OG NeRF   
+    # relu = tf.keras.layers.LeakyReLU() #per LOC-NDF   
+    dense = lambda W=W, act=relu : tf.keras.layers.Dense(W, activation=act, kernel_initializer='glorot_uniform')
+
+    inputs = tf.keras.Input(shape=(6 + 3*2*(rot_embed_dims) + 3*2*(pos_embed_dims))) #new (embedding dims (4) and (10) )
+    outputs = inputs[:,:(3+3*2*(pos_embed_dims))] #only look at positional stuff for now
+    for i in range(D):
+        outputs = dense()(outputs)
+        # outputs = tf.keras.layers.LayerNormalization()(outputs) #old
+        if i%4==0 and i>0:
+            outputs = tf.concat([outputs, inputs[:,:(3+3*2*(pos_embed_dims))]], -1)
+            outputs = tf.keras.layers.LayerNormalization()(outputs) #as recomended by LOC-NDF 
+    #extend small MLP after output of density channel to get ray drop
+    # sigma_channel = dense(1, act=None)(outputs) #was this
+    # sigma_channel = dense(2, act=None)(outputs) #adding another channel to seperate 1st and 2nd returns      
+    rd_start = tf.concat([outputs, inputs[:,(3+3*2*(pos_embed_dims)):]], -1)
+    rd_channel = dense(256, act=relu)(outputs) #OG NeRF structure
+    rd_channel = dense(128, act=relu)(rd_channel)
+    # rd_channel = dense(1, act=tf.keras.activations.sigmoid)(rd_channel) #was this
+                    #patrial reflectance is view dependant (Snell's law)
+    #WAS THIS-- output density as func of position only, ray drop as pos+view direction
+    # rd_channel = dense(2, act=tf.keras.activations.sigmoid)(rd_channel) #adding a 2nd channel for 1st vs 2nd return 
+    # out = tf.concat([sigma_channel, rd_channel], -1)
+    # model = tf.keras.Model(inputs=inputs, outputs=out)
+    #TEST -- both func of both
+    rd_channel = dense(1, act=relu)(rd_channel) #adding a 2nd channel for 1st vs 2nd return 
+    model = tf.keras.Model(inputs=inputs, outputs=rd_channel)
+    
+    return model
+
+
 
 def cylindrical_to_cartesian(pts):
 
@@ -669,7 +679,7 @@ def calculate_loss(depth, ray_drop, target, target_drop_mask,
         CDFdiff = tf.abs(CDF - gtCDF)
         CDFdiff = tf.math.multiply(CDFdiff, target_drop_mask)
 
-       # #TEMP ~~~ prevent gradient mask from getting rid of double returns in windows, etc.
+       # #TEST ~~~ prevent gradient mask from getting rid of double returns in windows, etc.
         save_non_ground = tf.zeros_like(mask).numpy()
         save_non_ground[:40,:] = 1 #prevent anything in the top ~3/4 of image from getting masked
         save_non_groud = tf.convert_to_tensor(save_non_ground)
