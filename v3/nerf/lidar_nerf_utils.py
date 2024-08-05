@@ -190,7 +190,7 @@ def init_model(D=8, W=256): #8,256
     
 #     return model
 
-def init_model_proposal(D=8, W=256): 
+def init_model_proposal(D=8, W=128): 
     relu = tf.keras.layers.ReLU() #OG NeRF   
     # relu = tf.keras.layers.LeakyReLU() #per LOC-NDF   
     dense = lambda W=W, act=relu : tf.keras.layers.Dense(W, activation=act, kernel_initializer='glorot_uniform')
