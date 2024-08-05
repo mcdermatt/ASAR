@@ -44,8 +44,8 @@ def posenc(x, embed_dims):
 # L_embed =  5 #18 #15 #10 #6
 pos_embed_dims = 18 #14
 rot_embed_dims = 6 #4
-pos_embed_dims_coarse = 18 
-rot_embed_dims_coarse = 6 
+pos_embed_dims_coarse =  18 
+rot_embed_dims_coarse =  6 
 
 embed_fn = posenc
 
@@ -190,34 +190,29 @@ def init_model(D=8, W=256): #8,256
     
 #     return model
 
-def init_model_proposal(D=8, W=128): 
+def init_model_proposal(D=8, W=256): 
     relu = tf.keras.layers.ReLU() #OG NeRF   
-    # relu = tf.keras.layers.LeakyReLU() #per LOC-NDF   
-    dense = lambda W=W, act=relu : tf.keras.layers.Dense(W, activation=act, kernel_initializer='glorot_uniform')
+    leaky_relu = tf.keras.layers.LeakyReLU() #per LOC-NDF   
+    # sigmoid = tf.keras.activations.sigmoid()
+    dense = lambda W=W, act=leaky_relu : tf.keras.layers.Dense(W, activation=act, kernel_initializer='he_normal')
 
-    inputs = tf.keras.Input(shape=(6 + 3*2*(rot_embed_dims) + 3*2*(pos_embed_dims))) #new (embedding dims (4) and (10) )
-    outputs = inputs[:,:(3+3*2*(pos_embed_dims))] #only look at positional stuff for now
+    inputs = tf.keras.Input(shape=(6 + 3*2*(rot_embed_dims_coarse) + 3*2*(pos_embed_dims_coarse))) #new (embedding dims (4) and (10) )
+    outputs = inputs[:,:(3+3*2*(pos_embed_dims_coarse))] #only look at positional stuff for now
     for i in range(D):
         outputs = dense()(outputs)
-        # outputs = tf.keras.layers.LayerNormalization()(outputs) #old
+        outputs = tf.keras.layers.LayerNormalization()(outputs) #old
         if i%4==0 and i>0:
-            outputs = tf.concat([outputs, inputs[:,:(3+3*2*(pos_embed_dims))]], -1)
+            outputs = tf.concat([outputs, inputs[:,:(3+3*2*(pos_embed_dims_coarse))]], -1)
             outputs = tf.keras.layers.LayerNormalization()(outputs) #as recomended by LOC-NDF 
     #extend small MLP after output of density channel to get ray drop
-    # sigma_channel = dense(1, act=None)(outputs) #was this
-    # sigma_channel = dense(2, act=None)(outputs) #adding another channel to seperate 1st and 2nd returns      
-    rd_start = tf.concat([outputs, inputs[:,(3+3*2*(pos_embed_dims)):]], -1)
-    rd_channel = dense(256, act=relu)(outputs) #OG NeRF structure
-    rd_channel = dense(128, act=relu)(rd_channel)
-    # rd_channel = dense(1, act=tf.keras.activations.sigmoid)(rd_channel) #was this
-                    #patrial reflectance is view dependant (Snell's law)
-    #WAS THIS-- output density as func of position only, ray drop as pos+view direction
-    # rd_channel = dense(2, act=tf.keras.activations.sigmoid)(rd_channel) #adding a 2nd channel for 1st vs 2nd return 
-    # out = tf.concat([sigma_channel, rd_channel], -1)
-    # model = tf.keras.Model(inputs=inputs, outputs=out)
-    #TEST -- both func of both
-    rd_channel = dense(1, act=relu)(rd_channel) #adding a 2nd channel for 1st vs 2nd return 
-    model = tf.keras.Model(inputs=inputs, outputs=rd_channel)
+    rd_start = tf.concat([outputs, inputs[:,(3+3*2*(pos_embed_dims_coarse)):]], -1)
+    rd_channel = dense(256, act=leaky_relu)(outputs) #OG NeRF structure
+    rd_channel = tf.keras.layers.BatchNormalization()(rd_channel)
+    rd_channel = dense(128, act=leaky_relu)(rd_channel)
+    rd_channel = tf.keras.layers.BatchNormalization()(rd_channel)
+    # rd_channel = dense(1, act=relu)(rd_channel) #adding a 2nd channel for 1st vs 2nd return 
+    rd_channel = dense(1, act=tf.keras.activations.sigmoid)(rd_channel) #adding a 2nd channel for 1st vs 2nd return 
+    model = tf.keras.Model(inputs=inputs, outputs=10*rd_channel)
     
     return model
 

@@ -33,8 +33,8 @@ from lidar_nerf_utils import *
 
 tf.compat.v1.enable_eager_execution()
 
-pos_embed_dims_coarse = 18
-rot_embed_dims_coarse = 6
+pos_embed_dims_coarse = 18#8 #18
+rot_embed_dims_coarse = 6#3 #6
 
 def run_coarse_network(model_coarse, z_vals_coarse, width_coarse, rays_o, rays_d,n_resample = 128):
     
@@ -62,19 +62,19 @@ def run_coarse_network(model_coarse, z_vals_coarse, width_coarse, rays_o, rays_d
     # print(np.shape(weights_coarse))
     # print(np.shape(width_coarse))    
 
-    #add small uniform probibility of selection for each bin
+    #rescale add small uniform probibility of selection for each bin
     eps = 1e-3 #1e-3
-    weights_coarse = weights_coarse + eps*tf.ones_like(weights_coarse)
-    weights_coarse = weights_coarse/ tf.math.reduce_sum(width_coarse*weights_coarse, axis = 2)[:,:,None]
+    weights_coarse_scaled = weights_coarse + eps*tf.ones_like(weights_coarse)
+    weights_coarse_scaled = weights_coarse_scaled/ tf.math.reduce_sum(width_coarse*weights_coarse_scaled, axis = 2)[:,:,None]
     # print("should all be 1: \n", tf.math.reduce_sum(weights_coarse * width_coarse, axis = 2))
     # print(np.shape(weights_coarse))
 
     #resample according to histogram output by coarse proposal network
-    z_vals_fine, width_fine = resample_z_vals(z_vals_coarse - width_coarse[:,:,:,None]/2, weights_coarse[:,:,:,None], width_coarse[:,:,:,None], n_resample=n_resample)
-    # z_vals_fine = resample_z_vals(z_vals_coarse, weights_coarse[:,:,:,None], width_coarse[:,:,:,None], n_resample=n_resample)    
+    z_vals_fine, width_fine = resample_z_vals(z_vals_coarse - width_coarse[:,:,:,None]/2, weights_coarse_scaled[:,:,:,None], width_coarse[:,:,:,None], n_resample=n_resample)
+    # z_vals_fine, width_fine = resample_z_vals(z_vals_coarse, weights_coarse_scaled[:,:,:,None], width_coarse[:,:,:,None], n_resample=n_resample)
 
-    return z_vals_fine, width_fine, weights_coarse
-
+    return z_vals_fine, width_fine, weights_coarse_scaled
+    # return z_vals_fine, width_fine, weights_coarse #return raw output of network, not scaled to 1
 
 #updated to run in parallel about two batch dimensions
 def resample_z_vals(z_vals_coarse, weights_coarse, w_coarse, n_resample=128):
@@ -82,12 +82,19 @@ def resample_z_vals(z_vals_coarse, weights_coarse, w_coarse, n_resample=128):
     wc = weights_coarse[:, :, :, 0]
     width_coarse = w_coarse[:, :, :, 0]
 
-    tf.debugging.check_numerics(zc, "NaN found in zc inside resample_z_vals")
-    tf.debugging.check_numerics(wc, "NaN found in wc inside resample_z_vals")
-    tf.debugging.check_numerics(width_coarse, "NaN found in width_coarse inside resample_z_vals")
-
+    #TODO: issue is here??
     # Pad weights for CDF computation, removing the first padded value after
-    wc_padded = tf.pad(wc, [[0, 0], [0, 0], [1, 0]], constant_values=0)[:, :, :-1]
+    wc_padded = tf.pad(wc, [[0, 0], [0, 0], [1, 0]], constant_values=0)[:, :, :-1] #old
+    # wc_padded = tf.pad(wc, [[0, 0], [0, 0], [0, 1]], constant_values=0)[:, :, :-1] #debug - nope
+    # wc_padded = wc #test
+    # print("wc_padded", wc_padded[0,0,:])
+    # print("wc", wc[0,0,:])
+
+    # if np.sum(np.isnan(weights_coarse[:,:,:,0])) > 0:
+    #     print("actually found a NaN value")
+    #     print(wc[0,0,:])
+
+    wc_padded = tf.where(tf.math.is_nan(wc_padded), 0.001*tf.ones_like(wc_padded), wc_padded) #test
 
     tf.debugging.check_numerics(wc_padded, "NaN found in wc_padded inside resample_z_vals")
     
@@ -135,10 +142,12 @@ def resample_z_vals(z_vals_coarse, weights_coarse, w_coarse, n_resample=128):
     # Check for zero denominators explicitly and set to epsilon
     denom = tf.where(denom == 0, epsilon, denom)
 
+
     # Interpolate to get sample values at the LEFT edge of each histogram bin
     weights = (randy - cdf_left) / denom
     z_vals_new = values_left + weights * (values_right - values_left)
     z_vals_new = z_vals_new - z_vals_new[:,:,:1] #make sure first bin starts at 0
+
 
     ## if repeating coarse bin locations  ~~~~~~~~~~~~~~~~
     z_vals_new = tf.concat([z_vals_new, z_vals_coarse[:,:,:,0]], axis = 2)
@@ -193,11 +202,14 @@ def calculate_loss_coarse_network(z_vals_coarse, z_vals_fine, weights_coarse, we
     area_fine = tf.reduce_sum(weights_fine * width_fine, axis=2, keepdims=True)
     weights_fine /= area_fine
 
+    # print("\n test \n", z_vals_coarse[0,0,:] - width_coarse[0,0,:]/2)
+
     # Compute the index for gathering width_coarse
     # idx = tf.searchsorted(z_vals_coarse, z_vals_fine, side='right') - 1 #old
-    idx = tf.searchsorted(z_vals_coarse - width_coarse/2, z_vals_fine, side='right') - 1 #test
-    idx = tf.clip_by_value(idx, 0, z_vals_coarse.shape[2] - 1)
+    idx = tf.searchsorted(z_vals_coarse - width_coarse/2, z_vals_fine, side='right') - 1 #center in bin?
+    # idx = tf.searchsorted(z_vals_coarse - width_coarse/2, z_vals_fine, side='right') #test offset by 1 bin??
 
+    idx = tf.clip_by_value(idx, 0, z_vals_coarse.shape[2] - 1)
     fine_sum = safe_segment_sum(weights_fine * width_fine, idx, z_vals_coarse.shape[2])
     fine_sum /= width_coarse
     # print("fine_sum \n", fine_sum[0,0,:])
