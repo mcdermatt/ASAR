@@ -33,8 +33,8 @@ from lidar_nerf_utils import *
 
 tf.compat.v1.enable_eager_execution()
 
-pos_embed_dims_coarse = 6 #18
-rot_embed_dims_coarse = 3 #6
+pos_embed_dims_coarse = 8 #18
+rot_embed_dims_coarse = 4 #6
 
 def run_coarse_network(model_coarse, z_vals_coarse, width_coarse, rays_o, rays_d,n_resample = 128):
     
@@ -73,8 +73,10 @@ def run_coarse_network(model_coarse, z_vals_coarse, width_coarse, rays_o, rays_d
     z_vals_fine, width_fine = resample_z_vals(z_vals_coarse - width_coarse[:,:,:,None]/2, weights_coarse_scaled[:,:,:,None], width_coarse[:,:,:,None], n_resample=n_resample)
     # z_vals_fine, width_fine = resample_z_vals(z_vals_coarse, weights_coarse_scaled[:,:,:,None], width_coarse[:,:,:,None], n_resample=n_resample)
 
-    return z_vals_fine, width_fine, weights_coarse_scaled
-    # return z_vals_fine, width_fine, weights_coarse #return raw output of network, not scaled to 1
+    #raw output
+    # return z_vals_fine, width_fine, weights_coarse_scaled #test
+    #return raw output of network, not scaled to 1
+    return z_vals_fine, width_fine, weights_coarse  #had this, seemed to work(ish) but is pretty unstable
 
 #updated to run in parallel about two batch dimensions
 def resample_z_vals(z_vals_coarse, weights_coarse, w_coarse, n_resample=128):
@@ -164,6 +166,9 @@ def resample_z_vals(z_vals_coarse, weights_coarse, w_coarse, n_resample=128):
     width_new = tf.concat([width_new, 1.- z_vals_new[:,:,-1][:,:,None] ], axis=2)
     z_vals_new = z_vals_new + width_new/2
 
+    # print("\n z_vals_fine \n", z_vals_new[0,0,:])
+    # print("\n width_fine \n", width_new[0,0,:])
+
     return z_vals_new, width_new
 
 
@@ -197,22 +202,26 @@ def calculate_loss_coarse_network(z_vals_coarse, z_vals_fine, weights_coarse, we
     '''Calculate loss for coarse network. Given histograms for scene density output by fine network,
     see how close the density estimated by the coarse network got us.'''
 
-    # Normalize coarse and fine weights
+    # # Normalize coarse and fine weights
     weights_coarse = tf.identity(weights_coarse) #create copy to avoid pass by reference bug??
-    weights_fine = tf.identity(weights_fine)
+    # weights_fine = tf.identity(weights_fine)
     area_coarse = tf.reduce_sum(weights_coarse * width_coarse, axis=2, keepdims=True)
     weights_coarse /= area_coarse
-    area_fine = tf.reduce_sum(weights_fine * width_fine, axis=2, keepdims=True)
-    weights_fine /= area_fine
+    # area_fine = tf.reduce_sum(weights_fine * width_fine, axis=2, keepdims=True)
+    # weights_fine /= area_fine
 
-    # print("\n test \n", z_vals_coarse[0,0,:] - width_coarse[0,0,:]/2)
+    # print(tf.math.reduce_sum(weights_fine * width_fine, axis = 2)) #will be all ones if norm'd correctly
+    # print(tf.math.reduce_sum(weights_coarse * width_coarse, axis = 2)) #will be all ones if norm'd correctly
+
+    # print("\n z_vals_coarse[0,0,:] - width_coarse[0,0,:]/2 \n", z_vals_coarse[0,0,:] - width_coarse[0,0,:]/2)
+    # print("z_vals_fine \n", z_vals_fine[0,0,:])
 
     # Compute the index for gathering width_coarse
     idx = tf.searchsorted(z_vals_coarse - width_coarse / 2, z_vals_fine, side='right') - 1 #old
     # idx = tf.searchsorted(z_vals_coarse, z_vals_fine, side='right') #test 8/6
     # idx = tf.searchsorted(z_vals_coarse - width_coarse/2, z_vals_fine, side='right') - 1 #center in bin?
     # idx = tf.searchsorted(z_vals_coarse - width_coarse/2, z_vals_fine, side='right') #test offset by 1 bin??
-    # print(idx[0,0])
+    # print("idx[0,0]:\n", idx[0,0])
 
     idx = tf.clip_by_value(idx, 0, z_vals_coarse.shape[2] - 1)
     fine_sum = safe_segment_sum(weights_fine * width_fine, idx, z_vals_coarse.shape[2])
@@ -220,13 +229,11 @@ def calculate_loss_coarse_network(z_vals_coarse, z_vals_fine, weights_coarse, we
     # print("fine_sum \n", fine_sum[0,0,:])
 
     # Calculate the final loss
-    mask = tf.cast(fine_sum > weights_coarse, tf.float32)
+    # mask = tf.cast(fine_sum > weights_coarse, tf.float32)
+    mask = tf.cast(fine_sum < weights_coarse, tf.float32) #TEST- why is this working!!!???!???!!!
     L = tf.reduce_sum(mask * (fine_sum - weights_coarse) * width_coarse, axis=2) #scale by width of each coarse ray
     # L = tf.reduce_sum((fine_sum - weights_coarse) * width_coarse, axis=2) #TEST-- no mask
 
-
-    # print(tf.math.reduce_sum(weights_fine * width_fine, axis = 2)) #will be all ones if norm'd correctly
-    # print(tf.math.reduce_sum(weights_coarse * width_coarse, axis = 2)) #will be all ones if norm'd correctly
     if debug:
         return L, fine_sum
     else:

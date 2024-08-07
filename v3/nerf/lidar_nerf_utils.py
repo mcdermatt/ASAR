@@ -44,8 +44,8 @@ def posenc(x, embed_dims):
 # L_embed =  5 #18 #15 #10 #6
 pos_embed_dims = 18 #14
 rot_embed_dims = 6 #4
-pos_embed_dims_coarse =  6#18 
-rot_embed_dims_coarse =  3#6 
+pos_embed_dims_coarse =  8#18 
+rot_embed_dims_coarse =  4#6 
 
 embed_fn = posenc
 
@@ -190,7 +190,7 @@ def init_model(D=8, W=256): #8,256
     
 #     return model
 
-def init_model_proposal(D=8, W=128): 
+def init_model_proposal(D=4, W=128): 
     relu = tf.keras.layers.ReLU() #OG NeRF   
     leaky_relu = tf.keras.layers.LeakyReLU() #per LOC-NDF   
     # sigmoid = tf.keras.activations.sigmoid()
@@ -212,7 +212,7 @@ def init_model_proposal(D=8, W=128):
     rd_channel = tf.keras.layers.BatchNormalization()(rd_channel)
     # rd_channel = dense(1, act=relu)(rd_channel) #adding a 2nd channel for 1st vs 2nd return 
     rd_channel = dense(1, act=tf.keras.activations.sigmoid)(rd_channel) #adding a 2nd channel for 1st vs 2nd return 
-    model = tf.keras.Model(inputs=inputs, outputs=rd_channel)
+    model = tf.keras.Model(inputs=inputs, outputs=10*rd_channel)
     
     return model
 
