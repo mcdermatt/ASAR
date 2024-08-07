@@ -74,9 +74,9 @@ def run_coarse_network(model_coarse, z_vals_coarse, width_coarse, rays_o, rays_d
     # z_vals_fine, width_fine = resample_z_vals(z_vals_coarse, weights_coarse_scaled[:,:,:,None], width_coarse[:,:,:,None], n_resample=n_resample)
 
     #raw output
-    # return z_vals_fine, width_fine, weights_coarse_scaled #test
+    return z_vals_fine, width_fine, weights_coarse_scaled #test
     #return raw output of network, not scaled to 1
-    return z_vals_fine, width_fine, weights_coarse  #had this, seemed to work(ish) but is pretty unstable
+    # return z_vals_fine, width_fine, weights_coarse  #had this, seemed to work(ish) but is pretty unstable
 
 #updated to run in parallel about two batch dimensions
 def resample_z_vals(z_vals_coarse, weights_coarse, w_coarse, n_resample=128):
@@ -230,7 +230,7 @@ def calculate_loss_coarse_network(z_vals_coarse, z_vals_fine, weights_coarse, we
 
     # Calculate the final loss
     # mask = tf.cast(fine_sum > weights_coarse, tf.float32)
-    mask = tf.cast(fine_sum < weights_coarse, tf.float32) #TEST- why is this working!!!???!???!!!
+    mask = tf.cast(fine_sum < weights_coarse, tf.float32) #AAAaaahhHHhhhHhhahahhhaa this was why triaining was stopped!
     L = tf.reduce_sum(mask * (fine_sum - weights_coarse) * width_coarse, axis=2) #scale by width of each coarse ray
     # L = tf.reduce_sum((fine_sum - weights_coarse) * width_coarse, axis=2) #TEST-- no mask
 
