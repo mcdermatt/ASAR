@@ -53,6 +53,7 @@ def run_coarse_network(model_coarse, z_vals_coarse, width_coarse, rays_o, rays_d
     # ouput size [H, W, 1]
     weights_coarse = batchify(model_coarse)(encoded_both)
     weights_coarse = tf.reshape(weights_coarse, [ray_pos.shape[0],ray_pos.shape[1],-1])
+    # print("weights_coarse unscaled: \n", weights_coarse[0,0,:])
 
     width_coarse = width_coarse[:,:,:,0]    
     # print(z_vals_coarse[0,0,:,0])
@@ -63,7 +64,7 @@ def run_coarse_network(model_coarse, z_vals_coarse, width_coarse, rays_o, rays_d
     # print(np.shape(width_coarse))    
 
     #rescale add small uniform probibility of selection for each bin
-    eps = 1e-3 #1e-3
+    eps = 1e-6 #1e-3
     weights_coarse_scaled = weights_coarse + eps*tf.ones_like(weights_coarse)
     weights_coarse_scaled = weights_coarse_scaled/ tf.math.reduce_sum(width_coarse*weights_coarse_scaled, axis = 2)[:,:,None]
     # print("should all be 1: \n", tf.math.reduce_sum(weights_coarse * width_coarse, axis = 2))
@@ -73,8 +74,9 @@ def run_coarse_network(model_coarse, z_vals_coarse, width_coarse, rays_o, rays_d
     z_vals_fine, width_fine = resample_z_vals(z_vals_coarse - width_coarse[:,:,:,None]/2, weights_coarse_scaled[:,:,:,None], width_coarse[:,:,:,None], n_resample=n_resample)
     # z_vals_fine, width_fine = resample_z_vals(z_vals_coarse, weights_coarse_scaled[:,:,:,None], width_coarse[:,:,:,None], n_resample=n_resample)
 
-    #raw output
+    #scaled output
     return z_vals_fine, width_fine, weights_coarse_scaled #test
+
     #return raw output of network, not scaled to 1
     # return z_vals_fine, width_fine, weights_coarse  #had this, seemed to work(ish) but is pretty unstable
 
@@ -203,10 +205,10 @@ def calculate_loss_coarse_network(z_vals_coarse, z_vals_fine, weights_coarse, we
     see how close the density estimated by the coarse network got us.'''
 
     # # Normalize coarse and fine weights
-    weights_coarse = tf.identity(weights_coarse) #create copy to avoid pass by reference bug??
+    # weights_coarse = tf.identity(weights_coarse) #create copy to avoid pass by reference bug??
     # weights_fine = tf.identity(weights_fine)
-    area_coarse = tf.reduce_sum(weights_coarse * width_coarse, axis=2, keepdims=True)
-    weights_coarse /= area_coarse
+    # area_coarse = tf.reduce_sum(weights_coarse * width_coarse, axis=2, keepdims=True) + 0.0001*tf.ones_like(weights_coarse)
+    # weights_coarse /= area_coarse
     # area_fine = tf.reduce_sum(weights_fine * width_fine, axis=2, keepdims=True)
     # weights_fine /= area_fine
 
@@ -215,6 +217,12 @@ def calculate_loss_coarse_network(z_vals_coarse, z_vals_fine, weights_coarse, we
 
     # print("\n z_vals_coarse[0,0,:] - width_coarse[0,0,:]/2 \n", z_vals_coarse[0,0,:] - width_coarse[0,0,:]/2)
     # print("z_vals_fine \n", z_vals_fine[0,0,:])
+
+    # # Add epsilon to avoid log(0) which is undefined -- only for KL-Divergence
+    # epsilon = 1e-8
+    # weights_coarse = tf.clip_by_value(weights_coarse, epsilon, 100.0)
+    # weights_fine = tf.clip_by_value(weights_fine, epsilon, 100.0)    
+    # # print(weights_coarse)
 
     # Compute the index for gathering width_coarse
     idx = tf.searchsorted(z_vals_coarse - width_coarse / 2, z_vals_fine, side='right') - 1 #old
@@ -226,13 +234,21 @@ def calculate_loss_coarse_network(z_vals_coarse, z_vals_fine, weights_coarse, we
     idx = tf.clip_by_value(idx, 0, z_vals_coarse.shape[2] - 1)
     fine_sum = safe_segment_sum(weights_fine * width_fine, idx, z_vals_coarse.shape[2])
     fine_sum /= width_coarse
-    # print("fine_sum \n", fine_sum[0,0,:])
 
     # Calculate the final loss
     # mask = tf.cast(fine_sum > weights_coarse, tf.float32)
-    mask = tf.cast(fine_sum < weights_coarse, tf.float32) #AAAaaahhHHhhhHhhahahhhaa this was why triaining was stopped!
-    L = tf.reduce_sum(mask * (fine_sum - weights_coarse) * width_coarse, axis=2) #scale by width of each coarse ray
-    # L = tf.reduce_sum((fine_sum - weights_coarse) * width_coarse, axis=2) #TEST-- no mask
+    # mask = tf.cast(fine_sum < weights_coarse, tf.float32) #AAAaaahhHHhhhHhhahahhhaa this was why triaining was stopped!
+
+    # print("fine_sum inside \n", fine_sum[0,0,:])
+    # print("weights_coarse inside:\n", weights_coarse[0,0,:])
+    # print("mask insdide: \n", mask[0,0,:])
+
+    # L = tf.reduce_sum(mask * (fine_sum - weights_coarse) * width_coarse, axis=2) #scale by width of each coarse ray
+    # L = tf.reduce_sum(mask * (weights_coarse - fine_sum) * width_coarse, axis=2) #scale by width of each coarse ray
+    L = tf.reduce_sum(tf.abs(fine_sum - weights_coarse) * width_coarse, axis=2) #test no mask with two sided loss
+
+    #KL divergence as loss
+    # L = tf.math.reduce_sum(fine_sum * tf.math.log(fine_sum / weights_coarse), axis=2)
 
     if debug:
         return L, fine_sum
