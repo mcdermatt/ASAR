@@ -42,10 +42,10 @@ def posenc(x, embed_dims):
 
 #2**18 is below the sensor noise threshold??
 # L_embed =  5 #18 #15 #10 #6
-pos_embed_dims = 18 #14
-rot_embed_dims = 6 #4
-pos_embed_dims_coarse =  8 #18 
-rot_embed_dims_coarse =  4 #6 
+pos_embed_dims = 14 #18 #14
+rot_embed_dims =  4 #6 #4
+pos_embed_dims_coarse = 7 #10 #18 
+rot_embed_dims_coarse = 3  #5 #6 
 
 embed_fn = posenc
 
@@ -162,7 +162,8 @@ def init_model(D=8, W=256): #8,256
     sigma_channel = dense(1, act=None)(outputs) #was this
     # sigma_channel = dense(2, act=None)(outputs) #adding another channel to seperate 1st and 2nd returns      
     rd_start = tf.concat([outputs, inputs[:,(3+3*2*(pos_embed_dims)):]], -1)
-    rd_channel = dense(256, act=relu)(outputs) #OG NeRF structure
+    # rd_channel = dense(256, act=relu)(outputs) #had this (totally misses view directions)
+    rd_channel = dense(256, act=relu)(rd_start) #OG NeRF structure
     rd_channel = dense(128, act=relu)(rd_channel)
     # rd_channel = dense(1, act=tf.keras.activations.sigmoid)(rd_channel) #was this
                     #patrial reflectance is view dependant (Snell's law)
@@ -190,7 +191,7 @@ def init_model(D=8, W=256): #8,256
     
 #     return model
 
-def init_model_proposal(D=4, W=64): 
+def init_model_proposal(D=6, W=128): 
     relu = tf.keras.layers.ReLU() #OG NeRF   
     leaky_relu = tf.keras.layers.LeakyReLU() #per LOC-NDF   
     # sigmoid = tf.keras.activations.sigmoid()
@@ -206,7 +207,7 @@ def init_model_proposal(D=4, W=64):
             outputs = tf.keras.layers.LayerNormalization()(outputs) #as recomended by LOC-NDF 
     #combine to look at position and view direction together
     combined = tf.concat([outputs, inputs[:,(3+3*2*(pos_embed_dims_coarse)):]], -1)
-    combined = dense(256, act=leaky_relu)(combined) #OG NeRF structure
+    combined = dense(128, act=leaky_relu)(combined) #OG NeRF structure
     combined = tf.keras.layers.BatchNormalization()(combined)
     combined = dense(128, act=None)(combined)
     combined = tf.keras.layers.BatchNormalization()(combined)

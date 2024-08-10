@@ -33,8 +33,8 @@ from lidar_nerf_utils import *
 
 tf.compat.v1.enable_eager_execution()
 
-pos_embed_dims_coarse = 8 #18
-rot_embed_dims_coarse = 4 #6
+pos_embed_dims_coarse = 7 #8 #18
+rot_embed_dims_coarse = 3 #4 #6
 
 def run_coarse_network(model_coarse, z_vals_coarse, width_coarse, rays_o, rays_d,n_resample = 128):
     
@@ -62,6 +62,11 @@ def run_coarse_network(model_coarse, z_vals_coarse, width_coarse, rays_o, rays_d
     # print(np.shape(z_vals_coarse))
     # print(np.shape(weights_coarse))
     # print(np.shape(width_coarse))    
+
+    #~~~~~~~~ apply gaussian smoothing to coarse weights ~~~~~~~~~~~~~~
+    #doing this here rather than inside main training loop so that resampled z values are smooth as well
+    weights_coarse = gaussian_smoothing(weights_coarse[:,:,:,None])[:,:,:,0]
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     #rescale add small uniform probibility of selection for each bin
     eps = 1e-6 #1e-3
@@ -236,16 +241,16 @@ def calculate_loss_coarse_network(z_vals_coarse, z_vals_fine, weights_coarse, we
     fine_sum /= width_coarse
 
     # Calculate the final loss
-    # mask = tf.cast(fine_sum > weights_coarse, tf.float32)
+    mask = tf.cast(fine_sum > weights_coarse, tf.float32)
     # mask = tf.cast(fine_sum < weights_coarse, tf.float32) #AAAaaahhHHhhhHhhahahhhaa this was why triaining was stopped!
 
     # print("fine_sum inside \n", fine_sum[0,0,:])
     # print("weights_coarse inside:\n", weights_coarse[0,0,:])
     # print("mask insdide: \n", mask[0,0,:])
 
-    # L = tf.reduce_sum(mask * (fine_sum - weights_coarse) * width_coarse, axis=2) #scale by width of each coarse ray
+    L = tf.reduce_sum(mask * (fine_sum - weights_coarse) * width_coarse, axis=2) #scale by width of each coarse ray
     # L = tf.reduce_sum(mask * (weights_coarse - fine_sum) * width_coarse, axis=2) #scale by width of each coarse ray
-    L = tf.reduce_sum(tf.abs(fine_sum - weights_coarse) * width_coarse, axis=2) #test no mask with two sided loss
+    # L = tf.reduce_sum(tf.abs(fine_sum - weights_coarse) * width_coarse, axis=2) #test no mask with two sided loss
 
     #KL divergence as loss
     # L = tf.math.reduce_sum(fine_sum * tf.math.log(fine_sum / weights_coarse), axis=2)
@@ -254,3 +259,10 @@ def calculate_loss_coarse_network(z_vals_coarse, z_vals_fine, weights_coarse, we
         return L, fine_sum
     else:
         return L
+
+
+def gaussian_smoothing(weights, sigma=1.0):
+    kernel = tf.exp(-0.5 * (tf.range(-2, 3, dtype=tf.float32) ** 2) / sigma ** 2)
+    kernel /= tf.reduce_sum(kernel)
+    smoothed_weights = tf.nn.conv1d(weights[None, :, None], kernel[:, None, None], stride=1, padding='SAME')[0, :, 0]
+    return smoothed_weights
