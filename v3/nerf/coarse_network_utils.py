@@ -33,10 +33,10 @@ from lidar_nerf_utils import *
 
 tf.compat.v1.enable_eager_execution()
 
-pos_embed_dims_coarse = 7 #8 #18
-rot_embed_dims_coarse = 3 #4 #6
+pos_embed_dims_coarse = 10 #8 #18
+rot_embed_dims_coarse = 5 #4 #6
 
-def run_coarse_network(model_coarse, z_vals_coarse, width_coarse, rays_o, rays_d,n_resample = 128):
+def run_coarse_network(model_coarse, z_vals_coarse, width_coarse, rays_o, rays_d,n_resample = 128, repeat_coarse = True):
     
     def batchify(fn, chunk=1024*512):
         return lambda inputs : tf.concat([fn(inputs[i:i+chunk]) for i in range(0, inputs.shape[0], chunk)], 0)
@@ -65,7 +65,7 @@ def run_coarse_network(model_coarse, z_vals_coarse, width_coarse, rays_o, rays_d
 
     #~~~~~~~~ apply gaussian smoothing to coarse weights ~~~~~~~~~~~~~~
     #doing this here rather than inside main training loop so that resampled z values are smooth as well
-    weights_coarse = gaussian_smoothing(weights_coarse[:,:,:,None])[:,:,:,0]
+    weights_coarse = gaussian_smoothing(weights_coarse[:,:,:,None], sigma = 1)[:,:,:,0]
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     #rescale add small uniform probibility of selection for each bin
@@ -76,7 +76,7 @@ def run_coarse_network(model_coarse, z_vals_coarse, width_coarse, rays_o, rays_d
     # print(np.shape(weights_coarse))
 
     #resample according to histogram output by coarse proposal network
-    z_vals_fine, width_fine = resample_z_vals(z_vals_coarse - width_coarse[:,:,:,None]/2, weights_coarse_scaled[:,:,:,None], width_coarse[:,:,:,None], n_resample=n_resample)
+    z_vals_fine, width_fine = resample_z_vals(z_vals_coarse - width_coarse[:,:,:,None]/2, weights_coarse_scaled[:,:,:,None], width_coarse[:,:,:,None], n_resample=n_resample, repeat_coarse = repeat_coarse)
     # z_vals_fine, width_fine = resample_z_vals(z_vals_coarse, weights_coarse_scaled[:,:,:,None], width_coarse[:,:,:,None], n_resample=n_resample)
 
     #scaled output
@@ -86,7 +86,7 @@ def run_coarse_network(model_coarse, z_vals_coarse, width_coarse, rays_o, rays_d
     # return z_vals_fine, width_fine, weights_coarse  #had this, seemed to work(ish) but is pretty unstable
 
 #updated to run in parallel about two batch dimensions
-def resample_z_vals(z_vals_coarse, weights_coarse, w_coarse, n_resample=128):
+def resample_z_vals(z_vals_coarse, weights_coarse, w_coarse, n_resample=128, repeat_coarse = True):
     zc = z_vals_coarse[:, :, :, 0]
     wc = weights_coarse[:, :, :, 0]
     width_coarse = w_coarse[:, :, :, 0]
@@ -122,26 +122,21 @@ def resample_z_vals(z_vals_coarse, weights_coarse, w_coarse, n_resample=128):
     # print("wc_cdf", wc_cdf[0,0,:])
 
     # Generate uniform random samples, sorting to ensure they're in CDF order
-    #entirely random
-    # randy = tf.sort(tf.random.uniform([z_vals_coarse.shape[0], z_vals_coarse.shape[1], n_resample]), axis=-1)
     # #repeating coarse bin locations (makes calculating loss easier)
-    randy = tf.sort(tf.random.uniform([z_vals_coarse.shape[0], z_vals_coarse.shape[1], n_resample - z_vals_coarse.shape[2]]), axis=-1)
+    if repeat_coarse:
+        randy = tf.sort(tf.random.uniform([z_vals_coarse.shape[0], z_vals_coarse.shape[1], n_resample - z_vals_coarse.shape[2]]), axis=-1)
+    #entirely random
+    else:
+        randy = tf.sort(tf.random.uniform([z_vals_coarse.shape[0], z_vals_coarse.shape[1], n_resample]), axis=-1)
 
     # Find the indices in the CDF where the random samples should be inserted
     idx = tf.searchsorted(wc_cdf, randy, side='right') #old
-    # idx = tf.searchsorted(wc_cdf, randy, side='right') - 1 #TEST
     # print("idx", idx[0,0,:])
-
-    # Clip indices to ensure they are within bounds
-    # idx = tf.clip_by_value(idx, 1, tf.shape(wc_cdf)[-1] - 1)
+    # idx = tf.clip_by_value(idx, 1, tf.shape(wc_cdf)[-1] - 1)    # Clip indices to ensure they are within bounds
 
     # Gather CDF and z-values for left and right indices
     cdf_left = tf.gather(wc_cdf, idx - 1, batch_dims=2)
     cdf_right = tf.gather(wc_cdf, idx, batch_dims=2)
-    #old
-    # values_left = tf.gather(zc, idx - 1, batch_dims=2)
-    # values_right = tf.gather(zc, idx, batch_dims=2)
-    #test
     values_left = tf.gather(zc, idx, batch_dims=2) #<-- seems to work way better!
     values_right = tf.gather(zc + width_coarse, idx, batch_dims=2) #<-- seems to work way better!
 
@@ -162,11 +157,10 @@ def resample_z_vals(z_vals_coarse, weights_coarse, w_coarse, n_resample=128):
     # z_vals_new = z_vals_new - z_vals_new[:,:,:1] #make sure first bin starts at 0
     #TODO is above needed??
 
-    ## if repeating coarse bin locations  ~~~~~~~~~~~~~~~~
-    z_vals_new = tf.concat([z_vals_new, z_vals_coarse[:,:,:,0]], axis = 2)
-    z_vals_new = tf.sort(z_vals_new, axis = 2)
-    # print(np.shape(z_vals_new))
-    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    if repeat_coarse:
+        z_vals_new = tf.concat([z_vals_new, z_vals_coarse[:,:,:,0]], axis = 2)
+        z_vals_new = tf.sort(z_vals_new, axis = 2)
+        # print(np.shape(z_vals_new))
 
     #get the centers of each histogram bin
     width_new = tf.experimental.numpy.diff(z_vals_new, axis=2)

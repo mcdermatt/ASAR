@@ -44,8 +44,8 @@ def posenc(x, embed_dims):
 # L_embed =  5 #18 #15 #10 #6
 pos_embed_dims = 14 #18 #14
 rot_embed_dims =  4 #6 #4
-pos_embed_dims_coarse = 7 #10 #18 
-rot_embed_dims_coarse = 3  #5 #6 
+pos_embed_dims_coarse = 10 #10 #18 
+rot_embed_dims_coarse = 5  #5 #6 
 
 embed_fn = posenc
 
@@ -230,59 +230,62 @@ def cylindrical_to_cartesian(pts):
     return(out)
 
 
-def get_rays(H, W, c2w, phimin_patch, phimax_patch):
+def get_rays(H, W, c2w, phimin_patch, phimax_patch, debug = False):
+    #IMPORTANT NOTE: this works for rendering but is insufficient for training from distorted point cloud data
+
+    #when training on raw point cloud data, rays need to be determined from the coordinates of undistorted data!!!?!
+
     i, j = tf.meshgrid(tf.range(W, dtype=tf.float32), tf.range(H, dtype=tf.float32), indexing='xy')
 
-    #~~~~~~~~~~~~~~~~~~~~~~~~~
-    # #Cylindrical projection model (new) -- working better 5/27
-    # dirs_test = tf.stack([-tf.ones_like(i), #r
-    #                   #theta
-    #                   # (i - (1024//(2*n_rots)))  /(2048//(2*n_rots)) * (2*np.pi/n_rots) + np.pi, #for uninterpolated images
-    #                   (i - (W//2))  /(W) * (2*np.pi/(1024//W)) + np.pi, #just use W
-    #                   #phi
-    #                   # (phimax_patch + phimin_patch)/2 - ((-j+((H-1)/2))/(H-1))*(phimax_patch-phimin_patch) #-np.pi/2 #using 5/1
-    #                  np.arcsin((phimax_patch + phimin_patch)/2 - ((-j+((H-1)/2))/(H-1))*(phimax_patch-phimin_patch)) #-np.pi/2 #TEST
-    #                  ], -1)
-    # dirs_test = tf.reshape(dirs_test,[-1,3])
-    # dirs_test = cylindrical_to_cartesian(dirs_test)
-    
-    #~~~~~~~~~~~~~~~~~~~~~~~~~
-    #Spherical projection model (old)
+    #Spherical projection model
     #[r, theta, phi]
     dirs_test = tf.stack([-tf.ones_like(i), #r
                           #theta
-                            # (i - (W//2))  /(W) * (2*np.pi/(1024//W)), #old-- unequal split!
-                          # (i - ((W-1)/2))  /(W-1) * (2*np.pi/(1024//(W-1))), #test-- equal split
-                          (i - ((W-1)/2))  /(W) * (2*np.pi/(1024//(W))), #test-- slightly more accurate
+                          (i - ((W-1)/2))  /(W) * (2*np.pi/(1024//(W))),
                           #phi
                           #need to manually account for elevation angle of patch 
                           #  (can not be inferred from c2w since that does not account for singularities near "poles" of spherical projection)
-                        # (phimax_patch + phimin_patch)/2 - ((-j+((H-1)/2))/(H-1))*(phimax_patch-phimin_patch) -np.pi/2 #using 5/1
-                        -((phimax_patch + phimin_patch)/2 - ((-j+((H-1)/2))/(H-1))*(phimax_patch-phimin_patch)) -np.pi/2 #Seems to fix issue with z axis translation flip!
-                        # -(-((phimax_patch + phimin_patch)/2 - ((-j+((H-1)/2))/(H-1))*(phimax_patch-phimin_patch)) + np.pi/2) #TEST 7/5
+                        -((phimax_patch + phimin_patch)/2 - ((-j+((H-1)/2))/(H-1))*(phimax_patch-phimin_patch)) -np.pi/2 #was this
                          ], -1)
     dirs_test = tf.reshape(dirs_test,[-1,3])
     dirs_test = spherical_to_cartesian(dirs_test)
 
-    #TEST
-    # dirs_test[:,3] = -dirs_test[:,3]
-
-    #~~~~~~~~~~~~~~~~~~~~~~~~~
+    dirs_test_OG = dirs_test.numpy().copy()
     
-    # rotm = R.from_euler('xyz', [0,-np.pi/2 + (phimax + phimin)/2,0]).as_matrix() #was this --> think I'm double counting horizon centering
+    #old-- falls apart when using multiple z patches.~~~~~~~~~~~~~~~~~~~~~
+
     rotm = R.from_euler('xyz', [0,-np.pi/2,0]).as_matrix() #was this
     dirs_test = dirs_test @ rotm
     dirs_test = dirs_test @ tf.transpose(c2w[:3,:3])
+
     dirs = dirs_test @ (c2w[:3,:3] 
                           @ R.from_euler('xyz', [0,0,np.pi/2]).as_matrix()
                           @ np.linalg.pinv(c2w[:3,:3]) )
 
+    # TEST ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    #TODO -- look into rays_d and rays_d2 in coarseToFine notebook... 
+
+    # #I think I'm on the right track here...
+    # rotm = R.from_euler('xyz', [0,-np.pi/2,0]).as_matrix() #was this
+    # dirs_test = dirs_test @ rotm
+    # dirs_test = dirs_test @ c2w[:3,:3]
+    # # dirs = dirs_test @ R.from_euler('xyz', [0,0,np.pi/2]).as_matrix()
+    # dirs = dirs_test 
+
+    # #alt
+
+
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
     dirs = tf.reshape(dirs, [H,W,3])
 
-    rays_d = tf.reduce_sum(dirs[..., np.newaxis, :] * np.eye(3), -1)     
-        
+    rays_d = tf.reduce_sum(dirs[..., np.newaxis, :] * np.eye(3), -1)             
     rays_o = tf.broadcast_to(c2w[:3,-1], tf.shape(rays_d))
-    return rays_o, rays_d
+
+    if debug == True:
+        return rays_o, rays_d, dirs_test_OG
+    else:
+        return rays_o, rays_d
 
 # #NEW -- updated integration strategy
 # def render_rays(network_fn, rays_o, rays_d, z_vals):
@@ -580,14 +583,18 @@ def calculate_loss(depth, ray_drop, target, target_drop_mask,
         CDFdiff = tf.abs(CDF - gtCDF)
         CDFdiff = tf.math.multiply(CDFdiff, target_drop_mask)
 
-       # #TEST ~~~ prevent gradient mask from getting rid of double returns in windows, etc.
-        save_non_ground = tf.zeros_like(mask).numpy()
-        save_non_ground[:40,:] = 1 #prevent anything in the top ~3/4 of image from getting masked
-        save_non_groud = tf.convert_to_tensor(save_non_ground)
-        together = tf.concat([save_non_groud[:,:,None], mask[:,:,None]], axis = -1)
-        mask = tf.math.reduce_max(together, axis = -1)
+       # # ~~~ prevent gradient mask from getting rid of double returns in windows, etc.
+       #  save_non_ground = tf.zeros_like(mask).numpy()
+       #  #NEED TO TURN OFF WHEN WE HAVE MULTIPLE VERTICAL PATCHES 
+       #  save_non_ground[:40,:] = 1 #prevent anything in the top ~3/4 of image from getting masked
+       #  save_non_groud = tf.convert_to_tensor(save_non_ground)
+       #  together = tf.concat([save_non_groud[:,:,None], mask[:,:,None]], axis = -1)
+       #  mask = tf.math.reduce_max(together, axis = -1)
+       #  mask = tf.cast(mask, tf.float32)
+       #  #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
         mask = tf.cast(mask, tf.float32)
-        #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 
         #TEST-- suppress high gradient regions to minimize bias induced by beam spreading
         CDFdiff_low_grad = tf.math.multiply(CDFdiff, mask[:,:,None])
