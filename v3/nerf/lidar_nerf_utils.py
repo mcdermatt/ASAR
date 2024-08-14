@@ -230,6 +230,53 @@ def cylindrical_to_cartesian(pts):
     return(out)
 
 
+def get_rays_from_point_cloud(pc1, m_hat, c2w):
+    """pc1 = raw undistorted point cloud in sensor frame
+       m_hat = distortion correction states (in sensor frame)
+       c2w = rigid transform from sensor to world frame"""
+    H = 64
+    W = 1024
+    phimax_patch = np.deg2rad(-15.594) #works best flipped
+    phimin_patch = np.deg2rad(17.743)
+
+    pc1 = apply_motion_profile(pc1, m_hat, period_lidar=1.)
+    
+    # get direction vectors of unit length for each point in cloud (rays_d)
+    # need to be extra careful about non-returns
+    # init completely full frustum of points as if sensor read 1m in every pixel for every direction
+    i, j = tf.meshgrid(tf.range(1024, dtype=tf.float32), tf.range(64, dtype=tf.float32), indexing='xy')
+    #[r, theta, phi]
+    dirs_distorted = tf.stack([-tf.ones_like(i), #r
+                          #theta
+                          (i - ((W-1)/2))  /(W) * (2*np.pi/(1024//(W))),
+                          #phi
+                        -((phimax_patch + phimin_patch)/2 - ((-j+((H-1)/2))/(H-1))*(phimax_patch-phimin_patch)) -np.pi/2 #was this
+                         ], -1)
+    dirs_distorted = tf.reshape(dirs_distorted,[-1,3])
+    dirs_distorted = spherical_to_cartesian(dirs_distorted)
+
+    #apply distortion correction to that frustum as well
+    dirs_undistorted = apply_motion_profile(dirs_distorted, m_hat, period_lidar=1.)
+
+#     #apply same rotation conventions as regular NeRF??
+    rotm = R.from_euler('xyz', [0,-np.pi/2,0]).as_matrix() #was this
+    dirs_undistorted = dirs_undistorted @ rotm
+    dirs_undistorted = dirs_undistorted @ tf.transpose(c2w[:3,:3])
+    dirs = dirs_undistorted @ (c2w[:3,:3] 
+                          @ R.from_euler('xyz', [0,0,np.pi/2]).as_matrix()
+                          @ np.linalg.pinv(c2w[:3,:3]) )
+    # dirs = dirs_undistorted
+
+    # reshape so rays_o and rays_d are same dimension as <images> 
+    #   so we don't have to change our training pipeline
+    dirs = tf.reshape(dirs, [64,1024,3])
+    rays_d = tf.reduce_sum(dirs[..., np.newaxis, :] * np.eye(3), -1)             
+    #get rays_o from the translation of origin of pc for frame i 
+    rays_o = tf.broadcast_to(c2w[:3,-1], tf.shape(rays_d))
+    
+    return rays_o, rays_d
+
+
 def get_rays(H, W, c2w, phimin_patch, phimax_patch, debug = False):
     #IMPORTANT NOTE: this works for rendering but is insufficient for training from distorted point cloud data
 
@@ -261,19 +308,6 @@ def get_rays(H, W, c2w, phimin_patch, phimax_patch, debug = False):
     dirs = dirs_test @ (c2w[:3,:3] 
                           @ R.from_euler('xyz', [0,0,np.pi/2]).as_matrix()
                           @ np.linalg.pinv(c2w[:3,:3]) )
-
-    # TEST ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    #TODO -- look into rays_d and rays_d2 in coarseToFine notebook... 
-
-    # #I think I'm on the right track here...
-    # rotm = R.from_euler('xyz', [0,-np.pi/2,0]).as_matrix() #was this
-    # dirs_test = dirs_test @ rotm
-    # dirs_test = dirs_test @ c2w[:3,:3]
-    # # dirs = dirs_test @ R.from_euler('xyz', [0,0,np.pi/2]).as_matrix()
-    # dirs = dirs_test 
-
-    # #alt
-
 
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
