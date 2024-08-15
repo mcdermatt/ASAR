@@ -229,18 +229,35 @@ def cylindrical_to_cartesian(pts):
 
     return(out)
 
+def add_patch(rays_o, rays_d, image):    
+    """given tensors of rays origins (rays_o), rays directions (rays_d), and a training depth image, 
+        return the corresponding point cloud in the world frame"""
+    
+    #flatten first
+    rays_d_flat = np.reshape(rays_d, [-1,3])
+    
+    #convert to spherical
+    rays_d_spherical = cartesian_to_spherical(rays_d_flat).numpy()
 
-def get_rays_from_point_cloud(pc1, m_hat, c2w):
-    """pc1 = raw undistorted point cloud in sensor frame
-       m_hat = distortion correction states (in sensor frame)
+    #reshape rays_d to same size as image to scale
+    rays_d_spherical = np.reshape(rays_d_spherical, [np.shape(rays_d)[0], np.shape(rays_d)[1], 3])
+    rays_d_spherical[:,:,0] *= image
+    rays_d_spherical = np.reshape(rays_d_spherical, [-1,3])
+    xyz = spherical_to_cartesian(rays_d_spherical)
+    
+    xyz += np.reshape(rays_o, [-1,3])
+    
+    return xyz
+
+
+def get_rays_from_point_cloud(m_hat, c2w):
+    """m_hat = distortion correction states (in sensor frame)
        c2w = rigid transform from sensor to world frame"""
     H = 64
     W = 1024
     phimax_patch = np.deg2rad(-15.594) #works best flipped
     phimin_patch = np.deg2rad(17.743)
 
-    pc1 = apply_motion_profile(pc1, m_hat, period_lidar=1.)
-    
     # get direction vectors of unit length for each point in cloud (rays_d)
     # need to be extra careful about non-returns
     # init completely full frustum of points as if sensor read 1m in every pixel for every direction
@@ -248,7 +265,9 @@ def get_rays_from_point_cloud(pc1, m_hat, c2w):
     #[r, theta, phi]
     dirs_distorted = tf.stack([-tf.ones_like(i), #r
                           #theta
-                          (i - ((W-1)/2))  /(W) * (2*np.pi/(1024//(W))),
+                          # (i - ((W-1)/2))  /(W) * (2*np.pi/(1024//(W))),
+                          # -(i - ((W-1)/2))  /(W) * (2*np.pi/(1024//(W))),
+                          -(i - ((W-1)/2))  /(W) * (2*np.pi/(1024//(W))) + np.pi, #TODO MESS WITH THIS!
                           #phi
                         -((phimax_patch + phimin_patch)/2 - ((-j+((H-1)/2))/(H-1))*(phimax_patch-phimin_patch)) -np.pi/2 #was this
                          ], -1)
@@ -256,24 +275,37 @@ def get_rays_from_point_cloud(pc1, m_hat, c2w):
     dirs_distorted = spherical_to_cartesian(dirs_distorted)
 
     #apply distortion correction to that frustum as well
-    dirs_undistorted = apply_motion_profile(dirs_distorted, m_hat, period_lidar=1.)
+    # dirs_undistorted = apply_motion_profile(dirs_distorted, m_hat, period_lidar=1.)
+    dirs_undistorted = apply_motion_profile(dirs_distorted, 0.*m_hat, period_lidar=1.) #DEBUG-- why does this help???
 
-#     #apply same rotation conventions as regular NeRF??
-    rotm = R.from_euler('xyz', [0,-np.pi/2,0]).as_matrix() #was this
-    dirs_undistorted = dirs_undistorted @ rotm
-    dirs_undistorted = dirs_undistorted @ tf.transpose(c2w[:3,:3])
-    dirs = dirs_undistorted @ (c2w[:3,:3] 
-                          @ R.from_euler('xyz', [0,0,np.pi/2]).as_matrix()
-                          @ np.linalg.pinv(c2w[:3,:3]) )
-    # dirs = dirs_undistorted
+    # Correct for sensor-to-world transformation
+    # dirs_undistorted = dirs_undistorted @ c2w[:3, :3]#no
+    # dirs_undistorted = dirs_undistorted @ tf.linalg.pinv(c2w[:3, :3]) #looks better, but not quite there    
 
-    # reshape so rays_o and rays_d are same dimension as <images> 
-    #   so we don't have to change our training pipeline
-    dirs = tf.reshape(dirs, [64,1024,3])
-    rays_d = tf.reduce_sum(dirs[..., np.newaxis, :] * np.eye(3), -1)             
-    #get rays_o from the translation of origin of pc for frame i 
-    rays_o = tf.broadcast_to(c2w[:3,-1], tf.shape(rays_d))
-    
+    #try homogenous transform?
+    # dirs_undistorted = (c2w @ np.append(dirs_undistorted, np.ones([len(dirs_undistorted),1]), axis =1).T).T
+    # dirs_undistorted = dirs_undistorted[:,:3]
+    # #need to renormalize
+    # mag = tf.sqrt(tf.math.reduce_sum(dirs_undistorted**2, axis = 1))[:,None]
+    # # print("\n dirs_undistorted \n", np.shape(dirs_undistorted), dirs_undistorted[:10])
+    # # print(np.shape(mag))
+    # dirs_undistorted = dirs_undistorted / mag
+    # print("\n dirs_undistorted \n", np.shape(dirs_undistorted), dirs_undistorted[:10])
+
+    #very close!
+    # rotm = R.from_euler('xyz', [0,0,np.pi]).as_matrix()
+    # dirs_undistorted = dirs_undistorted @ rotm
+    dirs_undistorted = dirs_undistorted @ tf.linalg.pinv(c2w[:3, :3])
+
+    #test
+    # dirs_undistorted = dirs_undistorted @ tf.linalg.pinv(c2w[:3, :3])
+
+
+    # Reshape directions
+    dirs = tf.reshape(dirs_undistorted, [64, 1024, 3])    
+    rays_d = tf.reduce_sum(dirs[..., tf.newaxis, :] * np.eye(3), -1)
+    rays_o = tf.broadcast_to(c2w[:3, -1], tf.shape(rays_d))
+
     return rays_o, rays_d
 
 
