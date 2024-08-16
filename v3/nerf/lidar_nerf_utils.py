@@ -250,63 +250,110 @@ def add_patch(rays_o, rays_d, image):
     return xyz
 
 
-def get_rays_from_point_cloud(m_hat, c2w):
-    """m_hat = distortion correction states (in sensor frame)
+def get_rays_from_point_cloud(pc, m_hat, c2w):
+    """pc = point cloud in cartesian coords
+       m_hat = distortion correction states (in sensor frame)
        c2w = rigid transform from sensor to world frame"""
-    H = 64
-    W = 1024
-    phimax_patch = np.deg2rad(-15.594) #works best flipped
-    phimin_patch = np.deg2rad(17.743)
 
-    # get direction vectors of unit length for each point in cloud (rays_d)
-    # need to be extra careful about non-returns
-    # init completely full frustum of points as if sensor read 1m in every pixel for every direction
-    i, j = tf.meshgrid(tf.range(1024, dtype=tf.float32), tf.range(64, dtype=tf.float32), indexing='xy')
-    #[r, theta, phi]
-    dirs_distorted = tf.stack([-tf.ones_like(i), #r
-                          #theta
-                          # (i - ((W-1)/2))  /(W) * (2*np.pi/(1024//(W))),
-                          # -(i - ((W-1)/2))  /(W) * (2*np.pi/(1024//(W))),
-                          -(i - ((W-1)/2))  /(W) * (2*np.pi/(1024//(W))) + np.pi, #TODO MESS WITH THIS!
-                          #phi
-                        -((phimax_patch + phimin_patch)/2 - ((-j+((H-1)/2))/(H-1))*(phimax_patch-phimin_patch)) -np.pi/2 #was this
-                         ], -1)
-    dirs_distorted = tf.reshape(dirs_distorted,[-1,3])
-    dirs_distorted = spherical_to_cartesian(dirs_distorted)
+    # better solution-- directly pass in undistorted point cloud and get view dirs from there...
+    # why didn't I do this sooner???
+    #    didn't do this before because we don't get a look direction for points with non-returns! 
+    #    I need to be clever about how to handle those situations!
 
-    #apply distortion correction to that frustum as well
-    # dirs_undistorted = apply_motion_profile(dirs_distorted, m_hat, period_lidar=1.)
-    dirs_undistorted = apply_motion_profile(dirs_distorted, 0.*m_hat, period_lidar=1.) #DEBUG-- why does this help???
+    #    TODO: use bilinear interpolation to fill in view dirs where pixels are missing due to ray drop
 
-    # Correct for sensor-to-world transformation
-    # dirs_undistorted = dirs_undistorted @ c2w[:3, :3]#no
-    # dirs_undistorted = dirs_undistorted @ tf.linalg.pinv(c2w[:3, :3]) #looks better, but not quite there    
+    #normalize each point to unit length
+    mag_pc = tf.sqrt(tf.math.reduce_sum(pc**2, axis = 1))
+    print("before", mag_pc)
+    min_dist = 0.125
+    #prevent div by zero
+    mag_pc = tf.where(mag_pc < min_dist, min_dist, mag_pc)
+    print("after", mag_pc)
+    dirs_undistorted = pc / mag_pc[:,None]
+    print("dirs_undistorted", np.shape(dirs_undistorted))# tf.sqrt(tf.math.reduce_sum(dirs_undistorted**2, axis = 1)))
 
-    #try homogenous transform?
-    # dirs_undistorted = (c2w @ np.append(dirs_undistorted, np.ones([len(dirs_undistorted),1]), axis =1).T).T
-    # dirs_undistorted = dirs_undistorted[:,:3]
-    # #need to renormalize
-    # mag = tf.sqrt(tf.math.reduce_sum(dirs_undistorted**2, axis = 1))[:,None]
-    # # print("\n dirs_undistorted \n", np.shape(dirs_undistorted), dirs_undistorted[:10])
-    # # print(np.shape(mag))
-    # dirs_undistorted = dirs_undistorted / mag
-    # print("\n dirs_undistorted \n", np.shape(dirs_undistorted), dirs_undistorted[:10])
+    # dirs_undistorted = tf.cast(pc, tf.float32)
 
-    #very close!
-    # rotm = R.from_euler('xyz', [0,0,np.pi]).as_matrix()
+    # #had this before
+    # rotm = R.from_euler('xyz', [0,0,np.pi/2]).as_matrix()
     # dirs_undistorted = dirs_undistorted @ rotm
-    dirs_undistorted = dirs_undistorted @ tf.linalg.pinv(c2w[:3, :3])
-
-    #test
-    # dirs_undistorted = dirs_undistorted @ tf.linalg.pinv(c2w[:3, :3])
-
+    dirs_undistorted = dirs_undistorted @ tf.cast(tf.linalg.pinv(c2w[:3, :3]), tf.float32)
 
     # Reshape directions
-    dirs = tf.reshape(dirs_undistorted, [64, 1024, 3])    
+    # dirs = tf.reshape(dirs_undistorted, [64, 1024, 3])    #old
+    dirs = tf.reshape(dirs_undistorted, [1024, 64, 3])    #test
+    # dirs = tf.reverse(dirs, [1]) #test
+    dirs = tf.transpose(dirs, [1,0,2]) #Test
+
     rays_d = tf.reduce_sum(dirs[..., tf.newaxis, :] * np.eye(3), -1)
     rays_o = tf.broadcast_to(c2w[:3, -1], tf.shape(rays_d))
 
+    print("rays_o", np.shape(rays_o))
+    print("rays_d", np.shape(rays_d))
+
     return rays_o, rays_d
+
+    # ## Make view directions locus of points, distort, and use to reproject ~~~~~~~~~~~~~~~~~
+    # ## doesn't actually work with distortion, matches "redfix" demo in notebook (so at least gt transforms are right) 
+    # H = 64
+    # W = 1024
+    # phimax_patch = np.deg2rad(-15.594) #works best flipped
+    # phimin_patch = np.deg2rad(17.743)
+
+    # # get direction vectors of unit length for each point in cloud (rays_d)
+    # # need to be extra careful about non-returns
+    # # init completely full frustum of points as if sensor read 1m in every pixel for every direction
+    # i, j = tf.meshgrid(tf.range(1024, dtype=tf.float32), tf.range(64, dtype=tf.float32), indexing='xy')
+    # #[r, theta, phi]
+    # dirs_distorted = tf.stack([-tf.ones_like(i), #r
+    #                       #theta
+    #                     # -(i - ((W-1)/2))  /(W) * (2*np.pi/(1024//(W))) - np.pi/2, #-- had this before
+    #                     (i - ((W-1)/2))  /(W) * (2*np.pi/(1024//(W))) - np.pi, #debugging in notebook
+    #                       #phi
+    #                     -((phimax_patch + phimin_patch)/2 - ((-j+((H-1)/2))/(H-1))*(phimax_patch-phimin_patch)) -np.pi/2 #was this
+    #                      ], -1)
+    # dirs_distorted = tf.transpose(dirs_distorted, [1,0,2]) #TEST
+    # dirs_distorted = tf.reshape(dirs_distorted,[-1,3])
+    # dirs_distorted = tf.reverse(dirs_distorted, [0]) #test
+    # dirs_distorted = spherical_to_cartesian(dirs_distorted)
+
+    # #apply distortion correction to that frustum as well
+    # # m_hat = np.array([3.,0.,0.,0.,0.,0.])#for debug    
+    # print(m_hat)
+    # # dirs_undistorted = apply_motion_profile(dirs_distorted, m_hat, period_lidar=1.)
+    # dirs_undistorted = apply_motion_profile(dirs_distorted, 0.*m_hat, period_lidar=1.) #DEBUG-- why does this help???
+
+    # # #had this before
+    # # rotm = R.from_euler('xyz', [0,0,np.pi/2]).as_matrix()
+    # # dirs_undistorted = dirs_undistorted @ rotm
+    # # dirs_undistorted = dirs_undistorted @ tf.linalg.pinv(c2w[:3, :3])
+
+    # #debugging in notebook
+    # # rotm = R.from_euler('xyz', [0,0,np.pi]).as_matrix()
+    # # dirs_undistorted = dirs_undistorted @ rotm
+    # dirs_undistorted = dirs_undistorted @ tf.linalg.pinv(c2w[:3, :3])
+
+    # print("dirs_undistorted", np.shape(dirs_undistorted))
+
+    # # #TODO-- renormalize each element of dirs_unidistorted to be of unit length!
+    # # # print("\n dirs_undistorted:", np.shape(dirs_undistorted))
+    # # mag_dirs = tf.sqrt(tf.math.reduce_sum(dirs_undistorted**2, axis = 1))
+    # # # print("\n mag_dirs: \n", mag_dirs)
+    # # dirs_undistorted = dirs_undistorted / mag_dirs[:,None]
+
+    # # Reshape directions
+    # # dirs = tf.reshape(dirs_undistorted, [64, 1024, 3])    #old
+    # dirs = tf.reshape(dirs_undistorted, [1024, 64, 3])    #test
+    # dirs = tf.reverse(dirs, [1]) #test
+    # dirs = tf.transpose(dirs, [1,0,2]) #Test
+
+    # rays_d = tf.reduce_sum(dirs[..., tf.newaxis, :] * np.eye(3), -1)
+    # rays_o = tf.broadcast_to(c2w[:3, -1], tf.shape(rays_d))
+
+    # print("rays_o", np.shape(rays_o))
+    # print("rays_d", np.shape(rays_d))
+
+    # return rays_o, rays_d
 
 
 def get_rays(H, W, c2w, phimin_patch, phimax_patch, debug = False):
@@ -725,40 +772,18 @@ def apply_motion_profile(cloud_xyz, m_hat, period_lidar = 1):
     T = (2*np.pi)/(-m_hat[-1] + (2*np.pi/period_lidar)) #time to complete 1 scan #was this
     # print(T)
     rectified_vel = rectified_vel * T #was this
-    # print(rectified_vel[:,-1])
-    # rectified_vel[:-1] = rectified_vel[:-1] * T #nope
-    # rectified_vel[:,-1] = rectified_vel[:,-1] * T #also nope
 
-    # linearly spaced motion profile ~~~~~~~~~~~~~~~~~~~~~
-    # this is a bad way of doing it ... what happens if most of the points are on one half of the scene??
+    # # using yaw angles ~~~~~~~~~~~~~~~~~~~~~~    
+    yaw_angs = cartesian_to_spherical(cloud_xyz)[:,1].numpy() #standard -- (used in VICET paper)
+    # yaw_angs = -cartesian_to_spherical(cloud_xyz)[:,1].numpy() #flipped
 
-    # part2 = np.linspace(0.5, 1.0, len(cloud_xyz)//2)[:,None]
-    # part1 = np.linspace(0, 0.5, len(cloud_xyz) - len(cloud_xyz)//2)[:,None]
-    # motion_profile = np.append(part1, part2, axis = 0) @ rectified_vel
 
-    # # using yaw angles ~~~~~~~~~~~~~~~~~~~~~~
-    #  (NEW)
-    
-    #TODO: need to center point cloud before getting yaw angles
-
-    yaw_angs = cartesian_to_spherical(cloud_xyz)[:,1].numpy()
     last_subzero_idx = int(len(yaw_angs) // 8)
     yaw_angs[last_subzero_idx:][yaw_angs[last_subzero_idx:] < 0.3] = yaw_angs[last_subzero_idx:][yaw_angs[last_subzero_idx:] < 0.3] + 2*np.pi
-    # yaw_angs = yaw_angs / (2*np.pi) #test
-    # yaw_angs = yaw_angs[:,None]  #test
-
-    # #test
-    # self.yaw_angs = yaw_angs
-    # self.cloud_xyz = cloud_xyz
-    # color = 255*self.yaw_angs/(2*np.pi)
-    # cname = np.array([255-color, color, 255-color]).T.tolist()
-    # # self.disp.append(Points(self.cloud_xyz + 0.01*np.random.randn(np.shape(cloud_xyz)[0],3), c=cname, r = 3))
-    # self.disp.append(Points(self.cloud_xyz, c=cname, r = 3))
 
     #jump in <yaw_angs> is causing unintended behavior in real world LIDAR data
     yaw_angs = (yaw_angs + 2*np.pi)%(2*np.pi)
 
-    #TODO: should I use (2pi - T) in place of max(yaw_angs) -> ???
     motion_profile = (yaw_angs / np.max(yaw_angs))[:,None] @ rectified_vel #was this
     # motion_profile = yaw_angs[:,None] @ rectified_vel #test
     # print("\n new: \n", motion_profile[:,0])
@@ -767,34 +792,6 @@ def apply_motion_profile(cloud_xyz, m_hat, period_lidar = 1):
 
 
     #Apply motion profile
-    # # Old loopy method ~~~~~~~~~~~~~~
-    # T = []
-    # for i in range(len(motion_profile)):
-    #   tx, ty, tz, roll, pitch, yaw = motion_profile[i]
-    #   R = np.dot(np.dot(np.array([[1, 0, 0], 
-    #                               [0, np.cos(roll), -np.sin(roll)], 
-    #                               [0, np.sin(roll), np.cos(roll)]]), 
-    #                   np.array([[np.cos(pitch), 0, np.sin(pitch)], 
-    #                             [0, 1, 0], 
-    #                             [-np.sin(pitch), 0, np.cos(pitch)]])), 
-    #                   np.array([[np.cos(yaw), -np.sin(yaw), 0], 
-    #                             [np.sin(yaw), np.cos(yaw), 0], 
-    #                             [0, 0, 1]]))
-    #   T.append(np.concatenate((np.concatenate((R, np.array([[tx], [ty], [tz]])), axis=1), np.array([[0, 0, 0, 1]])), axis=0))
-    
-    # #should be the same size:
-    # # print(len(T))
-    # # Apply inverse of motion transformation to each point
-    # undistorted_pc = np.zeros_like(cloud_xyz)
-    # for i in range(len(cloud_xyz)):
-    #   point = np.concatenate((cloud_xyz[i], np.array([1])))
-    #   T_inv = np.linalg.inv(T[i])
-    #   corrected_point = np.dot(T_inv, point)[:3]
-    #   undistorted_pc[i] = corrected_point
-    # #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    # new method ~~~~~~~~~~~~~~~~~~~~~~
-
     x = -motion_profile[:,0]
     y = -motion_profile[:,1]
     z = -motion_profile[:,2]
@@ -802,19 +799,19 @@ def apply_motion_profile(cloud_xyz, m_hat, period_lidar = 1):
     theta = motion_profile[:,4]
     psi = motion_profile[:,5]
 
-    #need to inverse this
-    # T_rect_numpy = np.array([[cos(psi)*cos(theta), sin(phi)*sin(theta)*cos(psi) - sin(psi)*cos(phi), sin(phi)*sin(psi) + sin(theta)*cos(phi)*cos(psi), -x], [sin(psi)*cos(theta), sin(phi)*sin(psi)*sin(theta) + cos(phi)*cos(psi), -sin(phi)*cos(psi) + sin(psi)*sin(theta)*cos(phi), -y], [-sin(theta), sin(phi)*cos(theta), cos(phi)*cos(theta), -z], [np.zeros(len(x)), np.zeros(len(x)), np.zeros(len(x)), np.ones(len(x))]])
-    #to this
-    T_rect_numpy = np.array([[cos(psi)*cos(theta), sin(psi)*cos(theta), -sin(theta), x*cos(psi)*cos(theta) + y*sin(psi)*cos(theta) - z*sin(theta)], [sin(phi)*sin(theta)*cos(psi) - sin(psi)*cos(phi), sin(phi)*sin(psi)*sin(theta) + cos(phi)*cos(psi), sin(phi)*cos(theta), x*(sin(phi)*sin(theta)*cos(psi) - sin(psi)*cos(phi)) + y*(sin(phi)*sin(psi)*sin(theta) + cos(phi)*cos(psi)) + z*sin(phi)*cos(theta)], [sin(phi)*sin(psi) + sin(theta)*cos(phi)*cos(psi), -sin(phi)*cos(psi) + sin(psi)*sin(theta)*cos(phi), cos(phi)*cos(theta), x*(sin(phi)*sin(psi) + sin(theta)*cos(phi)*cos(psi)) - y*(sin(phi)*cos(psi) - sin(psi)*sin(theta)*cos(phi)) + z*cos(phi)*cos(theta)], [np.zeros(len(x)), np.zeros(len(x)), np.zeros(len(x)), np.ones(len(x))]])
+    T_rect_numpy = np.array([[cos(psi)*cos(theta), 
+        sin(psi)*cos(theta), 
+        -sin(theta), 
+        x*cos(psi)*cos(theta) + y*sin(psi)*cos(theta) - z*sin(theta)], 
+        [sin(phi)*sin(theta)*cos(psi) - sin(psi)*cos(phi), sin(phi)*sin(psi)*sin(theta) + cos(phi)*cos(psi), 
+        sin(phi)*cos(theta), x*(sin(phi)*sin(theta)*cos(psi) - sin(psi)*cos(phi)) + y*(sin(phi)*sin(psi)*sin(theta) + cos(phi)*cos(psi)) + z*sin(phi)*cos(theta)],
+         [sin(phi)*sin(psi) + sin(theta)*cos(phi)*cos(psi), -sin(phi)*cos(psi) + sin(psi)*sin(theta)*cos(phi), cos(phi)*cos(theta), 
+         x*(sin(phi)*sin(psi) + sin(theta)*cos(phi)*cos(psi)) - y*(sin(phi)*cos(psi) - sin(psi)*sin(theta)*cos(phi)) + z*cos(phi)*cos(theta)], 
+         [np.zeros(len(x)), np.zeros(len(x)), np.zeros(len(x)), np.ones(len(x))]])
     T_rect_numpy = np.transpose(T_rect_numpy, (2,0,1))
-    # print(np.shape(cloud_xyz))
     cloud_homo = np.append(cloud_xyz, np.ones([len(cloud_xyz),1]), axis = 1)
-    # print("cloud homo", np.shape(cloud_homo))
 
-    # undistorted_pc =  (np.linalg.pinv(T_rect_numpy) @ cloud_homo[:,:,None]).astype(np.float32)
     undistorted_pc =  (T_rect_numpy @ cloud_homo[:,:,None]).astype(np.float32)
-    # #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
 
     return undistorted_pc[:,:3,0]
 
