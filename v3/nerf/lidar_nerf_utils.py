@@ -43,10 +43,10 @@ def posenc(x, embed_dims):
 
 #2**18 is below the sensor noise threshold??
 # L_embed =  5 #18 #15 #10 #6
-pos_embed_dims = 14 #18 #14
-rot_embed_dims =  4 #6 #4
-pos_embed_dims_coarse = 10 #10 #18 
-rot_embed_dims_coarse = 5  #5 #6 
+pos_embed_dims = 10 #18 #14
+rot_embed_dims = 5 #6 #4
+pos_embed_dims_coarse = 8 #10 #18 
+rot_embed_dims_coarse = 5 #5  #5 #6 
 
 embed_fn = posenc
 
@@ -178,21 +178,7 @@ def init_model(D=8, W=256): #8,256
     
     return model
 
-# def init_model_proposal(D=8, W=256):
-#     relu = tf.keras.layers.ReLU() #OG NeRF   
-#     dense = lambda W=W, act=relu : tf.keras.layers.Dense(W, activation=act, kernel_initializer='glorot_uniform')
-#     inputs = tf.keras.Input(shape=(6 + 3*2*(rot_embed_dims_coarse) + 3*2*(pos_embed_dims_coarse))) #new (embedding dims (4) and (10) )
-#     outputs = inputs[:,:] #only look at positional stuff for now
-#     outputs = dense(256, act=relu)(outputs)
-#     outputs = dense(256, act=relu)(outputs)
-#     outputs = dense(256, act=relu)(outputs)
-#     outputs = dense(128, act=relu)(outputs)
-#     outputs = dense(1, act=relu)(outputs) 
-#     model = tf.keras.Model(inputs=inputs, outputs=outputs)
-    
-#     return model
-
-def init_model_proposal(D=6, W=128): 
+def init_model_proposal(D=8, W=256): 
     relu = tf.keras.layers.ReLU() #OG NeRF   
     leaky_relu = tf.keras.layers.LeakyReLU() #per LOC-NDF   
     # sigmoid = tf.keras.activations.sigmoid()
@@ -329,7 +315,7 @@ def get_rays_from_point_cloud(pc, m_hat, c2w):
     W = 1024
     phimax_patch = np.deg2rad(-15.594) #worked best flipped (at least on old data pre-processing pipeline)
     phimin_patch = np.deg2rad(17.743)
-    # phimin_patch = np.deg2rad(-15.594) #debug
+    # phimin_patch = np.deg2rad(-15.594) #absolutely not!
     # phimax_patch = np.deg2rad(17.743)
 
     # get direction vectors of unit length for each point in cloud (rays_d)
@@ -440,8 +426,6 @@ def get_rays(H, W, c2w, phimin_patch, phimax_patch, debug = False):
 
     rays_d = tf.reduce_sum(dirs[..., np.newaxis, :] * np.eye(3), -1)             
     rays_o = tf.broadcast_to(c2w[:3,-1], tf.shape(rays_d))
-
-    print("no errors")
 
     if debug == True:
         return rays_o, rays_d, dirs_test_OG
@@ -744,15 +728,15 @@ def calculate_loss(depth, ray_drop, target, target_drop_mask,
         CDFdiff = tf.abs(CDF - gtCDF)
         CDFdiff = tf.math.multiply(CDFdiff, target_drop_mask)
 
-       # # ~~~ prevent gradient mask from getting rid of double returns in windows, etc.
-       #  save_non_ground = tf.zeros_like(mask).numpy()
-       #  #NEED TO TURN OFF WHEN WE HAVE MULTIPLE VERTICAL PATCHES 
-       #  save_non_ground[:40,:] = 1 #prevent anything in the top ~3/4 of image from getting masked
-       #  save_non_groud = tf.convert_to_tensor(save_non_ground)
-       #  together = tf.concat([save_non_groud[:,:,None], mask[:,:,None]], axis = -1)
-       #  mask = tf.math.reduce_max(together, axis = -1)
-       #  mask = tf.cast(mask, tf.float32)
-       #  #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+       # ~~~ prevent gradient mask from getting rid of double returns in windows, etc.
+        save_non_ground = tf.zeros_like(mask).numpy()
+        #NEED TO TURN OFF WHEN WE HAVE MULTIPLE VERTICAL PATCHES 
+        save_non_ground[:40,:] = 1 #prevent anything in the top ~3/4 of image from getting masked
+        save_non_groud = tf.convert_to_tensor(save_non_ground)
+        together = tf.concat([save_non_groud[:,:,None], mask[:,:,None]], axis = -1)
+        mask = tf.math.reduce_max(together, axis = -1)
+        mask = tf.cast(mask, tf.float32)
+        #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
         mask = tf.cast(mask, tf.float32)
 
