@@ -33,8 +33,8 @@ from lidar_nerf_utils import *
 
 tf.compat.v1.enable_eager_execution()
 
-pos_embed_dims_coarse = 10 #8 #18
-rot_embed_dims_coarse = 5 #4 #6
+pos_embed_dims_coarse = 8 #8 #18
+rot_embed_dims_coarse = 5 #5 #4 #6
 
 def run_coarse_network(model_coarse, z_vals_coarse, width_coarse, rays_o, rays_d,n_resample = 128, repeat_coarse = True):
     
