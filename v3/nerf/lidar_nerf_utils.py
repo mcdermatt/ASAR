@@ -43,10 +43,10 @@ def posenc(x, embed_dims):
 
 #2**18 is below the sensor noise threshold??
 # L_embed =  5 #18 #15 #10 #6
-pos_embed_dims = 10 #18 #14
+pos_embed_dims = 15 #18 #14
 rot_embed_dims = 5 #6 #4
-pos_embed_dims_coarse = 8 #10 #18 
-rot_embed_dims_coarse = 5 #5  #5 #6 
+pos_embed_dims_coarse = 10 #18 
+rot_embed_dims_coarse = 5  #5 #6 
 
 embed_fn = posenc
 
@@ -139,43 +139,27 @@ embed_fn = posenc
 #     return model
 
 
-#old: [sigma, ray_drop]
-#test: [sigma_1, sigma_2, p(reflect), ray_drop]
-def init_model(D=8, W=256): #8,256
+def init_model(D=10, W=512): #8,256
 #     relu = tf.keras.layers.ReLU() #OG NeRF   
     relu = tf.keras.layers.LeakyReLU() #per LOC-NDF   
     dense = lambda W=W, act=relu : tf.keras.layers.Dense(W, activation=act, kernel_initializer='glorot_uniform')
 
-#     inputs = tf.keras.Input(shape=(3 + 3*2*L_embed)) #old (embed everything together)
     inputs = tf.keras.Input(shape=(6 + 3*2*(rot_embed_dims) + 3*2*(pos_embed_dims))) #new (embedding dims (4) and (10) )
-    # outputs = inputs #old
-    outputs = inputs[:,:(3+3*2*(pos_embed_dims))] #only look at positional stuff for now
+    outputs = inputs[:,:(3+3*2*(pos_embed_dims))] #only look at positional stuff for first few layers
 
     for i in range(D):
         outputs = dense()(outputs)
-        # outputs = tf.keras.layers.LayerNormalization()(outputs) #old
-        
+
         if i%4==0 and i>0:
             outputs = tf.concat([outputs, inputs[:,:(3+3*2*(pos_embed_dims))]], -1)
             outputs = tf.keras.layers.LayerNormalization()(outputs) #as recomended by LOC-NDF 
 
-    #extend small MLP after output of density channel to get ray drop
-    sigma_channel = dense(1, act=None)(outputs) #was this
-    # sigma_channel = dense(2, act=None)(outputs) #adding another channel to seperate 1st and 2nd returns      
-    rd_start = tf.concat([outputs, inputs[:,(3+3*2*(pos_embed_dims)):]], -1)
-    # rd_channel = dense(256, act=relu)(outputs) #had this (totally misses view directions)
-    rd_channel = dense(256, act=relu)(rd_start) #OG NeRF structure
-    rd_channel = dense(128, act=relu)(rd_channel)
-    # rd_channel = dense(1, act=tf.keras.activations.sigmoid)(rd_channel) #was this
-                    #patrial reflectance is view dependant (Snell's law)
-    #WAS THIS-- output density as func of position only, ray drop as pos+view direction
-    # rd_channel = dense(2, act=tf.keras.activations.sigmoid)(rd_channel) #adding a 2nd channel for 1st vs 2nd return 
-    # out = tf.concat([sigma_channel, rd_channel], -1)
-    # model = tf.keras.Model(inputs=inputs, outputs=out)
-    #TEST -- both func of both
-    rd_channel = dense(2, act=None)(rd_channel) #adding a 2nd channel for 1st vs 2nd return 
-    model = tf.keras.Model(inputs=inputs, outputs=rd_channel)
-    
+    #combine output of first few layers with view direction components
+    combined = tf.concat([outputs, inputs[:,(3+3*2*(pos_embed_dims)):]], -1)
+    combined = dense(256, act=relu)(combined) 
+    combined = dense(128, act=relu)(combined)
+    combined = dense(2, act=None)(combined)
+    model = tf.keras.Model(inputs=inputs, outputs=combined)
     return model
 
 def init_model_proposal(D=8, W=256): 
@@ -198,7 +182,6 @@ def init_model_proposal(D=8, W=256):
     combined = tf.keras.layers.BatchNormalization()(combined)
     combined = dense(128, act=None)(combined)
     combined = tf.keras.layers.BatchNormalization()(combined)
-    # rd_channel = dense(1, act=relu)(rd_channel) #adding a 2nd channel for 1st vs 2nd return 
     combined = dense(1, act=tf.keras.activations.sigmoid)(combined) #adding a 2nd channel for 1st vs 2nd return 
     model = tf.keras.Model(inputs=inputs, outputs=combined)
     
@@ -491,36 +474,23 @@ def get_rays(H, W, c2w, phimin_patch, phimax_patch, debug = False):
 
 # adjusted from vanilla NeRF to pass in sample locations, still essentially just the image-nerf loss process
 def render_rays(network_fn, rays_o, rays_d, z_vals, fine = False):
-    
+    """true batch size is determined by how many rays are in rays_o and rays_d"""
+
+    #function for breaking down data to smaller pieces to hand off to the graphics card
     def batchify(fn, chunk=1024*512): #1024*512 converged for v4 #1024*32 in TinyNeRF
         return lambda inputs : tf.concat([fn(inputs[i:i+chunk]) for i in range(0, inputs.shape[0], chunk)], 0)
 
-    #Encode positions and directions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
+    #Encode positions and directions 
     ray_pos = rays_o[...,None,:] + rays_d[...,None,:] * z_vals
     ray_pos_flat = tf.reshape(ray_pos, [-1, 3])
     encoded_ray_pos = embed_fn(ray_pos_flat, pos_embed_dims) #10 embedding dims for pos
     ray_dir = tf.reshape(rays_d[..., None,:]*tf.ones_like(z_vals, dtype = tf.float32), [-1,3]) #test
     encoded_ray_dir = embed_fn(ray_dir, rot_embed_dims)  # embedding dims for dir
 
-    # print(rays_o)
-    # print("ray_pos", np.shape(ray_pos))
-    # print("ray_dir", np.shape(ray_dir))
-    # print("z_vals", np.shape(z_vals))
-#     print("encoded_ray_pos", np.shape(encoded_ray_pos))
-#     print("encoded_ray_dir", np.shape(encoded_ray_dir))
-    
     encoded_both = tf.concat([encoded_ray_pos, encoded_ray_dir], axis = -1)
-    # print("encoded_both", np.shape(encoded_both)) #(65536, 126)
-    raw = batchify(network_fn)(encoded_both) #old
-    # print("raw", np.shape(raw))    
-    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # print("problem here: ", [ray_pos.shape[0],ray_pos.shape[1],-1,2])    
-#     raw = tf.reshape(raw, list(pts.shape[:-1]) + [2]) # [depth, ray drop] #old
+    raw = batchify(network_fn)(encoded_both)
 
-    raw = tf.reshape(raw, [ray_pos.shape[0],ray_pos.shape[1],-1,2]) #old: [sigma, ray_drop]
-    # raw = tf.reshape(raw, [ray_pos.shape[0],ray_pos.shape[1],-1,4])   #new: [sigma_1, sigma_2, p(reflect), ray_drop]
-    # print("raw", np.shape(raw))
+    raw = tf.reshape(raw, [ray_pos.shape[0],ray_pos.shape[1],-1,2])
 
     # # #Image-NeRF volume rendering ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~     
     # sigma_a = tf.nn.relu(raw[...,0])
@@ -745,6 +715,8 @@ def calculate_loss(depth, ray_drop, target, target_drop_mask,
         CDFdiff_low_grad = tf.math.multiply(CDFdiff, mask[:,:,None])
         CDFdiff = 0.2*CDFdiff + 0.8*CDFdiff_low_grad
  
+        # print("L1:", tf.math.reduce_sum(CDFdiff))
+        # print("L2:", tf.math.reduce_sum(CDFdiff**2))
 
         # CDF_loss = tf.reduce_sum(CDFdiff) #L1 Loss
         # CDF_loss = tf.reduce_sum(CDFdiff**2) #L2 Loss
@@ -757,6 +729,9 @@ def calculate_loss(depth, ray_drop, target, target_drop_mask,
     lam1 = 0 #100 
     lam2 = 1000. #1 
     lam4 = 0.1
+
+    # print("\n lam2*L_raydrop", lam2*L_raydrop)
+    # print("lam4*CDF_loss", lam4*CDF_loss)
 
     loss = lam0*L_dist + lam1*L_reg + lam2*L_raydrop + lam4*CDF_loss
     # print("\n L_dist: ", lam0*L_dist, "\n L_raydrop:", lam2*L_raydrop, "\n L_CDF:", lam4*CDF_loss)

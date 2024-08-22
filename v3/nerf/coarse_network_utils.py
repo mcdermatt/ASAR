@@ -33,8 +33,8 @@ from lidar_nerf_utils import *
 
 tf.compat.v1.enable_eager_execution()
 
-pos_embed_dims_coarse = 8 #8 #18
-rot_embed_dims_coarse = 5 #5 #4 #6
+pos_embed_dims_coarse = 10 #12 #8 #18
+rot_embed_dims_coarse = 5 #5 #5 #4 #6
 
 def run_coarse_network(model_coarse, z_vals_coarse, width_coarse, rays_o, rays_d,n_resample = 128, repeat_coarse = True):
     
@@ -65,7 +65,11 @@ def run_coarse_network(model_coarse, z_vals_coarse, width_coarse, rays_o, rays_d
 
     #~~~~~~~~ apply gaussian smoothing to coarse weights ~~~~~~~~~~~~~~
     #doing this here rather than inside main training loop so that resampled z values are smooth as well
-    weights_coarse = gaussian_smoothing(weights_coarse[:,:,:,None], sigma = 1)[:,:,:,0]
+    # weights_coarse = gaussian_smoothing(weights_coarse[:,:,:,None], sigma = 2)[:,:,:,0]
+    #very tight
+    # weights_coarse = generalized_gaussian_smoothing(weights_coarse[:,:,:,None], sigma = 0.6, p=0.9, kernel_radius = 10)[:,:,:,0]
+    #much looser (better for earlier training?)
+    weights_coarse = generalized_gaussian_smoothing(weights_coarse[:,:,:,None], sigma = 1.2, p=1., kernel_radius = 10)[:,:,:,0]
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     #rescale add small uniform probibility of selection for each bin
@@ -260,3 +264,13 @@ def gaussian_smoothing(weights, sigma=1.0):
     kernel /= tf.reduce_sum(kernel)
     smoothed_weights = tf.nn.conv1d(weights[None, :, None], kernel[:, None, None], stride=1, padding='SAME')[0, :, 0]
     return smoothed_weights
+
+# Adjust the kernel size to allow for longer tails
+def generalized_gaussian_smoothing(weights, sigma=1.0, p=1.5, kernel_radius=10):
+    x = tf.range(-kernel_radius, kernel_radius + 1, dtype=tf.float32)
+    kernel = tf.exp(-tf.abs(x / sigma) ** p)
+    kernel /= tf.reduce_sum(kernel)  # Normalize the kernel
+    # Apply the 1D convolution
+    smoothed_weights = tf.nn.conv1d(weights[None, :, None], kernel[:, None, None], stride=1, padding='SAME')[0, :, 0]
+    return smoothed_weights
+
