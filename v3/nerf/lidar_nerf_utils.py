@@ -31,7 +31,9 @@ import cv2
 from tqdm import tqdm_notebook as tqdm
 from PIL import Image
 
-tf.compat.v1.enable_eager_execution()
+# tf.compat.v1.enable_eager_execution()
+# tf.compat.v1.disable_eager_execution() #trying this to see if more memory efficient 
+
 
 
 def posenc(x, embed_dims):
@@ -294,6 +296,8 @@ def get_rays_from_point_cloud(pc, m_hat, c2w):
 
     ## Make view directions locus of points, distort, and use to reproject ~~~~~~~~~~~~~~~~~
     ## doesn't actually work with distortion, matches "redfix" demo in notebook (so at least gt transforms are right) 
+
+    #make sure to update these if playing around with differnt patch sizes??
     H = 64
     W = 1024
     phimax_patch = np.deg2rad(-15.594) #worked best flipped (at least on old data pre-processing pipeline)
@@ -320,7 +324,7 @@ def get_rays_from_point_cloud(pc, m_hat, c2w):
 
     #apply distortion correction to that frustum as well
     # m_hat = np.array([3.,0.,0.,0.,0.,0.])#for debug    
-    print(m_hat)
+    # print(m_hat)
     # dirs_undistorted = apply_motion_profile(dirs_distorted, m_hat, period_lidar=1.)
     dirs_undistorted = apply_motion_profile(dirs_distorted, 0.*m_hat, period_lidar=1.) #DEBUG-- why does this help???
 
@@ -369,8 +373,8 @@ def get_rays(H, W, c2w, phimin_patch, phimax_patch, debug = False):
     dirs_test = tf.stack([-tf.ones_like(i), #r
                           #theta
                           # (i - ((W-1)/2))  /(W) * (2*np.pi/(1024//(W))), #old (flipped horizontally)
-                        # (-i + ((W-1)/2))  /(W) * (2*np.pi/(1024//(W))), #new
-                        (-i + ((W)/2))  /(W-1) * (2*np.pi/(1024//(W))), #new
+                        (-i + ((W-1)/2))  /(W) * (2*np.pi/(1024//(W))), #FIXES HORIZONTAL SKIPPING
+                        # (-i + ((W)/2))  /(W-1) * (2*np.pi/(1024//(W))), #was this pre 8/23 -- seems to skip some horizontal scan lines at lower resolutions!!!
                           #phi
                           #need to manually account for elevation angle of patch 
                           #  (can not be inferred from c2w since that does not account for singularities near "poles" of spherical projection)
@@ -473,8 +477,14 @@ def get_rays(H, W, c2w, phimin_patch, phimax_patch, debug = False):
 
 
 # adjusted from vanilla NeRF to pass in sample locations, still essentially just the image-nerf loss process
+# @tf.function
 def render_rays(network_fn, rays_o, rays_d, z_vals, fine = False):
     """true batch size is determined by how many rays are in rays_o and rays_d"""
+
+    # #DEBUG
+    # rays_o = tf.cast(rays_o, tf.float32)
+    # rays_d = tf.cast(rays_d, tf.float32)
+    # z_vals = tf.cast(z_vals, tf.float32)
 
     #function for breaking down data to smaller pieces to hand off to the graphics card
     def batchify(fn, chunk=1024*512): #1024*512 converged for v4 #1024*32 in TinyNeRF
@@ -488,6 +498,8 @@ def render_rays(network_fn, rays_o, rays_d, z_vals, fine = False):
     encoded_ray_dir = embed_fn(ray_dir, rot_embed_dims)  # embedding dims for dir
 
     encoded_both = tf.concat([encoded_ray_pos, encoded_ray_dir], axis = -1)
+    # print("encoded_both_fine", np.shape(encoded_both))
+
     raw = batchify(network_fn)(encoded_both)
 
     raw = tf.reshape(raw, [ray_pos.shape[0],ray_pos.shape[1],-1,2])
@@ -698,15 +710,15 @@ def calculate_loss(depth, ray_drop, target, target_drop_mask,
         CDFdiff = tf.abs(CDF - gtCDF)
         CDFdiff = tf.math.multiply(CDFdiff, target_drop_mask)
 
-       # ~~~ prevent gradient mask from getting rid of double returns in windows, etc.
-        save_non_ground = tf.zeros_like(mask).numpy()
-        #NEED TO TURN OFF WHEN WE HAVE MULTIPLE VERTICAL PATCHES 
-        save_non_ground[:40,:] = 1 #prevent anything in the top ~3/4 of image from getting masked
-        save_non_groud = tf.convert_to_tensor(save_non_ground)
-        together = tf.concat([save_non_groud[:,:,None], mask[:,:,None]], axis = -1)
-        mask = tf.math.reduce_max(together, axis = -1)
-        mask = tf.cast(mask, tf.float32)
-        #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+       # # ~~~ prevent gradient mask from getting rid of double returns in windows, etc.
+       #  save_non_ground = tf.zeros_like(mask).numpy()
+       #  #NEED TO TURN OFF WHEN WE HAVE MULTIPLE VERTICAL PATCHES 
+       #  save_non_ground[:40,:] = 1 #prevent anything in the top ~3/4 of image from getting masked
+       #  save_non_groud = tf.convert_to_tensor(save_non_ground)
+       #  together = tf.concat([save_non_groud[:,:,None], mask[:,:,None]], axis = -1)
+       #  mask = tf.math.reduce_max(together, axis = -1)
+       #  mask = tf.cast(mask, tf.float32)
+       #  #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
         mask = tf.cast(mask, tf.float32)
 
@@ -737,7 +749,6 @@ def calculate_loss(depth, ray_drop, target, target_drop_mask,
     # print("\n L_dist: ", lam0*L_dist, "\n L_raydrop:", lam2*L_raydrop, "\n L_CDF:", lam4*CDF_loss)
 
     return(loss)
-
 
 def apply_motion_profile(cloud_xyz, m_hat, period_lidar = 1):
     """Linear correction for motion distortion, using ugly python code

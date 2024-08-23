@@ -31,14 +31,16 @@ from tqdm import tqdm_notebook as tqdm
 from PIL import Image
 from lidar_nerf_utils import *
 
-tf.compat.v1.enable_eager_execution()
+# tf.compat.v1.enable_eager_execution()
+# tf.compat.v1.disable_eager_execution() #trying this to see if more memory efficient? 
+
 
 pos_embed_dims_coarse = 10 #12 #8 #18
 rot_embed_dims_coarse = 5 #5 #5 #4 #6
 
 def run_coarse_network(model_coarse, z_vals_coarse, width_coarse, rays_o, rays_d,n_resample = 128, repeat_coarse = True):
     
-    def batchify(fn, chunk=1024*512):
+    def batchify(fn, chunk=1024*32): #1024*512
         return lambda inputs : tf.concat([fn(inputs[i:i+chunk]) for i in range(0, inputs.shape[0], chunk)], 0)
     
     #encode positions and directions
@@ -48,6 +50,7 @@ def run_coarse_network(model_coarse, z_vals_coarse, width_coarse, rays_o, rays_d
     ray_dir = tf.reshape(rays_d[..., None,:]*tf.ones_like(z_vals_coarse, dtype = tf.float32), [-1,3]) #test
     encoded_ray_dir = embed_fn(ray_dir, rot_embed_dims_coarse)  # embedding dims for dir
     encoded_both = tf.concat([encoded_ray_pos, encoded_ray_dir], axis = -1)
+    # print("encoded_both_coarse", np.shape(encoded_both))
     
     #pass to network
     # ouput size [H, W, 1]
