@@ -547,7 +547,15 @@ def render_rays(network_fn, rays_o, rays_d, z_vals, fine = False):
     # print("CDF: ", np.shape(CDF), CDF[0,0,:]) #CDF
 
     if fine == False:
-        roll = tf.random.uniform(tf.shape(alpha))
+        # #actually random
+        # roll = tf.random.uniform(tf.shape(alpha)) 
+        # #TEST --- look at first surfaces (first spike on CDF)
+        # roll = 0.0001*tf.ones_like(alpha)
+        roll = 0.1*tf.ones_like(alpha)
+
+        #TEST --- look at rear surfaces (last spike on CDF)
+        # roll = 0.4*tf.ones_like(alpha)
+
         hit_surfs = tf.argmax(roll < alpha, axis = -1)
         depth_map = tf.gather_nd(z_vals, hit_surfs[:,:,None], batch_dims = 2)[:,:,0]
         # weights = alpha * tf.math.cumprod(1. - alpha + 1e-10, axis=-1, exclusive=True) #was this
@@ -564,11 +572,18 @@ def render_rays(network_fn, rays_o, rays_d, z_vals, fine = False):
     # produces fewer floaters than only smooth interpolation
     if fine == True:
         ## best of both worlds-- smooth rendering with no floaters 
-        roll = tf.random.uniform(tf.shape(alpha))
+        #actually random
+        roll = tf.random.uniform(tf.shape(alpha)) 
+        #TEST --- look at first surfaces (first spike on CDF)
+        # roll = 0.0001*tf.ones_like(alpha)
+        #TEST --- look at rear surfaces (last spike on CDF)
+        # roll = 0.9*tf.ones_like(alpha)
+
         hit_surfs = tf.argmax(roll < alpha, axis = -1)
         #bring in a bit so we still get a smooth render 
         #(still avoids most collisions)
-        hit_surfs = 9*hit_surfs//10
+        hit_surfs = 9*hit_surfs//10 #old
+        # hit_surfs = hit_surfs - 2 #TEST 
 
         # Create a tensor of indices for the last dimension
         last_dim_indices = tf.range(tf.shape(alpha)[-1], dtype=tf.int64)  # shape: [128]
