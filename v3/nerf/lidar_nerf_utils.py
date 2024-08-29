@@ -552,6 +552,7 @@ def render_rays(network_fn, rays_o, rays_d, z_vals, fine = False):
         # #TEST --- look at first surfaces (first spike on CDF)
         # roll = 0.0001*tf.ones_like(alpha)
         roll = 0.1*tf.ones_like(alpha)
+        # roll = 0.2*tf.ones_like(alpha)
 
         #TEST --- look at rear surfaces (last spike on CDF)
         # roll = 0.4*tf.ones_like(alpha)
@@ -586,7 +587,7 @@ def render_rays(network_fn, rays_o, rays_d, z_vals, fine = False):
         # hit_surfs = hit_surfs - 2 #TEST 
 
         # Create a tensor of indices for the last dimension
-        last_dim_indices = tf.range(tf.shape(alpha)[-1], dtype=tf.int64)  # shape: [128]
+        last_dim_indices = tf.range(tf.shape(alpha)[-1], dtype=tf.int64)
         # Create a mask by comparing last_dim_indices with hit_surfs
         hit_surfs_expanded = hit_surfs[:, :, tf.newaxis]  # shape: [64, 8, 1]
         mask = last_dim_indices[tf.newaxis, tf.newaxis, :] <= hit_surfs_expanded  # shape: [64, 8, 128]
