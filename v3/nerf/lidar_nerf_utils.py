@@ -52,96 +52,7 @@ rot_embed_dims_coarse = 5  #5 #6
 
 embed_fn = posenc
 
-
-# # Custom Monotonic Layer to ensure non-decreasing outputs
-# class MonotonicLayer(tf.keras.layers.Layer):
-#     def __init__(self):
-#         super(MonotonicLayer, self).__init__()
-
-#     def call(self, inputs):
-#         # Ensure non-negative values using ReLU activation
-#         non_negative_inputs = tf.keras.activations.relu(inputs)
-#         # Compute the cumulative sum along the specified axis
-#         return tf.cumsum(non_negative_inputs, axis=-1)
-
-# def init_model(D=8, W=256, rot_embed_dims=4, pos_embed_dims=10):
-#     relu = tf.keras.layers.LeakyReLU()  # per LOC-NDF
-#     dense = lambda W=W, act=relu: tf.keras.layers.Dense(W, activation=act, kernel_initializer='glorot_uniform')
-
-#     input_shape = (6 + 3 * 2 * rot_embed_dims + 3 * 2 * pos_embed_dims,)
-#     inputs = tf.keras.Input(shape=input_shape)
-
-#     pos_inputs = inputs[:, :(3 + 3 * 2 * pos_embed_dims)]  # Extract positional embeddings
-#     outputs = pos_inputs
-
-#     for i in range(D):
-#         outputs = dense()(outputs)
-#         if i % 4 == 0 and i > 0:
-#             outputs = tf.concat([outputs, pos_inputs], -1)
-#             outputs = tf.keras.layers.LayerNormalization()(outputs)  # as recommended by LOC-NDF
-
-#     # Extend small MLP after output of density channel to get ray drop
-#     sigma_channel = dense(1, act=None)(outputs)
-
-#     rd_start = tf.concat([outputs, inputs[:, (3 + 3 * 2 * pos_embed_dims):]], -1)  # Include rotational embeddings
-#     rd_channel = dense(256, act=relu)(rd_start)
-#     rd_channel = dense(128, act=relu)(rd_channel)
-#     rd_channel = dense(128, act=None)(rd_channel)
-
-#     # Apply MonotonicLayer to ensure non-decreasing outputs
-#     rd_channel = MonotonicLayer()(rd_channel)
-
-#     # Ensure the shape of rd_channel matches the expected shape
-#     rd_channel = tf.reshape(rd_channel, (-1, 8, 128))
-
-#     # Combine sigma_channel and rd_channel
-#     sigma_channel = tf.reshape(sigma_channel, (-1, 8, 1))  # Ensure sigma_channel shape matches
-#     out = tf.concat([sigma_channel, rd_channel], -1)
-
-#     model = tf.keras.Model(inputs=inputs, outputs=out)
-    
-#     return model
-
-
-
-# # ##New -- make CDF and ray drop both depend on 5 dimensions
-# class MonotonicLayer(tf.keras.layers.Layer):
-#     def __init__(self):
-#         super(MonotonicLayer, self).__init__()
-
-#     def call(self, inputs):
-#         # Ensure non-negative values using ReLU activation
-#         non_negative_inputs = tf.keras.activations.relu(inputs)
-#         # Compute the cumulative sum along the last dimension
-#         print("non_negative_inputs", np.shape(non_negative_inputs))
-#         return tf.cumsum(non_negative_inputs, axis=-1)
-
-# def init_model(D=8, W=256):  # 8,256
-#     relu = tf.keras.layers.LeakyReLU()  # per LOC-NDF
-#     dense = lambda W=W, act=relu: tf.keras.layers.Dense(W, activation=act, kernel_initializer='glorot_uniform')
-#     inputs = tf.keras.Input(shape=(6 + 3*2*(rot_embed_dims) + 3*2*(pos_embed_dims)))  # new (embedding dims (4) and (10))
-#     outputs = inputs[:, :(3 + 3*2*(pos_embed_dims))]  # only look at positional stuff for now
-
-#     for i in range(D):
-#         outputs = dense()(outputs)
-
-#         if i % 4 == 0 and i > 0:
-#             outputs = tf.concat([outputs, inputs[:, :(3 + 3*2*(pos_embed_dims))]], -1)
-#             outputs = tf.keras.layers.LayerNormalization()(outputs)  # as recommended by LOC-NDF
-
-#     rd_channel = dense(256, act=relu)(outputs)
-#     rd_channel = dense(128, act=relu)(rd_channel)
-#     rd_channel = dense(128, act=None)(rd_channel)  # Remove activation to keep raw values
-#     rd_channel = MonotonicLayer()(rd_channel)  # Apply MonotonicLayer
-
-#     print("rd_channel", np.shape(rd_channel))
-
-#     model = tf.keras.Model(inputs=inputs, outputs=rd_channel)
-
-#     return model
-
-
-def init_model(D=10, W=512): #8,256
+def init_model(D=8, W=256): #10,512 produced highest resolution so far...
 #     relu = tf.keras.layers.ReLU() #OG NeRF   
     relu = tf.keras.layers.LeakyReLU() #per LOC-NDF   
     dense = lambda W=W, act=relu : tf.keras.layers.Dense(W, activation=act, kernel_initializer='glorot_uniform')
@@ -373,12 +284,13 @@ def get_rays(H, W, c2w, phimin_patch, phimax_patch, debug = False):
     dirs_test = tf.stack([-tf.ones_like(i), #r
                           #theta
                           # (i - ((W-1)/2))  /(W) * (2*np.pi/(1024//(W))), #old (flipped horizontally)
-                        (-i + ((W-1)/2))  /(W) * (2*np.pi/(1024//(W))), #FIXES HORIZONTAL SKIPPING
+                        # (-i + ((W-1)/2))  /(W) * (2*np.pi/(1024//(W))), #FIXES HORIZONTAL SKIPPING (had this pre 9/7)
                         # (-i + ((W)/2))  /(W-1) * (2*np.pi/(1024//(W))), #was this pre 8/23 -- seems to skip some horizontal scan lines at lower resolutions!!!
+                        -(i - ((W-1)/2))  /(W) * (2*np.pi/(1024//(W))) - np.pi, #test 9/7, changing to match get_rays_from_pc
                           #phi
                           #need to manually account for elevation angle of patch 
                           #  (can not be inferred from c2w since that does not account for singularities near "poles" of spherical projection)
-                        -((phimax_patch + phimin_patch)/2 - ((-j+((H-1)/2))/(H-1))*(phimax_patch-phimin_patch)) -np.pi/2 #wa s this
+                        ((phimax_patch + phimin_patch)/2 - ((-j+((H-1)/2))/(H-1))*(phimax_patch-phimin_patch)) -np.pi/2 #wa s this
                         # -((phimax_patch + phimin_patch)/2 - ((-j+((H-1)/2))/(H))*(phimax_patch-phimin_patch)) -np.pi/2 #test
                          ], -1)
     dirs_test = tf.reshape(dirs_test,[-1,3])
@@ -386,24 +298,28 @@ def get_rays(H, W, c2w, phimin_patch, phimax_patch, debug = False):
 
     dirs_test_OG = dirs_test.numpy().copy()
     
-    #old-- falls apart when using multiple z patches.~~~~~~~~~~~~~~~~~~~~~
+    # #old-- sensor rotates about about y in training data ~~~~~~~~~~~~~~~~~
+    # rotm = R.from_euler('xyz', [np.pi/2,0,0]).as_matrix() #had this
+    # dirs_test = dirs_test @ rotm
 
+    # dirs_test = dirs_test @ tf.transpose(c2w[:3,:3])
 
-    # dirs_test = dirs_test @ c2w[:3,:3]
-    rotm = R.from_euler('xyz', [np.pi/2,0,0]).as_matrix() #had this
-    dirs_test = dirs_test @ rotm
+    # rotm2 = R.from_euler('xyz', [np.pi/2,0,0]).as_matrix() #had this
+    # dirs_test = dirs_test @ rotm2
+
+    # dirs = dirs_test
+
+    #new-- sensor rotates about about z in training data ~~~~~~~~~~~~~~~~~
 
     dirs_test = dirs_test @ tf.transpose(c2w[:3,:3])
     # dirs_test = dirs_test @ c2w[:3,:3]
 
-    rotm2 = R.from_euler('xyz', [np.pi/2,0,0]).as_matrix() #had this
-    # rotm2 = R.from_euler('xyz', [-np.pi/2,0,0]).as_matrix() #test
-    dirs_test = dirs_test @ rotm2
+    # rotm = R.from_euler('xyz', [np.pi,0,0]).as_matrix()
+    # dirs_test = dirs_test @ rotm
 
+    # rotm = R.from_euler('xyz', [0,0,np.pi]).as_matrix()
+    # dirs_test = dirs_test @ rotm
 
-    # #test
-    # rotm3 = R.from_euler('xyz', [0,0,-np.pi]).as_matrix()
-    # dirs_test = dirs_test @ rotm3
 
     dirs = dirs_test
 
