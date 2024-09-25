@@ -27,9 +27,9 @@
      inkscape:pagecheckerboard="0"
      inkscape:deskcolor="#d1d1d1"
      inkscape:document-units="mm"
-     inkscape:zoom="1.0094241"
-     inkscape:cx="413.60217"
-     inkscape:cy="221.90871"
+     inkscape:zoom="1.4275413"
+     inkscape:cx="492.10487"
+     inkscape:cy="330.63843"
      inkscape:window-width="2488"
      inkscape:window-height="1376"
      inkscape:window-x="72"
@@ -615,7 +615,7 @@
          id="tspan90-4"
          style="stroke:none;stroke-width:1.00329"
          x="143.27301"
-         y="7.9757261">(x,s)     h </tspan></text><text
+         y="7.9757261">(x̃, s̃)     h </tspan></text><text
        xml:space="preserve"
        style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:4.43999px;font-family:'Times New Roman';-inkscape-font-specification:'Times New Roman, ';fill:#515151;fill-opacity:1;stroke:none;stroke-width:0.454487;stroke-dasharray:none;stroke-opacity:0.126667"
        x="132.51321"
@@ -929,7 +929,7 @@
          id="tspan90-4-0"
          style="stroke:none;stroke-width:1.00329"
          x="138.98459"
-         y="109.43835">(x,s)     R </tspan></text><text
+         y="109.43835">(x̃, s̃)     σ </tspan></text><text
        xml:space="preserve"
        style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:4.43999px;font-family:'Times New Roman';-inkscape-font-specification:'Times New Roman, ';fill:#515151;fill-opacity:1;stroke:none;stroke-width:0.454487;stroke-dasharray:none;stroke-opacity:0.126667"
        x="131.5529"
@@ -941,11 +941,11 @@
          x="131.5529"
          y="111.76189">fine</tspan></text><path
        style="fill:#5d5482;fill-opacity:1;stroke:#000000;stroke-width:0.553454;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;marker-end:url(#ArrowWide)"
-       d="m 162.95519,5.2592109 c 0,0 -1.35629,0 7.10404,0"
+       d="m 165.92063,5.2592109 c 0,0 -1.35629,0 7.10404,0"
        id="path2-6"
        sodipodi:nodetypes="cc" /><g
        id="g1-6"
-       transform="matrix(1.257849,0,0,1.257849,-0.55764025,82.172044)"><path
+       transform="matrix(1.257849,0,0,1.257849,2.0881932,82.172044)"><path
          style="fill:#5d5482;fill-opacity:1;stroke:#000000;stroke-width:0.44;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;marker-end:url(#ArrowWide-0)"
          d="m 127.03463,19.111292 c 0,0 -1.07826,0 5.64777,0"
          id="path2-6-2"
@@ -1091,7 +1091,7 @@
          id="tspan90-4-0-2-3"
          style="stroke:none;stroke-width:1.00329"
          x="199.19984"
-         y="134.56067">R</tspan></text><text
+         y="134.56067">σ</tspan></text><text
        xml:space="preserve"
        style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:9.80134px;font-family:'Times New Roman';-inkscape-font-specification:'Times New Roman, ';fill:#515151;fill-opacity:1;stroke:none;stroke-width:1.00329;stroke-dasharray:none;stroke-opacity:0.126667"
        x="294.60989"
@@ -1218,4 +1218,4 @@
          id="tspan90-4-0-3"
          style="stroke:none;stroke-width:0.821019"
          x="255.98978"
-         y="94.052162">∫R = C</tspan></text></g></svg>
+         y="94.052162">∫σ = C</tspan></text></g></svg>

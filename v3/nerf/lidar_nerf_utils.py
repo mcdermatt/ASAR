@@ -45,61 +45,61 @@ def posenc(x, embed_dims):
 
 #2**18 is below the sensor noise threshold??
 # L_embed =  5 #18 #15 #10 #6
-pos_embed_dims = 18 #18 #14
-rot_embed_dims = 5 #6 #4
+pos_embed_dims = 18 #18 #18 #14
+rot_embed_dims = 6 #6 #4
 pos_embed_dims_coarse = 10 #18 
 rot_embed_dims_coarse = 5  #5 #6 
 
 embed_fn = posenc
 
-# #Had this (pre 9/12)
-# def init_model(D=8, W=256): #10,512 produced highest resolution so far...
-#     relu = tf.keras.layers.LeakyReLU() #per LOC-NDF   
-#     dense = lambda W=W, act=relu : tf.keras.layers.Dense(W, activation=act, kernel_initializer='glorot_uniform')
-
-#     inputs = tf.keras.Input(shape=(6 + 3*2*(rot_embed_dims) + 3*2*(pos_embed_dims))) #new (embedding dims (4) and (10) )
-#     outputs = inputs[:,:(3+3*2*(pos_embed_dims))] #only look at positional stuff for first few layers
-
-#     for i in range(D):
-#         outputs = dense()(outputs)
-
-#         if i%4==0 and i>0:
-#             outputs = tf.concat([outputs, inputs[:,:(3+3*2*(pos_embed_dims))]], -1)
-#             outputs = tf.keras.layers.LayerNormalization()(outputs) #as recomended by LOC-NDF 
-
-#     #combine output of first few layers with view direction components
-#     combined = tf.concat([outputs, inputs[:,(3+3*2*(pos_embed_dims)):]], -1)
-#     combined = dense(256, act=relu)(combined) 
-#     combined = dense(128, act=relu)(combined)
-#     combined = dense(2, act=None)(combined)
-#     model = tf.keras.Model(inputs=inputs, outputs=combined)
-#     return model
-
-#DEBUG -- pretend density isn't view dependant (i.e. simulated Mai City dataset)
-def init_model(D=8, W=256):
+#Had this (pre 9/12)
+def init_model(D=10, W=512): #10,512 produced highest resolution so far...
     relu = tf.keras.layers.LeakyReLU() #per LOC-NDF   
     dense = lambda W=W, act=relu : tf.keras.layers.Dense(W, activation=act, kernel_initializer='glorot_uniform')
 
     inputs = tf.keras.Input(shape=(6 + 3*2*(rot_embed_dims) + 3*2*(pos_embed_dims))) #new (embedding dims (4) and (10) )
-    sigma_channel = inputs[:,:(3+3*2*(pos_embed_dims))] #only look at positional stuff for first few layers
+    outputs = inputs[:,:(3+3*2*(pos_embed_dims))] #only look at positional stuff for first few layers
 
     for i in range(D):
-        sigma_channel = dense()(sigma_channel)
+        outputs = dense()(outputs)
 
         if i%4==0 and i>0:
-            sigma_channel = tf.concat([sigma_channel, inputs[:,:(3+3*2*(pos_embed_dims))]], -1)
-            sigma_channel = tf.keras.layers.LayerNormalization()(sigma_channel) #as recomended by LOC-NDF 
-    #bring down to single channel
-    sigma_channel = dense(1, act=None)(sigma_channel)
+            outputs = tf.concat([outputs, inputs[:,:(3+3*2*(pos_embed_dims))]], -1)
+            outputs = tf.keras.layers.LayerNormalization()(outputs) #as recomended by LOC-NDF 
 
     #combine output of first few layers with view direction components
-    ray_drop_channel = tf.concat([sigma_channel, inputs[:,(3+3*2*(pos_embed_dims)):]], -1)
-    ray_drop_channel = dense(256, act=relu)(ray_drop_channel) 
-    ray_drop_channel = dense(128, act=relu)(ray_drop_channel)
-    ray_drop_channel = dense(1, act=None)(ray_drop_channel)
-    combined = tf.concat([sigma_channel, ray_drop_channel], -1)
+    combined = tf.concat([outputs, inputs[:,(3+3*2*(pos_embed_dims)):]], -1)
+    combined = dense(256, act=relu)(combined) 
+    combined = dense(128, act=relu)(combined)
+    combined = dense(2, act=None)(combined)
     model = tf.keras.Model(inputs=inputs, outputs=combined)
     return model
+
+# #DEBUG -- pretend density isn't view dependant 
+# def init_model(D=8, W=256):
+#     relu = tf.keras.layers.LeakyReLU() #per LOC-NDF   
+#     dense = lambda W=W, act=relu : tf.keras.layers.Dense(W, activation=act, kernel_initializer='glorot_uniform')
+
+#     inputs = tf.keras.Input(shape=(6 + 3*2*(rot_embed_dims) + 3*2*(pos_embed_dims))) #new (embedding dims (4) and (10) )
+#     sigma_channel = inputs[:,:(3+3*2*(pos_embed_dims))] #only look at positional stuff for first few layers
+
+#     for i in range(D):
+#         sigma_channel = dense()(sigma_channel)
+
+#         if i%4==0 and i>0:
+#             sigma_channel = tf.concat([sigma_channel, inputs[:,:(3+3*2*(pos_embed_dims))]], -1)
+#             sigma_channel = tf.keras.layers.LayerNormalization()(sigma_channel) #as recomended by LOC-NDF 
+#     #bring down to single channel
+#     sigma_channel = dense(1, act=None)(sigma_channel)
+
+#     #combine output of first few layers with view direction components
+#     ray_drop_channel = tf.concat([sigma_channel, inputs[:,(3+3*2*(pos_embed_dims)):]], -1)
+#     ray_drop_channel = dense(256, act=relu)(ray_drop_channel) 
+#     ray_drop_channel = dense(128, act=relu)(ray_drop_channel)
+#     ray_drop_channel = dense(1, act=None)(ray_drop_channel)
+#     combined = tf.concat([sigma_channel, ray_drop_channel], -1)
+#     model = tf.keras.Model(inputs=inputs, outputs=combined)
+#     return model
 
 
 
@@ -144,20 +144,24 @@ def add_patch(rays_o, rays_d, image):
     """given tensors of rays origins (rays_o), rays directions (rays_d), and a training depth image, 
         return the corresponding point cloud in the world frame"""
     
-    #flatten first
-    rays_d_flat = np.reshape(rays_d, [-1,3])
+    #OLD
+    # #flatten first
+    # rays_d_flat = np.reshape(rays_d, [-1,3])
     
-    #convert to spherical
-    rays_d_spherical = cartesian_to_spherical(rays_d_flat).numpy()
+    # #convert to spherical
+    # rays_d_spherical = cartesian_to_spherical(rays_d_flat).numpy()
 
-    #reshape rays_d to same size as image to scale
-    rays_d_spherical = np.reshape(rays_d_spherical, [np.shape(rays_d)[0], np.shape(rays_d)[1], 3])
-    rays_d_spherical[:,:,0] *= image
-    rays_d_spherical = np.reshape(rays_d_spherical, [-1,3])
-    xyz = spherical_to_cartesian(rays_d_spherical)
+    # #reshape rays_d to same size as image to scale
+    # rays_d_spherical = np.reshape(rays_d_spherical, [np.shape(rays_d)[0], np.shape(rays_d)[1], 3])
+    # rays_d_spherical[:,:,0] *= image
+    # rays_d_spherical = np.reshape(rays_d_spherical, [-1,3])
+    # xyz = spherical_to_cartesian(rays_d_spherical)
     
-    xyz += np.reshape(rays_o, [-1,3])
+    # xyz += np.reshape(rays_o, [-1,3])
     
+    #NEW
+    xyz = tf.reshape(rays_d * image[:,:,None], [-1,3]) + tf.reshape(rays_o, [-1,3])
+
     return xyz
 
 
@@ -493,7 +497,7 @@ def render_rays(network_fn, rays_o, rays_d, z_vals, fine = False):
     if fine == False:
         # #actually random
         roll = tf.random.uniform(tf.shape(alpha)) 
-        # #TEST --- look at first surfaces (first spike on CDF)
+        # TEST --- look at first surfaces (first spike on CDF)
         # roll = 0.0001*tf.ones_like(alpha)
         # roll = 0.1*tf.ones_like(alpha)
         # roll = 0.2*tf.ones_like(alpha)
@@ -610,14 +614,14 @@ def calculate_loss(depth, ray_drop, target, target_drop_mask,
     d1 = None, d2 = None, CDF = None, gtCDF = None):
     """L_total = L_dist + lam1*L_intensity + lam2*L_raydrop + lam3*L_reg"""
 
-    #ray drop loss
-    L_raydrop = tf.keras.losses.binary_crossentropy(target_drop_mask, ray_drop)
-    L_raydrop = tf.math.reduce_mean(tf.abs(L_raydrop))
+    # #ray drop loss
+    # L_raydrop = tf.keras.losses.binary_crossentropy(target_drop_mask, ray_drop)
+    # L_raydrop = tf.math.reduce_mean(tf.abs(L_raydrop))
 
-    # #masked distance loss (suppressing ray drop areas)
-    depth_nondrop = tf.math.multiply(depth, target_drop_mask)
-    target_nondrop = tf.math.multiply(target, target_drop_mask)
-    L_dist = tf.reduce_mean(tf.abs(depth_nondrop - target_nondrop))
+    # # #masked distance loss (suppressing ray drop areas)
+    # depth_nondrop = tf.math.multiply(depth, target_drop_mask)
+    # target_nondrop = tf.math.multiply(target, target_drop_mask)
+    # L_dist = tf.reduce_mean(tf.abs(depth_nondrop - target_nondrop))
 
     #regular distance loss
     # L_dist = tf.reduce_mean((depth-target)**2)
@@ -633,40 +637,40 @@ def calculate_loss(depth, ray_drop, target, target_drop_mask,
     # L_dist = tf.reduce_mean(0.5 * quadratic**2 + delta * linear)
     # # print("L_dist new", tf.shape(L_dist))
     
-    #Gradient Loss (structural regularization for smooth surfaces) -- (LiDAR-NeRF method) ~~~~~~~~~~~
-#     thresh = 0.025 #was at 0.025, set to 0.1 in LiDAR-NeRF
-    ##--seems like this works better if I set different values for each component
-    #    this makes sense since the resolution of the sensor is differnt in horizontal and vertical(?)
-    # thresh_horiz = 0.025 
-    # thresh_vert = 0.025
-    thresh_horiz = 0.05 #test 
-    thresh_vert = 0.005 #test
-    mask = np.ones(np.shape(target[:,:,0]))
-    vertical_grad_target = np.gradient(target[:,:,0])[0] 
-    vertical_past_thresh = np.argwhere(tf.abs(vertical_grad_target) > thresh_vert) #old
-    # #test for double gradient 
-    # vertical_grad_target2 = np.gradient(vertical_grad_target)[0] 
-    # vertical_past_thresh = np.argwhere(tf.abs(vertical_grad_target2) > thresh_vert)
+#     #Gradient Loss (structural regularization for smooth surfaces) -- (LiDAR-NeRF method) ~~~~~~~~~~~
+# #     thresh = 0.025 #was at 0.025, set to 0.1 in LiDAR-NeRF
+#     ##--seems like this works better if I set different values for each component
+#     #    this makes sense since the resolution of the sensor is differnt in horizontal and vertical(?)
+#     # thresh_horiz = 0.025 
+#     # thresh_vert = 0.025
+#     thresh_horiz = 0.05 #test 
+#     thresh_vert = 0.005 #test
+#     mask = np.ones(np.shape(target[:,:,0]))
+#     vertical_grad_target = np.gradient(target[:,:,0])[0] 
+#     vertical_past_thresh = np.argwhere(tf.abs(vertical_grad_target) > thresh_vert) #old
+#     # #test for double gradient 
+#     # vertical_grad_target2 = np.gradient(vertical_grad_target)[0] 
+#     # vertical_past_thresh = np.argwhere(tf.abs(vertical_grad_target2) > thresh_vert)
 
-    mask[vertical_past_thresh[:,0], vertical_past_thresh[:,1]] = 0 #1
-    horizontal_grad_target = np.gradient(target[:,:,0])[1]
-    horizontal_past_thresh = np.argwhere(tf.abs(horizontal_grad_target) > thresh_horiz) #old
-    # #test for double gradient
-    # horizontal_grad_target2 = np.gradient(horizontal_grad_target)[1]  
-    # horizontal_past_thresh = np.argwhere(tf.abs(horizontal_grad_target2) > thresh_horiz)
-    mask[horizontal_past_thresh[:,0], horizontal_past_thresh[:,1]] = 0 #1
+#     mask[vertical_past_thresh[:,0], vertical_past_thresh[:,1]] = 0 #1
+#     horizontal_grad_target = np.gradient(target[:,:,0])[1]
+#     horizontal_past_thresh = np.argwhere(tf.abs(horizontal_grad_target) > thresh_horiz) #old
+#     # #test for double gradient
+#     # horizontal_grad_target2 = np.gradient(horizontal_grad_target)[1]  
+#     # horizontal_past_thresh = np.argwhere(tf.abs(horizontal_grad_target2) > thresh_horiz)
+#     mask[horizontal_past_thresh[:,0], horizontal_past_thresh[:,1]] = 0 #1
     
-    vertical_grad_inference = np.gradient(depth[:,:,0])[0]
-    horizontal_grad_inference = np.gradient(depth[:,:,0])[1]
-    # mag_difference = tf.math.sqrt((vertical_grad_target-vertical_grad_inference)**2 + (horizontal_grad_target-horizontal_grad_inference)**2)
-    #DEBUG -- use struct reg. to amplify LR in sharp corners 
-    mag_difference = tf.reduce_mean(tf.abs(depth_nondrop - target_nondrop)) 
+#     vertical_grad_inference = np.gradient(depth[:,:,0])[0]
+#     horizontal_grad_inference = np.gradient(depth[:,:,0])[1]
+#     # mag_difference = tf.math.sqrt((vertical_grad_target-vertical_grad_inference)**2 + (horizontal_grad_target-horizontal_grad_inference)**2)
+#     #DEBUG -- use struct reg. to amplify LR in sharp corners 
+#     mag_difference = tf.reduce_mean(tf.abs(depth_nondrop - target_nondrop)) 
 
-    #suppress ray drop areas (for distance and gradient loss)
-    L_reg = np.multiply(mag_difference, mask)
-    L_reg = L_reg[:,:,None]
-    L_reg = tf.reduce_mean(tf.math.multiply(L_reg, target_drop_mask))
-    L_reg = tf.cast(L_reg, tf.float32)         
+#     #suppress ray drop areas (for distance and gradient loss)
+#     L_reg = np.multiply(mag_difference, mask)
+#     L_reg = L_reg[:,:,None]
+#     L_reg = tf.reduce_mean(tf.math.multiply(L_reg, target_drop_mask))
+#     L_reg = tf.cast(L_reg, tf.float32)         
 
     lam0 = 10 #0 
     lam1 = 0 #100 
@@ -680,7 +684,7 @@ def calculate_loss(depth, ray_drop, target, target_drop_mask,
         lam0 = 0.
 
         CDFdiff = tf.abs(CDF - gtCDF)
-        CDFdiff = tf.math.multiply(CDFdiff, target_drop_mask)
+        # CDFdiff = tf.math.multiply(CDFdiff, target_drop_mask)
 
        # # ~~~ prevent gradient mask from getting rid of double returns in windows, etc.
        #  save_non_ground = tf.zeros_like(mask).numpy()
@@ -692,7 +696,7 @@ def calculate_loss(depth, ray_drop, target, target_drop_mask,
        #  mask = tf.cast(mask, tf.float32)
        #  #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-        mask = tf.cast(mask, tf.float32)
+        # mask = tf.cast(mask, tf.float32)
 
         # suppress high gradient regions to minimize bias induced by beam spreading
         # CDFdiff_low_grad = tf.math.multiply(CDFdiff, mask[:,:,None])
@@ -706,7 +710,8 @@ def calculate_loss(depth, ray_drop, target, target_drop_mask,
         CDF_loss = tf.reduce_sum(CDFdiff**2 + CDFdiff) #using both (was this) -- works much better!
         # CDF_loss = tf.reduce_sum(0.1*(CDFdiff**2) + 0.9*CDFdiff) #test 8/8-- weight L1 more heavily
 
-        loss = lam0*L_dist + lam1*L_reg + lam2*L_raydrop + lam4*CDF_loss
+        # loss = lam0*L_dist + lam1*L_reg + lam2*L_raydrop + lam4*CDF_loss #had this for newer college
+        loss = lam4*CDF_loss #don't worry about raydrop on Mai City
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     # print("\n lam2*L_raydrop", lam2*L_raydrop)
