@@ -35,8 +35,8 @@ from lidar_nerf_utils import *
 # tf.compat.v1.disable_eager_execution() #trying this to see if more memory efficient? 
 
 
-pos_embed_dims_coarse = 10 #12 #8 #18
-rot_embed_dims_coarse = 5 #5 #5 #4 #6
+pos_embed_dims_coarse = 18 #12 #8 #18
+rot_embed_dims_coarse = 6 #5 #5 #4 #6
 
 def run_coarse_network(model_coarse, z_vals_coarse, width_coarse, rays_o, rays_d,n_resample = 128, repeat_coarse = True):
     
@@ -70,9 +70,9 @@ def run_coarse_network(model_coarse, z_vals_coarse, width_coarse, rays_o, rays_d
     #doing this here rather than inside main training loop so that resampled z values are smooth as well
     # weights_coarse = gaussian_smoothing(weights_coarse[:,:,:,None], sigma = 2)[:,:,:,0]
     #much looser (used for earlier training)
-    # weights_coarse = generalized_gaussian_smoothing(weights_coarse[:,:,:,None], sigma = 1.2, p=1., kernel_radius = 10)[:,:,:,0]
+    weights_coarse = generalized_gaussian_smoothing(weights_coarse[:,:,:,None], sigma = 1.2, p=1., kernel_radius = 10)[:,:,:,0]
     # #very tight (test)
-    weights_coarse = generalized_gaussian_smoothing(weights_coarse[:,:,:,None], sigma = 0.6, p=0.9, kernel_radius = 10)[:,:,:,0]
+    # weights_coarse = generalized_gaussian_smoothing(weights_coarse[:,:,:,None], sigma = 0.6, p=0.9, kernel_radius = 10)[:,:,:,0]
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     #rescale add small uniform probibility of selection for each bin

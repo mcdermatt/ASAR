@@ -47,8 +47,8 @@ def posenc(x, embed_dims):
 # L_embed =  5 #18 #15 #10 #6
 pos_embed_dims = 18 #18 #18 #14
 rot_embed_dims = 6 #6 #4
-pos_embed_dims_coarse = 10 #18 
-rot_embed_dims_coarse = 5  #5 #6 
+pos_embed_dims_coarse = 18 #10 #18 
+rot_embed_dims_coarse = 6 #5  #5 #6 
 
 embed_fn = posenc
 
@@ -103,7 +103,7 @@ def init_model(D=10, W=512): #10,512 produced highest resolution so far...
 
 
 
-def init_model_proposal(D=8, W=256): 
+def init_model_proposal(D=10, W=512):  #8, 256
     relu = tf.keras.layers.ReLU() #OG NeRF   
     leaky_relu = tf.keras.layers.LeakyReLU() #per LOC-NDF   
     # sigmoid = tf.keras.activations.sigmoid()
@@ -503,7 +503,7 @@ def render_rays(network_fn, rays_o, rays_d, z_vals, fine = False):
         # roll = 0.2*tf.ones_like(alpha)
 
         #TEST --- look at rear surfaces (last spike on CDF)
-        # roll = 0.4*tf.ones_like(alpha)
+        # roll = 0.8*tf.ones_like(alpha)
 
         hit_surfs = tf.argmax(roll < alpha, axis = -1)
         depth_map = tf.gather_nd(z_vals, hit_surfs[:,:,None], batch_dims = 2)[:,:,0]
@@ -566,53 +566,14 @@ def render_rays(network_fn, rays_o, rays_d, z_vals, fine = False):
 
     # ray_drop_map = tf.reduce_sum(weights * ray_drop, -1) #axis was -2, changed to -1 
     # acc_map = tf.reduce_sum(weights, -1)
-    
-    # #stochasitc depth-NeRF rendering model ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # ##NOTE-- we can do EITHER coarse-to-fine sampling or have a direct depth-NeRF but NOT both
-    # # sigma_a = tf.sigmoid(raw[...,0]) # [0,1]
-    # sigma_a = tf.nn.relu(raw[...,0]) #[0, 10+]
-    # ray_drop = tf.nn.relu(raw[...,1])
-
-    # # print("raw[:10,0,0]",raw[:10,0,0,0])
-    # # print("sigma_a:", sigma_a[:10,0,0])
-    # # print(tf.shape(raw))
-    # # print("raw[0,0,:,0]",raw[0,0,:,0]) #look at along a single ray
-    # # print("\n sigma_a:", sigma_a[0,0,:10])
-
-    # # Sample random variables for point detection
-    # rv = tf.random.uniform(sigma_a.shape, minval=0, maxval=1)
-
-    # # Calculate alpha using the probabilistic model
-    # alpha = 1. - tf.exp(-sigma_a * z_vals[..., 0])
-    # # print("alpha:", alpha[0,0,:10])
-
-    # # Introduce stochasticity for detection
-    # detections = tf.cast(rv < alpha, tf.float32)
-
-    # # Apply detections to alpha to get stochastic alpha
-    # stochastic_alpha = alpha * detections
-    # # stochastic_alpha = alpha #for debug
-
-    # # Compute weights for depth-based rendering
-    # weights = stochastic_alpha * tf.math.cumprod(1. - stochastic_alpha + 1e-10, axis=-1, exclusive=True)
-
-    # # Compute depth_map
-    # depth_map = tf.reduce_sum(weights * z_vals[..., 0], axis=-1)
-
-    # # Compute ray_drop_map using the same weights
-    # ray_drop_map = tf.reduce_sum(weights * ray_drop, axis=-1)
-    # acc_map = tf.reduce_sum(weights, axis=-1)
-
-    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     
     # return depth_map, acc_map, ray_drop_map, weights #old strategy
-    # return depth_map, acc_map, ray_drop_map, weights, depth_map1, depth_map2 #NFL strategy
     return depth_map, ray_drop_map, CDF, weights
 
-def calculate_loss(depth, ray_drop, target, target_drop_mask, 
+def calculate_loss_Mai_City(depth, ray_drop, target, target_drop_mask, 
     d1 = None, d2 = None, CDF = None, gtCDF = None):
-    """L_total = L_dist + lam1*L_intensity + lam2*L_raydrop + lam3*L_reg"""
+    """special case of loss calculation for Mai City Dataset (which has no ray drop points)"""
 
     # #ray drop loss
     # L_raydrop = tf.keras.losses.binary_crossentropy(target_drop_mask, ray_drop)
@@ -720,6 +681,111 @@ def calculate_loss(depth, ray_drop, target, target_drop_mask,
         lam2 = 1.
         loss = lam0*L_dist + lam1*L_reg + lam2*L_raydrop
     # print("\n L_dist: ", lam0*L_dist, "\n L_raydrop:", lam2*L_raydrop) #"\n L_CDF:", lam4*CDF_loss)
+
+    return(loss)
+
+
+def calculate_loss(depth, ray_drop, target, target_drop_mask, 
+    d1 = None, d2 = None, CDF = None, gtCDF = None):
+    """L_total = L_dist + lam1*L_intensity + lam2*L_raydrop + lam3*L_reg"""
+
+    #ray drop loss
+    L_raydrop = tf.keras.losses.binary_crossentropy(target_drop_mask, ray_drop)
+    L_raydrop = tf.math.reduce_mean(tf.abs(L_raydrop))
+
+    #masked distance loss (suppressing ray drop areas)
+    depth_nondrop = tf.math.multiply(depth, target_drop_mask)
+    target_nondrop = tf.math.multiply(target, target_drop_mask)
+    L_dist = tf.reduce_mean(tf.abs(depth_nondrop - target_nondrop))
+    # print("L_dist old", tf.shape(L_dist))
+
+    # #Try Huber Loss instead of simple masked distance loss
+    # depth_nondrop = tf.math.multiply(depth, target_drop_mask)
+    # target_nondrop = tf.math.multiply(target, target_drop_mask)
+    # abs_error = tf.abs(depth_nondrop - target_nondrop)
+    # delta = 0.0025 #0.05 
+    # quadratic = tf.minimum(abs_error, delta)
+    # linear = abs_error - quadratic
+    # L_dist = tf.reduce_mean(0.5 * quadratic**2 + delta * linear)
+    # # print("L_dist new", tf.shape(L_dist))
+    
+    #Gradient Loss (structural regularization for smooth surfaces) -- (LiDAR-NeRF method) ~~~~~~~~~~~
+#     thresh = 0.025 #was at 0.025, set to 0.1 in LiDAR-NeRF
+    ##--seems like this works better if I set different values for each component
+    #    this makes sense since the resolution of the sensor is differnt in horizontal and vertical(?)
+    # thresh_horiz = 0.05 #for Newer College 
+    # thresh_vert = 0.005 #for Newer College
+    thresh_horiz = 10. #turns it off 
+    thresh_vert = 10. #turns it off
+    mask = np.ones(np.shape(target[:,:,0]))
+    vertical_grad_target = np.gradient(target[:,:,0])[0] 
+    vertical_past_thresh = np.argwhere(tf.abs(vertical_grad_target) > thresh_vert) #old
+    # #test for double gradient 
+    # vertical_grad_target2 = np.gradient(vertical_grad_target)[0] 
+    # vertical_past_thresh = np.argwhere(tf.abs(vertical_grad_target2) > thresh_vert)
+
+    mask[vertical_past_thresh[:,0], vertical_past_thresh[:,1]] = 0 #1
+    horizontal_grad_target = np.gradient(target[:,:,0])[1]
+    horizontal_past_thresh = np.argwhere(tf.abs(horizontal_grad_target) > thresh_horiz) #old
+    # #test for double gradient
+    # horizontal_grad_target2 = np.gradient(horizontal_grad_target)[1]  
+    # horizontal_past_thresh = np.argwhere(tf.abs(horizontal_grad_target2) > thresh_horiz)
+    mask[horizontal_past_thresh[:,0], horizontal_past_thresh[:,1]] = 0 #1
+    
+    vertical_grad_inference = np.gradient(depth[:,:,0])[0]
+    horizontal_grad_inference = np.gradient(depth[:,:,0])[1]
+    # mag_difference = tf.math.sqrt((vertical_grad_target-vertical_grad_inference)**2 + (horizontal_grad_target-horizontal_grad_inference)**2)
+    #DEBUG -- use struct reg. to amplify LR in sharp corners 
+    mag_difference = tf.reduce_mean(tf.abs(depth_nondrop - target_nondrop)) 
+
+    #suppress ray drop areas (for distance and gradient loss)
+    L_reg = np.multiply(mag_difference, mask)
+    L_reg = L_reg[:,:,None]
+    L_reg = tf.reduce_mean(tf.math.multiply(L_reg, target_drop_mask))
+    L_reg = tf.cast(L_reg, tf.float32)         
+
+    #if we're using CDF for loss instead of distance error ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    if CDF is not None:
+        CDFdiff = tf.abs(CDF - gtCDF)
+        CDFdiff = tf.math.multiply(CDFdiff, target_drop_mask)
+
+       # # ~~~ prevent gradient mask from getting rid of double returns in windows, etc.
+       #  save_non_ground = tf.zeros_like(mask).numpy()
+       #  #NEED TO TURN OFF WHEN WE HAVE MULTIPLE VERTICAL PATCHES 
+       #  save_non_ground[:40,:] = 1 #prevent anything in the top ~3/4 of image from getting masked
+       #  save_non_groud = tf.convert_to_tensor(save_non_ground)
+       #  together = tf.concat([save_non_groud[:,:,None], mask[:,:,None]], axis = -1)
+       #  mask = tf.math.reduce_max(together, axis = -1)
+       #  mask = tf.cast(mask, tf.float32)
+       #  #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+        mask = tf.cast(mask, tf.float32)
+
+
+        #TEST-- suppress high gradient regions to minimize bias induced by beam spreading
+        CDFdiff_low_grad = tf.math.multiply(CDFdiff, mask[:,:,None])
+        CDFdiff = 0.2*CDFdiff + 0.8*CDFdiff_low_grad
+ 
+        # print("L1:", tf.math.reduce_sum(CDFdiff))
+        # print("L2:", tf.math.reduce_sum(CDFdiff**2))
+
+        # CDF_loss = tf.reduce_sum(CDFdiff) #L1 Loss
+        # CDF_loss = tf.reduce_sum(CDFdiff**2) #L2 Loss
+        CDF_loss = tf.reduce_sum(CDFdiff**2 + CDFdiff) #using both (was this) -- works much better!
+        # CDF_loss = tf.reduce_sum(0.1*(CDFdiff**2) + 0.9*CDFdiff) #test 8/8-- weight L1 more heavily
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    lam0 = 0 #10 #NEED TO USE THIS WHEN SCALING DOWN EVERYTHING TO FIT IN UNIT BOX(?)
+              # othersize loss gets dominated by raydrop?? 
+    lam1 = 0 #100 
+    lam2 = 1000. #1 
+    lam4 = 0.1
+
+    # print("\n lam2*L_raydrop", lam2*L_raydrop)
+    # print("lam4*CDF_loss", lam4*CDF_loss)
+
+    loss = lam0*L_dist + lam1*L_reg + lam2*L_raydrop + lam4*CDF_loss
+    # print("\n L_dist: ", lam0*L_dist, "\n L_raydrop:", lam2*L_raydrop, "\n L_CDF:", lam4*CDF_loss)
 
     return(loss)
 
