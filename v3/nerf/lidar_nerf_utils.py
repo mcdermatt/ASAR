@@ -426,7 +426,7 @@ def get_rays(H, W, c2w, phimin_patch, phimax_patch, debug = False):
 
 # adjusted from vanilla NeRF to pass in sample locations, still essentially just the image-nerf loss process
 # @tf.function
-def render_rays(network_fn, rays_o, rays_d, z_vals, fine = False):
+def render_rays(network_fn, rays_o, rays_d, z_vals, fine = False, roll_override = None):
     """true batch size is determined by how many rays are in rays_o and rays_d"""
 
     # #DEBUG
@@ -494,62 +494,60 @@ def render_rays(network_fn, rays_o, rays_d, z_vals, fine = False):
     # print("alpha", np.shape(alpha), alpha[0,0,:]) #PDF
     # print("CDF: ", np.shape(CDF), CDF[0,0,:]) #CDF
 
-    if fine == False:
-        # #actually random
-        roll = tf.random.uniform(tf.shape(alpha)) 
+    roll = tf.random.uniform(tf.shape(alpha))  #random sampling
+    if roll_override is not None:
+        roll = roll_override*tf.ones_like(alpha)
         # TEST --- look at first surfaces (first spike on CDF)
         # roll = 0.0001*tf.ones_like(alpha)
         # roll = 0.1*tf.ones_like(alpha)
         # roll = 0.2*tf.ones_like(alpha)
-
-        #TEST --- look at rear surfaces (last spike on CDF)
         # roll = 0.8*tf.ones_like(alpha)
 
-        hit_surfs = tf.argmax(roll < alpha, axis = -1)
-        depth_map = tf.gather_nd(z_vals, hit_surfs[:,:,None], batch_dims = 2)[:,:,0]
-        # weights = alpha * tf.math.cumprod(1. - alpha + 1e-10, axis=-1, exclusive=True) #was this
-        weights = np.gradient(CDF, axis = 2) + 1e-8 #works but fuzzy
-        # weights = tf.cast(roll < alpha, tf.float32) * alpha * tf.math.cumprod(1. - alpha + 1e-10, axis=-1, exclusive=True) #test
-        # print("alpha", tf.shape(alpha))
-        # print("hit_surfs", tf.shape(hit_surfs))
+    #TEST --- look at rear surfaces (last spike on CDF)
+    # roll = 0.8*tf.ones_like(alpha)
 
-    # # #OLD - get smooth interpolation using weights (but no stochasticity)~~~~~~~~~~
-    # weights = alpha * tf.math.cumprod(1.-alpha + 1e-10, -1, exclusive=True)
-    # depth_map = tf.reduce_sum(weights * z_vals[:,:,:,0], -1)
+    hit_surfs = tf.argmax(roll < alpha, axis = -1)
+    depth_map = tf.gather_nd(z_vals, hit_surfs[:,:,None], batch_dims = 2)[:,:,0]
+    # weights = alpha * tf.math.cumprod(1. - alpha + 1e-10, axis=-1, exclusive=True) #was this
+    weights = np.gradient(CDF, axis = 2) + 1e-8 #works but fuzzy
+    # weights = tf.cast(roll < alpha, tf.float32) * alpha * tf.math.cumprod(1. - alpha + 1e-10, axis=-1, exclusive=True) #test
+    # print("alpha", tf.shape(alpha))
+    # print("hit_surfs", tf.shape(hit_surfs))
 
-    # randomly select a position to start weighted smoothing 
-    # produces fewer floaters than only smooth interpolation
-    if fine == True:
-        ## best of both worlds-- smooth rendering with no floaters 
-        #actually random
-        roll = tf.random.uniform(tf.shape(alpha)) 
-        #TEST --- look at first surfaces (first spike on CDF)
-        # roll = 0.0001*tf.ones_like(alpha)
-        #TEST --- look at rear surfaces (last spike on CDF)
-        # roll = 0.9*tf.ones_like(alpha)
+    # # # #OLD - get smooth interpolation using weights (but no stochasticity)~~~~~~~~~~
+    # # randomly select a position to start weighted smoothing 
+    # # produces fewer floaters than only smooth interpolation
+    # if fine == True:
+    #     ## best of both worlds-- smooth rendering with no floaters 
+    #     #actually random
+    #     roll = tf.random.uniform(tf.shape(alpha)) 
+    #     #TEST --- look at first surfaces (first spike on CDF)
+    #     # roll = 0.0001*tf.ones_like(alpha)
+    #     #TEST --- look at rear surfaces (last spike on CDF)
+    #     # roll = 0.9*tf.ones_like(alpha)
 
-        hit_surfs = tf.argmax(roll < alpha, axis = -1)
-        #bring in a bit so we still get a smooth render 
-        #(still avoids most collisions)
-        hit_surfs = 9*hit_surfs//10 #old
-        # hit_surfs = hit_surfs - 2 #TEST 
+    #     hit_surfs = tf.argmax(roll < alpha, axis = -1)
+    #     #bring in a bit so we still get a smooth render 
+    #     #(still avoids most collisions)
+    #     hit_surfs = 9*hit_surfs//10 #old
+    #     # hit_surfs = hit_surfs - 2 #TEST 
 
-        # Create a tensor of indices for the last dimension
-        last_dim_indices = tf.range(tf.shape(alpha)[-1], dtype=tf.int64)
-        # Create a mask by comparing last_dim_indices with hit_surfs
-        hit_surfs_expanded = hit_surfs[:, :, tf.newaxis]  # shape: [64, 8, 1]
-        mask = last_dim_indices[tf.newaxis, tf.newaxis, :] <= hit_surfs_expanded  # shape: [64, 8, 128]
-        # Invert the mask to have ones for values to keep and zeros for values to set to zero
-        mask = tf.cast(~mask, dtype=tf.float32)  # shape: [64, 8, 128]
-        weights = alpha * tf.math.cumprod(1.-alpha + 1e-10, -1, exclusive=True)
+    #     # Create a tensor of indices for the last dimension
+    #     last_dim_indices = tf.range(tf.shape(alpha)[-1], dtype=tf.int64)
+    #     # Create a mask by comparing last_dim_indices with hit_surfs
+    #     hit_surfs_expanded = hit_surfs[:, :, tf.newaxis]  # shape: [64, 8, 1]
+    #     mask = last_dim_indices[tf.newaxis, tf.newaxis, :] <= hit_surfs_expanded  # shape: [64, 8, 128]
+    #     # Invert the mask to have ones for values to keep and zeros for values to set to zero
+    #     mask = tf.cast(~mask, dtype=tf.float32)  # shape: [64, 8, 128]
+    #     weights = alpha * tf.math.cumprod(1.-alpha + 1e-10, -1, exclusive=True)
 
-        # Apply the mask to the alpha tensor
-        # alpha2 = alpha * mask
-        # weights2 = alpha2 * tf.math.cumprod(1.-alpha2 + 1e-10, -1, exclusive=True)
-        # depth_map = tf.reduce_sum(weights2 * z_vals[:,:,:,0], -1)
-        alpha = alpha * mask
-        weights = alpha * tf.math.cumprod(1.-alpha + 1e-10, -1, exclusive=True)
-        depth_map = tf.reduce_sum(weights * z_vals[:,:,:,0], -1)
+    #     # Apply the mask to the alpha tensor
+    #     # alpha2 = alpha * mask
+    #     # weights2 = alpha2 * tf.math.cumprod(1.-alpha2 + 1e-10, -1, exclusive=True)
+    #     # depth_map = tf.reduce_sum(weights2 * z_vals[:,:,:,0], -1)
+    #     alpha = alpha * mask
+    #     weights = alpha * tf.math.cumprod(1.-alpha + 1e-10, -1, exclusive=True)
+    #     depth_map = tf.reduce_sum(weights * z_vals[:,:,:,0], -1)
 
     # Compute ray_drop_map using the same weights
     ray_drop_map = tf.reduce_sum(weights * ray_drop, axis=-1) #works ish (but not great)
