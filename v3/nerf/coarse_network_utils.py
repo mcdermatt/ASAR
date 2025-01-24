@@ -35,8 +35,8 @@ from lidar_nerf_utils import *
 # tf.compat.v1.disable_eager_execution() #trying this to see if more memory efficient? 
 
 
-pos_embed_dims_coarse = 18 #12 #8 #18
-rot_embed_dims_coarse = 6 #5 #5 #4 #6
+pos_embed_dims_coarse = 18 #18
+rot_embed_dims_coarse = 6 #6
 
 def run_coarse_network(model_coarse, z_vals_coarse, width_coarse, rays_o, rays_d,n_resample = 128, repeat_coarse = True):
     
