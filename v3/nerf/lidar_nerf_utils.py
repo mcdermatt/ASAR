@@ -46,14 +46,14 @@ def posenc(x, embed_dims):
 
 #2**18 is below the sensor noise threshold??
 # L_embed =  5 #18 #15 #10 #6
-pos_embed_dims = 18 #18 #14
-rot_embed_dims = 6  #4
-pos_embed_dims_coarse = 18 
-rot_embed_dims_coarse = 6
+pos_embed_dims = 15 #18 #14
+rot_embed_dims = 5  #4
+pos_embed_dims_coarse = 15 
+rot_embed_dims_coarse = 5
 
 embed_fn = posenc
 
-def init_model(D=12, W=1024): #10,512 produced highest resolution so far...
+def init_model(D=8, W=256): #10,512 produced highest resolution so far...
     relu = tf.keras.layers.LeakyReLU() #per LOC-NDF   
     dense = lambda W=W, act=relu : tf.keras.layers.Dense(W, activation=act, kernel_initializer='glorot_uniform')
 
@@ -69,11 +69,11 @@ def init_model(D=12, W=1024): #10,512 produced highest resolution so far...
 
     #combine output of first few layers with view direction components
     combined = tf.concat([outputs, inputs[:,(3+3*2*(pos_embed_dims)):]], -1)
-    # combined = dense(256, act=relu)(combined) #old
-    # combined = dense(128, act=relu)(combined) #old
-    combined = dense(512, act=relu)(combined) #use for v11
-    combined = dense(256, act=relu)(combined) #use for v11
-    combined = dense(128, act=relu)(combined) #use for v11
+    combined = dense(256, act=relu)(combined) #old
+    combined = dense(128, act=relu)(combined) #old
+    # combined = dense(512, act=relu)(combined) #use for v11
+    # combined = dense(256, act=relu)(combined) #use for v11
+    # combined = dense(128, act=relu)(combined) #use for v11
     combined = dense(2, act=None)(combined)
     model = tf.keras.Model(inputs=inputs, outputs=combined)
     return model
@@ -106,7 +106,7 @@ def init_model(D=12, W=1024): #10,512 produced highest resolution so far...
 
 
 
-def init_model_proposal(D=10, W=512):  #8, 256
+def init_model_proposal(D=8, W=256):  #8, 256
     relu = tf.keras.layers.ReLU() #OG NeRF   
     leaky_relu = tf.keras.layers.LeakyReLU() #per LOC-NDF   
     # sigmoid = tf.keras.activations.sigmoid()
@@ -509,29 +509,29 @@ def render_rays(network_fn, rays_o, rays_d, z_vals, fine = False, roll_override 
     #TEST --- look at rear surfaces (last spike on CDF)
     # roll = 0.8*tf.ones_like(alpha)
 
-    hit_surfs = tf.argmax(roll < alpha, axis = -1)
-    depth_map = tf.gather_nd(z_vals, hit_surfs[:,:,None], batch_dims = 2)[:,:,0]
-    # weights = alpha * tf.math.cumprod(1. - alpha + 1e-10, axis=-1, exclusive=True) #was this
-    weights = np.gradient(CDF, axis = 2) + 1e-8 #works but fuzzy
-    # weights = tf.cast(roll < alpha, tf.float32) * alpha * tf.math.cumprod(1. - alpha + 1e-10, axis=-1, exclusive=True) #test
-    # print("alpha", tf.shape(alpha))
-    # print("hit_surfs", tf.shape(hit_surfs))
+    # hit_surfs = tf.argmax(roll < alpha, axis = -1)
+    # depth_map = tf.gather_nd(z_vals, hit_surfs[:,:,None], batch_dims = 2)[:,:,0]
+    # # weights = alpha * tf.math.cumprod(1. - alpha + 1e-10, axis=-1, exclusive=True) #was this
+    # weights = np.gradient(CDF, axis = 2) + 1e-8 #works but fuzzy
+    # # weights = tf.cast(roll < alpha, tf.float32) * alpha * tf.math.cumprod(1. - alpha + 1e-10, axis=-1, exclusive=True) #test
+    # # print("alpha", tf.shape(alpha))
+    # # print("hit_surfs", tf.shape(hit_surfs))
 
-    # Compute ray_drop_map using the same weights
-    ray_drop_map = tf.reduce_sum(weights * ray_drop, axis=-1) #works ish (but not great)
-    # ray_drop_map = tf.reduce_max(ray_drop, axis=-1) #should be better but was failing
-    acc_map = tf.reduce_sum(weights, axis=-1)
+    # # Compute ray_drop_map using the same weights
+    # ray_drop_map = tf.reduce_sum(weights * ray_drop, axis=-1) #works ish (but not great)
+    # # ray_drop_map = tf.reduce_max(ray_drop, axis=-1) #should be better but was failing
+    # acc_map = tf.reduce_sum(weights, axis=-1)
 
-    # # #first in line-of-sight (direct depth) rendering ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # sigma_a = tf.nn.relu(raw[...,0]) #[0, 10+]
-    # ray_drop = tf.nn.relu(raw[...,1])
-    # alpha = 1. - tf.exp(-sigma_a * z_vals[:,:,:,0])
+    # #first in line-of-sight (direct depth) rendering ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    sigma_a = tf.nn.relu(raw[...,0]) #[0, 10+]
+    ray_drop = tf.nn.relu(raw[...,1])
+    alpha = 1. - tf.exp(-sigma_a * z_vals[:,:,:,0])
     
-    # weights = alpha * tf.math.cumprod(1.-alpha + 1e-10, -1, exclusive=True)
-    # depth_map = tf.reduce_sum(weights * z_vals[:,:,:,0], -1)
+    weights = alpha * tf.math.cumprod(1.-alpha + 1e-10, -1, exclusive=True)
+    depth_map = tf.reduce_sum(weights * z_vals[:,:,:,0], -1)
 
-    # # ray_drop_map = tf.reduce_sum(weights * ray_drop, -1) #axis was -2, changed to -1 
-    # acc_map = tf.reduce_sum(weights, -1)
+    ray_drop_map = tf.reduce_sum(weights * ray_drop, -1) #axis was -2, changed to -1 
+    acc_map = tf.reduce_sum(weights, -1)
 
     
     # return depth_map, acc_map, ray_drop_map, weights #old strategy
